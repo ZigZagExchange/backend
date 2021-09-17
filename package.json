@@ -1,0 +1,30 @@
+{
+  "name": "zigzag-zksync-backend",
+  "version": "0.0.1",
+  "description": "Javascript implementation of Zigzag protocol",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vixi-DEX/vixi-core.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Vixi-DEX/vixi-core/issues"
+  },
+  "homepage": "https://github.com/Vixi-DEX/vixi-core#readme",
+  "dependencies": {
+    "install": "^0.13.0",
+    "npm": "^7.21.0",
+    "pg": "^8.7.1",
+    "ws": "^8.2.0"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.3",
+    "utf-8-validate": "^5.0.5"
+  },
+  "devDependencies": {}
+}
