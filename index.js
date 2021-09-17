@@ -1,16 +1,16 @@
 import WebSocket, { WebSocketServer } from 'ws';
-const { Pool, Client } = require('pg')
+import pg from 'pg';
 
-const pool = new Pool({
+const pool = new pg.Pool({
   user: 'postgres',
-  host: 'localhost'
+  host: 'localhost',
   database: 'zigzag',
   password: 'postgres',
   port: 5432,
 })
 
 const wss = new WebSocketServer({
-  port: 8080,
+  port: 3004,
 });
 
 const active_connections = []
@@ -25,23 +25,17 @@ wss.on('connection', function connection(ws) {
     });
 });
 
-function verifySignature(){
-    return true;
-}
-
-function handleMessage(msg, ws) {
+async function handleMessage(msg, ws) {
     switch (msg.op) {
         case "ping":
-            response = {"op": "pong"}
+            const response = {"op": "pong"}
             ws.send(JSON.stringify(response))
             break
         case "login":
             const address = msg.args[0];
-            const signature = msg.args[1];
-            // verifySignature()
             user_connections[address] = ws;
             break
-        case "order":
+        case "neworder":
             const query = "INSERT INTO orders(user, market, price, quantity, order_type, expires) VALUES($1, $2, $3, $4, $5, $6) RETURNING id";
             const orderargs = msg.args;
             const res = await pool.query(query, orderargs);
@@ -50,7 +44,7 @@ function handleMessage(msg, ws) {
             const resp = {"op": "orderack", "args": orderargs}
             // save order to DB
             break
-        case "orderbook":
+        case "subscribe_l2":
             // respond with market data
             break
         default:
