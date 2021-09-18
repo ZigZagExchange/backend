@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/Vixi-DEX/vixi-core#readme",
   "dependencies": {
+    "better-sqlite3": "^7.4.3",
     "install": "^0.13.0",
     "npm": "^7.21.0",
     "pg": "^8.7.1",
