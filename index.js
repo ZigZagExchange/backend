@@ -19,6 +19,8 @@ const wss = new WebSocketServer({
 
 const active_connections = []
 const user_connections = {}
+const market_subscriptions = {}
+Object.keys(validMarkets).forEach(market => market_subscriptions[market] = []);
 
 wss.on('connection', function connection(ws) {
     active_connections.push(ws);
@@ -30,6 +32,7 @@ wss.on('connection', function connection(ws) {
 });
 
 async function handleMessage(msg, ws) {
+    let orderId, zktx;
     switch (msg.op) {
         case "ping":
             const response = {"op": "pong"}
@@ -39,54 +42,102 @@ async function handleMessage(msg, ws) {
             const address = msg.args[0];
             user_connections[address] = ws;
             break
-        case "neworder":
-            const zktx = msg.args[0];
-            const tokenSell = zkTokenIds[zktx.tokenSell];
-            const tokenBuy = zkTokenIds[zktx.tokenBuy];
-            let market = tokenSell.name + "-" + tokenBuy.name;
-            let base_token = tokenSell;
-            let quote_token = tokenBuy;
-            let base_quantity = zktx.ratio[0] / Math.pow(10, base_token.decimals);
-            let quote_quantity = zktx.ratio[1] / Math.pow(10, quote_token.decimals);
-            if (!validMarkets[market]) {
-                market = tokenBuy.name + "-" + tokenSell.name;
-                base_token = tokenBuy;
-                quote_token = tokenSell;
-                base_quantity = zktx.ratio[1] / Math.pow(10, base_token.decimals);
-                quote_quantity = zktx.ratio[0] / Math.pow(10, quote_token.decimals);
-            }
-            const price = Math.round(base_quantity / quote_quantity, 2);
-            const order_type = 'limit';
-            const expires = zktx.validUntil;
-            const queryargs = {
-                user: zktx.accountId,
-                market,
-                price,
-                base_quantity, 
-                quote_quantity,
-                order_type,
-                expires,
-                zktx: JSON.stringify(zktx)
-            }
-            // save order to DB
-            const insert = db.prepare('INSERT INTO orders(user, market, price, base_quantity, quote_quantity, order_type, expires, zktx) VALUES(@user, @market, @price, @base_quantity, @quote_quantity, @order_type, @expires, @zktx) RETURNING id');
-            const insertstatus = insert.run(queryargs);
-            const id = insertstatus.lastInsertRowid;
-            // broadcast new order
-            const orderreceipt = [id,market,price,base_quantity,quote_quantity,expires];
-            broadcastMessage({"op":"neworder_l2", args: orderreceipt});
-            ws.send(JSON.stringify({"op":"neworderack", args: orderreceipt}));
+        case "indicatemaker":
             break
-        case "subscribe_l2":
-            // respond with market data
+        case "submitorder":
+            zktx = msg.args[0];
+            processorder(zktx);
+            break
+        case "fillrequest":
+            orderId = msg.args[0];
+            const fillOrder = msg.args[1];
+            zktx = matchorder(orderId, fillOrder);
+            ws.send(JSON.stringify({op:"userordermatch",args:[zktx,fillOrder]}));
+            break
+        case "subscribemarket":
+            const market = msg.args[0];
+            const openorders = getopenorders(market);
+            ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
+            // TODO: send real liquidity
+            ws.send(JSON.stringify({"op":"liquidity", args: []}))
             break
         default:
             break
     }
 }
 
+async function processorder(zktx) {
+    const tokenSell = zkTokenIds[zktx.tokenSell];
+    const tokenBuy = zkTokenIds[zktx.tokenBuy];
+    let side, base_token, quote_token, base_quantity, quote_quantity, price;
+    let market = tokenSell.name + "-" + tokenBuy.name;
+    if (validMarkets[market]) {
+        side = 's';
+        base_token = tokenSell;
+        quote_token = tokenBuy;
+        price = ( zktx.ratio[1] / Math.pow(10, quote_token.decimals) ) / 
+                ( zktx.ratio[0] / Math.pow(10, base_token.decimals) );
+        base_quantity = zktx.amount / Math.pow(10, base_token.decimals);
+        quote_quantity = base_quantity * price;
+    }
+    else {
+        market = tokenBuy.name + "-" + tokenSell.name;
+        side = 'b'
+        base_token = tokenBuy;
+        quote_token = tokenSell;
+        price = ( zktx.ratio[0] / Math.pow(10, quote_token.decimals) ) / 
+                ( zktx.ratio[1] / Math.pow(10, base_token.decimals) );
+        quote_quantity = zktx.amount / Math.pow(10, quote_token.decimals);
+        base_quantity = quote_quantity / price;
+    }
+    const order_type = 'limit';
+    const expires = zktx.validUntil;
+    const user = zktx.accountId;
+    const queryargs = {
+        user,
+        nonce: zktx.nonce,
+        market,
+        side,
+        price,
+        base_quantity, 
+        quote_quantity,
+        order_type,
+        order_status: 'o',
+        expires,
+        zktx: JSON.stringify(zktx)
+    }
+    // save order to DB
+    const insert = db.prepare('INSERT INTO orders(user, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx) VALUES(@user, @nonce, @market, @side, @price, @base_quantity, @quote_quantity, @order_type, @order_status, @expires, @zktx)');
+    const insertstatus = insert.run(queryargs);
+    const orderId = insertstatus.lastInsertRowid;
+    const orderreceipt = [orderId,market,side,price,base_quantity,quote_quantity,expires];
+    
+    // broadcast new order
+    broadcastMessage({"op":"openorders", args: [[orderreceipt]]});
+    user_connections[user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
+
+    return orderId
+}
+
+function matchorder(orderId, fillOrder) {
+    // TODO: Validation logic to make sure the orders match and the user is getting a good fill
+    const update = db.prepare("UPDATE orders SET order_status='m' WHERE id=@orderId");
+    const updateresult = update.run({orderId});
+    const select = db.prepare("SELECT zktx FROM orders WHERE id=@orderId");
+    const selectresult = select.get({orderId});
+    const zktx = JSON.parse(selectresult.zktx);
+    return zktx;
+}
+
+
 async function broadcastMessage(msg) {
     for (let i in active_connections) {
         active_connections[i].send(JSON.stringify(msg));
     }
+}
+
+function getopenorders(market) {
+    const select = db.prepare("SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=@market AND order_status='o'");
+    const selectresult = select.raw().all({market});
+    return selectresult;
 }
