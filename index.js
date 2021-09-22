@@ -1,7 +1,11 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import SqliteDatabase from 'better-sqlite3';
+import fs from 'fs';
 
 const db = new SqliteDatabase('zigzag.db');
+const migration = fs.readFileSync('schema.sql', 'utf8');
+db.exec(migration);
+
 
 const zkTokenIds = {
     0: {name:'ETH',decimals:18},
@@ -14,7 +18,7 @@ const validMarkets = {
 }
 
 const wss = new WebSocketServer({
-  port: 3004,
+  port: process.env.PORT || 3004,
 });
 
 const active_connections = []
