@@ -1,6 +1,7 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import SqliteDatabase from 'better-sqlite3';
 import fs from 'fs';
+import fetch from 'node-fetch';
 
 const db = new SqliteDatabase('zigzag.db');
 const migration = fs.readFileSync('schema.sql', 'utf8');
@@ -12,10 +13,17 @@ const zkTokenIds = {
     1: {name:'USDT',decimals:6}
 }
 const validMarkets = {
-    "ETH-BTC": 1,
-    "ETH-USDT": 1,
-    "BTC-USDT": 1
+    "ETH-BTC": {},
+    "ETH-USDT": {},
+    "BTC-USDT": {}
 }
+
+Object.keys(validMarkets).forEach(function (product) {
+    updateMarketSummary(product);
+    setInterval(function () {
+        updateMarketSummary(product);
+    }, 300000);
+});
 
 const wss = new WebSocketServer({
   port: process.env.PORT || 3004,
@@ -45,6 +53,7 @@ async function handleMessage(msg, ws) {
         case "login":
             const address = msg.args[0];
             user_connections[address] = ws;
+            ws.send(JSON.stringify(marketSummaryMsg))
             break
         case "indicatemaker":
             break
@@ -61,6 +70,14 @@ async function handleMessage(msg, ws) {
         case "subscribemarket":
             const market = msg.args[0];
             const openorders = getopenorders(market);
+            const priceData = validMarkets[market].marketSummary.result.price;
+            try {
+                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceData.change.absolute, 100, 300000]};
+                ws.send(JSON.stringify(marketSummaryMsg));
+            } catch (e) {
+                console.log(validMarkets);
+                console.error(e);
+            }
             ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
             // TODO: send real liquidity
             ws.send(JSON.stringify({"op":"liquidity", args: []}))
@@ -144,4 +161,14 @@ function getopenorders(market) {
     const select = db.prepare("SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=@market AND order_status='o'");
     const selectresult = select.raw().all({market});
     return selectresult;
+}
+
+async function updateMarketSummary (product) {
+    const cryptowatch_market = product.replace('-','').toLowerCase();
+    const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
+    const r = await fetch(url);
+    const data = await r.json();
+    const priceData = data.result.price;
+    validMarkets[product].marketSummary = data;
+    return data;
 }
