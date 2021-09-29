@@ -23,6 +23,9 @@ Object.keys(validMarkets).forEach(function (product) {
     setInterval(function () {
         updateMarketSummary(product);
     }, 300000);
+    setInterval(function () {
+        broadcastLastPrice(product);
+    }, 10000);
 });
 
 const wss = new WebSocketServer({
@@ -36,6 +39,7 @@ Object.keys(validMarkets).forEach(market => market_subscriptions[market] = []);
 
 wss.on('connection', function connection(ws) {
     active_connections.push(ws);
+    sendLastPriceData(ws);
     ws.on('message', function incoming(json) {
         console.log('Received: %s', json);
         const msg = JSON.parse(json);
@@ -70,7 +74,7 @@ async function handleMessage(msg, ws) {
         case "subscribemarket":
             const market = msg.args[0];
             const openorders = getopenorders(market);
-            const priceData = validMarkets[market].marketSummary.result.price;
+            const priceData = validMarkets[market].marketSummary.price;
             try {
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceData.change.absolute, 100, 300000]};
                 ws.send(JSON.stringify(marketSummaryMsg));
@@ -169,6 +173,20 @@ async function updateMarketSummary (product) {
     const r = await fetch(url);
     const data = await r.json();
     const priceData = data.result.price;
-    validMarkets[product].marketSummary = data;
+    validMarkets[product].marketSummary = data.result;
     return data;
+}
+
+function broadcastLastPrice (product) {
+    const lastPrice = validMarkets[product].price.last;
+    broadcastMessage({"op":"lastprice", args: [[product, lastPrice]]});
+}
+
+function sendLastPriceData () {
+    const prices = [];
+    Object.keys(validMarkets).forEach(function (product) {
+        const lastPrice = validMarkets[product].price.last;
+        prices.push([product, lastPrice);
+    });
+    
 }
