@@ -25,7 +25,7 @@ The full list of operations and arguments is below:
 | pong           |                                                              |
 | login          | [accountId]                                                  |
 | submitorder    | [zkorder]                                                    | zkorder is the output of zksync.syncWallet.getOrder
-| indicatemaker  | [market, spread, side]                                       | Used by market makers to indicate liquidity at a spread from spot price. side = 'b' (buy) | 's' (sell) | 'd' (double-sided)
+| indicatemaker  | [market, spread, side]                                       | Used by market makers to indicate liquidity at a spread from spot price. side = {'b','s','d'} (buy, sell, double-sided)
 | fillrequest    | [orderId, fillOrder]                                         | fillOrder is the output of zksync.wallet.getOrder. it must match the ratios and market of the orderId it is attmempting to fill
 | matchedorders  | [takerOrder, makerOrder]                                     | Matched orders should be broadcasted by the client using zksync.wallet.syncSwap
 | openorders     | [market, orders]                                             | current open orders for a market. order = [id,market,side,price,baseQuantity,quoteQuantity,expires]
