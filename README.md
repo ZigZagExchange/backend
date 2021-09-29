@@ -7,13 +7,13 @@ Base URL: https://ws.zigzag.exchange
 All messages the Zigzag Websocket API have the following structure
 
 ```json
-{"op":"operation", args: ["list", "of", "args"]}
+{"op":"operation", "args": ["list", "of", "args"]}
 ```
 
 An example is this:
 
-```
-{"op":"subscribe_l2", args: ["ETH-USDT"]}
+```json
+{"op":"subscribe_l2", "args": ["ETH-USDT"]}
 ```
 
 The full list of operations and arguments is below:
