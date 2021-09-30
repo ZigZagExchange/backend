@@ -57,7 +57,6 @@ async function handleMessage(msg, ws) {
         case "login":
             const address = msg.args[0];
             user_connections[address] = ws;
-            ws.send(JSON.stringify(marketSummaryMsg))
             break
         case "indicatemaker":
             break
