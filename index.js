@@ -25,7 +25,7 @@ Object.keys(validMarkets).forEach(function (product) {
     }, 300000);
     setInterval(function () {
         broadcastLastPrice(product);
-    }, 10000);
+    }, 30000);
 });
 
 const wss = new WebSocketServer({
@@ -178,15 +178,23 @@ async function updateMarketSummary (product) {
 }
 
 function broadcastLastPrice (product) {
-    const lastPrice = validMarkets[product].price.last;
-    broadcastMessage({"op":"lastprice", args: [[product, lastPrice]]});
+    try {
+        const lastPrice = validMarkets[product].marketSummary.price.last;
+        broadcastMessage({"op":"lastprice", args: [[product, lastPrice]]});
+    } catch (e) {
+        console.error(e);
+    }
 }
 
-function sendLastPriceData () {
+function sendLastPriceData (ws) {
     const prices = [];
     Object.keys(validMarkets).forEach(function (product) {
-        const lastPrice = validMarkets[product].price.last;
-        prices.push([product, lastPrice);
+        try {
+            const lastPrice = validMarkets[product].marketSummary.price.last;
+            prices.push([product, lastPrice]);
+        } catch (e) {
+            console.error(e);
+        }
     });
-    
+    ws.send(JSON.stringify({op:"lastprice", args: [prices]}));
 }
