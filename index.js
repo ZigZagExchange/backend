@@ -84,7 +84,8 @@ async function handleMessage(msg, ws) {
             }
             ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
             // TODO: send real liquidity
-            ws.send(JSON.stringify({"op":"liquidity", args: []}))
+            const liquidity = getLiquidity(market);
+            ws.send(JSON.stringify({"op":"liquidity", args: [liquidity]}))
             break
         default:
             break
@@ -162,6 +163,18 @@ async function broadcastMessage(msg) {
 }
 
 function getopenorders(market) {
+    const select = db.prepare("SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=@market AND order_status='o'");
+    const selectresult = select.raw().all({market});
+    return selectresult;
+}
+
+function getLiquidity(market) {
+    validMarkets[market].liquidity = [
+        [0.1, 0.003],
+        [0.5, 0.005],
+    ]
+    return validMarkets[market].liquidity;
+    // TODO: pull real data instead of mocked data
     const select = db.prepare("SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=@market AND order_status='o'");
     const selectresult = select.raw().all({market});
     return selectresult;

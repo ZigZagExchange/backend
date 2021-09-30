@@ -1,8 +1,9 @@
 ZigZag Websocket API
 ====================
 
-Rinkeby Base URL: https://ws.rinkeby.zigzag.exchange
-Base URL: https://ws.zigzag.exchange
+Rinkeby Base URL: wss://zigzag-rinkeby.herokuapp.com
+
+Mainnet Base URL: Currently Unsupported
 
 All messages the Zigzag Websocket API have the following structure
 
