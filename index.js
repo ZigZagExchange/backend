@@ -1,11 +1,19 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import SqliteDatabase from 'better-sqlite3';
+import pg from 'pg'
 import fs from 'fs';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
 
-const db = new SqliteDatabase('zigzag.db');
+dotenv.config()
+
+const { Pool } = pg;
+pg.types.setTypeParser(20, parseInt);
+pg.types.setTypeParser(23, parseInt);
+pg.types.setTypeParser(1700, parseFloat);
+const pool = new Pool()
 const migration = fs.readFileSync('schema.sql', 'utf8');
-db.exec(migration);
+pool.query(migration)
+    .catch(console.error);
 
 
 const zkTokenIds = {
@@ -67,15 +75,16 @@ async function handleMessage(msg, ws) {
         case "fillrequest":
             orderId = msg.args[0];
             const fillOrder = msg.args[1];
-            zktx = matchorder(orderId, fillOrder);
+            zktx = await matchorder(orderId, fillOrder);
             ws.send(JSON.stringify({op:"userordermatch",args:[zktx,fillOrder]}));
             break
         case "subscribemarket":
             const market = msg.args[0];
-            const openorders = getopenorders(market);
+            const openorders = await getopenorders(market);
             const priceData = validMarkets[market].marketSummary.price;
             try {
-                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceData.change.absolute, 100, 300000]};
+                const priceChange = parseFloat(priceData.change.absolute.toFixed(6));
+                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, 100, 300000]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
                 console.log(validMarkets);
@@ -118,23 +127,23 @@ async function processorder(zktx) {
     const order_type = 'limit';
     const expires = zktx.validUntil;
     const user = zktx.accountId;
-    const queryargs = {
+    const queryargs = [
         user,
-        nonce: zktx.nonce,
+        zktx.nonce,
         market,
         side,
         price,
         base_quantity, 
         quote_quantity,
         order_type,
-        order_status: 'o',
+        'o',
         expires,
-        zktx: JSON.stringify(zktx)
-    }
+        JSON.stringify(zktx)
+    ]
     // save order to DB
-    const insert = db.prepare('INSERT INTO orders(user, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx) VALUES(@user, @nonce, @market, @side, @price, @base_quantity, @quote_quantity, @order_type, @order_status, @expires, @zktx)');
-    const insertstatus = insert.run(queryargs);
-    const orderId = insertstatus.lastInsertRowid;
+    const query = 'INSERT INTO orders(userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id'
+    const insert = await pool.query(query, queryargs);
+    const orderId = insert.rows[0].id;
     const orderreceipt = [orderId,market,side,price,base_quantity,quote_quantity,expires];
     
     // broadcast new order
@@ -144,12 +153,12 @@ async function processorder(zktx) {
     return orderId
 }
 
-function matchorder(orderId, fillOrder) {
+async function matchorder(orderId, fillOrder) {
     // TODO: Validation logic to make sure the orders match and the user is getting a good fill
-    const update = db.prepare("UPDATE orders SET order_status='m' WHERE id=@orderId");
-    const updateresult = update.run({orderId});
-    const select = db.prepare("SELECT zktx FROM orders WHERE id=@orderId");
-    const selectresult = select.get({orderId});
+    const values = [orderId];
+    const update = await pool.query("UPDATE orders SET order_status='m' WHERE id=$1", values);
+    const select = await pool.query("SELECT zktx FROM orders WHERE id=@orderId", values);
+    const selectresult = select.rows[0];
     const zktx = JSON.parse(selectresult.zktx);
     return zktx;
 }
@@ -161,22 +170,23 @@ async function broadcastMessage(msg) {
     }
 }
 
-function getopenorders(market) {
-    const select = db.prepare("SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=@market AND order_status='o'");
-    const selectresult = select.raw().all({market});
-    return selectresult;
+async function getopenorders(market) {
+    const query = {
+        text: "SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=$1 AND order_status='o'",
+        values: [market],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    return select.rows;
 }
 
 function getLiquidity(market) {
+    // TODO: pull real data instead of mocked data
     validMarkets[market].liquidity = [
         [0.1, 0.003],
         [0.5, 0.005],
     ]
     return validMarkets[market].liquidity;
-    // TODO: pull real data instead of mocked data
-    const select = db.prepare("SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=@market AND order_status='o'");
-    const selectresult = select.raw().all({market});
-    return selectresult;
 }
 
 async function updateMarketSummary (product) {
@@ -192,7 +202,8 @@ async function updateMarketSummary (product) {
 function broadcastLastPrice (product) {
     try {
         const lastPrice = validMarkets[product].marketSummary.price.last;
-        broadcastMessage({"op":"lastprice", args: [[product, lastPrice]]});
+        const change = parseFloat(validMarkets[product].marketSummary.price.change.absolute.toFixed(6));
+        broadcastMessage({"op":"lastprice", args: [[[product, lastPrice, change]]]});
     } catch (e) {
         console.error(e);
     }
@@ -203,7 +214,8 @@ function sendLastPriceData (ws) {
     Object.keys(validMarkets).forEach(function (product) {
         try {
             const lastPrice = validMarkets[product].marketSummary.price.last;
-            prices.push([product, lastPrice]);
+            const change = parseFloat(validMarkets[product].marketSummary.price.change.absolute.toFixed(6));
+            prices.push([product, lastPrice, change]);
         } catch (e) {
             console.error(e);
         }

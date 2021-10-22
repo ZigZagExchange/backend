@@ -205,16 +205,16 @@ Operation: **lastprice**
 
 Arguments: `[priceUpdates]`
 
-Description: A group of market price updates. priceUpdate = [market,price]
+Description: A group of market price updates. priceUpdate = [market,price,change]
 
 ```json
 {
   "op": "lastprice",
   "args": [
       [
-        [ "ETH-BTC", 0.069431 ],
-        [ "ETH-USDT", 2989.19 ],
-        [ "BTC-USDT", 43048 ]
+        [ "ETH-BTC", 0.069431, 0.0023 ],
+        [ "ETH-USDT", 2989.19, 43.1 ],
+        [ "BTC-USDT", 43048, 2003.2 ]
       ]
   ]
 }
