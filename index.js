@@ -93,7 +93,7 @@ async function handleMessage(msg, ws) {
             ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
             // TODO: send real liquidity
             const liquidity = getLiquidity(market);
-            ws.send(JSON.stringify({"op":"liquidity", args: [liquidity]}))
+            ws.send(JSON.stringify({"op":"liquidity", args: [market, liquidity]}))
             break
         default:
             break
@@ -183,8 +183,8 @@ async function getopenorders(market) {
 function getLiquidity(market) {
     // TODO: pull real data instead of mocked data
     validMarkets[market].liquidity = [
-        [0.1, 0.003],
-        [0.5, 0.005],
+        [0.1, 0.003, 'd'],
+        [0.5, 0.005, 'd'],
     ]
     return validMarkets[market].liquidity;
 }

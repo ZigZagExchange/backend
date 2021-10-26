@@ -94,7 +94,7 @@ Description: Submit an order. zkorder is the output of zksync.wallet.getOrder
 
 ---
 
-Operation: **indicatemaker**    
+Operation: **indicateliq**    
 
 Arguments: `[market, spread, side]`
 
@@ -185,15 +185,16 @@ Operation: **liquidity**
 
 Arguments: `[market, liquidity]`
 
-Description: Indications of market maker interest by spread. liquidity = [quantity,spread]
+Description: Indications of market maker interest by spread. liquidity = [quantity,spread,side]
 
 ```json
 {
   "op": "liquidity",
   "args": [
+      "ETH-USDT",
       [
-        [ 0.1, 0.003 ],
-        [ 0.5, 0.005 ]
+        [ 0.1, 0.003, "d" ],
+        [ 0.5, 0.005, "d" ]
       ]
   ]
 }
