@@ -10,7 +10,12 @@ const { Pool } = pg;
 pg.types.setTypeParser(20, parseInt);
 pg.types.setTypeParser(23, parseInt);
 pg.types.setTypeParser(1700, parseFloat);
-const pool = new Pool()
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+})
 const migration = fs.readFileSync('schema.sql', 'utf8');
 pool.query(migration)
     .catch(console.error);
