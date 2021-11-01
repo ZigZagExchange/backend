@@ -162,7 +162,7 @@ async function matchorder(orderId, fillOrder) {
     // TODO: Validation logic to make sure the orders match and the user is getting a good fill
     const values = [orderId];
     const update = await pool.query("UPDATE orders SET order_status='m' WHERE id=$1", values);
-    const select = await pool.query("SELECT zktx FROM orders WHERE id=@orderId", values);
+    const select = await pool.query("SELECT zktx FROM orders WHERE id=$1", values);
     const selectresult = select.rows[0];
     const zktx = JSON.parse(selectresult.zktx);
     return zktx;
@@ -177,7 +177,7 @@ async function broadcastMessage(msg) {
 
 async function getopenorders(market) {
     const query = {
-        text: "SELECT id,market,side,price,base_quantity,quote_quantity,expires FROM orders WHERE market=$1 AND order_status='o'",
+        text: "SELECT id,market,side,price,base_quantity,quote_quantity,expires,userid FROM orders WHERE market=$1 AND order_status='o'",
         values: [market],
         rowMode: 'array'
     }

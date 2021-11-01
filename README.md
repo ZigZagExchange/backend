@@ -164,16 +164,16 @@ Operation: **openorders**
 
 Arguments: `[market, orders]`
 
-Description: Current open orders for a market. order = [id,market,side,price,baseQuantity,quoteQuantity,expires]
+Description: Current open orders for a market. order = [id,market,side,price,baseQuantity,quoteQuantity,expires,userid]
 
 ```json
 {
   "op": "openorders",
   "args": [
       [
-        [ 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295 ],
-        [ 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295 ],
-        [ 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295 ]
+        [ 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, 23 ],
+        [ 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, 24 ],
+        [ 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, 17 ]
       ]
   ]
 }
