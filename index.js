@@ -149,7 +149,7 @@ async function processorder(zktx) {
     const query = 'INSERT INTO orders(userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id'
     const insert = await pool.query(query, queryargs);
     const orderId = insert.rows[0].id;
-    const orderreceipt = [orderId,market,side,price,base_quantity,quote_quantity,expires];
+    const orderreceipt = [orderId,market,side,price,base_quantity,quote_quantity,expires,user];
     
     // broadcast new order
     broadcastMessage({"op":"openorders", args: [[orderreceipt]]});
