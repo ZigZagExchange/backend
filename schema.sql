@@ -12,4 +12,5 @@ CREATE TABLE IF NOT EXISTS orders (
     expires BIGINT,
     zktx TEXT, 
     txhash TEXT
-)
+);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS chainid INTEGER;

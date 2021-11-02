@@ -5,6 +5,15 @@ Rinkeby Base URL: wss://zigzag-rinkeby.herokuapp.com
 
 Mainnet Base URL: Currently Unsupported
 
+# Chain IDs
+
+The following is a list of Zigzag Chain IDs. Note that there is no relation between this and Ethereum Chain IDs. 
+
+| Name                  | ID        
+|--------------         |-----------
+| zkSync Mainnet        | 1
+| zkSync Rinkeby        | 1000
+
 ## Structure
 
 All messages the Zigzag Websocket API have the following structure
@@ -43,20 +52,20 @@ Description: Reply to ping message
 
 Operation: **login**    
 
-Arguments: `[accountId]`   
+Arguments: `[chainId, accountId]`   
 
 Description: Associate zksync account ID with connection
 
 
 ```json
-{"op":"login", "args": [27334]}
+{"op":"login", "args": [1000, 27334]}
 ```
 
 ---
 
 Operation: **sumbitorder**    
 
-Arguments: `[zkOrder]`   
+Arguments: `[chainId, zkOrder]`   
 
 Description: Submit an order. zkorder is the output of zksync.wallet.getOrder
 
@@ -65,6 +74,7 @@ Description: Submit an order. zkorder is the output of zksync.wallet.getOrder
 {
   "op": "submitorder",
   "args": [
+    1000,
     {
       "accountId": 202976,
       "recipient": "0x88D23A44D07F86B2342B4B06BD88b1ea313B6976",
@@ -96,20 +106,20 @@ Description: Submit an order. zkorder is the output of zksync.wallet.getOrder
 
 Operation: **indicateliq**    
 
-Arguments: `[market, spread, side]`
+Arguments: `[chainId, market, spread, side]`
 
 Description: Used by market makers to indicate liquidity at a spread from spot price. side = {'b','s','d'} (buy, sell, double-sided)
 
 
 ```json
-{"op":"indicatemaker", "args": ["ETH-USDT", 0.003, "d"]}
+{"op":"indicatemaker", "args": [1000, "ETH-USDT", 0.003, "d"]}
 ```
 
 ---
 
 Operation: **fillrequest**    
 
-Arguments: `[orderId, fillOrder]`    
+Arguments: `[chainId, orderId, fillOrder]`    
 
 Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrder. The ratio and tokens in the fillOrder must match the ones of the orderId it is attempting to fill.
 
@@ -118,6 +128,7 @@ Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrd
 {
   "op": "fillrequest",
   "args": [
+    1000,
     123332,
     {
       "accountId": 202976,
@@ -150,7 +161,7 @@ Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrd
 
 Operation: **matchedorders**    
 
-Arguments: `[takerOrder, makerOrder]                                     
+Arguments: `[chainId, takerOrder, makerOrder]                                     
 
 Description: Matched orders should be broadcasted by the client using zksync.wallet.syncSwap
 
@@ -162,18 +173,18 @@ NO EXAMPLE AVAILABLE YET
 
 Operation: **openorders**    
 
-Arguments: `[market, orders]`
+Arguments: `[orders]`
 
-Description: Current open orders for a market. order = [id,market,side,price,baseQuantity,quoteQuantity,expires,userid]
+Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid]
 
 ```json
 {
   "op": "openorders",
   "args": [
       [
-        [ 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, 23 ],
-        [ 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, 24 ],
-        [ 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, 17 ]
+        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, 23 ],
+        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, 24 ],
+        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, 17 ]
       ]
   ]
 }
@@ -183,7 +194,7 @@ Description: Current open orders for a market. order = [id,market,side,price,bas
 
 Operation: **liquidity**    
 
-Arguments: `[market, liquidity]`
+Arguments: `[chainId, market, liquidity]`
 
 Description: Indications of market maker interest by spread. liquidity = [quantity,spread,side]
 
@@ -191,6 +202,7 @@ Description: Indications of market maker interest by spread. liquidity = [quanti
 {
   "op": "liquidity",
   "args": [
+      1000,
       "ETH-USDT",
       [
         [ 0.1, 0.003, "d" ],
@@ -225,7 +237,7 @@ Description: A group of market price updates. priceUpdate = [market,price,change
 
 Operation: **marketsummary**    
 
-Arguments: `[market,price,24hi,24lo,pricechange,baseVolume,quoteVolume]`  
+Arguments: `[chainId,market,price,24hi,24lo,pricechange,baseVolume,quoteVolume]`  
 
 Description: Price action summary over the last 24 hours 
 
@@ -237,34 +249,82 @@ Description: Price action summary over the last 24 hours
 
 Operation: **subscribemarket**    
 
-Arguments: `[market]`
+Arguments: `[chainId,market]`
 
 Description: Subscribe to orderbook and price data for a market
 
 ```json
-{"op":"subscribemarket","args":["ETH-USDT"]}
+{"op":"subscribemarket","args":[1000,"ETH-USDT"]}
 ```
 
 ---
 
 Operation: **unsubscribemarket**    
 
-Arguments: `[market]`
+Arguments: `[chainId,market]`
 
 Description: Unsubscribe from a market
 
 ```json
-{"op":"unsubscribemarket","args":["ETH-USDT"]}
+{"op":"unsubscribemarket","args":[1000,"ETH-USDT"]}
 ```
 
 ---
 
 Operation: **userorderack**    
 
-Arguments: `[id,market,side,price,baseQuantity,quoteQuantity,expires]` 
+Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires]` 
 
 Description: ack message for a submitorder message
 
 ```json
-{ "op":"userorderack", "args": [5,"ETH-USDT","s",3370.93,0.1,337.093,4294967295]}
+{ "op":"userorderack", "args": [1000,5,"ETH-USDT","s",3370.93,0.1,337.093,4294967295]}
+```
+
+---
+
+Operation: **userordermatch**    
+
+Arguments: `[orderId,zkOrder,zkFillOrder]`
+
+Description: Indicates that an order match has occurred and requests the user to broadcast the swap to the chain
+
+```json
+No example available
+```
+
+---
+
+Operation: **cancelorder**    
+
+Arguments: `[orderId]`
+
+Description: Cancel an order
+
+```json
+{ "op":"cancelorder", "args": [122] }
+```
+
+---
+
+Operation: **cancelall**    
+
+Arguments: `[chainId,userId]`
+
+Description: Cancel all orders for a user
+
+```json
+{ "op":"cancelall", "args": [1000, 12232] }
+```
+
+---
+
+Operation: **cancelorderack**    
+
+Arguments: `[canceledIds]`
+
+Description: Ack messasge for canceled orders with a list of canceled IDs
+
+```json
+{ "op":"cancelorderack", "args": [[1,8,99,323]] }
 ```
