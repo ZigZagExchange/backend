@@ -61,15 +61,15 @@ wss.on('connection', function connection(ws) {
 });
 
 async function handleMessage(msg, ws) {
-    let orderId, zktx;
+    let orderId, zktx, userid;
     switch (msg.op) {
         case "ping":
             const response = {"op": "pong"}
             ws.send(JSON.stringify(response))
             break
         case "login":
-            const address = msg.args[0];
-            user_connections[address] = ws;
+            userid = msg.args[0];
+            user_connections[userid] = ws;
             break
         case "indicatemaker":
             break
@@ -77,6 +77,25 @@ async function handleMessage(msg, ws) {
             zktx = msg.args[0];
             processorder(zktx);
             break
+        case "cancelorder":
+            orderId = msg.args[0];
+            let cancelresult;
+            try {
+                await cancelorder(orderId, ws);
+            }
+            catch (e) {
+                ws.send(JSON.stringify({op:"cancelorderreject",args:[orderId, e.message]}));
+                break
+            }
+            ws.send(JSON.stringify({op:"cancelorderack",args:[[orderId]]}));
+            break
+        case "cancelall":
+            userid = msg.args[0];
+            if (user_connections[userid] != ws) {
+                ws.send(JSON.stringify({op:"cancelallreject",args:[userid, "Unauthorized"]}));
+            }
+            const canceled_orders = await cancelallorders(userid);
+            ws.send(JSON.stringify({op:"cancelorderack",args:[canceled_orders]}));
         case "fillrequest":
             orderId = msg.args[0];
             const fillOrder = msg.args[1];
@@ -156,6 +175,28 @@ async function processorder(zktx) {
     user_connections[user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
 
     return orderId
+}
+
+async function cancelallorders(userid) {
+    const values = [userid];
+    const select = await pool.query("SELECT id FROM orders WHERE userid=$1", values);
+    const ids = select.rows.map(s => s.id);
+    const update = await pool.query("UPDATE orders SET order_status='c' WHERE userid=$1", values);
+    return ids;
+}
+
+async function cancelorder(orderId, ws) {
+    const values = [orderId];
+    const select = await pool.query("SELECT userid FROM orders WHERE id=$1", values);
+    if (select.rows.length == 0) {
+        throw new Error("Order not found");
+    }
+    const userid = select.rows[0].userid;
+    if (user_connections[userid] != ws) {
+        throw new Error("Unauthorized");
+    }
+    const update = await pool.query("UPDATE orders SET order_status='c' WHERE id=$1", values);
+    return true;
 }
 
 async function matchorder(orderId, fillOrder) {
