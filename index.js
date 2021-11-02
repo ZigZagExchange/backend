@@ -85,7 +85,7 @@ async function handleMessage(msg, ws) {
             ws.send(JSON.stringify(response))
             break
         case "login":
-            chainid = msg.args[1];
+            chainid = msg.args[0];
             userid = msg.args[1];
             user_connections[chainid][userid] = ws;
             break
