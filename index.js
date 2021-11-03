@@ -56,7 +56,7 @@ setInterval(async function () {
     await updateMarketSummaries();
     const lastprices = getLastPrices();
     broadcastMessage({"op":"lastprice", args: [lastprices]});
-}, 30000);
+}, 10000);
 
 const wss = new WebSocketServer({
   port: process.env.PORT || 3004,
@@ -78,7 +78,7 @@ wss.on('connection', function connection(ws) {
 });
 
 async function handleMessage(msg, ws) {
-    let orderId, zktx, userid, chainid;
+    let orderId, zktx, userid, chainid, market;
     switch (msg.op) {
         case "ping":
             const response = {"op": "pong"}
@@ -124,7 +124,7 @@ async function handleMessage(msg, ws) {
             break
         case "subscribemarket":
             chainid = msg.args[0];
-            const market = msg.args[1];
+            market = msg.args[1];
             const openorders = await getopenorders(chainid, market);
             const priceData = validMarkets[chainid][market].marketSummary.price;
             try {
@@ -139,6 +139,10 @@ async function handleMessage(msg, ws) {
             // TODO: send real liquidity
             const liquidity = getLiquidity(chainid, market);
             ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
+            break
+        case "unsubscribemarket":
+            chainid = msg.args[0];
+            market = msg.args[1];
             break
         default:
             break
@@ -252,7 +256,18 @@ function getLiquidity(chainid, market) {
     // TODO: pull real data instead of mocked data
     validMarkets[chainid][market].liquidity = [
         [0.1, 0.003, 'd'],
+        [0.05, 0.004, 'd'],
         [0.5, 0.005, 'd'],
+        [0.2, 0.008, 'd'],
+        [0.147, 0.01, 'd'],
+        [0.123, 0.011, 'd'],
+        [0.3452, 0.013, 'd'],
+        [0.62, 0.02, 'd'],
+        [0.19, 0.025, 'd'],
+        [0.23, 0.039, 'd'],
+        [0.02, 0.041, 'd'],
+        [0.07, 0.042, 'd'],
+        [0.13, 0.043, 'd'],
     ]
     return validMarkets[chainid][market].liquidity;
 }
