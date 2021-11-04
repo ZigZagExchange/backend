@@ -22,13 +22,17 @@ All messages the Zigzag Websocket API have the following structure
 {"op":"operation", "args": ["list", "of", "args"]}
 ```
 
+## Limitations
+
+Currently a user can only receive order updates on one connection at a time per chain. This may be upgraded in the future. 
+
 ## Operations
 
 Operation: **ping**    
 
 Arguments: `[]`   
 
-Description: Ping server for reply. Server responds with pong
+Description: You must ping the server atleast every 10 seconds or your connection will be dropped. 
 
 
 ```json
@@ -52,13 +56,13 @@ Description: Reply to ping message
 
 Operation: **login**    
 
-Arguments: `[chainId, accountId]`   
+Arguments: `[chainId, userId]`   
 
-Description: Associate zksync account ID with connection
+Description: Associate userId with connection. Note that userId is a **string**, not an integer, even though zkSync represents account IDs as integers. This is to maintain compatibility with other chains that might use string fields (ETH addresses, ENS account names, etc) for account IDs.
 
 
 ```json
-{"op":"login", "args": [1000, 27334]}
+{"op":"login", "args": [1000, "27334"]}
 ```
 
 ---
@@ -182,9 +186,9 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
   "op": "openorders",
   "args": [
       [
-        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, 23 ],
-        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, 24 ],
-        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, 17 ]
+        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23" ],
+        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, "24" ],
+        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174" ]
       ]
   ]
 }
@@ -314,7 +318,7 @@ Arguments: `[chainId,userId]`
 Description: Cancel all orders for a user
 
 ```json
-{ "op":"cancelall", "args": [1000, 12232] }
+{ "op":"cancelall", "args": [1000, "12232"] }
 ```
 
 ---

@@ -3,6 +3,7 @@ import pg from 'pg'
 import fs from 'fs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import { randomUUID } from 'crypto';
 
 dotenv.config()
 
@@ -40,7 +41,6 @@ const validMarkets = {
     // zkSync Mainnet
     1: {
         "ETH-USDT": {},
-        "ETH-USDC": {},
     },
     
     // zkSync Rinkeby
@@ -49,10 +49,20 @@ const validMarkets = {
         "ETH-USDC": {},
     }
 }
-const validChains = Object.keys(validMarkets);
+
+const active_connections = {}
+const user_connections = {}
+
+for (let chain in validMarkets) {
+    user_connections[chain] = {}
+    for (let market in validMarkets[chain]) {
+        validMarkets[chain][market].subscriptions = new Set();
+    }
+}
 
 updateMarketSummaries();
 setInterval(async function () {
+    clearDeadConnections();
     await updateMarketSummaries();
     const lastprices = getLastPrices();
     broadcastMessage({"op":"lastprice", args: [lastprices]});
@@ -62,12 +72,16 @@ const wss = new WebSocketServer({
   port: process.env.PORT || 3004,
 });
 
-const active_connections = []
-const user_connections = {}
-validChains.forEach(chainid => user_connections[chainid] = {});
 
 wss.on('connection', function connection(ws) {
-    active_connections.push(ws);
+    ws.uuid = randomUUID();
+    active_connections[ws.uuid] = {
+        lastPing: Date.now(),
+        chainid: null,
+        userid: null,
+        marketSubscriptions: [],
+        ws
+    };
     const lastprices = getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
     ws.on('message', function incoming(json) {
@@ -81,12 +95,15 @@ async function handleMessage(msg, ws) {
     let orderId, zktx, userid, chainid, market;
     switch (msg.op) {
         case "ping":
+            active_connections[ws.uuid].lastPing = Date.now();
             const response = {"op": "pong"}
             ws.send(JSON.stringify(response))
             break
         case "login":
             chainid = msg.args[0];
             userid = msg.args[1];
+            active_connections[ws.uuid].chainid = chainid;
+            active_connections[ws.uuid].userid = userid;
             user_connections[chainid][userid] = ws;
             break
         case "indicatemaker":
@@ -97,10 +114,11 @@ async function handleMessage(msg, ws) {
             processorder(chainid, zktx);
             break
         case "cancelorder":
-            orderId = msg.args[0];
+            chainid = msg.args[0];
+            orderId = msg.args[1];
             let cancelresult;
             try {
-                await cancelorder(orderId, ws);
+                await cancelorder(chainid, orderId, ws);
             }
             catch (e) {
                 ws.send(JSON.stringify({op:"cancelorderreject",args:[orderId, e.message]}));
@@ -116,6 +134,7 @@ async function handleMessage(msg, ws) {
             }
             const canceled_orders = await cancelallorders(userid);
             ws.send(JSON.stringify({op:"cancelorderack",args:[canceled_orders]}));
+            break
         case "fillrequest":
             orderId = msg.args[0];
             const fillOrder = msg.args[1];
@@ -136,13 +155,16 @@ async function handleMessage(msg, ws) {
                 console.error(e);
             }
             ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
-            // TODO: send real liquidity
             const liquidity = getLiquidity(chainid, market);
             ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
+            active_connections[ws.uuid].marketSubscriptions.push([chainid,market]);
+            validMarkets[chainid][market].subscriptions.add(ws.uuid);
             break
         case "unsubscribemarket":
             chainid = msg.args[0];
             market = msg.args[1];
+            active_connections[ws.uuid].marketSubscriptions.filter(m => m[0] !== chainid || m[1] !== market);
+            validMarkets[chainid][market].subscriptions.delete(ws.uuid);
             break
         default:
             break
@@ -211,17 +233,18 @@ async function cancelallorders(userid) {
     return ids;
 }
 
-async function cancelorder(orderId, ws) {
-    const values = [orderId];
-    const select = await pool.query("SELECT userid FROM orders WHERE id=$1", values);
+async function cancelorder(chainid, orderId, ws) {
+    const values = [orderId, chainid];
+    const select = await pool.query("SELECT userid FROM orders WHERE id=$1 AND chainid=$2", values);
     if (select.rows.length == 0) {
         throw new Error("Order not found");
     }
     const userid = select.rows[0].userid;
-    if (user_connections[userid] != ws) {
+    if (user_connections[chainid][userid] != ws) {
         throw new Error("Unauthorized");
     }
-    const update = await pool.query("UPDATE orders SET order_status='c' WHERE id=$1", values);
+    const updatevalues = [orderId];
+    const update = await pool.query("UPDATE orders SET order_status='c' WHERE id=$1", updatevalues);
     return true;
 }
 
@@ -237,8 +260,8 @@ async function matchorder(orderId, fillOrder) {
 
 
 async function broadcastMessage(msg) {
-    for (let i in active_connections) {
-        active_connections[i].send(JSON.stringify(msg));
+    for (let wsid in active_connections) {
+        active_connections[wsid].ws.send(JSON.stringify(msg));
     }
 }
 
@@ -273,17 +296,23 @@ function getLiquidity(chainid, market) {
 }
 
 async function updateMarketSummaries() {
-    for (let product in validMarkets[1]) {
-        const cryptowatch_market = product.replace('-','').toLowerCase();
-        const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
-        const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
-        const r = await fetch(url, { headers });
-        const data = await r.json();
-        const priceData = data.result.price;
-
-        // TODO: Generalize this update
-        validMarkets[1][product].marketSummary = data.result;
-        validMarkets[1000][product].marketSummary = data.result;
+    const productUpdates = {};
+    for (let chain in validMarkets) {
+        for (let product in validMarkets[chain]) {
+            if (productUpdates[product]) {
+                validMarkets[chain][product].marketSummary = productUpdates[product];
+            }
+            else {
+                const cryptowatch_market = product.replace('-','').toLowerCase();
+                const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
+                const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
+                const r = await fetch(url, { headers });
+                const data = await r.json();
+                const priceData = data.result.price;
+                validMarkets[chain][product].marketSummary = data.result;
+                productUpdates[product] = data.result;
+            }
+        }
     }
     return validMarkets;
 }
@@ -316,4 +345,14 @@ function broadcastLastPrices() {
 function sendLastPriceData (ws) {
     const lastprices = getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
+}
+
+function clearDeadConnections () {
+    const now = Date.now();
+    for (let wsid in active_connections) {
+        if (active_connections[wsid].lastPing - now > 10000) {
+            console.log("Deleting dead connection");
+            delete active_connections[wsid];
+        }
+    }
 }
