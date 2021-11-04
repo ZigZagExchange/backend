@@ -46,7 +46,6 @@ const validMarkets = {
     // zkSync Rinkeby
     1000: {
         "ETH-USDT": {},
-        "ETH-USDC": {},
     }
 }
 
