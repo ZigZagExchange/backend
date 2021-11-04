@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+
 import WebSocket, { WebSocketServer } from 'ws';
 import pg from 'pg'
 import fs from 'fs';
