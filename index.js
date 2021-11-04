@@ -74,8 +74,9 @@ const wss = new WebSocketServer({
 });
 
 
-wss.on('connection', function connection(ws) {
+wss.on('connection', function connection(ws, req) {
     ws.uuid = randomUUID();
+    console.log("New connection: ", req.connection.remoteAddress);
     active_connections[ws.uuid] = {
         lastPing: Date.now(),
         chainid: null,
@@ -86,8 +87,10 @@ wss.on('connection', function connection(ws) {
     const lastprices = getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
     ws.on('message', function incoming(json) {
-        console.log('Received: %s', json);
         const msg = JSON.parse(json);
+        if (msg.op != 'ping') {
+            console.log('Received: %s', json);
+        }
         handleMessage(msg, ws);
     });
 });
