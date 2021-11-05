@@ -163,11 +163,11 @@ Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrd
 
 ---
 
-Operation: **matchedorders**    
+Operation: **userordermatch**    
 
 Arguments: `[chainId, takerOrder, makerOrder]                                     
 
-Description: Matched orders should be broadcasted by the client using zksync.wallet.syncSwap
+Description: Indicates a successful `fillrequest`. Matched orders should be broadcasted by the client using zksync.wallet.syncSwap
 
 ```json
 NO EXAMPLE AVAILABLE YET
@@ -191,6 +191,21 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
         [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174" ]
       ]
   ]
+}
+```
+
+---
+
+Operation: **ordermatch**    
+
+Arguments: `[fills]`
+
+Description: Indicates an order has been filled. fill = [chainId,orderid,market,side,price,baseQuantity,quoteQuantity]
+
+```json
+{
+  "op": "ordermatch",
+  "args": [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093],
 }
 ```
 

@@ -128,7 +128,7 @@ async function handleMessage(msg, ws) {
                 ws.send(JSON.stringify({op:"cancelorderreject",args:[orderId, e.message]}));
                 break
             }
-            ws.send(JSON.stringify({op:"cancelorderack",args:[[orderId]]}));
+            broadcastMessage({op:"cancelorderack",args:[[orderId]]});
             break
         case "cancelall":
             chainid = msg.args[0];
@@ -137,13 +137,14 @@ async function handleMessage(msg, ws) {
                 ws.send(JSON.stringify({op:"cancelallreject",args:[userid, "Unauthorized"]}));
             }
             const canceled_orders = await cancelallorders(userid);
-            ws.send(JSON.stringify({op:"cancelorderack",args:[canceled_orders]}));
+            broadcastMessage({op:"cancelorderack",args:[canceled_orders]});
             break
         case "fillrequest":
             orderId = msg.args[0];
             const fillOrder = msg.args[1];
             zktx = await matchorder(orderId, fillOrder);
             ws.send(JSON.stringify({op:"userordermatch",args:[orderId, zktx,fillOrder]}));
+            broadcastOrderMatch(orderId);
             break
         case "subscribemarket":
             chainid = msg.args[0];
@@ -151,7 +152,7 @@ async function handleMessage(msg, ws) {
             const openorders = await getopenorders(chainid, market);
             const priceData = validMarkets[chainid][market].marketSummary.price;
             try {
-                const priceChange = parseFloat(priceData.change.absolute.toFixed(6));
+                const priceChange = parseFloat(priceData.change.absolute.toPrecision(6));
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, 100, 300000]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
@@ -197,7 +198,7 @@ async function processorder(chainid, zktx) {
         price = ( zktx.ratio[0] / Math.pow(10, quote_token.decimals) ) / 
                 ( zktx.ratio[1] / Math.pow(10, base_token.decimals) );
         quote_quantity = zktx.amount / Math.pow(10, quote_token.decimals);
-        base_quantity = quote_quantity / price;
+        base_quantity = Math.ceil(quote_quantity / price * 1e6) / 1e6;
     }
     const order_type = 'limit';
     const expires = zktx.validUntil;
@@ -282,9 +283,9 @@ async function getopenorders(chainid, market) {
 function getLiquidity(chainid, market) {
     // TODO: pull real data instead of mocked data
     validMarkets[chainid][market].liquidity = [
-        [0.1, 0.003, 'd'],
-        [0.05, 0.004, 'd'],
-        [0.5, 0.005, 'd'],
+        [0.5, 0.002, 'd'],
+        [0.05, 0.003, 'd'],
+        [0.3, 0.005, 'd'],
         [0.2, 0.008, 'd'],
         [0.147, 0.01, 'd'],
         [0.123, 0.011, 'd'],
@@ -329,7 +330,7 @@ function getLastPrices() {
             if (!uniqueProducts.includes(product)) {
                 try {
                     const lastPrice = validMarkets[chain][product].marketSummary.price.last;
-                    const change = parseFloat(validMarkets[chain][product].marketSummary.price.change.absolute.toFixed(6));
+                    const change = parseFloat(validMarkets[chain][product].marketSummary.price.change.absolute.toPrecision(6));
                     lastprices.push([product, lastPrice, change]);
                     uniqueProducts.push(product);
                 } catch (e) {
@@ -354,9 +355,20 @@ function sendLastPriceData (ws) {
 function clearDeadConnections () {
     const now = Date.now();
     for (let wsid in active_connections) {
-        if (active_connections[wsid].lastPing - now > 10000) {
-            console.log("Deleting dead connection");
+        if (now - active_connections[wsid].lastPing > 20000) {
+            console.log("Deleting dead connection", wsid);
             delete active_connections[wsid];
         }
     }
+}
+
+async function broadcastOrderMatch(orderid) {
+    const query = {
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity FROM orders WHERE id=$1",
+        values: [orderid],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    const order = select.rows[0];
+    broadcastMessage({"op":"ordermatch", args: order});
 }
