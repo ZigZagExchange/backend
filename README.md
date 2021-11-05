@@ -73,6 +73,8 @@ Arguments: `[chainId, zkOrder]`
 
 Description: Submit an order. zkorder is the output of zksync.wallet.getOrder
 
+An example of how to submit an order with Javascript can be found [here](https://github.com/ZigZagExchange/zksync-frontend/blob/master/src/helpers.js#L99)
+
 
 ```json
 {
