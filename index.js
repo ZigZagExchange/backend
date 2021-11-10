@@ -283,6 +283,7 @@ async function getopenorders(chainid, market) {
 function getLiquidity(chainid, market) {
     // TODO: pull real data instead of mocked data
     validMarkets[chainid][market].liquidity = [
+        [2, 0.0012, 'd'],
         [2, 0.002, 'd'],
         [0.5, 0.003, 'd'],
         [0.3, 0.005, 'd'],
