@@ -364,7 +364,7 @@ function clearDeadConnections () {
 
 async function broadcastOrderMatch(orderid) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity FROM orders WHERE id=$1",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,userid FROM orders WHERE id=$1",
         values: [orderid],
         rowMode: 'array'
     }

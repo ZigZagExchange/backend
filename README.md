@@ -202,12 +202,12 @@ Operation: **ordermatch**
 
 Arguments: `[fills]`
 
-Description: Indicates an order has been filled. fill = [chainId,orderid,market,side,price,baseQuantity,quoteQuantity]
+Description: Indicates an order has been filled. fill = [chainId,orderid,market,side,price,baseQuantity,quoteQuantity,userId]
 
 ```json
 {
   "op": "ordermatch",
-  "args": [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093],
+  "args": [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, "4377"],
 }
 ```
 
