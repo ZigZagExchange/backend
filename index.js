@@ -43,11 +43,15 @@ const validMarkets = {
     // zkSync Mainnet
     1: {
         "ETH-USDT": {},
+        "ETH-USDC": {},
+        "USDC-USDT": {},
     },
     
     // zkSync Rinkeby
     1000: {
         "ETH-USDT": {},
+        "ETH-USDC": {},
+        "USDC-USDT": {},
     }
 }
 
