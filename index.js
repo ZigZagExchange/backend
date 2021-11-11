@@ -285,23 +285,44 @@ async function getopenorders(chainid, market) {
 }
 
 function getLiquidity(chainid, market) {
-    // TODO: pull real data instead of mocked data
-    validMarkets[chainid][market].liquidity = [
-        [2, 0.0012, 'd'],
-        [2, 0.002, 'd'],
-        [0.5, 0.003, 'd'],
-        [0.3, 0.005, 'd'],
-        [0.2, 0.008, 'd'],
-        [0.847, 0.01, 'd'],
-        [0.123, 0.011, 'd'],
-        [0.3452, 0.013, 'd'],
-        [1.62, 0.02, 'd'],
-        [0.19, 0.025, 'd'],
-        [0.23, 0.039, 'd'],
-        [1.02, 0.041, 'd'],
-        [1.07, 0.052, 'd'],
-        [2.13, 0.063, 'd'],
-    ]
+    const baseCurrency = market.split("-")[0];
+    const quoteCurrency = market.split("-")[1];
+    if (baseCurrency == "ETH") {
+        validMarkets[chainid][market].liquidity = [
+            [2, 0.0012, 'd'],
+            [2, 0.002, 'd'],
+            [0.5, 0.003, 'd'],
+            [0.3, 0.005, 'd'],
+            [0.2, 0.008, 'd'],
+            [0.847, 0.01, 'd'],
+            [0.123, 0.011, 'd'],
+            [0.3452, 0.013, 'd'],
+            [1.62, 0.02, 'd'],
+            [0.19, 0.025, 'd'],
+            [0.23, 0.039, 'd'],
+            [1.02, 0.041, 'd'],
+            [1.07, 0.052, 'd'],
+            [2.13, 0.063, 'd'],
+        ]
+    }
+    else if (baseCurrency == "USDT" || baseCurrency == "USDC") {
+        validMarkets[chainid][market].liquidity = [
+            [10000, 0.0012, 'd'],
+            [5000, 0.0014, 'd'],
+            [2000, 0.0018, 'd'],
+            [2030, 0.002, 'd'],
+            [1000, 0.0023, 'd'],
+            [2010, 0.0024, 'd'],
+            [2000, 0.03, 'd'],
+            [1590, 0.0033, 'd'],
+            [5200, 0.0038, 'd'],
+            [1900, 0.0045, 'd'],
+            [2300, 0.0057, 'd'],
+            [1020, 0.0061, 'd'],
+            [1070, 0.0082, 'd'],
+            [2130, 0.0093, 'd'],
+        ]
+    }
     return validMarkets[chainid][market].liquidity;
 }
 
