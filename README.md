@@ -181,16 +181,16 @@ Operation: **openorders**
 
 Arguments: `[orders]`
 
-Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid]
+Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus]
 
 ```json
 {
   "op": "openorders",
   "args": [
       [
-        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23" ],
-        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, "24" ],
-        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174" ]
+        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23", "o" ],
+        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, "24", "o" ],
+        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174", "o" ]
       ]
   ]
 }
@@ -200,9 +200,9 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
 
 Operation: **orderstatus**    
 
-Arguments: `[chainId,orderId,status,...args]`
+Arguments: `[orderupdates]`
 
-Description: Indicates an order status update.
+Description: A series of order status updates. orderupdate = `[chainId,orderId,status,...args]`
 
 Statuses:
 Character | Status
@@ -216,22 +216,33 @@ p | partial fill. quantity and price listed in args.
 
 
 ```json
-{ "op": "orderstatus", "args": [ 1000, 5, "m", 4700.23], }
+{ 
+    "op": "orderstatus", 
+    "args": [[
+        [ 1000, 5, "m", 4700.23]
+    ]]
+}
 ```
 
 ---
 
 Operation: **orderstatusupdate**    
 
-Arguments: `[chainId,orderId,status,...args]`
+Arguments: `[orderupdates]`
 
-Description: Used by market makers to submit chain commitment information on a matched order.
+Description: Used by market makers to submit chain commitment information on a matched order. orderupdate =  `[chainId,orderId,status,...args]`
 
 Only 'f' and 'r' status updates are permitted, and only for matched orders.
 
 
 ```json
-{ "op": "orderstatusupdate", "args": [ 1000, 5, "f", "9ddba58f75a6b8e65828c2fb5e7e6d80001fccbd6ce0c931181dfdcdb4721162"] }
+{ 
+    "op": "orderstatusupdate", 
+    "args": [[
+        [ 1000, 5, "f", 4700.23, "9ddba58f75a6b8e65828c2fb5e7e6d80001fccbd6ce0c931181dfdcdb4721162"]
+    ]]
+}
+```
 ```
 
 ---

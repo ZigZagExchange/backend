@@ -132,7 +132,7 @@ async function handleMessage(msg, ws) {
                 ws.send(JSON.stringify({op:"cancelorderreject",args:[orderId, e.message]}));
                 break
             }
-            broadcastMessage({op:"cancelorderack",args:[[orderId]]});
+            broadcastMessage({op:"orderstatus",args:[[[chainid, orderId, 'c']]]});
             break
         case "cancelall":
             chainid = msg.args[0];
@@ -141,14 +141,16 @@ async function handleMessage(msg, ws) {
                 ws.send(JSON.stringify({op:"cancelallreject",args:[userid, "Unauthorized"]}));
             }
             const canceled_orders = await cancelallorders(userid);
-            broadcastMessage({op:"cancelorderack",args:[canceled_orders]});
+            const orderupdates = canceled_orders.map(orderid => [chainid,orderid,'c']);
+            broadcastMessage({op:"orderstatus",args:[orderupdates]});
             break
         case "fillrequest":
-            orderId = msg.args[0];
-            const fillOrder = msg.args[1];
+            chainid = msg.args[0];
+            orderId = msg.args[1];
+            const fillOrder = msg.args[2];
             zktx = await matchorder(orderId, fillOrder);
-            ws.send(JSON.stringify({op:"userordermatch",args:[orderId, zktx,fillOrder]}));
-            broadcastOrderMatch(orderId);
+            ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, zktx,fillOrder]}));
+            broadcastMessage({op:"orderstatus",args:[[[chainid,orderId,'m']]]});
             break
         case "subscribemarket":
             chainid = msg.args[0];
@@ -175,9 +177,30 @@ async function handleMessage(msg, ws) {
             active_connections[ws.uuid].marketSubscriptions.filter(m => m[0] !== chainid || m[1] !== market);
             validMarkets[chainid][market].subscriptions.delete(ws.uuid);
             break
+        case "orderstatusupdate":
+            const updates = msg.args[0];
+            const broadcastUpdates = [];
+            updates.forEach(update => {
+                const chainid = update[0];
+                const orderId = update[1];
+                const newstatus = update[2];
+                const success = updateMatchedOrder(chainid, orderId, newstatus);
+                if (success) {
+                    broadcastUpdates.push(update);
+                }
+            });
+            if (broadcastUpdates.length > 0) {
+                broadcastMessage({op:"orderstatus",args: [broadcastUpdates]});
+            }
         default:
             break
     }
+}
+
+async function updateMatchedOrder(chainid, orderid, newstatus) {
+    const values = [newstatus,chainid, orderid];
+    const update = await pool.query("UPDATE orders SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
+    return update.affectedRows > 0;
 }
 
 async function processorder(chainid, zktx) {
@@ -236,9 +259,9 @@ async function processorder(chainid, zktx) {
 
 async function cancelallorders(userid) {
     const values = [userid];
-    const select = await pool.query("SELECT id FROM orders WHERE userid=$1", values);
+    const select = await pool.query("SELECT id FROM orders WHERE userid=$1 AND order_status='o'", values);
     const ids = select.rows.map(s => s.id);
-    const update = await pool.query("UPDATE orders SET order_status='c' WHERE userid=$1", values);
+    const update = await pool.query("UPDATE orders SET order_status='c' WHERE userid=$1 AND order_status='o'", values);
     return ids;
 }
 
@@ -276,7 +299,7 @@ async function broadcastMessage(msg) {
 
 async function getopenorders(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid FROM orders WHERE market=$1 AND chainid=$2 AND order_status='o'",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM orders WHERE market=$1 AND chainid=$2 AND order_status='o'",
         values: [market, chainid],
         rowMode: 'array'
     }
