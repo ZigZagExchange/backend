@@ -198,17 +198,40 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
 
 ---
 
-Operation: **ordermatch**    
+Operation: **orderstatus**    
 
-Arguments: `[fills]`
+Arguments: `[chainId,orderId,status,...args]`
 
-Description: Indicates an order has been filled. fill = [chainId,orderid,market,side,price,baseQuantity,quoteQuantity,userId]
+Description: Indicates an order status update.
+
+Statuses:
+Character | Status
+--------- | ------
+c | canceled
+e | expired
+m | matched, but not committed to chain. price listed in args.
+r | rejected. txhash and error listed in args
+f | filled and committed. txhash listed in args.
+p | partial fill. quantity and price listed in args.
+
 
 ```json
-{
-  "op": "ordermatch",
-  "args": [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, "4377"],
-}
+{ "op": "orderstatus", "args": [ 1000, 5, "m", 4700.23], }
+```
+
+---
+
+Operation: **orderstatusupdate**    
+
+Arguments: `[chainId,orderId,status,...args]`
+
+Description: Used by market makers to submit chain commitment information on a matched order.
+
+Only 'f' and 'r' status updates are permitted, and only for matched orders.
+
+
+```json
+{ "op": "orderstatusupdate", "args": [ 1000, 5, "f", "9ddba58f75a6b8e65828c2fb5e7e6d80001fccbd6ce0c931181dfdcdb4721162"] }
 ```
 
 ---
