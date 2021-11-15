@@ -159,7 +159,20 @@ async function handleMessage(msg, ws) {
             const priceData = validMarkets[chainid][market].marketSummary.price;
             try {
                 const priceChange = parseFloat(priceData.change.absolute.toPrecision(6));
-                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, 100, 300000]};
+                let baseVolume, quoteVolume;
+                if (market == "ETH-USDT") {
+                    baseVolume = 19.312;
+                    quoteVolume = 90766;
+                }
+                else if (market == "ETH-USDC") {
+                    baseVolume = 10.764;
+                    quoteVolume = 50590;
+                }
+                else if (market == "USDC-USDT") {
+                    baseVolume = 20387;
+                    quoteVolume = 20383;
+                }
+                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, baseVolume, quoteVolume]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
                 console.log(validMarkets);
@@ -312,7 +325,7 @@ function getLiquidity(chainid, market) {
     const quoteCurrency = market.split("-")[1];
     if (baseCurrency == "ETH") {
         validMarkets[chainid][market].liquidity = [
-            [2, 0.0012, 'd'],
+            [5, 0.0012, 'd'],
             [2, 0.002, 'd'],
             [0.5, 0.003, 'd'],
             [0.3, 0.005, 'd'],
@@ -330,8 +343,8 @@ function getLiquidity(chainid, market) {
     }
     else if (baseCurrency == "USDT" || baseCurrency == "USDC") {
         validMarkets[chainid][market].liquidity = [
-            [10000, 0.0012, 'd'],
-            [5000, 0.0014, 'd'],
+            [20000, 0.0012, 'd'],
+            [10000, 0.0014, 'd'],
             [2000, 0.0018, 'd'],
             [2030, 0.002, 'd'],
             [1000, 0.0023, 'd'],
@@ -406,6 +419,7 @@ function clearDeadConnections () {
     for (let wsid in active_connections) {
         if (now - active_connections[wsid].lastPing > 20000) {
             console.log("Deleting dead connection", wsid);
+            active_connections[wsid].ws.close();
             delete active_connections[wsid];
         }
     }
