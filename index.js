@@ -65,13 +65,15 @@ for (let chain in validMarkets) {
     }
 }
 
-updateMarketSummaries();
+await updateMarketSummaries();
+await updateVolumes();
 setInterval(async function () {
     clearDeadConnections();
     await updateMarketSummaries();
     const lastprices = getLastPrices();
     broadcastMessage({"op":"lastprice", args: [lastprices]});
 }, 10000);
+setInterval(updateVolumes, 120000);
 
 const wss = new WebSocketServer({
   port: process.env.PORT || 3004,
@@ -113,6 +115,8 @@ async function handleMessage(msg, ws) {
             active_connections[ws.uuid].chainid = chainid;
             active_connections[ws.uuid].userid = userid;
             user_connections[chainid][userid] = ws;
+            const userorders = await getuserorders(chainid, userid);
+            ws.send(JSON.stringify({"op":"userorders", args: [userorders]}))
             break
         case "indicatemaker":
             break
@@ -156,29 +160,18 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             const openorders = await getopenorders(chainid, market);
-            const priceData = validMarkets[chainid][market].marketSummary.price;
+            const filledorders = await getfilledorders(chainid, market);
+            const marketSummary = validMarkets[chainid][market].marketSummary;
             try {
-                const priceChange = parseFloat(priceData.change.absolute.toPrecision(6));
-                let baseVolume, quoteVolume;
-                if (market == "ETH-USDT") {
-                    baseVolume = 19.312;
-                    quoteVolume = 90766;
-                }
-                else if (market == "ETH-USDC") {
-                    baseVolume = 10.764;
-                    quoteVolume = 50590;
-                }
-                else if (market == "USDC-USDT") {
-                    baseVolume = 20387;
-                    quoteVolume = 20383;
-                }
-                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, baseVolume, quoteVolume]};
+                const priceChange = parseFloat(marketSummary.price.change.absolute.toPrecision(6));
+                const marketSummaryMsg = {op: 'marketsummary', args: [market, marketSummary.price.last, marketSummary.price.high, marketSummary.price.low, priceChange, marketSummary.volume, marketSummary.volumeQuote]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
                 console.log(validMarkets);
                 console.error(e);
             }
             ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
+            ws.send(JSON.stringify({"op":"fillhistory", args: [filledorders]}))
             const liquidity = getLiquidity(chainid, market);
             ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
             active_connections[ws.uuid].marketSubscriptions.push([chainid,market]);
@@ -197,7 +190,15 @@ async function handleMessage(msg, ws) {
                 const chainid = update[0];
                 const orderId = update[1];
                 const newstatus = update[2];
-                const success = updateMatchedOrder(chainid, orderId, newstatus);
+                let success;
+                if (newstatus == 'b') {
+                    const txhash = update[3];
+                    success = updateMatchedOrder(chainid, orderId, newstatus);
+                }
+                if (newstatus == 'r' || newstatus == 'f') {
+                    const txhash = update[3];
+                    success = updateOrderFillStatus(chainid, orderId, newstatus);
+                }
                 if (success) {
                     broadcastUpdates.push(update);
                 }
@@ -210,9 +211,15 @@ async function handleMessage(msg, ws) {
     }
 }
 
-async function updateMatchedOrder(chainid, orderid, newstatus) {
+async function updateOrderFillStatus(chainid, orderid, newstatus) {
     const values = [newstatus,chainid, orderid];
-    const update = await pool.query("UPDATE orders SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
+    const update = await pool.query("UPDATE orders SET order_status=$1 WHERE chainid=$2 AND id=$3 AND (order_status='b' OR order_status='m')", values);
+    return update.affectedRows > 0;
+}
+
+async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
+    const values = [newstatus,txhash,chainid, orderid];
+    const update = await pool.query("UPDATE orders SET order_status=$1 AND txhash=$2 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
     return update.affectedRows > 0;
 }
 
@@ -320,6 +327,26 @@ async function getopenorders(chainid, market) {
     return select.rows;
 }
 
+async function getuserorders(chainid, userid) {
+    const query = {
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM orders WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 5",
+        values: [chainid, userid],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    return select.rows;
+}
+
+async function getfilledorders(chainid, market) {
+    const query = {
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM orders WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
+        values: [market, chainid],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    return select.rows;
+}
+
 function getLiquidity(chainid, market) {
     const baseCurrency = market.split("-")[0];
     const quoteCurrency = market.split("-")[1];
@@ -375,6 +402,13 @@ async function updateMarketSummaries() {
                 const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
                 const r = await fetch(url, { headers });
                 const data = await r.json();
+                // keep old volumes
+                try {
+                    data.result.volume = validMarkets[chain][product].marketSummary.volume;
+                    data.result.volumeQuote = validMarkets[chain][product].marketSummary.volumeQuote;
+                } catch(e) {
+                    // pass
+                }
                 const priceData = data.result.price;
                 validMarkets[chain][product].marketSummary = data.result;
                 productUpdates[product] = data.result;
@@ -382,6 +416,20 @@ async function updateMarketSummaries() {
         }
     }
     return validMarkets;
+}
+
+async function updateVolumes() {
+    const query = {
+        text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM orders WHERE order_status IN ('m', 'f', 'b') AND id > 8000 AND chainid IS NOT NULL GROUP BY (chainid, market)"
+    }
+    const select = await pool.query(query);
+    select.rows.forEach(row => {
+        const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
+        const quoteVolume = parseFloat((row.base_volume * price).toPrecision(8))
+        validMarkets[row.chainid][row.market].marketSummary.volume = parseFloat(row.base_volume.toPrecision(8));
+        validMarkets[row.chainid][row.market].marketSummary.volumeQuote = quoteVolume;
+    })
+    return true;
 }
 
 function getLastPrices() {
@@ -396,7 +444,7 @@ function getLastPrices() {
                     lastprices.push([product, lastPrice, change]);
                     uniqueProducts.push(product);
                 } catch (e) {
-                    console.error(e);
+                    console.log("Couldn't update price. Ignoring");
                 }
             }
         }
