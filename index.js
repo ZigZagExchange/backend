@@ -335,7 +335,7 @@ async function broadcastMessage(msg) {
 
 async function getopenorders(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM orders WHERE market=$1 AND chainid=$2 AND order_status='o'",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE market=$1 AND chainid=$2 AND order_status='o'",
         values: [market, chainid],
         rowMode: 'array'
     }
@@ -345,7 +345,7 @@ async function getopenorders(chainid, market) {
 
 async function getuserorders(chainid, userid) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM orders WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 5",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 5",
         values: [chainid, userid],
         rowMode: 'array'
     }
@@ -355,7 +355,7 @@ async function getuserorders(chainid, userid) {
 
 async function getfilledorders(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM orders WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
         values: [market, chainid],
         rowMode: 'array'
     }
