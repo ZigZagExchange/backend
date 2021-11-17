@@ -193,7 +193,7 @@ async function handleMessage(msg, ws) {
                 let success;
                 if (newstatus == 'b') {
                     const txhash = update[3];
-                    success = updateMatchedOrder(chainid, orderId, newstatus);
+                    success = updateMatchedOrder(chainid, orderId, newstatus, txhash);
                 }
                 if (newstatus == 'r' || newstatus == 'f') {
                     const txhash = update[3];
@@ -213,13 +213,29 @@ async function handleMessage(msg, ws) {
 
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
     const values = [newstatus,chainid, orderid];
-    const update = await pool.query("UPDATE orders SET order_status=$1 WHERE chainid=$2 AND id=$3 AND (order_status='b' OR order_status='m')", values);
+    let update;
+    try {
+        update = await pool.query("UPDATE orders SET order_status=$1 WHERE chainid=$2 AND id=$3 AND (order_status='b' OR order_status='m')", values);
+    }
+    catch (e) {
+        console.error("Error while updating fill status");
+        console.error(e);
+        return false;
+    }
     return update.affectedRows > 0;
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
     const values = [newstatus,txhash,chainid, orderid];
-    const update = await pool.query("UPDATE orders SET order_status=$1 AND txhash=$2 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
+    let update;
+    try {
+        update = await pool.query("UPDATE orders SET order_status=$1, txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'", values);
+    }
+    catch (e) {
+        console.error("Error while updating matched order");
+        console.error(e);
+        return false;
+    }
     return update.affectedRows > 0;
 }
 
