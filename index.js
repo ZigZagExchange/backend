@@ -440,9 +440,9 @@ async function updateVolumes() {
     const select = await pool.query(query);
     select.rows.forEach(row => {
         const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
-        const quoteVolume = parseFloat((row.base_volume * price).toPrecision(8))
+        const quoteVolume = parseFloat((row.base_volume * price).toPrecision(6))
         validMarkets[row.chainid][row.market].volumes = {
-            base: parseFloat(row.base_volume.toPrecision(8)),
+            base: parseFloat(row.base_volume.toPrecision(6)),
             quote: quoteVolume,
         };
     })
