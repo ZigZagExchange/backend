@@ -67,6 +67,7 @@ for (let chain in validMarkets) {
 
 await updateMarketSummaries();
 await updateVolumes();
+await updatePendingOrders();
 setInterval(async function () {
     clearDeadConnections();
     await updateMarketSummaries();
@@ -74,6 +75,7 @@ setInterval(async function () {
     broadcastMessage({"op":"lastprice", args: [lastprices]});
 }, 10000);
 setInterval(updateVolumes, 120000);
+setInterval(updatePendingOrders, 60000);
 
 const wss = new WebSocketServer({
   port: process.env.PORT || 3004,
@@ -446,6 +448,16 @@ async function updateVolumes() {
             quote: quoteVolume,
         };
     })
+    return true;
+}
+
+async function updatePendingOrders() {
+    const one_hour_ago = new Date(Date.now() - 3600*1000).toISOString();
+    const query = {
+        text: "UPDATE orders SET order_status='f' WHERE (order_status='m' OR order_status='b') AND insert_timestamp < $1",
+        values: [one_hour_ago]
+    }
+    const update = await pool.query(query);
     return true;
 }
 
