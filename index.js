@@ -288,7 +288,7 @@ async function processorder(chainid, zktx) {
         JSON.stringify(zktx)
     ]
     // save order to DB
-    const query = 'INSERT INTO orders(chainid, userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id'
+    const query = 'INSERT INTO orders(chainid, userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()) RETURNING id'
     const insert = await pool.query(query, queryargs);
     const orderId = insert.rows[0].id;
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o'];
