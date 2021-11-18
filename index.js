@@ -375,8 +375,8 @@ function getLiquidity(chainid, market) {
     const quoteCurrency = market.split("-")[1];
     if (baseCurrency == "ETH") {
         validMarkets[chainid][market].liquidity = [
-            [5, 0.0012, 'd'],
-            [2, 0.002, 'd'],
+            [8, 0.0012, 'd'],
+            [4, 0.002, 'd'],
             [0.5, 0.003, 'd'],
             [0.3, 0.005, 'd'],
             [0.2, 0.008, 'd'],
@@ -393,8 +393,8 @@ function getLiquidity(chainid, market) {
     }
     else if (baseCurrency == "USDT" || baseCurrency == "USDC") {
         validMarkets[chainid][market].liquidity = [
-            [20000, 0.0012, 'd'],
-            [10000, 0.0014, 'd'],
+            [30000, 0.0012, 'd'],
+            [20000, 0.0014, 'd'],
             [2000, 0.0018, 'd'],
             [2030, 0.002, 'd'],
             [1000, 0.0023, 'd'],
