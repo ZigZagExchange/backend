@@ -437,7 +437,7 @@ async function updateMarketSummaries() {
 
 async function updateVolumes() {
     const query = {
-        text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM orders WHERE order_status IN ('m', 'f', 'b') AND id > 8000 AND chainid IS NOT NULL GROUP BY (chainid, market)"
+        text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM orders WHERE order_status IN ('m', 'f', 'b') AND id > 12000 AND chainid IS NOT NULL GROUP BY (chainid, market)"
     }
     const select = await pool.query(query);
     select.rows.forEach(row => {
