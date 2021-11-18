@@ -161,10 +161,17 @@ async function handleMessage(msg, ws) {
             market = msg.args[1];
             const openorders = await getopenorders(chainid, market);
             const filledorders = await getfilledorders(chainid, market);
-            const marketSummary = validMarkets[chainid][market].marketSummary;
+            const priceData = validMarkets[chainid][market].marketSummary.price;
+            let volumes = validMarkets[chainid][market].volumes;
+            if (!volumes) {
+                volumes = {
+                    base: 0, 
+                    quote: 0
+                }
+            }
             try {
-                const priceChange = parseFloat(marketSummary.price.change.absolute.toPrecision(6));
-                const marketSummaryMsg = {op: 'marketsummary', args: [market, marketSummary.price.last, marketSummary.price.high, marketSummary.price.low, priceChange, marketSummary.volume, marketSummary.volumeQuote]};
+                const priceChange = parseFloat(priceData.change.absolute.toPrecision(6));
+                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, volumes.base, volumes.quote]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
                 console.log(validMarkets);
@@ -418,14 +425,6 @@ async function updateMarketSummaries() {
                 const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
                 const r = await fetch(url, { headers });
                 const data = await r.json();
-                // keep old volumes
-                try {
-                    data.result.volume = validMarkets[chain][product].marketSummary.volume;
-                    data.result.volumeQuote = validMarkets[chain][product].marketSummary.volumeQuote;
-                } catch(e) {
-                    // pass
-                }
-                const priceData = data.result.price;
                 validMarkets[chain][product].marketSummary = data.result;
                 productUpdates[product] = data.result;
             }
@@ -442,8 +441,10 @@ async function updateVolumes() {
     select.rows.forEach(row => {
         const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
         const quoteVolume = parseFloat((row.base_volume * price).toPrecision(8))
-        validMarkets[row.chainid][row.market].marketSummary.volume = parseFloat(row.base_volume.toPrecision(8));
-        validMarkets[row.chainid][row.market].marketSummary.volumeQuote = quoteVolume;
+        validMarkets[row.chainid][row.market].volumes = {
+            base: parseFloat(row.base_volume.toPrecision(8)),
+            quote: quoteVolume,
+        };
     })
     return true;
 }
