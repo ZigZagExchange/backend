@@ -436,10 +436,13 @@ async function updateMarketSummaries() {
 }
 
 async function updateVolumes() {
+    const one_day_ago = new Date(Date.now() - 86400*1000).toISOString();
     const query = {
-        text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM orders WHERE order_status IN ('m', 'f', 'b') AND id > 12000 AND chainid IS NOT NULL GROUP BY (chainid, market)"
+        text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM orders WHERE order_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+        values: [one_day_ago]
     }
     const select = await pool.query(query);
+    console.log(select);
     select.rows.forEach(row => {
         const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
         const quoteVolume = parseFloat((row.base_volume * price).toPrecision(6))
