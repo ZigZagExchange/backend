@@ -176,7 +176,6 @@ async function handleMessage(msg, ws) {
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, volumes.base, volumes.quote]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
-                console.log(validMarkets);
                 console.error(e);
             }
             ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
@@ -354,7 +353,7 @@ async function getopenorders(chainid, market) {
 
 async function getuserorders(chainid, userid) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 5",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 25",
         values: [chainid, userid],
         rowMode: 'array'
     }
@@ -380,14 +379,14 @@ function getLiquidity(chainid, market) {
             [8, 0.0012, 'd'],
             [4, 0.002, 'd'],
             [0.5, 0.003, 'd'],
-            [0.3, 0.005, 'd'],
-            [0.2, 0.008, 'd'],
+            [1.1, 0.005, 'd'],
+            [1.2, 0.008, 'd'],
             [0.847, 0.01, 'd'],
-            [0.123, 0.011, 'd'],
-            [0.3452, 0.013, 'd'],
+            [1.023, 0.011, 'd'],
+            [1.3452, 0.013, 'd'],
             [1.62, 0.02, 'd'],
-            [0.19, 0.025, 'd'],
-            [0.23, 0.039, 'd'],
+            [1.19, 0.025, 'd'],
+            [1.23, 0.039, 'd'],
             [1.02, 0.041, 'd'],
             [1.07, 0.052, 'd'],
             [2.13, 0.063, 'd'],
@@ -442,7 +441,6 @@ async function updateVolumes() {
         values: [one_day_ago]
     }
     const select = await pool.query(query);
-    console.log(select);
     select.rows.forEach(row => {
         const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
         const quoteVolume = parseFloat((row.base_volume * price).toPrecision(6))
@@ -455,10 +453,10 @@ async function updateVolumes() {
 }
 
 async function updatePendingOrders() {
-    const twenty_min_ago = new Date(Date.now() - 1200*1000).toISOString();
+    const three_min_ago = new Date(Date.now() - 180*1000).toISOString();
     const query = {
         text: "UPDATE orders SET order_status='f' WHERE (order_status='m' OR order_status='b') AND insert_timestamp < $1",
-        values: [twenty_min_ago]
+        values: [three_min_ago]
     }
     const update = await pool.query(query);
     return true;
