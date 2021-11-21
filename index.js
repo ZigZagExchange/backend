@@ -73,7 +73,7 @@ setInterval(async function () {
     await updateMarketSummaries();
     const lastprices = getLastPrices();
     broadcastMessage({"op":"lastprice", args: [lastprices]});
-}, 10000);
+}, 5000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
 
@@ -376,9 +376,9 @@ function getLiquidity(chainid, market) {
     const quoteCurrency = market.split("-")[1];
     if (baseCurrency == "ETH") {
         validMarkets[chainid][market].liquidity = [
-            [8, 0.0012, 'd'],
-            [4, 0.002, 'd'],
-            [0.5, 0.003, 'd'],
+            [12, 0.0008, 'd'],
+            [8, 0.0015, 'd'],
+            [2.5, 0.003, 'd'],
             [1.1, 0.005, 'd'],
             [1.2, 0.008, 'd'],
             [0.847, 0.01, 'd'],
@@ -394,13 +394,13 @@ function getLiquidity(chainid, market) {
     }
     else if (baseCurrency == "USDT" || baseCurrency == "USDC") {
         validMarkets[chainid][market].liquidity = [
-            [30000, 0.0012, 'd'],
-            [20000, 0.0014, 'd'],
-            [2000, 0.0018, 'd'],
-            [2030, 0.002, 'd'],
-            [1000, 0.0023, 'd'],
-            [2010, 0.0024, 'd'],
-            [2000, 0.03, 'd'],
+            [70000, 0.0005, 'd'],
+            [30000, 0.0010, 'd'],
+            [8000, 0.0014, 'd'],
+            [3030, 0.0017, 'd'],
+            [9000, 0.0023, 'd'],
+            [3010, 0.0024, 'd'],
+            [4000, 0.03, 'd'],
             [1590, 0.0033, 'd'],
             [5200, 0.0038, 'd'],
             [1900, 0.0045, 'd'],
