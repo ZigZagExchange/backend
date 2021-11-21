@@ -394,8 +394,8 @@ function getLiquidity(chainid, market) {
     }
     else if (baseCurrency == "USDT" || baseCurrency == "USDC") {
         validMarkets[chainid][market].liquidity = [
-            [70000, 0.0005, 'd'],
-            [30000, 0.0010, 'd'],
+            [70000, 0.0004, 'd'],
+            [30000, 0.0007, 'd'],
             [8000, 0.0014, 'd'],
             [3030, 0.0017, 'd'],
             [9000, 0.0023, 'd'],

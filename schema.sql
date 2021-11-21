@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_type TEXT,
     order_status TEXT,
     expires BIGINT,
-    zktx TEXT, 
+    zktx TEXT
 );
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS chainid INTEGER;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS insert_timestamp TIMESTAMPTZ;
