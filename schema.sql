@@ -11,10 +11,8 @@ CREATE TABLE IF NOT EXISTS orders (
     order_status TEXT,
     expires BIGINT,
     zktx TEXT, 
-    txhash TEXT
 );
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS chainid INTEGER;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS insert_timestamp TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS update_timestamp TIMESTAMPTZ;
-ALTER TABLE orders DROP COLUMN IF EXISTS txhash;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS txhash TEXT;
