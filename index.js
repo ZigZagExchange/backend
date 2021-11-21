@@ -455,7 +455,7 @@ async function updateVolumes() {
 async function updatePendingOrders() {
     const three_min_ago = new Date(Date.now() - 180*1000).toISOString();
     const query = {
-        text: "UPDATE orders SET order_status='f' WHERE (order_status='m' OR order_status='b') AND insert_timestamp < $1",
+        text: "UPDATE orders SET order_status='c' WHERE (order_status='m' OR order_status='b') AND insert_timestamp < $1",
         values: [three_min_ago]
     }
     const update = await pool.query(query);
