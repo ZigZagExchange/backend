@@ -29,6 +29,11 @@ const starknetContracts = {
     "0x0545d006f9f53169a94b568e031a3e16f0ea00e9563dc0255f15c2a1323d6811": "USDC",
     "0x03d3af6e3567c48173ff9b9ae7efc1816562e558ee0cc9abc0fe1862b2931d9a": "USDT"
 }
+const starknetAssets = {
+    "ETH": { decimals: 18 },
+    "USDC": { decimals: 6 },
+    "USDT": { decimals: 6 },
+}
 const zkTokenIds = {
     // zkSync Mainnet
     1: {
@@ -324,11 +329,10 @@ async function processorderstarknet(chainid, zktx) {
     const quoteCurrency = starknetContracts[zktx[3]];
     const market = baseCurrency + "-" + quoteCurrency;
     const side = zktx[4] === 0 ? 'b': 's';
-    const base_quantity = zktx[5];
-    const price = zktx[6];
+    const base_quantity = zktx[5] / Math.pow(10, starknetAssets[baseCurrency].decimals);
+    const price = zktx[6] / 1e6;
     const quote_quantity = price*base_quantity;
     const expiration = zktx[7];
-    const order_status = 'o';
     const order_type = 'limit';
     const values = [chainid, user, market, side, price, base_quantity, quote_quantity, order_type, order_status, expiration, zktx];
     const query = 'INSERT INTO orders(chainid, userid, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()) RETURNING id'
@@ -490,12 +494,15 @@ async function updateVolumes() {
 }
 
 async function updatePendingOrders() {
-    const three_min_ago = new Date(Date.now() - 180*1000).toISOString();
+    const one_min_ago = new Date(Date.now() - 60*1000).toISOString();
     const query = {
         text: "UPDATE orders SET order_status='c' WHERE (order_status='m' OR order_status='b') AND insert_timestamp < $1",
-        values: [three_min_ago]
+        values: [one_min_ago]
     }
     const update = await pool.query(query);
+    if (update.rowCount > 0) 
+        console.log(update);
+    //broadcastMessage({"op":"lastprice", args: [lastprices]});
     return true;
 }
 
