@@ -24,6 +24,11 @@ pool.query(migration)
     .catch(console.error);
 
 
+const starknetContracts = {
+    "0x06a75fdd9c9e376aebf43ece91ffb315dbaa753f9c0ddfeb8d7f3af0124cd0b6": "ETH",
+    "0x0545d006f9f53169a94b568e031a3e16f0ea00e9563dc0255f15c2a1323d6811": "USDC",
+    "0x03d3af6e3567c48173ff9b9ae7efc1816562e558ee0cc9abc0fe1862b2931d9a": "USDT"
+}
 const zkTokenIds = {
     // zkSync Mainnet
     1: {
@@ -49,6 +54,13 @@ const validMarkets = {
     
     // zkSync Rinkeby
     1000: {
+        "ETH-USDT": {},
+        "ETH-USDC": {},
+        "USDC-USDT": {},
+    },
+    
+    // Starknet Alpha
+    1001: {
         "ETH-USDT": {},
         "ETH-USDC": {},
         "USDC-USDT": {},
@@ -125,7 +137,12 @@ async function handleMessage(msg, ws) {
         case "submitorder":
             chainid = msg.args[0];
             zktx = msg.args[1];
-            processorder(chainid, zktx);
+            if (chainid == 1 || chainid == 1000) {
+                processorderzksync(chainid, zktx);
+            }
+            else if (chainid == 1001) {
+                processorderstarknet(chainid, zktx);
+            }
             break
         case "cancelorder":
             chainid = msg.args[0];
@@ -247,7 +264,7 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
     return update.affectedRows > 0;
 }
 
-async function processorder(chainid, zktx) {
+async function processorderzksync(chainid, zktx) {
     const tokenSell = zkTokenIds[chainid][zktx.tokenSell];
     const tokenBuy = zkTokenIds[chainid][zktx.tokenBuy];
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
@@ -299,6 +316,22 @@ async function processorder(chainid, zktx) {
     user_connections[chainid][user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
 
     return orderId
+}
+
+async function processorderstarknet(chainid, zktx) {
+    const user = zktx[1];
+    const baseCurrency = starknetContracts[zktx[2]];
+    const quoteCurrency = starknetContracts[zktx[3]];
+    const market = baseCurrency + "-" + quoteCurrency;
+    const side = zktx[4] === 0 ? 'b': 's';
+    const base_quantity = zktx[5];
+    const price = zktx[6];
+    const quote_quantity = price*base_quantity;
+    const expiration = zktx[7];
+    const order_status = 'o';
+    const order_type = 'limit';
+    const values = [chainid, user, market, side, price, base_quantity, quote_quantity, order_type, order_status, expiration, zktx];
+    const query = 'INSERT INTO orders(chainid, userid, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()) RETURNING id'
 }
 
 async function cancelallorders(userid) {
