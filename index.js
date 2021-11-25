@@ -291,7 +291,7 @@ async function processorderzksync(chainid, zktx) {
         price = ( zktx.ratio[0] / Math.pow(10, quote_token.decimals) ) / 
                 ( zktx.ratio[1] / Math.pow(10, base_token.decimals) );
         quote_quantity = zktx.amount / Math.pow(10, quote_token.decimals);
-        base_quantity = Math.ceil(quote_quantity / price * 1e6) / 1e6;
+        base_quantity = ((quote_quantity / price).toFixed(base_token.decimals)) / 1;
     }
     const order_type = 'limit';
     const expires = zktx.validUntil;
@@ -334,8 +334,31 @@ async function processorderstarknet(chainid, zktx) {
     const quote_quantity = price*base_quantity;
     const expiration = zktx[7];
     const order_type = 'limit';
-    const values = [chainid, user, market, side, price, base_quantity, quote_quantity, order_type, order_status, expiration, zktx];
-    const query = 'INSERT INTO orders(chainid, userid, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()) RETURNING id'
+
+    const client = await pool.connect()
+    try {
+        await client.query('BEGIN')
+        const query = "SELECT match_limit_order($1, $2, $3, $4, $5, $6, 'fills', 'offer')"
+        const values = [chainid, user, market, side, price, base_quantity];
+        console.log(values);
+        await client.query(query, values);
+        const fills = await client.query("FETCH ALL FROM fills");
+        console.log(fills.rows);
+        const orderupdates = fills.rows.map(row => [chainid,row.maker_order_id,'m']);
+        broadcastMessage({"op":"orderstatus", args:[orderupdates]});
+        const offer = await client.query("FETCH ALL FROM offer");
+        console.log(offer.rows);
+        const openorders = offer.rows.map(row => [chainid, row.order_id, market, row.side, row.price, row.amount, row.price*row.amount,expiration,user,'o']);
+        if (openorders.length > 0) {
+            broadcastMessage({"op":"openorders", args:[openorders]});
+        }
+        await client.query('COMMIT')
+    } catch (e) {
+        await client.query('ROLLBACK')
+        throw e
+    } finally {
+        client.release()
+    }
 }
 
 async function cancelallorders(userid) {
@@ -414,19 +437,19 @@ function getLiquidity(chainid, market) {
     if (baseCurrency == "ETH") {
         validMarkets[chainid][market].liquidity = [
             [12, 0.0008, 'd'],
-            [8, 0.0015, 'd'],
+            [14, 0.0015, 'd'],
             [2.5, 0.003, 'd'],
             [1.1, 0.005, 'd'],
             [1.2, 0.008, 'd'],
-            [0.847, 0.01, 'd'],
-            [1.023, 0.011, 'd'],
+            [10.847, 0.01, 'd'],
+            [7.023, 0.011, 'd'],
             [1.3452, 0.013, 'd'],
             [1.62, 0.02, 'd'],
-            [1.19, 0.025, 'd'],
+            [4.19, 0.025, 'd'],
             [1.23, 0.039, 'd'],
-            [1.02, 0.041, 'd'],
+            [3.02, 0.041, 'd'],
             [1.32, 0.049, 'd'],
-            [1.07, 0.051, 'd'],
+            [2.07, 0.051, 'd'],
             [1.07, 0.052, 'd'],
             [2.13, 0.063, 'd'],
         ]
@@ -434,11 +457,11 @@ function getLiquidity(chainid, market) {
     else if (baseCurrency == "USDT" || baseCurrency == "USDC") {
         validMarkets[chainid][market].liquidity = [
             [70000, 0.0004, 'd'],
-            [30000, 0.0007, 'd'],
-            [8000, 0.0014, 'd'],
-            [3030, 0.0017, 'd'],
-            [9000, 0.0023, 'd'],
-            [3010, 0.0024, 'd'],
+            [60000, 0.0007, 'd'],
+            [18000, 0.0014, 'd'],
+            [13030, 0.0017, 'd'],
+            [29000, 0.0023, 'd'],
+            [13010, 0.0024, 'd'],
             [4000, 0.03, 'd'],
             [1590, 0.0033, 'd'],
             [5200, 0.0038, 'd'],
@@ -545,15 +568,4 @@ function clearDeadConnections () {
             delete active_connections[wsid];
         }
     }
-}
-
-async function broadcastOrderMatch(orderid) {
-    const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,userid FROM orders WHERE id=$1",
-        values: [orderid],
-        rowMode: 'array'
-    }
-    const select = await pool.query(query);
-    const order = select.rows[0];
-    broadcastMessage({"op":"ordermatch", args: order});
 }
