@@ -176,7 +176,7 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             orderId = msg.args[1];
             const fillOrder = msg.args[2];
-            zktx = await matchorder(orderId, fillOrder);
+            zktx = await matchorder(chainid, orderId, fillOrder);
             ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, zktx,fillOrder]}));
             broadcastMessage({op:"orderstatus",args:[[[chainid,orderId,'m']]]});
             break
@@ -202,8 +202,10 @@ async function handleMessage(msg, ws) {
             }
             ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
             ws.send(JSON.stringify({"op":"fillhistory", args: [filledorders]}))
-            const liquidity = getLiquidity(chainid, market);
-            ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
+            if ( ([1,1000]).includes(chainid) ) {
+                const liquidity = getLiquidity(chainid, market);
+                ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
+            }
             active_connections[ws.uuid].marketSubscriptions.push([chainid,market]);
             validMarkets[chainid][market].subscriptions.add(ws.uuid);
             break
@@ -242,10 +244,11 @@ async function handleMessage(msg, ws) {
 }
 
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
-    const values = [newstatus,chainid, orderid];
     let update;
     try {
-        update = await pool.query("UPDATE orders SET order_status=$1 WHERE chainid=$2 AND id=$3 AND (order_status='b' OR order_status='m')", values);
+        const values = [newstatus,chainid, orderid];
+        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm')", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_order_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm')", values);
     }
     catch (e) {
         console.error("Error while updating fill status");
@@ -256,10 +259,12 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
-    const values = [newstatus,txhash,chainid, orderid];
     let update;
     try {
-        update = await pool.query("UPDATE orders SET order_status=$1, txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'", values);
+        let values = [newstatus,chainid, orderid];
+        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
+        values = [newstatus,txhash,chainid, orderid];
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_order_id=$4 AND chainid=$3", values);
     }
     catch (e) {
         console.error("Error while updating matched order");
@@ -291,7 +296,9 @@ async function processorderzksync(chainid, zktx) {
         price = ( zktx.ratio[0] / Math.pow(10, quote_token.decimals) ) / 
                 ( zktx.ratio[1] / Math.pow(10, base_token.decimals) );
         quote_quantity = zktx.amount / Math.pow(10, quote_token.decimals);
-        base_quantity = ((quote_quantity / price).toFixed(base_token.decimals)) / 1;
+        const base_quantity_decimals = Math.min(base_token.decimals, 10);
+        base_quantity = ((quote_quantity / price).toFixed(base_quantity_decimals)) / 1;
+        base_quantity = base_quantity.toPrecision(10) / 1;
     }
     const order_type = 'limit';
     const expires = zktx.validUntil;
@@ -308,13 +315,14 @@ async function processorderzksync(chainid, zktx) {
         order_type,
         'o',
         expires,
-        JSON.stringify(zktx)
+        JSON.stringify(zktx),
+        base_quantity
     ]
     // save order to DB
-    const query = 'INSERT INTO orders(chainid, userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()) RETURNING id'
+    const query = 'INSERT INTO offers(chainid, userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp, unfilled) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), $13) RETURNING id'
     const insert = await pool.query(query, queryargs);
     const orderId = insert.rows[0].id;
-    const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o'];
+    const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
     
     // broadcast new order
     broadcastMessage({"op":"openorders", args: [[orderreceipt]]});
@@ -344,11 +352,16 @@ async function processorderstarknet(chainid, zktx) {
         await client.query(query, values);
         const fills = await client.query("FETCH ALL FROM fills");
         console.log(fills.rows);
-        const orderupdates = fills.rows.map(row => [chainid,row.maker_order_id,'m']);
+        const orderupdates = fills.rows.map(row => {
+            if (row.remaining > 0)
+                return [chainid,row.maker_offer_id,'pm', row.fill_qty, row.remaining];
+            else
+                return [chainid,row.maker_offer_id,'m'];
+        });
         broadcastMessage({"op":"orderstatus", args:[orderupdates]});
         const offer = await client.query("FETCH ALL FROM offer");
         console.log(offer.rows);
-        const openorders = offer.rows.map(row => [chainid, row.order_id, market, row.side, row.price, row.amount, row.price*row.amount,expiration,user,'o']);
+        const openorders = offer.rows.map(row => [chainid, row.order_id, market, row.side, row.price, row.amount, row.price*row.amount,expiration,user,row.order_status,null,row.unfilled]);
         if (openorders.length > 0) {
             broadcastMessage({"op":"openorders", args:[openorders]});
         }
@@ -363,15 +376,15 @@ async function processorderstarknet(chainid, zktx) {
 
 async function cancelallorders(userid) {
     const values = [userid];
-    const select = await pool.query("SELECT id FROM orders WHERE userid=$1 AND order_status='o'", values);
+    const select = await pool.query("SELECT id FROM offers WHERE userid=$1 AND order_status='o'", values);
     const ids = select.rows.map(s => s.id);
-    const update = await pool.query("UPDATE orders SET order_status='c' WHERE userid=$1 AND order_status='o'", values);
+    const update = await pool.query("UPDATE offers SET order_status='c' WHERE userid=$1 AND order_status='o'", values);
     return ids;
 }
 
 async function cancelorder(chainid, orderId, ws) {
     const values = [orderId, chainid];
-    const select = await pool.query("SELECT userid FROM orders WHERE id=$1 AND chainid=$2", values);
+    const select = await pool.query("SELECT userid FROM offers WHERE id=$1 AND chainid=$2", values);
     if (select.rows.length == 0) {
         throw new Error("Order not found");
     }
@@ -380,17 +393,23 @@ async function cancelorder(chainid, orderId, ws) {
         throw new Error("Unauthorized");
     }
     const updatevalues = [orderId];
-    const update = await pool.query("UPDATE orders SET order_status='c' WHERE id=$1", updatevalues);
+    const update = await pool.query("UPDATE offers SET order_status='c' WHERE id=$1", updatevalues);
     return true;
 }
 
-async function matchorder(orderId, fillOrder) {
+async function matchorder(chainid, orderId, fillOrder) {
     // TODO: Validation logic to make sure the orders match and the user is getting a good fill
-    const values = [orderId];
-    const update = await pool.query("UPDATE orders SET order_status='m' WHERE id=$1", values);
-    const select = await pool.query("SELECT zktx FROM orders WHERE id=$1", values);
+    let values = [orderId, chainid];
+    const select = await pool.query("SELECT userid, price, base_quantity, market, zktx FROM offers WHERE id=$1 AND chainid=$2", values);
+    if (select.rows.length === 0) throw new Error("No order found for ID " + orderId);
     const selectresult = select.rows[0];
     const zktx = JSON.parse(selectresult.zktx);
+
+    const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2", values);
+
+    values = [orderId, chainid, selectresult.market, selectresult.userid, selectresult.price, selectresult.base_quantity];
+    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_order_id, taker_user_id, price, amount) VALUES ($2, $3, $1, $4, $5, $6)", values);
+
     return zktx;
 }
 
@@ -403,7 +422,7 @@ async function broadcastMessage(msg) {
 
 async function getopenorders(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE market=$1 AND chainid=$2 AND order_status='o'",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,null,unfilled FROM offers WHERE market=$1 AND chainid=$2 AND unfilled > 0 AND order_status IN ('o', 'pm', 'pf')",
         values: [market, chainid],
         rowMode: 'array'
     }
@@ -413,7 +432,7 @@ async function getopenorders(chainid, market) {
 
 async function getuserorders(chainid, userid) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 25",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 25",
         values: [chainid, userid],
         rowMode: 'array'
     }
@@ -423,7 +442,7 @@ async function getuserorders(chainid, userid) {
 
 async function getfilledorders(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,txhash FROM orders WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
         values: [market, chainid],
         rowMode: 'array'
     }
@@ -501,7 +520,7 @@ async function updateMarketSummaries() {
 async function updateVolumes() {
     const one_day_ago = new Date(Date.now() - 86400*1000).toISOString();
     const query = {
-        text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM orders WHERE order_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+        text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
         values: [one_day_ago]
     }
     const select = await pool.query(query);
@@ -519,13 +538,15 @@ async function updateVolumes() {
 async function updatePendingOrders() {
     const one_min_ago = new Date(Date.now() - 60*1000).toISOString();
     const query = {
-        text: "UPDATE orders SET order_status='c' WHERE (order_status='m' OR order_status='b') AND insert_timestamp < $1",
+        text: "UPDATE offers SET order_status='c' WHERE ((order_status='m' OR order_status='b') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
         values: [one_min_ago]
     }
     const update = await pool.query(query);
-    if (update.rowCount > 0) 
+    if (update.rowCount > 0) {
         console.log(update);
-    //broadcastMessage({"op":"lastprice", args: [lastprices]});
+        const orderUpdates = update.rows.map(row => [row.chainid, row.id, row.order_status]);
+        broadcastMessage({"op":"orderstatus", args: [orderUpdates]});
+    }
     return true;
 }
 

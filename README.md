@@ -181,16 +181,16 @@ Operation: **openorders**
 
 Arguments: `[orders]`
 
-Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus]
+Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,txhash,remaining]
 
 ```json
 {
   "op": "openorders",
   "args": [
       [
-        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23", "o" ],
-        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, "24", "o" ],
-        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174", "o" ]
+        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23", "o", null, 0.1 ],
+        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, "24", "pf",null, 0.05 ],
+        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174", "pm", null, 0.02 ]
       ]
   ]
 }
