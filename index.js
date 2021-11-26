@@ -176,9 +176,10 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             orderId = msg.args[1];
             const fillOrder = msg.args[2];
-            zktx = await matchorder(chainid, orderId, fillOrder);
-            ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, zktx,fillOrder]}));
+            const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
+            ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
             broadcastMessage({op:"orderstatus",args:[[[chainid,orderId,'m']]]});
+            broadcastMessage({op:"fills",args:[[matchOrderResult.fill]]});
             break
         case "subscribemarket":
             chainid = msg.args[0];
@@ -200,8 +201,8 @@ async function handleMessage(msg, ws) {
             } catch (e) {
                 console.error(e);
             }
-            ws.send(JSON.stringify({"op":"openorders", args: [openorders]}))
-            ws.send(JSON.stringify({"op":"fillhistory", args: [filledorders]}))
+            ws.send(JSON.stringify({"op":"orders", args: [openorders]}))
+            ws.send(JSON.stringify({"op":"fills", args: [filledorders]}))
             if ( ([1,1000]).includes(chainid) ) {
                 const liquidity = getLiquidity(chainid, market);
                 ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
@@ -244,11 +245,13 @@ async function handleMessage(msg, ws) {
 }
 
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
+    if (chainid == 1001) throw new Error("Not for Starknet orders");
+
     let update;
     try {
         const values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm')", values);
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_order_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm')", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm')", values);
     }
     catch (e) {
         console.error("Error while updating fill status");
@@ -264,7 +267,7 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
         let values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
         values = [newstatus,txhash,chainid, orderid];
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_order_id=$4 AND chainid=$3", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3", values);
     }
     catch (e) {
         console.error("Error while updating matched order");
@@ -325,7 +328,7 @@ async function processorderzksync(chainid, zktx) {
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
     
     // broadcast new order
-    broadcastMessage({"op":"openorders", args: [[orderreceipt]]});
+    broadcastMessage({"op":"orders", args: [[orderreceipt]]});
     user_connections[chainid][user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
 
     return orderId
@@ -352,18 +355,22 @@ async function processorderstarknet(chainid, zktx) {
         await client.query(query, values);
         const fills = await client.query("FETCH ALL FROM fills");
         console.log(fills.rows);
-        const orderupdates = fills.rows.map(row => {
+        const orderupdates = [];
+        const marketFills = [];
+        fills.rows.forEach(row => { 
             if (row.remaining > 0)
-                return [chainid,row.maker_offer_id,'pm', row.fill_qty, row.remaining];
+                orderupdates.push([chainid,row.maker_offer_id,'pm', row.fill_qty, row.remaining]);
             else
-                return [chainid,row.maker_offer_id,'m'];
+                orderupdates.push([chainid,row.maker_offer_id,'m']);
+            marketFills.push([chainid,row.fill_id,market,side,row.price,row.fill_qty]);
         });
         broadcastMessage({"op":"orderstatus", args:[orderupdates]});
+        broadcastMessage({"op":"fills", args:[marketFills]});
         const offer = await client.query("FETCH ALL FROM offer");
         console.log(offer.rows);
         const openorders = offer.rows.map(row => [chainid, row.order_id, market, row.side, row.price, row.amount, row.price*row.amount,expiration,user,row.order_status,null,row.unfilled]);
         if (openorders.length > 0) {
-            broadcastMessage({"op":"openorders", args:[openorders]});
+            broadcastMessage({"op":"orders", args:[openorders]});
         }
         await client.query('COMMIT')
     } catch (e) {
@@ -400,7 +407,7 @@ async function cancelorder(chainid, orderId, ws) {
 async function matchorder(chainid, orderId, fillOrder) {
     // TODO: Validation logic to make sure the orders match and the user is getting a good fill
     let values = [orderId, chainid];
-    const select = await pool.query("SELECT userid, price, base_quantity, market, zktx FROM offers WHERE id=$1 AND chainid=$2", values);
+    const select = await pool.query("SELECT userid, price, base_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2", values);
     if (select.rows.length === 0) throw new Error("No order found for ID " + orderId);
     const selectresult = select.rows[0];
     const zktx = JSON.parse(selectresult.zktx);
@@ -408,9 +415,11 @@ async function matchorder(chainid, orderId, fillOrder) {
     const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2", values);
 
     values = [orderId, chainid, selectresult.market, selectresult.userid, selectresult.price, selectresult.base_quantity];
-    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_order_id, taker_user_id, price, amount) VALUES ($2, $3, $1, $4, $5, $6)", values);
+    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount) VALUES ($2, $3, $1, $4, $5, $6) RETURNING id", values);
+    const fill_id = update2.rows[0].id;
+    const fill = [chainid, fill_id, selectresult.market, selectresult.side, selectresult.price, selectresult.base_quantity]; 
 
-    return zktx;
+    return { zktx, fill };
 }
 
 
@@ -442,7 +451,7 @@ async function getuserorders(chainid, userid) {
 
 async function getfilledorders(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
+        text: "SELECT chainid,id,market,side,price,base_quantity FROM offers WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
         values: [market, chainid],
         rowMode: 'array'
     }
@@ -543,7 +552,6 @@ async function updatePendingOrders() {
     }
     const update = await pool.query(query);
     if (update.rowCount > 0) {
-        console.log(update);
         const orderUpdates = update.rows.map(row => [row.chainid, row.id, row.order_status]);
         broadcastMessage({"op":"orderstatus", args: [orderUpdates]});
     }
