@@ -44,46 +44,35 @@ CREATE TABLE IF NOT EXISTS fills (
 -- SELECT match_limit_order((SELECT id FROM users WHERE email = 'user-a@example.com' AND obsolete = FALSE), (SELECT id FROM markets WHERE base_symbol = 'BTC' AND quote_symbol = 'USD' AND obsolete = FALSE), 'sell', 4993.0, 0.5);
 --
 -- Notes: Currently lots of copied code in this and no tests yet.
--- Cursors containing resulting fills and order are not yet implemented.
+-- Returns a table of IDs. That list ID in the table is the offer ID. Every other ID in the table is a fill ID.
 -------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _amount NUMERIC, _fills REFCURSOR, _offer REFCURSOR)
-  RETURNS SETOF REFCURSOR
+CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _amount NUMERIC, _zktx TEXT)
+  RETURNS TABLE (
+    id INTEGER
+  )
   LANGUAGE plpgsql
 AS $$
 DECLARE
   match RECORD;
   amount_taken NUMERIC(32, 16);
   amount_remaining NUMERIC(32, 16);
-  taker_offer_id INTEGER;
+  _taker_offer_id INTEGER;
 BEGIN
-  CREATE TEMPORARY TABLE tmp_fills (
-    fill_id INTEGER,
-    maker_offer_id INTEGER,
-    price NUMERIC(32, 16),
-    fill_qty NUMERIC(32, 16),
-    remaining NUMERIC(32, 16)
-  ) ON COMMIT DROP;
-  CREATE TEMPORARY TABLE tmp_offer (
-    order_id INTEGER,
-    side CHAR(1),
-    price NUMERIC(32, 16),
-    amount NUMERIC(32, 16),
-    order_status TEXT,
-    unfilled NUMERIC(32,16)
+  CREATE TEMPORARY TABLE tmp_ret (
+    id INTEGER
   ) ON COMMIT DROP;
 
   -- Insert initial order to get an orderid
-  INSERT INTO offers (chainid , userid, market, side, price, base_quantity, order_status, order_type, quote_quantity, expires, unfilled) 
+  INSERT INTO offers (chainid , userid, market, side, price, base_quantity, order_status, order_type, quote_quantity, expires, unfilled, zktx, insert_timestamp) 
   VALUES (
       _chainid , _userid, _market, _side, _price, _amount, 
-      CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _amount THEN 'pm' ELSE 'o' END, 
-      'limit', 
+      'o', 'l', 
       _amount * _price, 
       EXTRACT(epoch FROM (NOW() + '1 day')), 
-      _amount 
+      _amount, _zktx, NOW()
   )
-  RETURNING id INTO taker_offer_id;
+  RETURNING offers.id INTO _taker_offer_id;
 
   amount_remaining := _amount;
 
@@ -96,8 +85,8 @@ BEGIN
           RAISE NOTICE '  amount_remaining % < match.unfilled % = this offer is NOT completely filled by this order', amount_remaining, match.unfilled;
           amount_taken := amount_remaining;
           amount_remaining := amount_remaining - amount_taken;
-          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING id, match.id, match.price, amount_taken, match.unfilled - amount_taken) INSERT INTO tmp_fills SELECT * FROM fill;
-          UPDATE offers SET unfilled = unfilled - amount_taken WHERE id = match.id;
+          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
+          UPDATE offers SET unfilled = unfilled - amount_taken WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
             RAISE NOTICE '  order complete';
             EXIT; -- exit loop
@@ -106,8 +95,8 @@ BEGIN
           RAISE NOTICE '  amount_remaining % >= match.unfilled % = this offer is completely filled by this order', amount_remaining, match.unfilled;
           amount_taken := match.unfilled;
           amount_remaining := amount_remaining - amount_taken;
-          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING id, match.id, match.price, amount_taken, match.unfilled - amount_taken) INSERT INTO tmp_fills SELECT * FROM fill;
-          UPDATE offers SET unfilled = unfilled - amount_taken WHERE id = match.id;
+          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
+          UPDATE offers SET unfilled = unfilled - amount_taken WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
             RAISE NOTICE '  order complete';
             EXIT; -- exit loop
@@ -123,8 +112,8 @@ BEGIN
           RAISE NOTICE '  amount_remaining % < match.unfilled % = this offer isnt completely filled by this order', amount_remaining, match.unfilled;
           amount_taken := amount_remaining;
           amount_remaining := amount_remaining - amount_taken;
-          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING id, match.id, match.price, amount_taken, match.unfilled - amount_taken) INSERT INTO tmp_fills SELECT * FROM fill;
-          UPDATE offers SET unfilled = unfilled - amount_taken WHERE id = match.id;
+          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
+          UPDATE offers SET unfilled = unfilled - amount_taken WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
             RAISE NOTICE '  order complete';
                 EXIT; -- exit loop
@@ -134,8 +123,8 @@ BEGIN
           amount_taken := match.unfilled;
           amount_remaining := amount_remaining - amount_taken;
           RAISE NOTICE '  amount_remaining % after order is filled', amount_remaining;
-          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING id, match.id, match.price, amount_taken, match.unfilled - amount_taken) INSERT INTO tmp_fills SELECT * FROM fill;
-          UPDATE offers SET unfilled = 0 WHERE id = match.id;
+          WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
+          UPDATE offers SET unfilled = 0 WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
             RAISE NOTICE '  order complete';
             EXIT; -- exit loop
@@ -146,22 +135,15 @@ BEGIN
   END IF;
 
   -- Update offer with fill and status data 
-  WITH offer AS (
-      UPDATE offers SET 
-        order_status=(CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _amount THEN 'pm' ELSE 'o' END),
-        unfilled=amount_remaining
-      WHERE id=taker_offer_id
-      RETURNING id, side, price, base_quantity, order_status, unfilled
-  ) INSERT INTO tmp_offer SELECT * FROM offer;
-  
-  
+  UPDATE offers SET 
+    order_status=(CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _amount THEN 'pm' ELSE 'o' END),
+    unfilled=amount_remaining
+  WHERE offers.id=_taker_offer_id;
 
-  -- return results
-  OPEN _fills FOR SELECT * FROM tmp_fills;
-  RETURN NEXT _fills;
-
-  OPEN _offer FOR SELECT * FROM tmp_offer;
-  RETURN NEXT _offer;
+  INSERT INTO tmp_ret (id) VALUES (_taker_offer_id);
+  
+  RETURN QUERY 
+    SELECT * FROM tmp_ret;
 
 END;
 $$;

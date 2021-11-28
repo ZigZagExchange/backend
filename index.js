@@ -6,6 +6,7 @@ import fs from 'fs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
+import * as starknet from 'starknet';
 
 dotenv.config()
 
@@ -346,38 +347,64 @@ async function processorderstarknet(chainid, zktx) {
     const expiration = zktx[7];
     const order_type = 'limit';
 
-    const client = await pool.connect()
+    const query = "SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7)"
+    let values = [chainid, user, market, side, price, base_quantity, JSON.stringify(zktx)];
+    console.log(values);
+    const matchquery = await pool.query(query, values);
+    const fill_ids = matchquery.rows.slice(0, matchquery.rows.length-1).map(r => r.id);
+    const offer_id = matchquery.rows[matchquery.rows.length-1].id;
+
+    const fills = await pool.query("SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)", [fill_ids]);
+    console.log("fills", fills.rows);
+    const offerquery = await pool.query("SELECT * FROM offers WHERE id = $1", [offer_id]);
+    const offer = offerquery.rows[0];
+    console.log("offer", offer);
+
+    const orderupdates = [];
+    const marketFills = [];
+    fills.rows.forEach(row => { 
+        if (row.remaining > 0)
+            orderupdates.push([chainid,row.maker_offer_id,'pm', row.amount, row.maker_unfilled]);
+        else
+            orderupdates.push([chainid,row.maker_offer_id,'m']);
+        marketFills.push([chainid,row.id,market,side,row.price,row.amount]);
+
+        relayStarknetMatch(JSON.parse(row.maker_zktx), JSON.parse(offer.zktx), row.amount,row.price);
+    });
+    broadcastMessage({"op":"orderstatus", args:[orderupdates]});
+    broadcastMessage({"op":"fills", args:[marketFills]});
+
+    const order = [chainid, offer.id, market, offer.side, offer.price, offer.base_quantity, offer.price*offer.base_quantity,offer.expires,offer.user_id,offer.order_status,null,offer.unfilled];
+    broadcastMessage({"op":"orders", args:[[order]]});
+}
+
+async function relayStarknetMatch(maker, taker, fillQty, fillPrice) {
+    const baseAssetDecimals = starknetAssets[starknetContracts[maker[2]]].decimals;
+    fillQty = (fillQty * Math.pow(10, baseAssetDecimals)).toFixed(0);
+    fillQty = 1;
+    fillPrice = (fillPrice * Math.pow(10, 6)).toFixed(0);
+    maker[1] = BigInt(maker[1]).toString();
+    maker[2] = BigInt(maker[2]).toString();
+    maker[3] = BigInt(maker[3]).toString();
+    maker[8] = BigInt('0x' + maker[8]).toString();
+    maker[9] = BigInt('0x' + maker[9]).toString();
+    taker[1] = BigInt(taker[1]).toString();
+    taker[2] = BigInt(taker[2]).toString();
+    taker[3] = BigInt(taker[3]).toString();
+    taker[8] = BigInt('0x' + taker[8]).toString();
+    taker[9] = BigInt('0x' + taker[9]).toString();
+    const calldata = [...maker, ...taker, fillQty, fillPrice];
+    console.log(JSON.stringify(calldata).replace(/"/g, ' ').replace(/,/g, ' '));
     try {
-        await client.query('BEGIN')
-        const query = "SELECT match_limit_order($1, $2, $3, $4, $5, $6, 'fills', 'offer')"
-        const values = [chainid, user, market, side, price, base_quantity];
-        console.log(values);
-        await client.query(query, values);
-        const fills = await client.query("FETCH ALL FROM fills");
-        console.log(fills.rows);
-        const orderupdates = [];
-        const marketFills = [];
-        fills.rows.forEach(row => { 
-            if (row.remaining > 0)
-                orderupdates.push([chainid,row.maker_offer_id,'pm', row.fill_qty, row.remaining]);
-            else
-                orderupdates.push([chainid,row.maker_offer_id,'m']);
-            marketFills.push([chainid,row.fill_id,market,side,row.price,row.fill_qty]);
-        });
-        broadcastMessage({"op":"orderstatus", args:[orderupdates]});
-        broadcastMessage({"op":"fills", args:[marketFills]});
-        const offer = await client.query("FETCH ALL FROM offer");
-        console.log(offer.rows);
-        const openorders = offer.rows.map(row => [chainid, row.order_id, market, row.side, row.price, row.amount, row.price*row.amount,expiration,user,row.order_status,null,row.unfilled]);
-        if (openorders.length > 0) {
-            broadcastMessage({"op":"orders", args:[openorders]});
-        }
-        await client.query('COMMIT')
+        const relayResult = await starknet.defaultProvider.addTransaction({
+            type: "INVOKE_FUNCTION",
+            contract_address: process.env.STARKNET_CONTRACT_ADDRESS,
+            entry_point_selector: starknet.stark.getSelectorFromName("fill_order"),
+            calldata: [...maker, ...taker, fillQty, fillPrice]
+        })
+        console.log(relayResult);
     } catch (e) {
-        await client.query('ROLLBACK')
-        throw e
-    } finally {
-        client.release()
+        //console.error(e.response);
     }
 }
 

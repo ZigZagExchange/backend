@@ -24,6 +24,7 @@
     "node-fetch": "^3.0.0",
     "npm": "^7.21.0",
     "pg": "^8.7.1",
+    "starknet": "^2.0.2",
     "ws": "^8.2.2"
   },
   "optionalDependencies": {
