@@ -342,9 +342,9 @@ async function processorderstarknet(chainid, zktx) {
     const market = baseCurrency + "-" + quoteCurrency;
     const side = zktx[4] === 0 ? 'b': 's';
     const base_quantity = zktx[5] / Math.pow(10, starknetAssets[baseCurrency].decimals);
-    const price = zktx[6] / 1e6;
+    const price = (zktx[6] / zktx[7]) * 10**(starknetAssets[baseCurrency].decimals - starknetAssets[quoteCurrency].decimals);
     const quote_quantity = price*base_quantity;
-    const expiration = zktx[7];
+    const expiration = zktx[8];
     const order_type = 'limit';
 
     const query = "SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7)"
@@ -354,7 +354,7 @@ async function processorderstarknet(chainid, zktx) {
     const fill_ids = matchquery.rows.slice(0, matchquery.rows.length-1).map(r => r.id);
     const offer_id = matchquery.rows[matchquery.rows.length-1].id;
 
-    const fills = await pool.query("SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)", [fill_ids]);
+    const fills = await pool.query("SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)", [fill_ids]);
     console.log("fills", fills.rows);
     const offerquery = await pool.query("SELECT * FROM offers WHERE id = $1", [offer_id]);
     const offer = offerquery.rows[0];
@@ -369,7 +369,16 @@ async function processorderstarknet(chainid, zktx) {
             orderupdates.push([chainid,row.maker_offer_id,'m']);
         marketFills.push([chainid,row.id,market,side,row.price,row.amount]);
 
-        relayStarknetMatch(JSON.parse(row.maker_zktx), JSON.parse(offer.zktx), row.amount,row.price);
+        let buyer, seller;
+        if (row.maker_side == 'b') {
+            buyer = row.maker_zktx;
+            seller = fill.zktx;
+        }
+        else if (row.maker_side == 's') {
+            buyer = row.taker_zktx;
+            seller = fill.zktx;
+        }
+        relayStarknetMatch(JSON.parse(buyer), JSON.parse(seller), row.amount,row.price);
     });
     broadcastMessage({"op":"orderstatus", args:[orderupdates]});
     broadcastMessage({"op":"fills", args:[marketFills]});
@@ -378,32 +387,34 @@ async function processorderstarknet(chainid, zktx) {
     broadcastMessage({"op":"orders", args:[[order]]});
 }
 
-async function relayStarknetMatch(maker, taker, fillQty, fillPrice) {
-    const baseAssetDecimals = starknetAssets[starknetContracts[maker[2]]].decimals;
+async function relayStarknetMatch(buyer, seller, fillQty, fillPrice) {
+    const baseAssetDecimals = starknetAssets[starknetContracts[buyer[2]]].decimals;
+    const quoteAssetDecimals = starknetAssets[starknetContracts[buyer[3]]].decimals;
+    const decimalDifference = baseAssetDecimals - quoteAssetDecimals;
+    const fillPriceRatio = ["1", (1 / fillPrice * 10**(decimalDifference)).toFixed(0)];
     fillQty = (fillQty * Math.pow(10, baseAssetDecimals)).toFixed(0);
-    fillQty = 1;
-    fillPrice = (fillPrice * Math.pow(10, 6)).toFixed(0);
-    maker[1] = BigInt(maker[1]).toString();
-    maker[2] = BigInt(maker[2]).toString();
-    maker[3] = BigInt(maker[3]).toString();
-    maker[8] = BigInt('0x' + maker[8]).toString();
-    maker[9] = BigInt('0x' + maker[9]).toString();
-    taker[1] = BigInt(taker[1]).toString();
-    taker[2] = BigInt(taker[2]).toString();
-    taker[3] = BigInt(taker[3]).toString();
-    taker[8] = BigInt('0x' + taker[8]).toString();
-    taker[9] = BigInt('0x' + taker[9]).toString();
-    const calldata = [...maker, ...taker, fillQty, fillPrice];
+    buyer[1] = BigInt(buyer[1]).toString();
+    buyer[2] = BigInt(buyer[2]).toString();
+    buyer[3] = BigInt(buyer[3]).toString();
+    buyer[9] = BigInt('0x' + buyer[8]).toString();
+    buyer[10] = BigInt('0x' + buyer[9]).toString();
+    seller[1] = BigInt(seller[1]).toString();
+    seller[2] = BigInt(seller[2]).toString();
+    seller[3] = BigInt(seller[3]).toString();
+    seller[9] = BigInt('0x' + seller[8]).toString();
+    seller[10] = BigInt('0x' + seller[9]).toString();
+    const calldata = [...buyer, ...seller, fillQty, ...fillPriceRatio];
     console.log(JSON.stringify(calldata).replace(/"/g, ' ').replace(/,/g, ' '));
     try {
         const relayResult = await starknet.defaultProvider.addTransaction({
             type: "INVOKE_FUNCTION",
             contract_address: process.env.STARKNET_CONTRACT_ADDRESS,
             entry_point_selector: starknet.stark.getSelectorFromName("fill_order"),
-            calldata: [...maker, ...taker, fillQty, fillPrice]
+            calldata
         })
         console.log(relayResult);
     } catch (e) {
+        console.error("Starknet tx failed");
         //console.error(e.response);
     }
 }
