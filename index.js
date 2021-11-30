@@ -136,7 +136,7 @@ async function handleMessage(msg, ws) {
             active_connections[ws.uuid].userid = userid;
             user_connections[chainid][userid] = ws;
             const userorders = await getuserorders(chainid, userid);
-            ws.send(JSON.stringify({"op":"userorders", args: [userorders]}))
+            ws.send(JSON.stringify({"op":"orders", args: [userorders]}))
             break
         case "indicatemaker":
             break
@@ -336,11 +336,15 @@ async function processorderzksync(chainid, zktx) {
 }
 
 async function processorderstarknet(chainid, zktx) {
+    for (let i in zktx) {
+        if (typeof zktx[i] !== "string") throw new Error("All order arguments must be cast to string");
+    }
     const user = zktx[1];
     const baseCurrency = starknetContracts[zktx[2]];
     const quoteCurrency = starknetContracts[zktx[3]];
     const market = baseCurrency + "-" + quoteCurrency;
-    const side = zktx[4] === 0 ? 'b': 's';
+    if (zktx[4] != 1 && zktx[4] != 0) throw new Error("Invalid side");
+    const side = zktx[4] == 0 ? 'b': 's';
     const base_quantity = zktx[5] / Math.pow(10, starknetAssets[baseCurrency].decimals);
     const price = (zktx[6] / zktx[7]) * 10**(starknetAssets[baseCurrency].decimals - starknetAssets[quoteCurrency].decimals);
     const quote_quantity = price*base_quantity;
@@ -363,7 +367,7 @@ async function processorderstarknet(chainid, zktx) {
     const orderupdates = [];
     const marketFills = [];
     fills.rows.forEach(row => { 
-        if (row.remaining > 0)
+        if (row.maker_unfilled > 0)
             orderupdates.push([chainid,row.maker_offer_id,'pm', row.amount, row.maker_unfilled]);
         else
             orderupdates.push([chainid,row.maker_offer_id,'m']);
@@ -372,22 +376,21 @@ async function processorderstarknet(chainid, zktx) {
         let buyer, seller;
         if (row.maker_side == 'b') {
             buyer = row.maker_zktx;
-            seller = fill.zktx;
+            seller = offer.zktx;
         }
         else if (row.maker_side == 's') {
-            buyer = row.taker_zktx;
-            seller = fill.zktx;
+            buyer = offer.zktx;
+            seller = row.maker_zktx;
         }
-        relayStarknetMatch(JSON.parse(buyer), JSON.parse(seller), row.amount,row.price);
+        relayStarknetMatch(JSON.parse(buyer), JSON.parse(seller), row.amount,row.price, row.id, row.maker_offer_id, offer.id);
     });
-    broadcastMessage({"op":"orderstatus", args:[orderupdates]});
-    broadcastMessage({"op":"fills", args:[marketFills]});
-
-    const order = [chainid, offer.id, market, offer.side, offer.price, offer.base_quantity, offer.price*offer.base_quantity,offer.expires,offer.user_id,offer.order_status,null,offer.unfilled];
+    const order = [chainid, offer.id, market, offer.side, offer.price, offer.base_quantity, offer.price*offer.base_quantity,offer.expires,offer.userid,offer.order_status,null,offer.unfilled];
     broadcastMessage({"op":"orders", args:[[order]]});
+    if (orderupdates.length > 0) broadcastMessage({"op":"orderstatus", args:[orderupdates]});
+    if (marketFills.length > 0) broadcastMessage({"op":"fills", args:[marketFills]});
 }
 
-async function relayStarknetMatch(buyer, seller, fillQty, fillPrice) {
+async function relayStarknetMatch(buyer, seller, fillQty, fillPrice, fillId, makerOfferId, takerOfferId) {
     const baseAssetDecimals = starknetAssets[starknetContracts[buyer[2]]].decimals;
     const quoteAssetDecimals = starknetAssets[starknetContracts[buyer[3]]].decimals;
     const decimalDifference = baseAssetDecimals - quoteAssetDecimals;
@@ -396,26 +399,35 @@ async function relayStarknetMatch(buyer, seller, fillQty, fillPrice) {
     buyer[1] = BigInt(buyer[1]).toString();
     buyer[2] = BigInt(buyer[2]).toString();
     buyer[3] = BigInt(buyer[3]).toString();
-    buyer[9] = BigInt('0x' + buyer[8]).toString();
-    buyer[10] = BigInt('0x' + buyer[9]).toString();
+    buyer[9] = BigInt(buyer[9]).toString();
+    buyer[10] = BigInt(buyer[10]).toString();
     seller[1] = BigInt(seller[1]).toString();
     seller[2] = BigInt(seller[2]).toString();
     seller[3] = BigInt(seller[3]).toString();
-    seller[9] = BigInt('0x' + seller[8]).toString();
-    seller[10] = BigInt('0x' + seller[9]).toString();
-    const calldata = [...buyer, ...seller, fillQty, ...fillPriceRatio];
-    console.log(JSON.stringify(calldata).replace(/"/g, ' ').replace(/,/g, ' '));
+    seller[9] = BigInt(seller[9]).toString();
+    seller[10] = BigInt(seller[10]).toString();
+    const calldata = [...buyer, ...seller, ...fillPriceRatio, fillQty];
     try {
-        const relayResult = await starknet.defaultProvider.addTransaction({
+        const transactionDetails = {
             type: "INVOKE_FUNCTION",
             contract_address: process.env.STARKNET_CONTRACT_ADDRESS,
             entry_point_selector: starknet.stark.getSelectorFromName("fill_order"),
             calldata
-        })
-        console.log(relayResult);
+        }
+        const relayResult = await starknet.defaultProvider.addTransaction(transactionDetails);
+        console.log("Starknet tx success");
+        const fillupdate = await pool.query("UPDATE fills SET fill_status='f', txhash=$1 WHERE id=$2", [relayResult.transaction_hash, fillId]);
+        const orderupdate = await pool.query("UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END) WHERE id IN ($1, $2) RETURNING id, order_status", [makerOfferId, takerOfferId]);
+        const chainid = parseInt(buyer[0]);
+        const orderUpdates = orderupdate.rows.map(row => [chainid, row.id, row.order_status]);
+        broadcastMessage({"op":"orderstatus", args:[orderUpdates]});
     } catch (e) {
+        console.error(e);
         console.error("Starknet tx failed");
-        //console.error(e.response);
+        const orderupdate = await pool.query("UPDATE offers SET order_status='r' WHERE id IN ($1, $2) RETURNING id, order_status", [makerOfferId, takerOfferId]);
+        const chainid = parseInt(buyer[0]);
+        const orderUpdates = orderupdate.rows.map(row => [chainid, row.id, row.order_status]);
+        broadcastMessage({"op":"orderstatus", args:[orderUpdates]});
     }
 }
 
@@ -585,7 +597,7 @@ async function updateVolumes() {
 async function updatePendingOrders() {
     const one_min_ago = new Date(Date.now() - 60*1000).toISOString();
     const query = {
-        text: "UPDATE offers SET order_status='c' WHERE ((order_status='m' OR order_status='b') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+        text: "UPDATE offers SET order_status='c' WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
         values: [one_min_ago]
     }
     const update = await pool.query(query);
