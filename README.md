@@ -26,6 +26,20 @@ All messages the Zigzag Websocket API have the following structure
 
 Currently a user can only receive order updates on one connection at a time per chain. This may be upgraded in the future. 
 
+## Order Statuses
+
+Shorthand | Status
+--------- | ------
+c  | canceled
+o  | open
+e  | expired
+m  | matched, but not committed to chain. price listed in args.
+r  | rejected. txhash and error listed in args
+f  | filled and committed. txhash listed in args.
+b  | broadcasted. txhash listed in args. 
+pf | partial fill. quantity and price listed in args.
+pm | partial match. 
+
 ## Operations
 
 Operation: **ping**    
@@ -254,16 +268,6 @@ Operation: **orderstatus**
 Arguments: `[orderupdates]`
 
 Description: A series of order status updates. orderupdate = `[chainId,orderId,status,...args]`
-
-Statuses:
-Character | Status
---------- | ------
-c | canceled
-e | expired
-m | matched, but not committed to chain. price listed in args.
-r | rejected. txhash and error listed in args
-f | filled and committed. txhash listed in args.
-p | partial fill. quantity and price listed in args.
 
 
 ```json
