@@ -223,26 +223,35 @@ async function handleMessage(msg, ws) {
             const updates = msg.args[0];
             const orderUpdates = [];
             const fillUpdates = [];
-            updates.forEach(update => {
+            for (let i in updates) {
+                const update = updates[i];
                 const chainid = update[0];
                 const orderId = update[1];
                 const newstatus = update[2];
-                let success;
+                let success, fillId;
                 if (newstatus == 'b') {
                     const txhash = update[3];
-                    success = updateMatchedOrder(chainid, orderId, newstatus, txhash);
+                    const result = await updateMatchedOrder(chainid, orderId, newstatus, txhash);
+                    success = result.success;
+                    fillId = result.fillId;
                 }
                 if (newstatus == 'r' || newstatus == 'f') {
                     const txhash = update[3];
-                    success = updateOrderFillStatus(chainid, orderId, newstatus);
+                    const result = await updateOrderFillStatus(chainid, orderId, newstatus);
+                    success = result.success;
+                    fillId = result.fillId;
                 }
                 if (success) {
                     orderUpdates.push(update);
-                    // TODO: Fill updates
+                    const fillUpdate = [...update];
+                    fillUpdate[1] = fillId;
+                    fillUpdates.push(fillUpdate);
                 }
-            });
-            if (broadcastUpdates.length > 0) {
+            }
+            if (orderUpdates.length > 0) {
                 broadcastMessage({op:"orderstatus",args: [orderUpdates]});
+            }
+            if (fillUpdates.length > 0) {
                 broadcastMessage({op:"fillstatus",args: [fillUpdates]});
             }
         default:
@@ -253,34 +262,40 @@ async function handleMessage(msg, ws) {
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
     if (chainid == 1001) throw new Error("Not for Starknet orders");
 
-    let update;
+    let update, fillId;
     try {
         const values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm')", values);
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm')", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id", values);
+        if (update2.rows.length > 0) {
+            fillId = update2.rows[0].id;
+        }
     }
     catch (e) {
         console.error("Error while updating fill status");
         console.error(e);
         return false;
     }
-    return update.affectedRows > 0;
+    return { success: update.rowCount > 0, fillId };
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
-    let update;
+    let update, fillId;
     try {
         let values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
         values = [newstatus,txhash,chainid, orderid];
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id", values);
+        if (update2.rows.length > 0) {
+            fillId = update2.rows[0].id;
+        }
     }
     catch (e) {
         console.error("Error while updating matched order");
         console.error(e);
         return false;
     }
-    return update.affectedRows > 0;
+    return { success: update.rowCount > 0, fillId };
 }
 
 async function processorderzksync(chainid, zktx) {
