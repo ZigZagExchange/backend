@@ -221,7 +221,8 @@ async function handleMessage(msg, ws) {
             break
         case "orderstatusupdate":
             const updates = msg.args[0];
-            const broadcastUpdates = [];
+            const orderUpdates = [];
+            const fillUpdates = [];
             updates.forEach(update => {
                 const chainid = update[0];
                 const orderId = update[1];
@@ -236,11 +237,13 @@ async function handleMessage(msg, ws) {
                     success = updateOrderFillStatus(chainid, orderId, newstatus);
                 }
                 if (success) {
-                    broadcastUpdates.push(update);
+                    orderUpdates.push(update);
+                    // TODO: Fill updates
                 }
             });
             if (broadcastUpdates.length > 0) {
-                broadcastMessage({op:"orderstatus",args: [broadcastUpdates]});
+                broadcastMessage({op:"orderstatus",args: [orderUpdates]});
+                broadcastMessage({op:"fillstatus",args: [fillUpdates]});
             }
         default:
             break
@@ -469,9 +472,9 @@ async function matchorder(chainid, orderId, fillOrder) {
     const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2", values);
 
     values = [orderId, chainid, selectresult.market, selectresult.userid, selectresult.price, selectresult.base_quantity, selectresult.side];
-    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount, side) VALUES ($2, $3, $1, $4, $5, $6, $7) RETURNING id", values);
+    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount, side, fill_status) VALUES ($2, $3, $1, $4, $5, $6, $7, 'm') RETURNING id", values);
     const fill_id = update2.rows[0].id;
-    const fill = [chainid, fill_id, selectresult.market, selectresult.side, selectresult.price, selectresult.base_quantity, selectresult.side]; 
+    const fill = [chainid, fill_id, selectresult.market, selectresult.side, selectresult.price, selectresult.base_quantity, 'm', null, selectresult.userid, null]; 
 
     return { zktx, fill };
 }
