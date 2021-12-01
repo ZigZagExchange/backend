@@ -136,7 +136,9 @@ async function handleMessage(msg, ws) {
             active_connections[ws.uuid].userid = userid;
             user_connections[chainid][userid] = ws;
             const userorders = await getuserorders(chainid, userid);
+            const userfills = await getuserfills(chainid, userid);
             ws.send(JSON.stringify({"op":"orders", args: [userorders]}))
+            ws.send(JSON.stringify({"op":"fills", args: [userfills]}))
             break
         case "indicatemaker":
             break
@@ -186,7 +188,7 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             const openorders = await getopenorders(chainid, market);
-            const filledorders = await getfilledorders(chainid, market);
+            const fills = await getfills(chainid, market);
             const priceData = validMarkets[chainid][market].marketSummary.price;
             let volumes = validMarkets[chainid][market].volumes;
             if (!volumes) {
@@ -203,7 +205,7 @@ async function handleMessage(msg, ws) {
                 console.error(e);
             }
             ws.send(JSON.stringify({"op":"orders", args: [openorders]}))
-            ws.send(JSON.stringify({"op":"fills", args: [filledorders]}))
+            ws.send(JSON.stringify({"op":"fills", args: [fills]}))
             if ( ([1,1000]).includes(chainid) ) {
                 const liquidity = getLiquidity(chainid, market);
                 ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
@@ -371,7 +373,7 @@ async function processorderstarknet(chainid, zktx) {
             orderupdates.push([chainid,row.maker_offer_id,'pm', row.amount, row.maker_unfilled]);
         else
             orderupdates.push([chainid,row.maker_offer_id,'m']);
-        marketFills.push([chainid,row.id,market,side,row.price,row.amount]);
+        marketFills.push([chainid,row.id,market,side,row.price,row.amount,row.fill_status,row.txhash,row.taker_user_id,row.maker_user_id]);
 
         let buyer, seller;
         if (row.maker_side == 'b') {
@@ -416,11 +418,13 @@ async function relayStarknetMatch(buyer, seller, fillQty, fillPrice, fillId, mak
         }
         const relayResult = await starknet.defaultProvider.addTransaction(transactionDetails);
         console.log("Starknet tx success");
-        const fillupdate = await pool.query("UPDATE fills SET fill_status='f', txhash=$1 WHERE id=$2", [relayResult.transaction_hash, fillId]);
+        const fillupdate = await pool.query("UPDATE fills SET fill_status='f', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash", [relayResult.transaction_hash, fillId]);
         const orderupdate = await pool.query("UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END) WHERE id IN ($1, $2) RETURNING id, order_status", [makerOfferId, takerOfferId]);
         const chainid = parseInt(buyer[0]);
         const orderUpdates = orderupdate.rows.map(row => [chainid, row.id, row.order_status]);
+        const fillUpdates = fillupdate.rows.map(row => [chainid, row.id, row.fill_status, row.txhash]);
         broadcastMessage({"op":"orderstatus", args:[orderUpdates]});
+        broadcastMessage({"op":"fillstatus", args:[fillUpdates]});
     } catch (e) {
         console.error(e);
         console.error("Starknet tx failed");
@@ -464,10 +468,10 @@ async function matchorder(chainid, orderId, fillOrder) {
 
     const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2", values);
 
-    values = [orderId, chainid, selectresult.market, selectresult.userid, selectresult.price, selectresult.base_quantity];
-    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount) VALUES ($2, $3, $1, $4, $5, $6) RETURNING id", values);
+    values = [orderId, chainid, selectresult.market, selectresult.userid, selectresult.price, selectresult.base_quantity, selectresult.side];
+    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount, side) VALUES ($2, $3, $1, $4, $5, $6, $7) RETURNING id", values);
     const fill_id = update2.rows[0].id;
-    const fill = [chainid, fill_id, selectresult.market, selectresult.side, selectresult.price, selectresult.base_quantity]; 
+    const fill = [chainid, fill_id, selectresult.market, selectresult.side, selectresult.price, selectresult.base_quantity, selectresult.side]; 
 
     return { zktx, fill };
 }
@@ -481,8 +485,18 @@ async function broadcastMessage(msg) {
 
 async function getopenorders(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,null,unfilled FROM offers WHERE market=$1 AND chainid=$2 AND unfilled > 0 AND order_status IN ('o', 'pm', 'pf')",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE market=$1 AND chainid=$2 AND unfilled > 0 AND order_status IN ('o', 'pm', 'pf')",
         values: [market, chainid],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    return select.rows;
+}
+
+async function getuserfills(chainid, userid) {
+    const query = {
+        text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25",
+        values: [chainid, userid],
         rowMode: 'array'
     }
     const select = await pool.query(query);
@@ -491,7 +505,7 @@ async function getopenorders(chainid, market) {
 
 async function getuserorders(chainid, userid) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE chainid=$1 AND userid=$2 ORDER BY id DESC LIMIT 25",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE chainid=$1 AND userid=$2 AND order_status IN ('o','pm','pf') ORDER BY id DESC LIMIT 25",
         values: [chainid, userid],
         rowMode: 'array'
     }
@@ -499,9 +513,9 @@ async function getuserorders(chainid, userid) {
     return select.rows;
 }
 
-async function getfilledorders(chainid, market) {
+async function getfills(chainid, market) {
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity FROM offers WHERE market=$1 AND chainid=$2 AND order_status='f' ORDER BY id DESC LIMIT 5",
+        text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 5",
         values: [market, chainid],
         rowMode: 'array'
     }
