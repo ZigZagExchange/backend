@@ -189,15 +189,15 @@ async function handleMessage(msg, ws) {
             market = msg.args[1];
             const openorders = await getopenorders(chainid, market);
             const fills = await getfills(chainid, market);
-            const priceData = validMarkets[chainid][market].marketSummary.price;
-            let volumes = validMarkets[chainid][market].volumes;
-            if (!volumes) {
-                volumes = {
-                    base: 0, 
-                    quote: 0
-                }
-            }
             try {
+                const priceData = validMarkets[chainid][market].marketSummary.price;
+                let volumes = validMarkets[chainid][market].volumes;
+                if (!volumes) {
+                    volumes = {
+                        base: 0, 
+                        quote: 0
+                    }
+                }
                 const priceChange = parseFloat(priceData.change.absolute.toPrecision(6));
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, volumes.base, volumes.quote]};
                 ws.send(JSON.stringify(marketSummaryMsg));
