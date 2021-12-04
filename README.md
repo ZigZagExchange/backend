@@ -1,9 +1,7 @@
 ZigZag Websocket API
 ====================
 
-Rinkeby Base URL: wss://zigzag-rinkeby.herokuapp.com
-
-Mainnet Base URL: Currently Unsupported
+Base URL: wss://zigzag-exchange.herokuapp.com
 
 # Chain IDs
 
