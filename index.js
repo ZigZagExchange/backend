@@ -86,12 +86,13 @@ for (let chain in validMarkets) {
 await updateMarketSummaries();
 await updateVolumes();
 await updatePendingOrders();
+cryptowatchWsSetup();
+setInterval(updateMarketSummaries, 30000);
 setInterval(async function () {
     clearDeadConnections();
-    await updateMarketSummaries();
     const lastprices = getLastPrices();
     broadcastMessage({"op":"lastprice", args: [lastprices]});
-}, 5000);
+}, 3000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
 
@@ -587,6 +588,55 @@ function getLiquidity(chainid, market) {
     return validMarkets[chainid][market].liquidity;
 }
 
+async function cryptowatchWsSetup() {
+    const cryptowatch_market_ids = {
+        579: "BTC-USDT",
+        588: "ETH-USDT",
+        6631: "ETH-USDC",
+        6636: "USDC-USDT",
+    }
+
+    const subscriptionMsg = {
+      "subscribe": {
+        "subscriptions": []
+      }
+    }
+    for (let market_id in cryptowatch_market_ids) {
+          subscriptionMsg.subscribe.subscriptions.push({
+            "streamSubscription": {
+              "resource": `markets:${market_id}:trades`
+            }
+          })
+    }
+    let cryptowatch_ws = new WebSocket("wss://stream.cryptowat.ch/connect?apikey=" + process.env.CRYPTOWATCH_API_KEY);
+    cryptowatch_ws.on('open', onopen);
+    cryptowatch_ws.on('message', onmessage);
+    cryptowatch_ws.on('close', onclose);
+    function onopen() {
+        cryptowatch_ws.send(JSON.stringify(subscriptionMsg));
+    }
+    function onmessage (data) {
+        const msg = JSON.parse(data);
+        if (!msg.marketUpdate) return;
+
+        const market = cryptowatch_market_ids[msg.marketUpdate.market.marketId];
+        const trades = msg.marketUpdate.tradesUpdate.trades;
+        const price = trades[trades.length - 1].priceStr;
+        for (let chain in validMarkets) {
+            if (market in validMarkets[chain]) {
+                validMarkets[chain][market].marketSummary.price.last = price;
+            }
+        }
+    };
+    function onclose () {
+        setTimeout(cryptowatchWsSetup, 5000);
+    }
+}
+
+function connectCryptowatchWs () {
+}
+
+
 async function updateMarketSummaries() {
     const productUpdates = {};
     for (let chain in validMarkets) {
@@ -598,10 +648,15 @@ async function updateMarketSummaries() {
                 const cryptowatch_market = product.replace('-','').toLowerCase();
                 const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
                 const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
-                const r = await fetch(url, { headers });
-                const data = await r.json();
-                validMarkets[chain][product].marketSummary = data.result;
-                productUpdates[product] = data.result;
+                try {
+                    const r = await fetch(url, { headers });
+                    const data = await r.json();
+                    validMarkets[chain][product].marketSummary = data.result;
+                    productUpdates[product] = data.result;
+                } catch (e) {
+                    console.error(e);
+                    console.error("Cryptowatch API request failed");
+                }
             }
         }
     }
