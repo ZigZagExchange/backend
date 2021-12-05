@@ -41,6 +41,8 @@ const zkTokenIds = {
         0: {name:'ETH',decimals:18},
         4: {name:'USDT',decimals:6},
         2: {name:'USDC',decimals:6},
+        1: {name:'DAI',decimals:18},
+        15: {name:'WBTC',decimals:8},
     },
 
     // zkSync Rinkeby
@@ -48,6 +50,8 @@ const zkTokenIds = {
         0: {name:'ETH',decimals:18},
         1: {name:'USDT',decimals:6},
         2: {name:'USDC',decimals:6},
+        19: {name:'DAI',decimals:18},
+        15: {name:'WBTC',decimals:8},
     }
 }
 const validMarkets = {
@@ -56,6 +60,8 @@ const validMarkets = {
         "ETH-USDT": {},
         "ETH-USDC": {},
         "USDC-USDT": {},
+        "WBTC-USDT": {},
+        "ETH-DAI": {},
     },
     
     // zkSync Rinkeby
@@ -63,15 +69,23 @@ const validMarkets = {
         "ETH-USDT": {},
         "ETH-USDC": {},
         "USDC-USDT": {},
+        "ETH-DAI": {},
     },
     
     // Starknet Alpha
     1001: {
         "ETH-USDT": {},
         "ETH-USDC": {},
-        "USDC-USDT": {},
     }
 }
+const cryptowatch_market_ids = {
+    "WBTC-USDT": 579,
+    "ETH-USDT": 588,
+    "ETH-USDC": 6631,
+    "USDC-USDT": 6636,
+    "ETH-DAI": 63533,
+}
+
 
 const active_connections = {}
 const user_connections = {}
@@ -87,7 +101,7 @@ await updateMarketSummaries();
 await updateVolumes();
 await updatePendingOrders();
 cryptowatchWsSetup();
-setInterval(updateMarketSummaries, 30000);
+setInterval(updateMarketSummaries, 5000);
 setInterval(async function () {
     clearDeadConnections();
     const lastprices = getLastPrices();
@@ -188,8 +202,13 @@ async function handleMessage(msg, ws) {
         case "subscribemarket":
             chainid = msg.args[0];
             market = msg.args[1];
+            if (!validMarkets[chainid][market]) {
+                ws.send(JSON.stringify({"op":"error", args: ["invalid market"]}));
+                return false;
+            }
             const openorders = await getopenorders(chainid, market);
             const fills = await getfills(chainid, market);
+            const lastprices = getLastPrices();
             try {
                 const priceData = validMarkets[chainid][market].marketSummary.price;
                 let volumes = validMarkets[chainid][market].volumes;
@@ -205,6 +224,7 @@ async function handleMessage(msg, ws) {
             } catch (e) {
                 console.error(e);
             }
+            ws.send(JSON.stringify({"op":"lastprice", args: [lastprices]}));
             ws.send(JSON.stringify({"op":"orders", args: [openorders]}))
             ws.send(JSON.stringify({"op":"fills", args: [fills]}))
             if ( ([1,1000]).includes(chainid) ) {
@@ -565,7 +585,27 @@ function getLiquidity(chainid, market) {
             [2.13, 0.063, 'd'],
         ]
     }
-    else if (baseCurrency == "USDT" || baseCurrency == "USDC") {
+    else if (baseCurrency == "WBTC") {
+        validMarkets[chainid][market].liquidity = [
+            [1.2, 0.0008, 'd'],
+            [1.4, 0.0015, 'd'],
+            [0.25, 0.003, 'd'],
+            [0.11, 0.005, 'd'],
+            [0.12, 0.008, 'd'],
+            [1.0847, 0.01, 'd'],
+            [0.7023, 0.011, 'd'],
+            [0.3452, 0.013, 'd'],
+            [0.62, 0.02, 'd'],
+            [0.19, 0.025, 'd'],
+            [0.23, 0.039, 'd'],
+            [0.02, 0.041, 'd'],
+            [0.32, 0.049, 'd'],
+            [0.07, 0.051, 'd'],
+            [0.07, 0.052, 'd'],
+            [0.13, 0.063, 'd'],
+        ]
+    }
+    else if ((["USDC","USDT","FRAX"]).includes(baseCurrency)) {
         validMarkets[chainid][market].liquidity = [
             [70000, 0.0004, 'd'],
             [60000, 0.0007, 'd'],
@@ -584,6 +624,9 @@ function getLiquidity(chainid, market) {
             [1070, 0.0082, 'd'],
             [2130, 0.0093, 'd'],
         ]
+    }
+    else {
+        validMarkets[chainid][market].liquidity = [];
     }
     return validMarkets[chainid][market].liquidity;
 }
@@ -633,19 +676,30 @@ async function cryptowatchWsSetup() {
     }
 }
 
-function connectCryptowatchWs () {
-}
-
 
 async function updateMarketSummaries() {
     const productUpdates = {};
     for (let chain in validMarkets) {
         for (let product in validMarkets[chain]) {
+            let cryptowatch_product = product;
+            if (product === "WBTC-USDT") {
+                cryptowatch_product = "BTC-USDT";
+            }
             if (productUpdates[product]) {
                 validMarkets[chain][product].marketSummary = productUpdates[product];
             }
+            else if (product === "FRAX-USDC") {
+                validMarkets[chain][product].marketSummary = {
+                  price: {
+                    last: 1.0000,
+                    high: 1.001,
+                    low: 0.999,
+                    change: { percentage: 0, absolute: 0 }
+                  },
+                }
+            }
             else {
-                const cryptowatch_market = product.replace('-','').toLowerCase();
+                const cryptowatch_market = cryptowatch_product.replace("-", "").toLowerCase();
                 const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
                 const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
                 try {
@@ -654,7 +708,7 @@ async function updateMarketSummaries() {
                     validMarkets[chain][product].marketSummary = data.result;
                     productUpdates[product] = data.result;
                 } catch (e) {
-                    console.error(e);
+                    console.error(product, e);
                     console.error("Cryptowatch API request failed");
                 }
             }
@@ -712,6 +766,7 @@ function getLastPrices() {
                     lastprices.push([product, lastPrice, change]);
                     uniqueProducts.push(product);
                 } catch (e) {
+                    console.error(e);
                     console.log("Couldn't update price. Ignoring");
                 }
             }

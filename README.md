@@ -405,12 +405,12 @@ No example available
 
 Operation: **cancelorder**    
 
-Arguments: `[orderId]`
+Arguments: `[chainId, orderId]`
 
 Description: Cancel an order
 
 ```json
-{ "op":"cancelorder", "args": [122] }
+{ "op":"cancelorder", "args": [1000, 122] }
 ```
 
 ---
