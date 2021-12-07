@@ -59,9 +59,9 @@ const validMarkets = {
     1: {
         "ETH-USDT": {},
         "ETH-USDC": {},
-        "USDC-USDT": {},
-        "WBTC-USDT": {},
         "ETH-DAI": {},
+        "WBTC-USDT": {},
+        "USDC-USDT": {},
         "DAI-USDC": {},
         "DAI-USDT": {},
     },
@@ -70,8 +70,8 @@ const validMarkets = {
     1000: {
         "ETH-USDT": {},
         "ETH-USDC": {},
-        "USDC-USDT": {},
         "ETH-DAI": {},
+        "USDC-USDT": {},
         "DAI-USDC": {},
         "DAI-USDT": {},
     },
