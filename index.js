@@ -163,9 +163,16 @@ async function handleMessage(msg, ws) {
             if (chainid == 1 || chainid == 1000) {
                 processorderzksync(chainid, zktx);
             }
-            else if (chainid == 1001) {
-                processorderstarknet(chainid, zktx);
+            else if (chainid === 1001) {
+                try {
+                    processorderstarknet(chainid, zktx);
+                } catch (e) {
+                    console.error(e);
+                    return false;
+                }
             }
+            else
+                ws.send(JSON.stringify({"op":"error", args: ["Invalid chainid in submitorder"]}))
             break
         case "cancelorder":
             chainid = msg.args[0];
