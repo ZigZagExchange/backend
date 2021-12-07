@@ -62,6 +62,8 @@ const validMarkets = {
         "USDC-USDT": {},
         "WBTC-USDT": {},
         "ETH-DAI": {},
+        "DAI-USDC": {},
+        "DAI-USDT": {},
     },
     
     // zkSync Rinkeby
@@ -70,6 +72,8 @@ const validMarkets = {
         "ETH-USDC": {},
         "USDC-USDT": {},
         "ETH-DAI": {},
+        "DAI-USDC": {},
+        "DAI-USDT": {},
     },
     
     // Starknet Alpha
@@ -84,6 +88,8 @@ const cryptowatch_market_ids = {
     "ETH-USDC": 6631,
     "USDC-USDT": 6636,
     "ETH-DAI": 63533,
+    "DAI-USDT": 63349,
+    "DAI-USDC": 61485,
 }
 
 
@@ -612,7 +618,7 @@ function getLiquidity(chainid, market) {
             [0.13, 0.063, 'd'],
         ]
     }
-    else if ((["USDC","USDT","FRAX"]).includes(baseCurrency)) {
+    else if ((["USDC","USDT","FRAX", "DAI"]).includes(baseCurrency)) {
         validMarkets[chainid][market].liquidity = [
             [70000, 0.0004, 'd'],
             [60000, 0.0007, 'd'],
@@ -707,8 +713,15 @@ async function updateMarketSummaries() {
             }
             else {
                 const cryptowatch_market = cryptowatch_product.replace("-", "").toLowerCase();
+                let exchange = "binance";
+                if (product === "DAI-USDC") {
+                    exchange = "coinbase-pro";
+                }
+                else if (product === "DAI-USDT") {
+                    exchange = "ftx";
+                }
                 const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
-                const url = `https://api.cryptowat.ch/markets/binance/${cryptowatch_market}/summary`;
+                const url = `https://api.cryptowat.ch/markets/${exchange}/${cryptowatch_market}/summary`;
                 try {
                     const r = await fetch(url, { headers });
                     const data = await r.json();
