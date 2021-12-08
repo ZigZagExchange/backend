@@ -19,7 +19,7 @@ IDs < 1000 are mainnet contracts. IDs >= 1000 are testnet contracts.
 
 # Websocket vs REST
 
-Our API is designed to be used as a Websocket API. The message structures and response methods are all designed to be optimized for Websocket use. However, we understand in some cases a REST API is just more convenient, so a couple select methods in our API are available over HTTP POST. 
+Our API is designed to be used as a Websocket API. The message structures and response methods are optimized for Websocket use. However, we understand in some cases a REST API is just more convenient, so a couple select methods in our API are available over HTTP POST. 
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured. 
 
