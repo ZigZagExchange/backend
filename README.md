@@ -1,7 +1,8 @@
 ZigZag API
 ====================
 
-Websocket Base URL: wss://zigzag-exchange.herokuapp.com
+Websocket Base URL: wss://zigzag-exchange.herokuapp.com  
+
 HTTPS Base URL: https://zigzag-exchange.herokuapp.com
 
 # Chain IDs
