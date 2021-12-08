@@ -9,10 +9,13 @@ HTTPS Base URL: https://zigzag-exchange.herokuapp.com
 
 The following is a list of Zigzag Chain IDs. Note that there is no relation between this and Ethereum Chain IDs. 
 
+IDs < 1000 are mainnet contracts. IDs >= 1000 are testnet contracts.
+
 | Name                  | ID        
 |--------------         |-----------
 | zkSync Mainnet        | 1
 | zkSync Rinkeby        | 1000
+| Starknet Goerli       | 1001
 
 # Websocket vs REST
 
