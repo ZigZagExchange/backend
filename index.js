@@ -35,6 +35,14 @@ const starknetAssets = {
     "USDC": { decimals: 6 },
     "USDT": { decimals: 6 },
 }
+const gasFees = {
+    "ETH": 0.0003,
+    "WBTC": 0.00003,
+    "USDC": 1,
+    "USDT": 1,
+    "FRAX": 1,
+    "DAI": 1,
+}
 const zkTokenIds = {
     // zkSync Mainnet
     1: {
@@ -108,8 +116,8 @@ await updateVolumes();
 await updatePendingOrders();
 cryptowatchWsSetup();
 setInterval(updateMarketSummaries, 5000);
+setInterval(clearDeadConnections, 10000);
 setInterval(async function () {
-    clearDeadConnections();
     const lastprices = getLastPrices();
     broadcastMessage({"op":"lastprice", args: [lastprices]});
 }, 3000);
@@ -125,7 +133,7 @@ wss.on('connection', function connection(ws, req) {
     ws.uuid = randomUUID();
     console.log("New connection: ", req.connection.remoteAddress);
     active_connections[ws.uuid] = {
-        lastPing: Date.now(),
+        isAlive: true,
         chainid: null,
         userid: null,
         marketSubscriptions: [],
@@ -133,6 +141,10 @@ wss.on('connection', function connection(ws, req) {
     };
     const lastprices = getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
+    ws.on('pong', () => {
+        console.log("pong");
+        active_connections[ws.uuid].isAlive = true;
+    });
     ws.on('message', function incoming(json) {
         const msg = JSON.parse(json);
         if (msg.op != 'ping') {
@@ -167,13 +179,20 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             zktx = msg.args[1];
             if (chainid == 1 || chainid == 1000) {
-                processorderzksync(chainid, zktx);
+                try {
+                    processorderzksync(chainid, zktx);
+                }
+                catch(e) {
+                    ws.send(JSON.stringify({"op":"error", args: ["submitorder", e.message]}))
+                    return false;
+                }
             }
             else if (chainid === 1001) {
                 try {
                     processorderstarknet(chainid, zktx);
                 } catch (e) {
                     console.error(e);
+                    ws.send(JSON.stringify({"op":"error", args: ["submitorder", e.message]}))
                     return false;
                 }
             }
@@ -202,6 +221,14 @@ async function handleMessage(msg, ws) {
             const canceled_orders = await cancelallorders(userid);
             const orderupdates = canceled_orders.map(orderid => [chainid,orderid,'c']);
             broadcastMessage({op:"orderstatus",args:[orderupdates]});
+            break
+        case "requestquote":
+            chainid = msg.args[0];
+            market = msg.args[1];
+            const side = msg.args[2];
+            const baseQuantity = msg.args[3];
+            const quote = genquote(chainid, market, side, baseQuantity);
+            ws.send(JSON.stringify({op:"quote",args:[chainid, market, side, baseQuantity, quote.softPrice]}));
             break
         case "fillrequest":
             chainid = msg.args[0];
@@ -799,6 +826,35 @@ function getLastPrices() {
     return lastprices;
 }
 
+function genquote(chainid, market, side, baseQuantity) {
+    if (!([1,1000]).includes(chainid)) throw new Error("Quotes not supported for this chain");
+
+    const lastPrice = validMarkets[chainid][market].marketSummary.price.last;
+    let SOFT_SPREAD, HARD_SPREAD;
+    const baseCurrency = market.split("-")[0];
+    const quoteCurrency = market.split("-")[1];
+    if ((["USDC", "USDT", "FRAX", "DAI"]).includes(baseCurrency)) {
+        SOFT_SPREAD = 0.0006;
+        HARD_SPREAD = 0.0003;
+    }
+    else {
+        SOFT_SPREAD = 0.001;
+        HARD_SPREAD = 0.0005;
+    }
+    let softQuoteQuantity, hardQuoteQuantity;
+    if (side === 'b') {
+        softQuoteQuantity = (baseQuantity * lastPrice * (1 + SOFT_SPREAD)) + gasFees[quoteCurrency];
+        hardQuoteQuantity = (baseQuantity * lastPrice * (1 + HARD_SPREAD)) + gasFees[quoteCurrency];
+    }
+    if (side === 's') {
+        softQuoteQuantity = (baseQuantity - gasFees[baseCurrency]) * lastPrice * (1 - SOFT_SPREAD);
+        hardQuoteQuantity = (baseQuantity - gasFees[baseCurrency]) * lastPrice * (1 - HARD_SPREAD);
+    }
+    const softPrice = (softQuoteQuantity / baseQuantity).toPrecision(6);
+    const hardPrice = (hardQuoteQuantity / baseQuantity).toPrecision(6);;
+    return { softPrice, hardPrice };
+}
+
 function broadcastLastPrices() {
     const lastprices = getLastPrices();
     broadcastMessage({"op":"lastprice", args: [lastprices]});
@@ -812,10 +868,14 @@ function sendLastPriceData (ws) {
 function clearDeadConnections () {
     const now = Date.now();
     for (let wsid in active_connections) {
-        if (now - active_connections[wsid].lastPing > 20000) {
+        if (!active_connections[wsid].isAlive) {
             console.log("Deleting dead connection", wsid);
-            active_connections[wsid].ws.close();
+            active_connections[wsid].ws.terminate();
             delete active_connections[wsid];
+        }
+        else {
+            active_connections[wsid].isAlive = false;
+            active_connections[wsid].ws.ping();
         }
     }
 }

@@ -24,6 +24,14 @@ All messages the Zigzag Websocket API have the following structure
 
 Currently a user can only receive order updates on one connection at a time per chain. This may be upgraded in the future. 
 
+## Pings
+
+The server sends a ping message every 10 seconds to assure the connection is alive. A pong response is expected in return. 
+
+Most websocket clients handle the ping message automatically, so no extra work should be required on your part. 
+
+Dead connections are auto closed. 
+
 ## Order Statuses
 
 Shorthand | Status
@@ -39,32 +47,6 @@ pf | partial fill. quantity and price listed in args.
 pm | partial match. 
 
 ## Operations
-
-Operation: **ping**    
-
-Arguments: `[]`   
-
-Description: You must ping the server atleast every 10 seconds or your connection will be dropped. 
-
-
-```json
-{"op":"ping", "args": []}
-```
-
----
-
-Operation: **pong**    
-
-Arguments: `[]`   
-
-Description: Reply to ping message
-
-
-```json
-{"op":"pong", "args": []}
-```
-
----
 
 Operation: **login**    
 
