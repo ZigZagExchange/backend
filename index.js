@@ -207,10 +207,14 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             orderId = msg.args[1];
             const fillOrder = msg.args[2];
-            const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
-            ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
-            broadcastMessage({op:"orderstatus",args:[[[chainid,orderId,'m']]]});
-            broadcastMessage({op:"fills",args:[[matchOrderResult.fill]]});
+            try {
+                const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
+                ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
+                broadcastMessage({op:"orderstatus",args:[[[chainid,orderId,'m']]]});
+                broadcastMessage({op:"fills",args:[[matchOrderResult.fill]]});
+            } catch (e) {
+                ws.send(JSON.stringify({op:"error",args:["fillrequest", e.message]}));
+            }
             break
         case "subscribemarket":
             chainid = msg.args[0];
@@ -513,8 +517,8 @@ async function cancelorder(chainid, orderId, ws) {
 async function matchorder(chainid, orderId, fillOrder) {
     // TODO: Validation logic to make sure the orders match and the user is getting a good fill
     let values = [orderId, chainid];
-    const select = await pool.query("SELECT userid, price, base_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2", values);
-    if (select.rows.length === 0) throw new Error("No order found for ID " + orderId);
+    const select = await pool.query("SELECT userid, price, base_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 order_status='o'", values);
+    if (select.rows.length === 0) throw new Error("Order " + orderId + " is not open");
     const selectresult = select.rows[0];
     const zktx = JSON.parse(selectresult.zktx);
 
