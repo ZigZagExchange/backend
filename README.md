@@ -409,6 +409,30 @@ Description: Cancel all orders for a user
 
 ---
 
+Operation: **requestquote**
+
+Arguments: `[chainid, market, side, baseQuantity]`
+
+Description: Request a quote for a purchase. Quotes are all in prices including gas fees, so they may differ from the market price substantially.
+
+```json
+{ "op":"requestquote", "args": [1, "ETH-USDT", "b", 0.032] }
+```
+
+---
+
+Operation: **quote**
+
+Arguments: `[chainid, market, side, baseQuantity, price]`
+
+Description: Response to requestquote. Returns the request arguments plus a price. The price can then be used with submitorder to ensure a fill. 
+
+```json
+{ "op":"quote", "args": [1, "ETH-USDT", "b", 0.032, "4900"] }
+```
+
+---
+
 Operation: **error**
 
 Arguments: `[operation, error]`
