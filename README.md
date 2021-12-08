@@ -1,7 +1,8 @@
-ZigZag Websocket API
+ZigZag API
 ====================
 
-Base URL: wss://zigzag-exchange.herokuapp.com
+Websocket Base URL: wss://zigzag-exchange.herokuapp.com
+HTTPS Base URL: https://zigzag-exchange.herokuapp.com
 
 # Chain IDs
 
@@ -11,6 +12,14 @@ The following is a list of Zigzag Chain IDs. Note that there is no relation betw
 |--------------         |-----------
 | zkSync Mainnet        | 1
 | zkSync Rinkeby        | 1000
+
+# Websocket vs REST
+
+Our API is designed to be used as a Websocket API. The message structures and response methods are all designed to be optimized for Websocket use. However, we understand in some cases a REST API is just more convenient, so a couple select methods in our API are available over HTTP POST. 
+
+The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured. 
+
+The current list of available HTTP POST methods is: `sumbitorder`, `requestquote`
 
 # Sending orders on zksync
 
@@ -26,6 +35,12 @@ All messages the Zigzag Websocket API have the following structure
 
 ```json
 {"op":"operation", "args": ["list", "of", "args"]}
+```
+
+Messages to the HTTP POST API have a similar structure. An example curl command is found below.
+
+```
+curl -X POST "https://zigzag-exchange.herokuapp.com/" --header "Content-Type: application/json" -d '{"op":"requestquote", "args": [1000, "ETH-USDT", "b", "0.232"]}'
 ```
 
 ## Limitations
@@ -81,6 +96,7 @@ For Starknet, a zkOrder is the calldata for an Order struct in the Zigzag [smart
 
 An example of how to submit an order with Javascript can be found [here](https://github.com/ZigZagExchange/zksync-frontend/blob/master/src/helpers.js) in the `submitorder` function. 
 
+This operation is also available over HTTP POST and returns a `userorderack` message.
 
 Zksync
 
@@ -422,6 +438,8 @@ Operation: **requestquote**
 Arguments: `[chainid, market, side, baseQuantity]`
 
 Description: Request a quote for a purchase. Quotes are all in prices including gas fees, so they may differ from the market price substantially.
+
+This operation is also available over HTTP POST and returns a `quote` message.
 
 ```json
 { "op":"requestquote", "args": [1, "ETH-USDT", "b", 0.032] }

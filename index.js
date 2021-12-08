@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
+import { createServer } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import pg from 'pg'
 import fs from 'fs';
@@ -7,6 +8,7 @@ import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 import * as starknet from 'starknet';
+import express from 'express';
 
 dotenv.config()
 
@@ -125,12 +127,36 @@ setInterval(async function () {
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
 
-const wss = new WebSocketServer({
-  port: process.env.PORT || 3004,
+const expressApp = express();
+expressApp.use(express.json());
+expressApp.post("/", async function (req, res) {
+    const httpMessages = ["requestquote", "submitorder"];
+    if (req.headers['content-type'] != "application/json") {
+        res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
+        return
+    }
+    if (!httpMessages.includes(req.body.op)) {
+        res.json({ op: "error", args: [req.body.op, "Not supported in HTTP"] });
+        return
+    }
+    const responseMessage = await handleMessage(req.body, null);
+    res.header("Content-Type", "application/json");
+    res.json(responseMessage);
+});
+const server = createServer(expressApp);
+const port = process.env.PORT || 3004;
+const wss = new WebSocketServer({ noServer: true });
+wss.on('connection', onWsConnection);
+
+server.on('upgrade', function upgrade(request, socket, head) {
+    wss.handleUpgrade(request, socket, head, function done(ws) {
+      wss.emit('connection', ws, request);
+    });
 });
 
-
-wss.on('connection', function connection(ws, req) {
+server.listen(port);
+    
+function onWsConnection(ws, req) {
     ws.uuid = randomUUID();
     console.log("New connection: ", req.connection.remoteAddress);
     active_connections[ws.uuid] = {
@@ -152,7 +178,7 @@ wss.on('connection', function connection(ws, req) {
         }
         handleMessage(msg, ws);
     });
-});
+}
 
 async function handleMessage(msg, ws) {
     let orderId, zktx, userid, chainid, market;
@@ -180,24 +206,30 @@ async function handleMessage(msg, ws) {
             zktx = msg.args[1];
             if (chainid == 1 || chainid == 1000) {
                 try {
-                    processorderzksync(chainid, zktx);
+                    return processorderzksync(chainid, zktx);
                 }
                 catch(e) {
-                    ws.send(JSON.stringify({"op":"error", args: ["submitorder", e.message]}))
-                    return false;
+                    console.error(e);
+                    const errorMsg = {"op":"error", args: ["submitorder", e.message]};
+                    ws.send(JSON.stringify(errorMsg));
+                    return errorMsg;
                 }
             }
             else if (chainid === 1001) {
                 try {
-                    processorderstarknet(chainid, zktx);
+                    return processorderstarknet(chainid, zktx);
                 } catch (e) {
                     console.error(e);
-                    ws.send(JSON.stringify({"op":"error", args: ["submitorder", e.message]}))
-                    return false;
+                    const errorMsg = {"op":"error", args: ["submitorder", e.message]};
+                    ws.send(JSON.stringify(errorMsg));
+                    return errorMsg;
                 }
             }
-            else
-                ws.send(JSON.stringify({"op":"error", args: ["Invalid chainid in submitorder"]}))
+            else {
+                const errorMsg = {"op":"error", args: ["Invalid chainid in submitorder"]};
+                ws.send(JSON.stringify(errorMsg));
+                return errorMsg;
+            }
             break
         case "cancelorder":
             chainid = msg.args[0];
@@ -226,9 +258,14 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             const side = msg.args[2];
-            const baseQuantity = msg.args[3];
+            const baseQuantity = parseFloat(msg.args[3]);
             const quote = genquote(chainid, market, side, baseQuantity);
-            ws.send(JSON.stringify({op:"quote",args:[chainid, market, side, baseQuantity, quote.softPrice]}));
+            const quoteMessage = {op:"quote",args:[chainid, market, side, baseQuantity.toString(), quote.softPrice]};
+            if (ws) {
+                ws.send(JSON.stringify(quoteMessage));
+            } else {
+                return quoteMessage;
+            }
             break
         case "fillrequest":
             chainid = msg.args[0];
@@ -418,7 +455,7 @@ async function processorderzksync(chainid, zktx) {
     broadcastMessage({"op":"orders", args: [[orderreceipt]]});
     user_connections[chainid][user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
 
-    return orderId
+    return orderreceipt;
 }
 
 async function processorderstarknet(chainid, zktx) {
