@@ -79,7 +79,7 @@ Description: Associate userId with connection. Note that userId is a **string**,
 
 ---
 
-Operation: **sumbitorder**    
+Operation: **submitorder**    
 
 Arguments: `[chainId, zkOrder]`   
 
@@ -427,12 +427,12 @@ Description: Cancel all orders for a user
 
 ---
 
-Operation: **cancelorderack**    
+Operation: **error**
 
-Arguments: `[canceledIds]`
+Arguments: `[operation, error]`
 
-Description: Ack messasge for canceled orders with a list of canceled IDs
+Description: Error message from a requested operation
 
 ```json
-{ "op":"cancelorderack", "args": [[1,8,99,323]] }
+{ "op":"error", "args": ["fillrequest", "Order 234 is not open"] }
 ```
