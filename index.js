@@ -69,6 +69,7 @@ const validMarkets = {
         "ETH-USDC": {},
         "ETH-DAI": {},
         "WBTC-USDT": {},
+        "WBTC-ETH": {},
         "USDC-USDT": {},
         "DAI-USDC": {},
         "DAI-USDT": {},
@@ -115,7 +116,7 @@ await updateMarketSummaries();
 await updateVolumes();
 await updatePendingOrders();
 cryptowatchWsSetup();
-setInterval(updateMarketSummaries, 5000);
+setInterval(updateMarketSummaries, 60000);
 setInterval(clearDeadConnections, 10000);
 setInterval(async function () {
     const lastprices = getLastPrices();
@@ -142,7 +143,6 @@ wss.on('connection', function connection(ws, req) {
     const lastprices = getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
     ws.on('pong', () => {
-        console.log("pong");
         active_connections[ws.uuid].isAlive = true;
     });
     ws.on('message', function incoming(json) {
@@ -681,6 +681,7 @@ async function cryptowatchWsSetup() {
         588: "ETH-USDT",
         6631: "ETH-USDC",
         6636: "USDC-USDT",
+        580: "ETH-BTC"
     }
 
     const subscriptionMsg = {
@@ -706,9 +707,13 @@ async function cryptowatchWsSetup() {
         const msg = JSON.parse(data);
         if (!msg.marketUpdate) return;
 
-        const market = cryptowatch_market_ids[msg.marketUpdate.market.marketId];
-        const trades = msg.marketUpdate.tradesUpdate.trades;
-        const price = trades[trades.length - 1].priceStr;
+        let market = cryptowatch_market_ids[msg.marketUpdate.market.marketId];
+        let trades = msg.marketUpdate.tradesUpdate.trades;
+        let price = trades[trades.length - 1].priceStr;
+        if (market == "ETH-BTC") {
+            market = "WBTC-ETH";
+            price = (1 / price).toPrecision(6) / 1;
+        }
         for (let chain in validMarkets) {
             if (market in validMarkets[chain]) {
                 validMarkets[chain][market].marketSummary.price.last = price;
@@ -728,6 +733,9 @@ async function updateMarketSummaries() {
             let cryptowatch_product = product;
             if (product === "WBTC-USDT") {
                 cryptowatch_product = "BTC-USDT";
+            }
+            else if (product === "WBTC-ETH") {
+                cryptowatch_product = "ETH-BTC";
             }
             if (productUpdates[product]) {
                 validMarkets[chain][product].marketSummary = productUpdates[product];
@@ -756,6 +764,10 @@ async function updateMarketSummaries() {
                 try {
                     const r = await fetch(url, { headers });
                     const data = await r.json();
+                    if (product == "WBTC-ETH") {
+                        data.result.price.last = ((1 / data.result.price.last).toPrecision(6) / 1)
+                        data.result.price.change.absolute *= -1;
+                    }
                     validMarkets[chain][product].marketSummary = data.result;
                     productUpdates[product] = data.result;
                 } catch (e) {
