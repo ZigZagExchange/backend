@@ -12,6 +12,14 @@ The following is a list of Zigzag Chain IDs. Note that there is no relation betw
 | zkSync Mainnet        | 1
 | zkSync Rinkeby        | 1000
 
+# Sending orders on zksync
+
+The Zksync limit order system is pretty complicated, so we've simplified it down into an RFQ. 
+
+There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the $1 flat fee.
+
+Using the price from the `quote` response, you can send a limit order with `submitorder`. An order sent at the `quote` price will fill like a market order. 
+
 ## Structure
 
 All messages the Zigzag Websocket API have the following structure
