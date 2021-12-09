@@ -199,6 +199,10 @@ async function handleMessage(msg, ws) {
             ws.send(JSON.stringify({"op":"orders", args: [userorders]}))
             ws.send(JSON.stringify({"op":"fills", args: [userfills]}))
             break
+        case "orderreceiptreq":
+            chainid = msg.args[0];
+            orderid = msg.args[1];
+            break
         case "indicatemaker":
             break
         case "submitorder":
@@ -453,7 +457,11 @@ async function processorderzksync(chainid, zktx) {
     
     // broadcast new order
     broadcastMessage({"op":"orders", args: [[orderreceipt]]});
-    user_connections[chainid][user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
+    try {
+        user_connections[chainid][user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
+    } catch (e) {
+        // user connection doesn't exist. just pass along
+    }
 
     return orderreceipt;
 }
@@ -612,6 +620,20 @@ async function getopenorders(chainid, market) {
     }
     const select = await pool.query(query);
     return select.rows;
+}
+
+async function getorder(chainid, orderid) {
+    const query = {
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE chainid=$1 AND id=$2",
+        values: [chainid, orderid],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    try {
+        return select.rows[0];
+    } catch (e) {
+        throw new Error("Order not found")
+    }
 }
 
 async function getuserfills(chainid, userid) {
