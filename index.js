@@ -130,7 +130,7 @@ setInterval(updatePendingOrders, 60000);
 const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
-    const httpMessages = ["requestquote", "submitorder"];
+    const httpMessages = ["requestquote", "submitorder", "orderreceiptreq"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
@@ -201,7 +201,12 @@ async function handleMessage(msg, ws) {
             break
         case "orderreceiptreq":
             chainid = msg.args[0];
-            orderid = msg.args[1];
+            orderId = msg.args[1];
+            try {
+                return await getorder(chainid, orderId);
+            } catch (e) {
+                return { "op": "error", args: [msg.op, e.message] }
+            }
             break
         case "indicatemaker":
             break
@@ -629,11 +634,8 @@ async function getorder(chainid, orderid) {
         rowMode: 'array'
     }
     const select = await pool.query(query);
-    try {
-        return select.rows[0];
-    } catch (e) {
-        throw new Error("Order not found")
-    }
+    if (select.rows.length == 0) throw new Error("Order not found")
+    return select.rows[0];
 }
 
 async function getuserfills(chainid, userid) {
