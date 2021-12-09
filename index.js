@@ -206,7 +206,7 @@ async function handleMessage(msg, ws) {
             zktx = msg.args[1];
             if (chainid == 1 || chainid == 1000) {
                 try {
-                    return processorderzksync(chainid, zktx);
+                    return await processorderzksync(chainid, zktx);
                 }
                 catch(e) {
                     console.error(e);
@@ -217,7 +217,7 @@ async function handleMessage(msg, ws) {
             }
             else if (chainid === 1001) {
                 try {
-                    return processorderstarknet(chainid, zktx);
+                    return await processorderstarknet(chainid, zktx);
                 } catch (e) {
                     console.error(e);
                     const errorMsg = {"op":"error", args: ["submitorder", e.message]};
@@ -248,7 +248,7 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             userid = msg.args[1];
             if (user_connections[chainid][userid] != ws) {
-                ws.send(JSON.stringify({op:"cancelallreject",args:[userid, "Unauthorized"]}));
+                ws.send(JSON.stringify({op:"error",args:["cancelall", userid, "Unauthorized"]}));
             }
             const canceled_orders = await cancelallorders(userid);
             const orderupdates = canceled_orders.map(orderid => [chainid,orderid,'c']);
