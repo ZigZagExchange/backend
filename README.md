@@ -23,7 +23,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured. 
 
-The current list of operations available over HTTP POST are: `submitorder`, `requestquote`
+The current list of operations available over HTTP POST are: `submitorder`, `requestquote`, `orderreceiptreq`
 
 # Sending orders on zksync
 
@@ -229,6 +229,18 @@ NO EXAMPLE AVAILABLE YET
 
 ---
 
+Operation: **orderreceiptreq**    
+
+Arguments: `[chainid,orderid]`
+
+Description: Get an order receipt. Returns a message with the same format as userorderack.
+
+```json
+{ "op": "orderreceiptreq", "args": [1000, 40] }
+```
+
+---
+
 Operation: **orders**    
 
 Arguments: `[orders]`
@@ -240,9 +252,9 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
   "op": "orders",
   "args": [
       [
-        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23", "o", null, 0.1 ],
-        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, "24", "pf",null, 0.05 ],
-        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174", "pm", null, 0.02 ]
+        [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23", "o", 0.1 ],
+        [ 1000, 6, "ETH-USDT", "s", 3380.93, 0.1, 338.093, 4294967295, "24", "pf",0.05 ],
+        [ 1000, 7, "ETH-USDT", "b", 3350.93, 0.001, 3.35093, 4294967295, "174", "pm", 0.02 ]
       ]
   ]
 }
@@ -391,12 +403,12 @@ Description: Unsubscribe from a market
 
 Operation: **userorderack**    
 
-Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires]` 
+Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
 Description: ack message for a submitorder message
 
 ```json
-{ "op":"userorderack", "args": [1000,5,"ETH-USDT","s",3370.93,0.1,337.093,4294967295]}
+{ "op":"userorderack", "args": [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23", "o", 0.1 ]}
 ```
 
 ---
