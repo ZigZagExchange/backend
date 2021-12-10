@@ -70,11 +70,15 @@ const validMarkets = {
         "ETH-USDT": {},
         "ETH-USDC": {},
         "ETH-DAI": {},
+        "ETH-WBTC": {},
         "WBTC-USDT": {},
-        "WBTC-ETH": {},
+        "WBTC-USDC": {},
+        "WBTC-DAI": {},
         "USDC-USDT": {},
         "DAI-USDC": {},
         "DAI-USDT": {},
+        "ETH-FRAX": {},
+        "FXS-FRAX": {},
     },
     
     // zkSync Rinkeby
@@ -95,8 +99,11 @@ const validMarkets = {
 }
 const cryptowatch_market_ids = {
     "WBTC-USDT": 579,
+    "WBTC-USDC": 6630,
+    "WBTC-DAI": 63532,
     "ETH-USDT": 588,
     "ETH-USDC": 6631,
+    "ETH-WBTC": 580,
     "USDC-USDT": 6636,
     "ETH-DAI": 63533,
     "DAI-USDT": 63349,
@@ -280,6 +287,10 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             orderId = msg.args[1];
             const fillOrder = msg.args[2];
+            if (fillOrder.accountId == 833174) {
+                ws.send(JSON.stringify({op:"error",args:["fillrequest", "You're running a bad market maker. Please contact us."]}));
+                return false;
+            }
             try {
                 const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
                 ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
