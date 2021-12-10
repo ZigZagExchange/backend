@@ -81,26 +81,21 @@ BEGIN
   -- take any offers that cross
   IF _side = 'b' THEN
     FOR match IN SELECT * FROM offers WHERE chainid = _chainid AND market = _market AND side = 's' AND price <= _price AND unfilled > 0 AND order_status IN ('o', 'pf', 'pm') ORDER BY price ASC, insert_timestamp ASC LOOP
-      RAISE NOTICE 'Found sell match %', match;
       IF amount_remaining > 0 THEN
         IF amount_remaining < match.unfilled THEN
-          RAISE NOTICE '  amount_remaining % < match.unfilled % = this offer is NOT completely filled by this order', amount_remaining, match.unfilled;
           amount_taken := amount_remaining;
           amount_remaining := amount_remaining - amount_taken;
           WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount, side) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken, _side) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
           UPDATE offers SET unfilled = unfilled - amount_taken, order_status=(CASE WHEN unfilled=amount_taken THEN 'm' ELSE 'pm' END) WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
-            RAISE NOTICE '  order complete';
             EXIT; -- exit loop
           END IF;
         ELSE
-          RAISE NOTICE '  amount_remaining % >= match.unfilled % = this offer is completely filled by this order', amount_remaining, match.unfilled;
           amount_taken := match.unfilled;
           amount_remaining := amount_remaining - amount_taken;
           WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount, side) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken, _side) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
           UPDATE offers SET unfilled = unfilled - amount_taken, order_status=(CASE WHEN unfilled=amount_taken THEN 'm' ELSE 'pm' END) WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
-            RAISE NOTICE '  order complete';
             EXIT; -- exit loop
           END IF;
         END IF;
@@ -108,27 +103,21 @@ BEGIN
     END LOOP;
   ELSE -- side is 's'
     FOR match IN SELECT * FROM offers WHERE chainid  = _chainid  AND market = _market AND side = 'b' AND price >= _price and unfilled > 0 AND order_status IN ('o', 'pf', 'pm') ORDER BY price DESC, insert_timestamp ASC LOOP
-      RAISE NOTICE 'Found buy match %', match;
       IF amount_remaining > 0 THEN
         IF amount_remaining < match.unfilled THEN
-          RAISE NOTICE '  amount_remaining % < match.unfilled % = this offer isnt completely filled by this order', amount_remaining, match.unfilled;
           amount_taken := amount_remaining;
           amount_remaining := amount_remaining - amount_taken;
           WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount, side) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken, _side) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
           UPDATE offers SET unfilled = unfilled - amount_taken, order_status=(CASE WHEN unfilled=amount_taken THEN 'm' ELSE 'pm' END) WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
-            RAISE NOTICE '  order complete';
                 EXIT; -- exit loop
           END IF;
         ELSE
-          RAISE NOTICE '  amount_remaining % >= match.unfilled % = this offer is NOT completely filled by this order', amount_remaining, match.unfilled;
           amount_taken := match.unfilled;
           amount_remaining := amount_remaining - amount_taken;
-          RAISE NOTICE '  amount_remaining % after order is filled', amount_remaining;
           WITH fill AS (INSERT INTO fills (chainid , market, maker_offer_id, taker_offer_id, maker_user_id, taker_user_id, price, amount, side) VALUES (_chainid , _market, match.id, _taker_offer_id, match.userid, _userid, match.price, amount_taken, _side) RETURNING fills.id) INSERT INTO tmp_ret SELECT * FROM fill;
           UPDATE offers SET unfilled = unfilled - amount_taken, order_status=(CASE WHEN unfilled=amount_taken THEN 'm' ELSE 'pm' END) WHERE offers.id = match.id;
           IF amount_remaining = 0 THEN
-            RAISE NOTICE '  order complete';
             EXIT; -- exit loop
           END IF;
         END IF;
