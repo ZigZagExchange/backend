@@ -280,6 +280,11 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             orderId = msg.args[1];
             const fillOrder = msg.args[2];
+            if (fillOrder.accountId == 833174) {
+                ws.send(JSON.stringify({op:"error",args:["fillrequest", "You're running a bad market maker. Please contact us."]}));
+                return false;
+            }
+
             try {
                 const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
                 ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
