@@ -9,6 +9,8 @@ import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 import * as starknet from 'starknet';
 import express from 'express';
+import * as Redis from 'redis';
+
 
 dotenv.config()
 
@@ -25,6 +27,8 @@ const pool = new Pool({
 const migration = fs.readFileSync('schema.sql', 'utf8');
 pool.query(migration)
     .catch(console.error);
+
+const redis = Redis.createClient({ url: process.env.REDIS_URL });
 
 
 const starknetContracts = {
@@ -104,14 +108,10 @@ const cryptowatch_market_ids = {
 }
 
 
-const active_connections = {}
 const user_connections = {}
 
 for (let chain in validMarkets) {
     user_connections[chain] = {}
-    for (let market in validMarkets[chain]) {
-        validMarkets[chain][market].subscriptions = new Set();
-    }
 }
 
 await updateMarketSummaries();
@@ -122,7 +122,7 @@ setInterval(updateMarketSummaries, 60000);
 setInterval(clearDeadConnections, 10000);
 setInterval(async function () {
     const lastprices = getLastPrices();
-    broadcastMessage({"op":"lastprice", args: [lastprices]});
+    broadcastMessage(null, null, {"op":"lastprice", args: [lastprices]});
 }, 3000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
@@ -159,17 +159,15 @@ server.listen(port);
 function onWsConnection(ws, req) {
     ws.uuid = randomUUID();
     console.log("New connection: ", req.connection.remoteAddress);
-    active_connections[ws.uuid] = {
-        isAlive: true,
-        chainid: null,
-        userid: null,
-        marketSubscriptions: [],
-        ws
-    };
+    ws.isAlive = true;
+    ws.marketSubscriptions = [];
+    ws.chainid = 1; // subscribe to zksync mainnet by default
+    ws.userid = null;
+
     const lastprices = getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
     ws.on('pong', () => {
-        active_connections[ws.uuid].isAlive = true;
+        ws.isAlive = true;
     });
     ws.on('message', function incoming(json) {
         const msg = JSON.parse(json);
@@ -183,16 +181,11 @@ function onWsConnection(ws, req) {
 async function handleMessage(msg, ws) {
     let orderId, zktx, userid, chainid, market;
     switch (msg.op) {
-        case "ping":
-            active_connections[ws.uuid].lastPing = Date.now();
-            const response = {"op": "pong"}
-            ws.send(JSON.stringify(response))
-            break
         case "login":
             chainid = msg.args[0];
             userid = msg.args[1];
-            active_connections[ws.uuid].chainid = chainid;
-            active_connections[ws.uuid].userid = userid;
+            ws.chainid = chainid;
+            ws.userid = userid;
             user_connections[chainid][userid] = ws;
             const userorders = await getuserorders(chainid, userid);
             const userfills = await getuserfills(chainid, userid);
@@ -251,7 +244,7 @@ async function handleMessage(msg, ws) {
                 ws.send(JSON.stringify({op:"cancelorderreject",args:[orderId, e.message]}));
                 break
             }
-            broadcastMessage({op:"orderstatus",args:[[[chainid, orderId, 'c']]]});
+            broadcastMessage(chainid, null, {op:"orderstatus",args:[[[chainid, orderId, 'c']]]});
             break
         case "cancelall":
             chainid = msg.args[0];
@@ -261,7 +254,7 @@ async function handleMessage(msg, ws) {
             }
             const canceled_orders = await cancelallorders(userid);
             const orderupdates = canceled_orders.map(orderid => [chainid,orderid,'c']);
-            broadcastMessage({op:"orderstatus",args:[orderupdates]});
+            broadcastMessage(chainid, null, {op:"orderstatus",args:[orderupdates]});
             break
         case "requestquote":
             chainid = msg.args[0];
@@ -280,16 +273,18 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             orderId = msg.args[1];
             const fillOrder = msg.args[2];
-            if (fillOrder.accountId == 833174) {
-                ws.send(JSON.stringify({op:"error",args:["fillrequest", "You're running a bad market maker. Please contact us."]}));
+            let blacklist = process.env.BLACKLIST || "";
+            const blacklisted_accounts = blacklist.split(",");
+            if (blacklisted_accounts.includes(fillOrder.accountId.toString())) {
+                ws.send(JSON.stringify({op:"error",args:["fillrequest", "You're running a bad version of the market maker. Please run git pull to update your code."]}));
                 return false;
             }
 
             try {
                 const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
                 ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
-                broadcastMessage({op:"orderstatus",args:[[[chainid,orderId,'m']]]});
-                broadcastMessage({op:"fills",args:[[matchOrderResult.fill]]});
+                broadcastMessage(chainid, null, {op:"orderstatus",args:[[[chainid,orderId,'m']]]});
+                broadcastMessage(chainid, null, {op:"fills",args:[[matchOrderResult.fill]]});
             } catch (e) {
                 console.error(e);
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", e.message]}));
@@ -327,14 +322,14 @@ async function handleMessage(msg, ws) {
                 const liquidity = getLiquidity(chainid, market);
                 ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
             }
-            active_connections[ws.uuid].marketSubscriptions.push([chainid,market]);
-            validMarkets[chainid][market].subscriptions.add(ws.uuid);
+            ws.chainid = chainid;
+            ws.marketSubscriptions.push(market);
             break
         case "unsubscribemarket":
             chainid = msg.args[0];
             market = msg.args[1];
-            active_connections[ws.uuid].marketSubscriptions.filter(m => m[0] !== chainid || m[1] !== market);
-            validMarkets[chainid][market].subscriptions.delete(ws.uuid);
+            if (ws.chainid != chainid) ws.marketSubscriptions = [];
+            ws.marketSubscriptions = ws.marketSubscriptions.filter(m => m !== market);
             break
         case "orderstatusupdate":
             const updates = msg.args[0];
@@ -366,10 +361,10 @@ async function handleMessage(msg, ws) {
                 }
             }
             if (orderUpdates.length > 0) {
-                broadcastMessage({op:"orderstatus",args: [orderUpdates]});
+                broadcastMessage(chainid, null, {op:"orderstatus",args: [orderUpdates]});
             }
             if (fillUpdates.length > 0) {
-                broadcastMessage({op:"fillstatus",args: [fillUpdates]});
+                broadcastMessage(chainid, null, {op:"fillstatus",args: [fillUpdates]});
             }
         default:
             break
@@ -466,7 +461,7 @@ async function processorderzksync(chainid, zktx) {
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
     
     // broadcast new order
-    broadcastMessage({"op":"orders", args: [[orderreceipt]]});
+    broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
     try {
         user_connections[chainid][user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
     } catch (e) {
@@ -526,9 +521,9 @@ async function processorderstarknet(chainid, zktx) {
         relayStarknetMatch(JSON.parse(buyer), JSON.parse(seller), row.amount,row.price, row.id, row.maker_offer_id, offer.id);
     });
     const order = [chainid, offer.id, market, offer.side, offer.price, offer.base_quantity, offer.price*offer.base_quantity,offer.expires,offer.userid,offer.order_status,null,offer.unfilled];
-    broadcastMessage({"op":"orders", args:[[order]]});
-    if (orderupdates.length > 0) broadcastMessage({"op":"orderstatus", args:[orderupdates]});
-    if (marketFills.length > 0) broadcastMessage({"op":"fills", args:[marketFills]});
+    broadcastMessage(chainid, market, {"op":"orders", args:[[order]]});
+    if (orderupdates.length > 0) broadcastMessage(chainid, market, {"op":"orderstatus", args:[orderupdates]});
+    if (marketFills.length > 0) broadcastMessage(chainid, market, {"op":"fills", args:[marketFills]});
 }
 
 async function relayStarknetMatch(buyer, seller, fillQty, fillPrice, fillId, makerOfferId, takerOfferId) {
@@ -562,15 +557,15 @@ async function relayStarknetMatch(buyer, seller, fillQty, fillPrice, fillId, mak
         const chainid = parseInt(buyer[0]);
         const orderUpdates = orderupdate.rows.map(row => [chainid, row.id, row.order_status]);
         const fillUpdates = fillupdate.rows.map(row => [chainid, row.id, row.fill_status, row.txhash]);
-        broadcastMessage({"op":"orderstatus", args:[orderUpdates]});
-        broadcastMessage({"op":"fillstatus", args:[fillUpdates]});
+        broadcastMessage(chainid, null, {"op":"orderstatus", args:[orderUpdates]});
+        broadcastMessage(chainid, null, {"op":"fillstatus", args:[fillUpdates]});
     } catch (e) {
         console.error(e);
         console.error("Starknet tx failed");
         const orderupdate = await pool.query("UPDATE offers SET order_status='r' WHERE id IN ($1, $2) RETURNING id, order_status", [makerOfferId, takerOfferId]);
         const chainid = parseInt(buyer[0]);
         const orderUpdates = orderupdate.rows.map(row => [chainid, row.id, row.order_status]);
-        broadcastMessage({"op":"orderstatus", args:[orderUpdates]});
+        broadcastMessage(chainid, null, {"op":"orderstatus", args:[orderUpdates]});
     }
 }
 
@@ -616,10 +611,14 @@ async function matchorder(chainid, orderId, fillOrder) {
 }
 
 
-async function broadcastMessage(msg) {
-    for (let wsid in active_connections) {
-        active_connections[wsid].ws.send(JSON.stringify(msg));
-    }
+async function broadcastMessage(chainid, market, msg) {
+    console.log("num clients", wss.clients.size);
+    wss.clients.forEach(ws => {
+        if (ws.readyState !== WebSocket.OPEN) return true;
+        if (chainid && ws.chainid !== chainid) return true;
+        if (market && !ws.marketSubscriptions.includes(market)) return true;
+        ws.send(JSON.stringify(msg));
+    });
 }
 
 async function getopenorders(chainid, market) {
@@ -879,7 +878,7 @@ async function updatePendingOrders() {
     const update = await pool.query(query);
     if (update.rowCount > 0) {
         const orderUpdates = update.rows.map(row => [row.chainid, row.id, row.order_status]);
-        broadcastMessage({"op":"orderstatus", args: [orderUpdates]});
+        broadcastMessage(null, null, {"op":"orderstatus", args: [orderUpdates]});
     }
     return true;
 }
@@ -934,27 +933,19 @@ function genquote(chainid, market, side, baseQuantity) {
     return { softPrice, hardPrice };
 }
 
-function broadcastLastPrices() {
-    const lastprices = getLastPrices();
-    broadcastMessage({"op":"lastprice", args: [lastprices]});
-}
-
 function sendLastPriceData (ws) {
     const lastprices = getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
 }
 
 function clearDeadConnections () {
-    const now = Date.now();
-    for (let wsid in active_connections) {
-        if (!active_connections[wsid].isAlive) {
-            console.log("Deleting dead connection", wsid);
-            active_connections[wsid].ws.terminate();
-            delete active_connections[wsid];
+    wss.clients.forEach((ws,i) => {
+        if (!ws.isAlive) {
+            ws.terminate();
         }
         else {
-            active_connections[wsid].isAlive = false;
-            active_connections[wsid].ws.ping();
+            ws.isAlive = false;
+            ws.ping();
         }
-    }
+    });
 }
