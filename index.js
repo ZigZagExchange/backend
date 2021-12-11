@@ -57,6 +57,8 @@ const zkTokenIds = {
         2: {name:'USDC',decimals:6},
         1: {name:'DAI',decimals:18},
         15: {name:'WBTC',decimals:8},
+        92: {name:'FRAX',decimals:18},
+        120: {name:'FXS',decimals:18},
     },
 
     // zkSync Rinkeby
