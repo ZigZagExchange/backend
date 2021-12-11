@@ -74,11 +74,14 @@ const validMarkets = {
         "ETH-USDT": {},
         "ETH-USDC": {},
         "ETH-DAI": {},
+        "ETH-WBTC": {},
         "WBTC-USDT": {},
-        "WBTC-ETH": {},
+        "WBTC-USDC": {},
+        "WBTC-DAI": {},
         "USDC-USDT": {},
         "DAI-USDC": {},
         "DAI-USDT": {},
+        "FXS-FRAX": {},
     },
     
     // zkSync Rinkeby
@@ -96,15 +99,6 @@ const validMarkets = {
         "ETH-USDT": {},
         "ETH-USDC": {},
     }
-}
-const cryptowatch_market_ids = {
-    "WBTC-USDT": 579,
-    "ETH-USDT": 588,
-    "ETH-USDC": 6631,
-    "USDC-USDT": 6636,
-    "ETH-DAI": 63533,
-    "DAI-USDT": 63349,
-    "DAI-USDC": 61485,
 }
 
 
@@ -715,6 +709,26 @@ function getLiquidity(chainid, market) {
             [0.13, 0.063, 'd'],
         ]
     }
+    else if ((["FXS"]).includes(baseCurrency)) {
+        validMarkets[chainid][market].liquidity = [
+            [7000, 0.0014, 'd'],
+            [6000, 0.0017, 'd'],
+            [1800, 0.0024, 'd'],
+            [1303, 0.0037, 'd'],
+            [2900, 0.0043, 'd'],
+            [1301, 0.0054, 'd'],
+            [4000, 0.007, 'd'],
+            [1590, 0.0073, 'd'],
+            [5200, 0.0088, 'd'],
+            [1900, 0.0095, 'd'],
+            [1190, 0.0098, 'd'],
+            [2900, 0.0109, 'd'],
+            [2300, 0.0137, 'd'],
+            [1020, 0.0161, 'd'],
+            [1070, 0.0182, 'd'],
+            [2130, 0.0193, 'd'],
+        ]
+    }
     else if ((["USDC","USDT","FRAX", "DAI"]).includes(baseCurrency)) {
         validMarkets[chainid][market].liquidity = [
             [70000, 0.0004, 'd'],
@@ -743,11 +757,17 @@ function getLiquidity(chainid, market) {
 
 async function cryptowatchWsSetup() {
     const cryptowatch_market_ids = {
-        579: "BTC-USDT",
+        579: "WBTC-USDT",
+        6630: "WBTC-USDC",
+        63532: "WBTC-DAI",
         588: "ETH-USDT",
         6631: "ETH-USDC",
+        63533: "ETH-DAI",
+        580: "ETH-BTC",
         6636: "USDC-USDT",
-        580: "ETH-BTC"
+        297241: "FXS-FRAX",
+        63349: "DAI-USDT",
+        61485: "DAI-USDC",
     }
 
     const subscriptionMsg = {
@@ -776,10 +796,6 @@ async function cryptowatchWsSetup() {
         let market = cryptowatch_market_ids[msg.marketUpdate.market.marketId];
         let trades = msg.marketUpdate.tradesUpdate.trades;
         let price = trades[trades.length - 1].priceStr;
-        if (market == "ETH-BTC") {
-            market = "WBTC-ETH";
-            price = (1 / price).toPrecision(6) / 1;
-        }
         for (let chain in validMarkets) {
             if (market in validMarkets[chain]) {
                 validMarkets[chain][market].marketSummary.price.last = price;
@@ -797,12 +813,8 @@ async function updateMarketSummaries() {
     for (let chain in validMarkets) {
         for (let product in validMarkets[chain]) {
             let cryptowatch_product = product;
-            if (product === "WBTC-USDT") {
-                cryptowatch_product = "BTC-USDT";
-            }
-            else if (product === "WBTC-ETH") {
-                cryptowatch_product = "ETH-BTC";
-            }
+            const baseCurrency = product.split("-")[0];
+            const quoteCurrency = product.split("-")[1];
             if (productUpdates[product]) {
                 validMarkets[chain][product].marketSummary = productUpdates[product];
             }
@@ -817,7 +829,7 @@ async function updateMarketSummaries() {
                 }
             }
             else {
-                const cryptowatch_market = cryptowatch_product.replace("-", "").toLowerCase();
+                const cryptowatch_market = cryptowatch_product.replace("-", "").replace("WBTC", "BTC").toLowerCase();
                 let exchange = "binance";
                 if (product === "DAI-USDC") {
                     exchange = "coinbase-pro";
@@ -825,14 +837,18 @@ async function updateMarketSummaries() {
                 else if (product === "DAI-USDT") {
                     exchange = "ftx";
                 }
+                else if (product === "FXS-FRAX") {
+                    exchange = "uniswap-v2"
+                }
                 const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
                 const url = `https://api.cryptowat.ch/markets/${exchange}/${cryptowatch_market}/summary`;
                 try {
                     const r = await fetch(url, { headers });
                     const data = await r.json();
-                    if (product == "WBTC-ETH") {
-                        data.result.price.last = ((1 / data.result.price.last).toPrecision(6) / 1)
-                        data.result.price.change.absolute *= -1;
+                    if (product == "FXS-FRAX") {
+                        data.result.price.last = data.result.price.last.toPrecision(6);
+                        data.result.price.high = data.result.price.high.toPrecision(6);
+                        data.result.price.low = data.result.price.low.toPrecision(6);
                     }
                     validMarkets[chain][product].marketSummary = data.result;
                     productUpdates[product] = data.result;
@@ -880,6 +896,11 @@ async function updatePendingOrders() {
         const orderUpdates = update.rows.map(row => [row.chainid, row.id, row.order_status]);
         broadcastMessage(null, null, {"op":"orderstatus", args: [orderUpdates]});
     }
+    const fillsQuery = {
+        text: "UPDATE fills SET fill_status='e' WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) RETURNING chainid, id, order_status;",
+        values: [one_min_ago]
+    }
+    const updateFills = await pool.query(query);
     return true;
 }
 
