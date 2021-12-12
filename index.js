@@ -673,9 +673,9 @@ function getLiquidity(chainid, market) {
     const quoteCurrency = market.split("-")[1];
     if (baseCurrency == "ETH") {
         validMarkets[chainid][market].liquidity = [
-            [12, 0.0008, 'd'],
-            [14, 0.0015, 'd'],
-            [2.5, 0.003, 'd'],
+            [22, 0.0008, 'd'],
+            [24, 0.0015, 'd'],
+            [7.5, 0.003, 'd'],
             [1.1, 0.005, 'd'],
             [1.2, 0.008, 'd'],
             [10.847, 0.01, 'd'],
@@ -693,7 +693,7 @@ function getLiquidity(chainid, market) {
     }
     else if (baseCurrency == "WBTC") {
         validMarkets[chainid][market].liquidity = [
-            [1.2, 0.0008, 'd'],
+            [2.2, 0.0008, 'd'],
             [1.4, 0.0015, 'd'],
             [0.25, 0.003, 'd'],
             [0.11, 0.005, 'd'],
@@ -734,7 +734,7 @@ function getLiquidity(chainid, market) {
     else if ((["USDC","USDT","FRAX", "DAI"]).includes(baseCurrency)) {
         validMarkets[chainid][market].liquidity = [
             [70000, 0.0004, 'd'],
-            [60000, 0.0007, 'd'],
+            [80000, 0.0007, 'd'],
             [18000, 0.0014, 'd'],
             [13030, 0.0017, 'd'],
             [29000, 0.0023, 'd'],
@@ -797,7 +797,7 @@ async function cryptowatchWsSetup() {
 
         let market = cryptowatch_market_ids[msg.marketUpdate.market.marketId];
         let trades = msg.marketUpdate.tradesUpdate.trades;
-        let price = trades[trades.length - 1].priceStr;
+        let price = parseFloat(trades[trades.length - 1].priceStr).toPrecision(6) / 1;
         for (let chain in validMarkets) {
             if (market in validMarkets[chain]) {
                 validMarkets[chain][market].marketSummary.price.last = price;
