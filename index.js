@@ -57,6 +57,7 @@ const zkTokenIds = {
         2: {name:'USDC',decimals:6},
         1: {name:'DAI',decimals:18},
         15: {name:'WBTC',decimals:8},
+        61: {name:'WETH',decimals:18},
         92: {name:'FRAX',decimals:18},
         120: {name:'FXS',decimals:18},
     },
@@ -84,6 +85,7 @@ const validMarkets = {
         "DAI-USDC": {},
         "DAI-USDT": {},
         "FXS-FRAX": {},
+        "WETH-ETH": {},
     },
     
     // zkSync Rinkeby
@@ -671,13 +673,13 @@ async function getfills(chainid, market) {
 function getLiquidity(chainid, market) {
     const baseCurrency = market.split("-")[0];
     const quoteCurrency = market.split("-")[1];
-    if (baseCurrency == "ETH") {
+    if (baseCurrency == "ETH" || baseCurrency == "WETH") {
         validMarkets[chainid][market].liquidity = [
-            [22, 0.0008, 'd'],
-            [24, 0.0015, 'd'],
-            [7.5, 0.003, 'd'],
-            [1.1, 0.005, 'd'],
-            [1.2, 0.008, 'd'],
+            [43, 0.0008, 'd'],
+            [50, 0.0015, 'd'],
+            [17.5, 0.003, 'd'],
+            [12.1, 0.005, 'd'],
+            [5.2, 0.008, 'd'],
             [10.847, 0.01, 'd'],
             [7.023, 0.011, 'd'],
             [1.3452, 0.013, 'd'],
@@ -693,18 +695,18 @@ function getLiquidity(chainid, market) {
     }
     else if (baseCurrency == "WBTC") {
         validMarkets[chainid][market].liquidity = [
-            [2.2, 0.0008, 'd'],
-            [1.4, 0.0015, 'd'],
-            [0.25, 0.003, 'd'],
+            [2.6, 0.0008, 'd'],
+            [3.4, 0.0015, 'd'],
+            [1.25, 0.003, 'd'],
             [0.11, 0.005, 'd'],
             [0.12, 0.008, 'd'],
             [1.0847, 0.01, 'd'],
             [0.7023, 0.011, 'd'],
             [0.3452, 0.013, 'd'],
-            [0.62, 0.02, 'd'],
+            [1.62, 0.02, 'd'],
             [0.19, 0.025, 'd'],
             [0.23, 0.039, 'd'],
-            [0.02, 0.041, 'd'],
+            [1.02, 0.041, 'd'],
             [0.32, 0.049, 'd'],
             [0.07, 0.051, 'd'],
             [0.07, 0.052, 'd'],
@@ -733,8 +735,8 @@ function getLiquidity(chainid, market) {
     }
     else if ((["USDC","USDT","FRAX", "DAI"]).includes(baseCurrency)) {
         validMarkets[chainid][market].liquidity = [
-            [70000, 0.0004, 'd'],
-            [80000, 0.0007, 'd'],
+            [110000, 0.0004, 'd'],
+            [170000, 0.0007, 'd'],
             [18000, 0.0014, 'd'],
             [13030, 0.0017, 'd'],
             [29000, 0.0023, 'd'],
@@ -820,7 +822,7 @@ async function updateMarketSummaries() {
             if (productUpdates[product]) {
                 validMarkets[chain][product].marketSummary = productUpdates[product];
             }
-            else if (product === "FRAX-USDC") {
+            else if (product === "FRAX-USDC" || product === "WETH-ETH") {
                 validMarkets[chain][product].marketSummary = {
                   price: {
                     last: 1.0000,
