@@ -84,8 +84,9 @@ const validMarkets = {
         "USDC-USDT": {},
         "DAI-USDC": {},
         "DAI-USDT": {},
-        "FXS-FRAX": {},
         "WETH-ETH": {},
+        "ETH-FRAX": {},
+        "FXS-FRAX": {},
     },
     
     // zkSync Rinkeby
@@ -259,8 +260,13 @@ async function handleMessage(msg, ws) {
             market = msg.args[1];
             const side = msg.args[2];
             const baseQuantity = parseFloat(msg.args[3]);
-            const quote = genquote(chainid, market, side, baseQuantity);
-            const quoteMessage = {op:"quote",args:[chainid, market, side, baseQuantity.toString(), quote.softPrice]};
+            let quoteMessage;
+            try {
+                const quote = genquote(chainid, market, side, baseQuantity);
+                quoteMessage = {op:"quote",args:[chainid, market, side, baseQuantity.toString(), quote.softPrice]};
+            } catch (e) {
+                quoteMessage = {op:"error",args:["requestquote", e.message]};
+            }
             if (ws) {
                 ws.send(JSON.stringify(quoteMessage));
             } else {
@@ -409,6 +415,9 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
 }
 
 async function processorderzksync(chainid, zktx) {
+    if (typeof zktx.amount !== "string") throw new Error("Amount must be quoted as a string");
+    if (typeof zktx.ratio[0] !== "string") throw new Error("Numbers in price ratio must be quoted as a string");
+    if (typeof zktx.ratio[1] !== "string") throw new Error("Numbers in price ratio must be quoted as a string");
     const tokenSell = zkTokenIds[chainid][zktx.tokenSell];
     const tokenBuy = zkTokenIds[chainid][zktx.tokenBuy];
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
@@ -803,6 +812,9 @@ async function cryptowatchWsSetup() {
         for (let chain in validMarkets) {
             if (market in validMarkets[chain]) {
                 validMarkets[chain][market].marketSummary.price.last = price;
+                if (market === "ETH-USDC" && "ETH-FRAX" in validMarkets[chain]) {
+                    validMarkets[chain]["ETH-FRAX"].marketSummary.price.last = price;
+                }
             }
         }
     };
@@ -833,7 +845,7 @@ async function updateMarketSummaries() {
                 }
             }
             else {
-                const cryptowatch_market = cryptowatch_product.replace("-", "").replace("WBTC", "BTC").toLowerCase();
+                let cryptowatch_market = cryptowatch_product.replace("-", "").replace("WBTC", "BTC").toLowerCase();
                 let exchange = "binance";
                 if (product === "DAI-USDC") {
                     exchange = "coinbase-pro";
@@ -843,6 +855,9 @@ async function updateMarketSummaries() {
                 }
                 else if (product === "FXS-FRAX") {
                     exchange = "uniswap-v2"
+                }
+                else if (product === "ETH-FRAX") {
+                    cryptowatch_market = "ethusdc";
                 }
                 const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
                 const url = `https://api.cryptowat.ch/markets/${exchange}/${cryptowatch_market}/summary`;
@@ -920,6 +935,7 @@ function getLastPrices() {
                     lastprices.push([product, lastPrice, change]);
                     uniqueProducts.push(product);
                 } catch (e) {
+                    console.log(product);
                     console.error(e);
                     console.log("Couldn't update price. Ignoring");
                 }
@@ -955,6 +971,7 @@ function genquote(chainid, market, side, baseQuantity) {
     }
     const softPrice = (softQuoteQuantity / baseQuantity).toPrecision(6);
     const hardPrice = (hardQuoteQuantity / baseQuantity).toPrecision(6);;
+    if (softPrice < 0  || hardPrice < 0) throw new Error("Amount is inadequate to pay fee");
     return { softPrice, hardPrice };
 }
 
