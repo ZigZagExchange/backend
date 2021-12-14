@@ -344,18 +344,20 @@ async function handleMessage(msg, ws) {
                 const chainid = update[0];
                 const orderId = update[1];
                 const newstatus = update[2];
-                let success, fillId;
+                let success, fillId, market;
                 if (newstatus == 'b') {
                     const txhash = update[3];
                     const result = await updateMatchedOrder(chainid, orderId, newstatus, txhash);
                     success = result.success;
                     fillId = result.fillId;
+                    market = result.market;
                 }
                 if (newstatus == 'r' || newstatus == 'f') {
                     const txhash = update[3];
                     const result = await updateOrderFillStatus(chainid, orderId, newstatus);
                     success = result.success;
                     fillId = result.fillId;
+                    market = result.market;
                 }
                 if (success) {
                     orderUpdates.push(update);
@@ -365,10 +367,10 @@ async function handleMessage(msg, ws) {
                 }
             }
             if (orderUpdates.length > 0) {
-                broadcastMessage(chainid, null, {op:"orderstatus",args: [orderUpdates]});
+                broadcastMessage(chainid, market, {op:"orderstatus",args: [orderUpdates]});
             }
             if (fillUpdates.length > 0) {
-                broadcastMessage(chainid, null, {op:"fillstatus",args: [fillUpdates]});
+                broadcastMessage(chainid, market, {op:"fillstatus",args: [fillUpdates]});
             }
         default:
             break
@@ -378,13 +380,14 @@ async function handleMessage(msg, ws) {
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
     if (chainid == 1001) throw new Error("Not for Starknet orders");
 
-    let update, fillId;
+    let update, fillId, market;
     try {
         const values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm')", values);
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
+            market = update2.rows[0].market;
         }
     }
     catch (e) {
@@ -392,18 +395,19 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         console.error(e);
         return false;
     }
-    return { success: update.rowCount > 0, fillId };
+    return { success: update.rowCount > 0, fillId, market };
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
-    let update, fillId;
+    let update, fillId, market;
     try {
         let values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
         values = [newstatus,txhash,chainid, orderid];
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
+            market = update2.rows[0].market;
         }
     }
     catch (e) {
@@ -411,7 +415,7 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
         console.error(e);
         return false;
     }
-    return { success: update.rowCount > 0, fillId };
+    return { success: update.rowCount > 0, fillId, market };
 }
 
 async function processorderzksync(chainid, zktx) {
@@ -619,7 +623,6 @@ async function matchorder(chainid, orderId, fillOrder) {
 
 
 async function broadcastMessage(chainid, market, msg) {
-    console.log("num clients", wss.clients.size);
     wss.clients.forEach(ws => {
         if (ws.readyState !== WebSocket.OPEN) return true;
         if (chainid && ws.chainid !== chainid) return true;
@@ -920,7 +923,6 @@ async function updatePendingOrders() {
         values: [one_min_ago]
     }
     const updateFills = await pool.query(query);
-    console.log(updateFills.rows);
     return true;
 }
 
@@ -936,7 +938,6 @@ function getLastPrices() {
                     lastprices.push([product, lastPrice, change]);
                     uniqueProducts.push(product);
                 } catch (e) {
-                    console.log(product);
                     console.error(e);
                     console.log("Couldn't update price. Ignoring");
                 }
@@ -991,4 +992,5 @@ function clearDeadConnections () {
             ws.ping();
         }
     });
+    console.log("num clients", wss.clients.size);
 }
