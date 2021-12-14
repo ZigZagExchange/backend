@@ -30,7 +30,7 @@ pool.query(migration)
 
 const redis = Redis.createClient({ url: process.env.REDIS_URL });
 redis.on('error', (err) => console.log('Redis Client Error', err));
-await redis.connect();
+//await redis.connect();
 
 
 const starknetContracts = {
@@ -408,7 +408,7 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
         values = [newstatus,txhash,chainid, orderid];
         const rediskey = `order:${orderid}:txhash`
-        redis.set(rediskey, txhash);
+        //redis.set(rediskey, txhash);
         const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
@@ -664,7 +664,8 @@ async function getorder(chainid, orderid) {
     if (select.rows.length == 0) throw new Error("Order not found")
     const order = select.rows[0];
     const rediskey = `order:${orderid}:txhash`;
-    const txhash = await redis.get(rediskey);
+    //const txhash = await redis.get(rediskey);
+    txhash = null;
     order.push(txhash);
     return order;
 }
