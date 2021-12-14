@@ -28,7 +28,13 @@ const migration = fs.readFileSync('schema.sql', 'utf8');
 pool.query(migration)
     .catch(console.error);
 
-const redis = Redis.createClient({ url: process.env.REDIS_URL });
+const redis = Redis.createClient({ 
+    url: process.env.REDIS_URL,
+    socket: {
+        tls: true,
+        rejectUnauthorized: false
+    },
+});
 redis.on('error', (err) => console.log('Redis Client Error', err));
 //await redis.connect();
 
