@@ -665,7 +665,7 @@ async function getorder(chainid, orderid) {
     const order = select.rows[0];
     const rediskey = `order:${orderid}:txhash`;
     //const txhash = await redis.get(rediskey);
-    txhash = null;
+    const txhash = null;
     order.push(txhash);
     return order;
 }
