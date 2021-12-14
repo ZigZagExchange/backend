@@ -29,6 +29,8 @@ pool.query(migration)
     .catch(console.error);
 
 const redis = Redis.createClient({ url: process.env.REDIS_URL });
+redis.on('error', (err) => console.log('Redis Client Error', err));
+await redis.connect();
 
 
 const starknetContracts = {
@@ -237,13 +239,13 @@ async function handleMessage(msg, ws) {
             orderId = msg.args[1];
             let cancelresult;
             try {
-                await cancelorder(chainid, orderId, ws);
+                cancelresult = await cancelorder(chainid, orderId, ws);
             }
             catch (e) {
-                ws.send(JSON.stringify({op:"cancelorderreject",args:[orderId, e.message]}));
+                ws.send(JSON.stringify({op:"error",args:["cancelorder",orderId, e.message]}));
                 break
             }
-            broadcastMessage(chainid, null, {op:"orderstatus",args:[[[chainid, orderId, 'c']]]});
+            broadcastMessage(chainid, cancelresult.market, {op:"orderstatus",args:[[[chainid, orderId, 'c']]]});
             break
         case "cancelall":
             chainid = msg.args[0];
@@ -286,9 +288,10 @@ async function handleMessage(msg, ws) {
 
             try {
                 const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
+                const market = matchOrderResult.fill[2];
                 ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
-                broadcastMessage(chainid, null, {op:"orderstatus",args:[[[chainid,orderId,'m']]]});
-                broadcastMessage(chainid, null, {op:"fills",args:[[matchOrderResult.fill]]});
+                broadcastMessage(chainid, market, {op:"orderstatus",args:[[[chainid,orderId,'m']]]});
+                broadcastMessage(chainid, market, {op:"fills",args:[[matchOrderResult.fill]]});
             } catch (e) {
                 console.error(e);
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", e.message]}));
@@ -404,6 +407,8 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
         let values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
         values = [newstatus,txhash,chainid, orderid];
+        const rediskey = `order:${orderid}:txhash`
+        redis.set(rediskey, txhash);
         const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
@@ -538,8 +543,10 @@ async function processorderstarknet(chainid, zktx) {
 }
 
 async function relayStarknetMatch(buyer, seller, fillQty, fillPrice, fillId, makerOfferId, takerOfferId) {
-    const baseAssetDecimals = starknetAssets[starknetContracts[buyer[2]]].decimals;
-    const quoteAssetDecimals = starknetAssets[starknetContracts[buyer[3]]].decimals;
+    const baseCurrency = starknetContract[buyer[2]];
+    const quoteCurrency = starknetContract[buyer[3]];
+    const baseAssetDecimals = starknetAssets[baseCurrency].decimals;
+    const quoteAssetDecimals = starknetAssets[quoteCurrency].decimals;
     const decimalDifference = baseAssetDecimals - quoteAssetDecimals;
     const fillPriceRatio = ["1", (1 / fillPrice * 10**(decimalDifference)).toFixed(0)];
     fillQty = (fillQty * Math.pow(10, baseAssetDecimals)).toFixed(0);
@@ -568,15 +575,17 @@ async function relayStarknetMatch(buyer, seller, fillQty, fillPrice, fillId, mak
         const chainid = parseInt(buyer[0]);
         const orderUpdates = orderupdate.rows.map(row => [chainid, row.id, row.order_status]);
         const fillUpdates = fillupdate.rows.map(row => [chainid, row.id, row.fill_status, row.txhash]);
-        broadcastMessage(chainid, null, {"op":"orderstatus", args:[orderUpdates]});
-        broadcastMessage(chainid, null, {"op":"fillstatus", args:[fillUpdates]});
+        const market = baseCurrency + "-" + quoteCurrency;
+        broadcastMessage(chainid, market, {"op":"orderstatus", args:[orderUpdates]});
+        broadcastMessage(chainid, market, {"op":"fillstatus", args:[fillUpdates]});
     } catch (e) {
         console.error(e);
         console.error("Starknet tx failed");
         const orderupdate = await pool.query("UPDATE offers SET order_status='r' WHERE id IN ($1, $2) RETURNING id, order_status", [makerOfferId, takerOfferId]);
         const chainid = parseInt(buyer[0]);
         const orderUpdates = orderupdate.rows.map(row => [chainid, row.id, row.order_status]);
-        broadcastMessage(chainid, null, {"op":"orderstatus", args:[orderUpdates]});
+        const market = baseCurrency + "-" + quoteCurrency;
+        broadcastMessage(chainid, market, {"op":"orderstatus", args:[orderUpdates]});
     }
 }
 
@@ -599,8 +608,12 @@ async function cancelorder(chainid, orderId, ws) {
         throw new Error("Unauthorized");
     }
     const updatevalues = [orderId];
-    const update = await pool.query("UPDATE offers SET order_status='c' WHERE id=$1", updatevalues);
-    return true;
+    const update = await pool.query("UPDATE offers SET order_status='c' WHERE id=$1 RETURNING market", updatevalues);
+    let market;
+    if (update.rows.length > 0) {
+        market = update.rows[0].market;
+    }
+    return { success: true, market };
 }
 
 async function matchorder(chainid, orderId, fillOrder) {
@@ -649,7 +662,11 @@ async function getorder(chainid, orderid) {
     }
     const select = await pool.query(query);
     if (select.rows.length == 0) throw new Error("Order not found")
-    return select.rows[0];
+    const order = select.rows[0];
+    const rediskey = `order:${orderid}:txhash`;
+    const txhash = await redis.get(rediskey);
+    order.push(txhash);
+    return order;
 }
 
 async function getuserfills(chainid, userid) {

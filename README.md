@@ -233,7 +233,7 @@ Operation: **orderreceiptreq**
 
 Arguments: `[chainid,orderid]`
 
-Description: Get an order receipt. Returns a message with the same format as userorderack.
+Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
 
 ```json
 { "op": "orderreceiptreq", "args": [1000, 40] }
