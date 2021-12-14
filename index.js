@@ -916,10 +916,11 @@ async function updatePendingOrders() {
         broadcastMessage(null, null, {"op":"orderstatus", args: [orderUpdates]});
     }
     const fillsQuery = {
-        text: "UPDATE fills SET fill_status='e' WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) RETURNING chainid, id, order_status;",
+        text: "UPDATE fills SET fill_status='e' WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
         values: [one_min_ago]
     }
     const updateFills = await pool.query(query);
+    console.log(updateFills.rows);
     return true;
 }
 
