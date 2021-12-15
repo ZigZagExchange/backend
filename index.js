@@ -185,6 +185,7 @@ function onWsConnection(ws, req) {
         }
         handleMessage(msg, ws);
     });
+    ws.on('error', console.error);
 }
 
 async function handleMessage(msg, ws) {
