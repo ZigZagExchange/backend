@@ -156,6 +156,7 @@ const server = createServer(expressApp);
 const port = process.env.PORT || 3004;
 const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', onWsConnection);
+wss.on('error', console.error);
 
 server.on('upgrade', function upgrade(request, socket, head) {
     wss.handleUpgrade(request, socket, head, function done(ws) {
