@@ -125,7 +125,6 @@ for (let chain in validMarkets) {
 
 await updateMarketSummaries();
 await updateVolumes();
-await updatePendingOrders();
 cryptowatchWsSetup();
 setInterval(updateMarketSummaries, 60000);
 setInterval(clearDeadConnections, 10000);
@@ -950,6 +949,16 @@ async function updatePendingOrders() {
         values: [one_min_ago]
     }
     const updateFills = await pool.query(query);
+    const expiredQuery = {
+        text: "UPDATE offers SET order_status='e' WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
+        values: []
+    }
+    const updateExpires = await pool.query(expiredQuery);
+    if (updateExpires.rowCount > 0) {
+        const orderUpdates = updateExpires.rows.map(row => [row.chainid, row.id, row.order_status]);
+        console.log(orderUpdates);
+        broadcastMessage(null, null, {"op":"orderstatus", args: [orderUpdates]});
+    }
     return true;
 }
 
