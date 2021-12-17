@@ -349,8 +349,6 @@ async function handleMessage(msg, ws) {
             break
         case "orderstatusupdate":
             const updates = msg.args[0];
-            const orderUpdates = [];
-            const fillUpdates = [];
             for (let i in updates) {
                 const update = updates[i];
                 const chainid = update[0];
@@ -372,17 +370,11 @@ async function handleMessage(msg, ws) {
                     market = result.market;
                 }
                 if (success) {
-                    orderUpdates.push(update);
                     const fillUpdate = [...update];
                     fillUpdate[1] = fillId;
-                    fillUpdates.push(fillUpdate);
+                    broadcastMessage(chainid, market, {op:"orderstatus",args: [[update]]});
+                    broadcastMessage(chainid, market, {op:"fillstatus",args: [[fillUpdate]]});
                 }
-            }
-            if (orderUpdates.length > 0) {
-                broadcastMessage(chainid, market, {op:"orderstatus",args: [orderUpdates]});
-            }
-            if (fillUpdates.length > 0) {
-                broadcastMessage(chainid, market, {op:"fillstatus",args: [fillUpdates]});
             }
         default:
             break
@@ -941,7 +933,7 @@ async function updatePendingOrders() {
     }
     const update = await pool.query(query);
     if (update.rowCount > 0) {
-        const orderUpdates = update.rows.map(row => [row.chainid, row.id, row.order_status]);
+        const orderUpdates = update.rows.forEach(row => [row.chainid, row.id, row.order_status]);
         broadcastMessage(null, null, {"op":"orderstatus", args: [orderUpdates]});
     }
     const fillsQuery = {
