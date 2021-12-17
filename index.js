@@ -625,7 +625,8 @@ async function matchorder(chainid, orderId, fillOrder) {
     const selectresult = select.rows[0];
     const zktx = JSON.parse(selectresult.zktx);
 
-    const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2", values);
+    const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id", values);
+    if (update1.rows.length === 0) throw new Error("Order " + orderId + " is not open");
 
     values = [orderId, chainid, selectresult.market, selectresult.userid, selectresult.price, selectresult.base_quantity, selectresult.side];
     const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount, side, fill_status) VALUES ($2, $3, $1, $4, $5, $6, $7, 'm') RETURNING id", values);
