@@ -544,8 +544,8 @@ async function processorderstarknet(chainid, zktx) {
 }
 
 async function relayStarknetMatch(buyer, seller, fillQty, fillPrice, fillId, makerOfferId, takerOfferId) {
-    const baseCurrency = starknetContract[buyer[2]];
-    const quoteCurrency = starknetContract[buyer[3]];
+    const baseCurrency = starknetContracts[buyer[2]];
+    const quoteCurrency = starknetContracts[buyer[3]];
     const baseAssetDecimals = starknetAssets[baseCurrency].decimals;
     const quoteAssetDecimals = starknetAssets[quoteCurrency].decimals;
     const decimalDifference = baseAssetDecimals - quoteAssetDecimals;
