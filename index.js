@@ -127,7 +127,7 @@ await updateMarketSummaries();
 await updateVolumes();
 cryptowatchWsSetup();
 setInterval(updateMarketSummaries, 60000);
-setInterval(clearDeadConnections, 10000);
+setInterval(clearDeadConnections, 60000);
 setInterval(async function () {
     const lastprices = getLastPrices();
     broadcastMessage(null, null, {"op":"lastprice", args: [lastprices]});
