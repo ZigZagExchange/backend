@@ -934,7 +934,7 @@ async function updatePendingOrders() {
     }
     const update = await pool.query(query);
     if (update.rowCount > 0) {
-        const orderUpdates = update.rows.forEach(row => [row.chainid, row.id, row.order_status]);
+        const orderUpdates = update.rows.map(row => [row.chainid, row.id, row.order_status]);
         broadcastMessage(null, null, {"op":"orderstatus", args: [orderUpdates]});
     }
     const fillsQuery = {
@@ -949,7 +949,6 @@ async function updatePendingOrders() {
     const updateExpires = await pool.query(expiredQuery);
     if (updateExpires.rowCount > 0) {
         const orderUpdates = updateExpires.rows.map(row => [row.chainid, row.id, row.order_status]);
-        console.log(orderUpdates);
         broadcastMessage(null, null, {"op":"orderstatus", args: [orderUpdates]});
     }
     return true;
