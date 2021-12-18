@@ -96,7 +96,7 @@ const validMarkets = {
         "DAI-USDT": {},
         "WETH-ETH": {},
         "ETH-FRAX": {},
-        "FXS-FRAX": {},
+        //"FXS-FRAX": {},
     },
     
     // zkSync Rinkeby
@@ -977,6 +977,9 @@ function getLastPrices() {
 
 function genquote(chainid, market, side, baseQuantity) {
     if (!([1,1000]).includes(chainid)) throw new Error("Quotes not supported for this chain");
+    if (!validMarkets[chainid][market]) throw new Error("Invalid market");
+    if (!(['b','s']).includes(side)) throw new Error("Invalid side");
+    if (baseQuantity <= 0) throw new Error("Quantity must be positive");
 
     const lastPrice = validMarkets[chainid][market].marketSummary.price.last;
     let SOFT_SPREAD, HARD_SPREAD;
