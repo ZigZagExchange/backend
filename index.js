@@ -270,11 +270,17 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             const side = msg.args[2];
-            const baseQuantity = parseFloat(msg.args[3]);
+            let baseQuantity = null, quoteQuantity = null;
+            if (msg.args[3]) {
+                baseQuantity = parseFloat(msg.args[3]);
+            }
+            if (msg.args[4]) {
+                quoteQuantity = parseFloat(msg.args[4]);
+            }
             let quoteMessage;
             try {
-                const quote = genquote(chainid, market, side, baseQuantity);
-                quoteMessage = {op:"quote",args:[chainid, market, side, baseQuantity.toString(), quote.softPrice]};
+                const quote = genquote(chainid, market, side, baseQuantity, quoteQuantity);
+                quoteMessage = {op:"quote",args:[chainid, market, side, quote.softBaseQuantity.toPrecision(8), quote.softPrice,quote.softQuoteQuantity.toPrecision(8)]};
             } catch (e) {
                 quoteMessage = {op:"error",args:["requestquote", e.message]};
             }
@@ -975,11 +981,13 @@ function getLastPrices() {
     return lastprices;
 }
 
-function genquote(chainid, market, side, baseQuantity) {
+function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
+    if (baseQuantity && quoteQuantity) throw new Error("Only one of baseQuantity or quoteQuantity should be set");
     if (!([1,1000]).includes(chainid)) throw new Error("Quotes not supported for this chain");
     if (!validMarkets[chainid][market]) throw new Error("Invalid market");
     if (!(['b','s']).includes(side)) throw new Error("Invalid side");
-    if (baseQuantity <= 0) throw new Error("Quantity must be positive");
+    if (baseQuantity && baseQuantity <= 0) throw new Error("Quantity must be positive");
+    if (quoteQuantity && quoteQuantity <= 0) throw new Error("Quantity must be positive");
 
     const lastPrice = validMarkets[chainid][market].marketSummary.price.last;
     let SOFT_SPREAD, HARD_SPREAD;
@@ -993,19 +1001,35 @@ function genquote(chainid, market, side, baseQuantity) {
         SOFT_SPREAD = 0.001;
         HARD_SPREAD = 0.0005;
     }
-    let softQuoteQuantity, hardQuoteQuantity;
-    if (side === 'b') {
+    let softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity;
+    if (baseQuantity && side === 'b') {
         softQuoteQuantity = (baseQuantity * lastPrice * (1 + SOFT_SPREAD)) + gasFees[quoteCurrency];
         hardQuoteQuantity = (baseQuantity * lastPrice * (1 + HARD_SPREAD)) + gasFees[quoteCurrency];
+        softBaseQuantity = baseQuantity;
+        hardBaseQuantity = baseQuantity;
     }
-    if (side === 's') {
+    else if (baseQuantity && side === 's') {
         softQuoteQuantity = (baseQuantity - gasFees[baseCurrency]) * lastPrice * (1 - SOFT_SPREAD);
         hardQuoteQuantity = (baseQuantity - gasFees[baseCurrency]) * lastPrice * (1 - HARD_SPREAD);
+        softBaseQuantity = baseQuantity;
+        hardBaseQuantity = baseQuantity;
     }
-    const softPrice = (softQuoteQuantity / baseQuantity).toPrecision(6);
-    const hardPrice = (hardQuoteQuantity / baseQuantity).toPrecision(6);;
+    else if (quoteQuantity && side === 'b') {
+        softBaseQuantity = (quoteQuantity - gasFees[quoteCurrency]) / lastPrice * (1 - SOFT_SPREAD);
+        hardBaseQuantity = (quoteQuantity - gasFees[quoteCurrency]) / lastPrice * (1 - HARD_SPREAD);
+        softQuoteQuantity = quoteQuantity;
+        hardQuoteQuantity = quoteQuantity;
+    }
+    else if (quoteQuantity && side === 's') {
+        softBaseQuantity = (quoteQuantity / lastPrice * (1 + SOFT_SPREAD)) + gasFees[baseCurrency];
+        hardBaseQuantity = (quoteQuantity / lastPrice * (1 + HARD_SPREAD)) + gasFees[baseCurrency];
+        softQuoteQuantity = quoteQuantity;
+        hardQuoteQuantity = quoteQuantity;
+    }
+    const softPrice = (softQuoteQuantity / softBaseQuantity).toPrecision(6);
+    const hardPrice = (hardQuoteQuantity / hardBaseQuantity).toPrecision(6);;
     if (softPrice < 0  || hardPrice < 0) throw new Error("Amount is inadequate to pay fee");
-    return { softPrice, hardPrice };
+    return { softPrice, hardPrice, softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity };
 }
 
 function sendLastPriceData (ws) {

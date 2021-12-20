@@ -451,26 +451,30 @@ Description: Cancel all orders for a user
 
 Operation: **requestquote**
 
-Arguments: `[chainid, market, side, baseQuantity]`
+Arguments: `[chainid, market, side, baseQuantity, quoteQuantity]`
 
 Description: Request a quote for a purchase. Quotes are all in prices including gas fees, so they may differ from the market price substantially.
+
+Only one of baseQuantity or quoteQuantity should be set.
 
 This operation is also available over HTTP POST and returns a `quote` message.
 
 ```json
-{ "op":"requestquote", "args": [1, "ETH-USDT", "b", 0.032] }
+{ "op":"requestquote", "args": [1, "ETH-USDT", "b", "0.032"] }
+{ "op":"requestquote", "args": [1, "ETH-USDT", "b", "0.032", null] }
+{ "op":"requestquote", "args": [1, "ETH-USDT", "b", null, "2000"] }
 ```
 
 ---
 
 Operation: **quote**
 
-Arguments: `[chainid, market, side, baseQuantity, price]`
+Arguments: `[chainid, market, side, baseQuantity, price, quoteQuantity]`
 
-Description: Response to requestquote. Returns the request arguments plus a price. The price can then be used with submitorder to ensure a fill. 
+Description: Response to requestquote. Returns a fully filled quote with baseQuantity, price, and quoteQuantity. The price can then be used with submitorder to ensure a fill. 
 
 ```json
-{ "op":"quote", "args": [1, "ETH-USDT", "b", 0.032, "4900"] }
+{ "op":"quote", "args": [1, "ETH-USDT", "b", 0.032, "4900", "156.8"] }
 ```
 
 ---
