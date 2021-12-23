@@ -52,6 +52,7 @@ const starknetAssets = {
     "USDT": { decimals: 6 },
 }
 const gasFees = {
+    "WETH": 0.0003,
     "ETH": 0.0003,
     "WBTC": 0.00003,
     "USDC": 1,
@@ -1029,6 +1030,7 @@ function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
     const softPrice = (softQuoteQuantity / softBaseQuantity).toPrecision(6);
     const hardPrice = (hardQuoteQuantity / hardBaseQuantity).toPrecision(6);;
     if (softPrice < 0  || hardPrice < 0) throw new Error("Amount is inadequate to pay fee");
+    if (isNaN(softPrice)  || isNaN(hardPrice)) throw new Error("Internal Error. No price generated.");
     return { softPrice, hardPrice, softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity };
 }
 
