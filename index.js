@@ -85,8 +85,8 @@ const zkTokenIds = {
 const validMarkets = {
     // zkSync Mainnet
     1: {
-        "ETH-USDT": {},
         "ETH-USDC": {},
+        "ETH-USDT": {},
         "ETH-DAI": {},
         "ETH-WBTC": {},
         "WBTC-USDT": {},
@@ -711,7 +711,27 @@ async function getfills(chainid, market) {
 function getLiquidity(chainid, market) {
     const baseCurrency = market.split("-")[0];
     const quoteCurrency = market.split("-")[1];
-    if (baseCurrency == "ETH" || baseCurrency == "WETH") {
+    if (market === "ETH-USDC") {
+        validMarkets[chainid][market].liquidity = [
+            [25, 0.0005, 'd'],
+            [25, 0.0006, 'd'],
+            [25, 0.0007, 'd'],
+            [25, 0.0008, 'd'],
+            [25, 0.0009, 'd'],
+            [25, 0.0010, 'd'],
+            [25, 0.0011, 'd'],
+            [25, 0.0012, 'd'],
+            [25, 0.0013, 'd'],
+            [25, 0.0014, 'd'],
+            [50, 0.0020, 'd'],
+            [50, 0.0030, 'd'],
+            [10, 0.0040, 'd'],
+            [10, 0.0050, 'd'],
+            [10, 0.0060, 'd'],
+            [10, 0.0070, 'd'],
+        ]
+    }
+    else if (baseCurrency == "ETH" || baseCurrency == "WETH") {
         validMarkets[chainid][market].liquidity = [
             [43, 0.0008, 'd'],
             [50, 0.0015, 'd'],
