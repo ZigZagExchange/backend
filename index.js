@@ -120,23 +120,23 @@ const validMarkets = {
 
 // Schema Validations
 const zksyncOrderSchema = Joi.object({
-    accountId: Joi.number().integer(),
-    recipient: Joi.string(),
-    nonce: Joi.number().integer(),
-    amount: Joi.string(),
-    tokenSell: Joi.number().integer(),
-    tokenBuy: Joi.number().integer(),
-    validFrom: Joi.number(),
-    validUntil: Joi.number().min(Date.now() / 1000 | 0).max(2000000000),
-    ratio: Joi.array().items(Joi.string()).length(2),
-    signature: {
-        pubKey: Joi.string(),
-        signature: Joi.string()
-    },
-    ethSignature: {
+    accountId: Joi.number().integer().required(),
+    recipient: Joi.string().required(),
+    nonce: Joi.number().integer().required(),
+    amount: Joi.string().required(),
+    tokenSell: Joi.number().integer().required(),
+    tokenBuy: Joi.number().integer().required(),
+    validFrom: Joi.number().required(),
+    validUntil: Joi.number().min(Date.now() / 1000 | 0).max(2000000000).required(),
+    ratio: Joi.array().items(Joi.string()).length(2).required(),
+    signature: Joi.object().required().keys({
+        pubKey: Joi.string().required(),
+        signature: Joi.string().required()
+    }),
+    ethSignature: Joi.object().keys({
         type: Joi.string(),
         signature: Joi.string()
-    }
+    })
 });
 
 const user_connections = {}
