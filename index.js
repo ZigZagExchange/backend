@@ -133,10 +133,7 @@ const zksyncOrderSchema = Joi.object({
         pubKey: Joi.string().required(),
         signature: Joi.string().required()
     }),
-    ethSignature: Joi.object().keys({
-        type: Joi.string(),
-        signature: Joi.string()
-    })
+    ethSignature: Joi.any(),
 });
 
 const user_connections = {}
