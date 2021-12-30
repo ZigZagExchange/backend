@@ -245,7 +245,7 @@ async function handleMessage(msg, ws) {
                 catch(e) {
                     console.error(e);
                     const errorMsg = {"op":"error", args: ["submitorder", e.message]};
-                    ws.send(JSON.stringify(errorMsg));
+                    if (ws) ws.send(JSON.stringify(errorMsg));
                     return errorMsg;
                 }
             }
