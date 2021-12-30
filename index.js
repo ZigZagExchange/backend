@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 import * as starknet from 'starknet';
 import express from 'express';
 import * as Redis from 'redis';
+import Joi from 'joi';
 
 
 dotenv.config()
@@ -117,6 +118,26 @@ const validMarkets = {
     }
 }
 
+// Schema Validations
+const zksyncOrderSchema = Joi.object({
+    accountId: Joi.number().integer(),
+    recipient: Joi.string(),
+    nonce: Joi.number().integer(),
+    amount: Joi.string(),
+    tokenSell: Joi.number().integer(),
+    tokenBuy: Joi.number().integer(),
+    validFrom: Joi.number(),
+    validUntil: Joi.number().min(Date.now() / 1000 | 0).max(2000000000),
+    ratio: Joi.array().items(Joi.string()).length(2),
+    signature: {
+        pubKey: Joi.string(),
+        signature: Joi.string()
+    },
+    ethSignature: {
+        type: Joi.string(),
+        signature: Joi.string()
+    }
+});
 
 const user_connections = {}
 
@@ -432,9 +453,9 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
 }
 
 async function processorderzksync(chainid, zktx) {
-    if (typeof zktx.amount !== "string") throw new Error("Amount must be quoted as a string");
-    if (typeof zktx.ratio[0] !== "string") throw new Error("Numbers in price ratio must be quoted as a string");
-    if (typeof zktx.ratio[1] !== "string") throw new Error("Numbers in price ratio must be quoted as a string");
+    const inputValidation = zksyncOrderSchema.validate(zktx);
+    if (inputValidation.error) throw new Error(inputValidation.error);
+
     const tokenSell = zkTokenIds[chainid][zktx.tokenSell];
     const tokenBuy = zkTokenIds[chainid][zktx.tokenBuy];
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
