@@ -162,6 +162,7 @@ expressApp.post("/", async function (req, res) {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
     }
+    console.log('Received: %s', JSON.stringify(req.body));
     if (!httpMessages.includes(req.body.op)) {
         res.json({ op: "error", args: [req.body.op, "Not supported in HTTP"] });
         return
@@ -226,7 +227,8 @@ async function handleMessage(msg, ws) {
             orderId = msg.args[1];
             try {
                 const orderreceipt = await getorder(chainid, orderId);
-                if (ws) ws.send(JSON.stringify(orderreceipt));
+                const msg = { "op": "orderreceipt", args: orderreceipt }
+                if (ws) ws.send(JSON.stringify(msg));
                 return orderreceipt;
             } catch (e) {
                 const errorMsg = { "op": "error", args: [msg.op, e.message] }
