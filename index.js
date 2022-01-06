@@ -225,9 +225,13 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             orderId = msg.args[1];
             try {
-                return await getorder(chainid, orderId);
+                const orderreceipt = await getorder(chainid, orderId);
+                if (ws) ws.send(JSON.stringify(orderreceipt));
+                return orderreceipt;
             } catch (e) {
-                return { "op": "error", args: [msg.op, e.message] }
+                const errorMsg = { "op": "error", args: [msg.op, e.message] }
+                if (ws) ws.send(JSON.stringify(errorMsg));
+                return errorMsg;
             }
             break
         case "indicatemaker":
