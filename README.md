@@ -170,6 +170,7 @@ liquidity = `[[side, price, baseQuantity], ...]`
 
 Description: Used by market makers to indicate liquidity. side = {'b','s'} (buy, sell).
 
+Liquidity indications auto-expire in 15 seconds, after which it must be refreshed.
 
 ```json
 {
