@@ -42,82 +42,6 @@ redis.on('error', (err) => console.log('Redis Client Error', err));
 await redis.connect();
 
 
-const starknetContracts = {
-    "0x06a75fdd9c9e376aebf43ece91ffb315dbaa753f9c0ddfeb8d7f3af0124cd0b6": "ETH",
-    "0x0545d006f9f53169a94b568e031a3e16f0ea00e9563dc0255f15c2a1323d6811": "USDC",
-    "0x03d3af6e3567c48173ff9b9ae7efc1816562e558ee0cc9abc0fe1862b2931d9a": "USDT"
-}
-const starknetAssets = {
-    "ETH": { decimals: 18 },
-    "USDC": { decimals: 6 },
-    "USDT": { decimals: 6 },
-}
-const gasFees = {
-    "WETH": 0.0003,
-    "ETH": 0.0003,
-    "WBTC": 0.00003,
-    "USDC": 1,
-    "USDT": 1,
-    "FRAX": 1,
-    "DAI": 1,
-}
-const zkTokenIds = {
-    // zkSync Mainnet
-    1: {
-        0: {name:'ETH',decimals:18},
-        4: {name:'USDT',decimals:6},
-        2: {name:'USDC',decimals:6},
-        1: {name:'DAI',decimals:18},
-        15: {name:'WBTC',decimals:8},
-        61: {name:'WETH',decimals:18},
-        92: {name:'FRAX',decimals:18},
-        120: {name:'FXS',decimals:18},
-    },
-
-    // zkSync Rinkeby
-    1000: {
-        0: {name:'ETH',decimals:18},
-        1: {name:'USDT',decimals:6},
-        2: {name:'USDC',decimals:6},
-        19: {name:'DAI',decimals:18},
-        15: {name:'WBTC',decimals:8},
-    }
-}
-const validMarkets = {
-    // zkSync Mainnet
-    1: {
-        "ETH-USDC": {},
-        "ETH-USDT": {},
-        "ETH-DAI": {},
-        "ETH-WBTC": {},
-        "WBTC-USDT": {},
-        "WBTC-USDC": {},
-        "WBTC-DAI": {},
-        "USDC-USDT": {},
-        "DAI-USDC": {},
-        "DAI-USDT": {},
-        "WETH-ETH": {},
-        "ETH-FRAX": {},
-        //"FXS-FRAX": {},
-    },
-    
-    // zkSync Rinkeby
-    1000: {
-        "ETH-USDT": {},
-        "ETH-USDC": {},
-        "ETH-DAI": {},
-        "USDC-USDT": {},
-        "DAI-USDC": {},
-        "DAI-USDT": {},
-    },
-    
-    // Starknet Alpha
-    1001: {
-        "ETH-USDT": {},
-        "ETH-USDC": {},
-    }
-}
-
 // Schema Validations
 const zksyncOrderSchema = Joi.object({
     accountId: Joi.number().integer().required(),
@@ -136,11 +60,8 @@ const zksyncOrderSchema = Joi.object({
     ethSignature: Joi.any(),
 });
 
-const user_connections = {}
-
-for (let chain in validMarkets) {
-    user_connections[chain] = {}
-}
+const USER_CONNECTIONS = {}
+const MARKET_SUMMARIES = {}
 
 await updateMarketSummaries();
 await updateVolumes();
@@ -209,14 +130,15 @@ function onWsConnection(ws, req) {
 }
 
 async function handleMessage(msg, ws) {
-    let orderId, zktx, userid, chainid, market;
+    let orderId, zktx, userid, chainid, market, userconnkey;
     switch (msg.op) {
         case "login":
             chainid = msg.args[0];
             userid = msg.args[1];
             ws.chainid = chainid;
             ws.userid = userid;
-            user_connections[chainid][userid] = ws;
+            userconnkey = `${chainid}:${userid}`;
+            USER_CONNECTIONS[userconnkey] = ws;
             const userorders = await getuserorders(chainid, userid);
             const userfills = await getuserfills(chainid, userid);
             ws.send(JSON.stringify({"op":"orders", args: [userorders]}))
@@ -284,7 +206,8 @@ async function handleMessage(msg, ws) {
         case "cancelall":
             chainid = msg.args[0];
             userid = msg.args[1];
-            if (user_connections[chainid][userid] != ws) {
+            userconnkey = `${chainid}:${userid}`;
+            if (USER_CONNECTIONS[userconnkey] != ws) {
                 ws.send(JSON.stringify({op:"error",args:["cancelall", userid, "Unauthorized"]}));
             }
             const canceled_orders = await cancelallorders(userid);
@@ -340,10 +263,6 @@ async function handleMessage(msg, ws) {
         case "subscribemarket":
             chainid = msg.args[0];
             market = msg.args[1];
-            if (!validMarkets[chainid][market]) {
-                ws.send(JSON.stringify({"op":"error", args: ["invalid market"]}));
-                return false;
-            }
             const openorders = await getopenorders(chainid, market);
             const fills = await getfills(chainid, market);
             const lastprices = getLastPrices();
@@ -511,7 +430,8 @@ async function processorderzksync(chainid, zktx) {
     // broadcast new order
     broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
     try {
-        user_connections[chainid][user].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
+        const userconnkey = `${chainid}:${userid}`;
+        USER_CONNECTIONS[userconnkey].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
     } catch (e) {
         // user connection doesn't exist. just pass along
     }
@@ -636,7 +556,8 @@ async function cancelorder(chainid, orderId, ws) {
         throw new Error("Order not found");
     }
     const userid = select.rows[0].userid;
-    if (user_connections[chainid][userid] != ws) {
+    const userconnkey = `${chainid}:${userid}`;
+    if (USER_CONNECTIONS[userconnkey] != ws) {
         throw new Error("Unauthorized");
     }
     const updatevalues = [orderId];
@@ -896,63 +817,6 @@ async function cryptowatchWsSetup() {
     }
 }
 
-
-async function updateMarketSummaries() {
-    const productUpdates = {};
-    for (let chain in validMarkets) {
-        for (let product in validMarkets[chain]) {
-            let cryptowatch_product = product;
-            const baseCurrency = product.split("-")[0];
-            const quoteCurrency = product.split("-")[1];
-            if (productUpdates[product]) {
-                validMarkets[chain][product].marketSummary = productUpdates[product];
-            }
-            else if (product === "FRAX-USDC" || product === "WETH-ETH") {
-                validMarkets[chain][product].marketSummary = {
-                  price: {
-                    last: 1.0000,
-                    high: 1.001,
-                    low: 0.999,
-                    change: { percentage: 0, absolute: 0 }
-                  },
-                }
-            }
-            else {
-                let cryptowatch_market = cryptowatch_product.replace("-", "").replace("WBTC", "BTC").toLowerCase();
-                let exchange = "binance";
-                if (product === "DAI-USDC") {
-                    exchange = "coinbase-pro";
-                }
-                else if (product === "DAI-USDT") {
-                    exchange = "ftx";
-                }
-                else if (product === "FXS-FRAX") {
-                    exchange = "uniswap-v2"
-                }
-                else if (product === "ETH-FRAX") {
-                    cryptowatch_market = "ethusdc";
-                }
-                const headers = { 'X-CW-API-Key': process.env.CRYPTOWATCH_API_KEY };
-                const url = `https://api.cryptowat.ch/markets/${exchange}/${cryptowatch_market}/summary`;
-                try {
-                    const r = await fetch(url, { headers });
-                    const data = await r.json();
-                    if (product == "FXS-FRAX") {
-                        data.result.price.last = data.result.price.last.toPrecision(6);
-                        data.result.price.high = data.result.price.high.toPrecision(6);
-                        data.result.price.low = data.result.price.low.toPrecision(6);
-                    }
-                    validMarkets[chain][product].marketSummary = data.result;
-                    productUpdates[product] = data.result;
-                } catch (e) {
-                    console.error(product, e);
-                    console.error("Cryptowatch API request failed");
-                }
-            }
-        }
-    }
-    return validMarkets;
-}
 
 async function updateVolumes() {
     const one_day_ago = new Date(Date.now() - 86400*1000).toISOString();
