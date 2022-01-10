@@ -162,15 +162,31 @@ Starknet
 
 ---
 
-Operation: **indicateliq**    
+Operation: **indicateliqv2**    
 
-Arguments: `[chainId, market, spread, side]`
+Arguments: `[chainId, market, liquidity]`
 
-Description: Used by market makers to indicate liquidity at a spread from spot price. side = {'b','s','d'} (buy, sell, double-sided)
+liquidity = `[[side, price, baseQuantity], ...]`
 
+Description: Used by market makers to indicate liquidity. side = {'b','s'} (buy, sell).
+
+Liquidity indications auto-expire in 15 seconds, after which it must be refreshed.
 
 ```json
-{"op":"indicatemaker", "args": [1000, "ETH-USDT", 0.003, "d"]}
+{
+  "op": "indicateliqv2",
+  "args": [
+    1000,
+    "ETH-USDT",
+    [
+        ["b", 3100, 1.2322],
+        ["b", 3200, 2.2324],
+        ["s", 3300, 0.2822],
+        ["s", 3500, 1.2832]
+    ]
+  ]
+}
+
 ```
 
 ---
