@@ -162,7 +162,7 @@ Starknet
 
 ---
 
-Operation: **indicateliqv2**    
+Operation: **indicateliq2**    
 
 Arguments: `[chainId, market, liquidity]`
 
@@ -174,7 +174,7 @@ Liquidity should be refreshed every 10 seconds or so. Indicated liquidity is exp
 
 ```json
 {
-  "op": "indicateliqv2",
+  "op": "indicateliq2",
   "args": [
     1000,
     "ETH-USDT",
@@ -338,21 +338,23 @@ Only 'f' and 'r' status updates are permitted, and only for matched orders.
 
 ---
 
-Operation: **liquidity**    
+Operation: **liquidity2**    
 
 Arguments: `[chainId, market, liquidity]`
 
-Description: Indications of market maker interest by spread. liquidity = [quantity,spread,side]
+Description: Indications of market maker interest. liquidity = [side,price,baseQuantity]
 
 ```json
 {
-  "op": "liquidity",
+  "op": "liquidity2",
   "args": [
       1000,
       "ETH-USDT",
       [
-        [ 0.1, 0.003, "d" ],
-        [ 0.5, 0.005, "d" ]
+        ["b", 3100, 1.2322],
+        ["b", 3200, 2.2324],
+        ["s", 3300, 0.2822],
+        ["s", 3500, 1.2832]
       ]
   ]
 }

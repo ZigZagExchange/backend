@@ -62,13 +62,15 @@ const zksyncOrderSchema = Joi.object({
 
 // Globals
 const USER_CONNECTIONS = {}
+const VALID_CHAINS = [1,1000,1001];
 
 await updateVolumes();
-cryptowatchWsSetup();
 setInterval(clearDeadConnections, 60000);
-setInterval(async function () {
-    const lastprices = getLastPrices();
-    broadcastMessage(null, null, {"op":"lastprice", args: [lastprices]});
+setInterval(function () {
+    VALID_CHAINS.forEach(async (chainid) => {
+        const lastprices = await getLastPrices(chainid);
+        broadcastMessage(chainid, null, {"op":"lastprice", args: [lastprices]});
+    });
 }, 3000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
@@ -104,7 +106,7 @@ server.on('upgrade', function upgrade(request, socket, head) {
 
 server.listen(port);
     
-function onWsConnection(ws, req) {
+async function onWsConnection(ws, req) {
     ws.uuid = randomUUID();
     console.log("New connection: ", req.connection.remoteAddress);
     ws.isAlive = true;
@@ -112,7 +114,7 @@ function onWsConnection(ws, req) {
     ws.chainid = 1; // subscribe to zksync mainnet by default
     ws.userid = null;
 
-    const lastprices = getLastPrices();
+    const lastprices = await getLastPrices();
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
     ws.on('pong', () => {
         ws.isAlive = true;
@@ -270,16 +272,16 @@ async function handleMessage(msg, ws) {
             market = msg.args[1];
             const openorders = await getopenorders(chainid, market);
             const fills = await getfills(chainid, market);
-            const lastprices = getLastPrices();
+            const lastprices = await getLastPrices();
             try {
                 const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
-                const lastprice = redis.get(`lastprice:${chainid}:${market}`);
-                const baseVolume = redis.get(`volume:${chainid}:${market}:base`);
-                const quoteVolume = redis.get(`volume:${chainid}:${market}:quote`);
-                const yesterdayPrice = redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
-                const priceChange = lastPrice - yesterdayPrice;
-                const hi24 = Math.max(lastPrice, yesterdayPrice);
-                const lo24 = Math.min(lastPrice, yesterdayPrice);
+                const lastprice = lastprices.find(l => l[0] === market)[1];
+                const baseVolume = await redis.get(`volume:${chainid}:${market}:base`);
+                const quoteVolume = await redis.get(`volume:${chainid}:${market}:quote`);
+                const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
+                const priceChange = lastprice - yesterdayPrice;
+                const hi24 = Math.max(lastprice, yesterdayPrice);
+                const lo24 = Math.min(lastprice, yesterdayPrice);
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, lastprice, hi24, lo24, priceChange, baseVolume, quoteVolume]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
@@ -290,7 +292,7 @@ async function handleMessage(msg, ws) {
             ws.send(JSON.stringify({"op":"fills", args: [fills]}))
             if ( ([1,1000]).includes(chainid) ) {
                 const liquidity = getLiquidity(chainid, market);
-                ws.send(JSON.stringify({"op":"liquidity", args: [chainid, market, liquidity]}))
+                ws.send(JSON.stringify({"op":"liquidity2", args: [chainid, market, liquidity]}))
             }
             ws.chainid = chainid;
             ws.marketSubscriptions.push(market);
@@ -357,13 +359,11 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
 
     const success = update.rowCount > 0;
     if (success && (['f', 'pf']).includes(newstatus)) {
-        const redis_key_price = `lastprice:${chainid}:${market}`;
-        const redis_key_markets = `markets:${chainid}`;
         const today = new Date().toISOString().slice(0,10);
         const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`;
-        redis.set(redis_key_price, fillPrice);
-        redis.SADD(redis_key_markets, market);
-        redis.set(redis_key_today_price, fillPrice);
+        redis.HSET(`lastprice:${chainid}`, market, fillPrice);
+        redis.SADD(`markets:${chainid}`, market);
+        redis.SET(redis_key_today_price, fillPrice);
     }
     return { success, fillId, market };
 }
@@ -669,12 +669,15 @@ async function getfills(chainid, market) {
     return select.rows;
 }
 
-function getLiquidity(chainid, market) {
+async function getLiquidity(chainid, market) {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
     let liquidity = await redis.LRANGE(redis_key_liquidity, 0, -1)
+    if (liquidity.length === 0) return [];
+
     liquidity = liquidity.map(JSON.parse);
+
     const now = Date.now();
-    const expired_values = liquidity.filter(l[3] < now);
+    const expired_values = liquidity.filter(l => l[3] < now);
     expired_values.forEach(v => redis.LREM(redis_key_liquidity, 1, v));
     const active_liquidity = liquidity.filter(l => l[3] > now);
     return active_liquidity;
@@ -690,8 +693,8 @@ async function updateVolumes() {
     select.rows.forEach(row => {
         try {
             const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
-            const quoteVolume = parseFloat((row.base_volume * price).toPrecision(6))
-            const baseVolume = parseFloat(row.base_volume.toPrecision(6)),
+            const quoteVolume = parseFloat((row.base_volume * price).toPrecision(6));
+            const baseVolume = parseFloat(row.base_volume.toPrecision(6));
             const redis_key_base = `volume:${row.chainid}:${row.market}:base`;
             const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`;
             redis.set(redis_key_base, baseVolume);
@@ -732,25 +735,38 @@ async function updatePendingOrders() {
     return true;
 }
 
-function getLastPrices(chainid) {
-    const uniqueProducts = [];
-    const lastprices = []
-    for (let chain in validMarkets) {
-        for (let product in validMarkets[chain]) {
-            if (!uniqueProducts.includes(product)) {
-                try {
-                    const lastPrice = validMarkets[chain][product].marketSummary.price.last;
-                    const change = parseFloat(validMarkets[chain][product].marketSummary.price.change.absolute.toPrecision(6));
-                    lastprices.push([product, lastPrice, change]);
-                    uniqueProducts.push(product);
-                } catch (e) {
-                    console.error(e);
-                    console.log("Couldn't update price. Ignoring");
-                }
-            }
-        }
+async function getLastPrices(chainid) {
+    const lastprices = [];
+    const redis_key_prices = `lastprices:${chainid}`;
+    let redis_values = await redis.HGETALL(redis_key_prices);
+    
+    await seedInitialData(chainid);
+    // First time running the backend? Seed some approximate price data for some common markets
+    // They'll be updated by the first trade in each market
+    if (Object.keys(redis_values).length === 0) {
+        await seedInitialData(chainid);
+        redis_values = await redis.HGETALL(redis_key_prices);
+    } 
+
+    for (let market in redis_values) {
+        const price = redis_values[market];
+        const change = 0;
+        lastprices.push([market, price, change]);
     }
     return lastprices;
+}
+
+async function seedInitialData(chainid) {
+    const redis_key_prices = `lastprices:${chainid}`;
+    await redis.HSET(`lastprices:${chainid}`, "ETH-USDT", "3500");
+    await redis.HSET(`lastprices:${chainid}`, "ETH-USDC", "3500");
+    await redis.HSET(`lastprices:${chainid}`, "USDC-USDT", "0.9993");
+    await redis.SET(`volume:${chainid}:ETH-USDT:base`, "0");
+    await redis.SET(`volume:${chainid}:ETH-USDT:quote`, "0");
+    await redis.SET(`volume:${chainid}:ETH-USDC:base`, "0");
+    await redis.SET(`volume:${chainid}:ETH-USDC:quote`, "0");
+    await redis.SET(`volume:${chainid}:USDC-USDT:base`, "0");
+    await redis.SET(`volume:${chainid}:USDC-USDT:quote`, "0");
 }
 
 function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
@@ -803,11 +819,6 @@ function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
     if (softPrice < 0  || hardPrice < 0) throw new Error("Amount is inadequate to pay fee");
     if (isNaN(softPrice)  || isNaN(hardPrice)) throw new Error("Internal Error. No price generated.");
     return { softPrice, hardPrice, softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity };
-}
-
-function sendLastPriceData (ws) {
-    const lastprices = getLastPrices();
-    ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
 }
 
 function clearDeadConnections () {
