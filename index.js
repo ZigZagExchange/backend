@@ -60,13 +60,11 @@ const zksyncOrderSchema = Joi.object({
     ethSignature: Joi.any(),
 });
 
+// Globals
 const USER_CONNECTIONS = {}
-const MARKET_SUMMARIES = {}
 
-await updateMarketSummaries();
 await updateVolumes();
 cryptowatchWsSetup();
-setInterval(updateMarketSummaries, 60000);
 setInterval(clearDeadConnections, 60000);
 setInterval(async function () {
     const lastprices = getLastPrices();
@@ -130,7 +128,7 @@ function onWsConnection(ws, req) {
 }
 
 async function handleMessage(msg, ws) {
-    let orderId, zktx, userid, chainid, market, userconnkey;
+    let orderId, zktx, userid, chainid, market, userconnkey, liquidity;
     switch (msg.op) {
         case "login":
             chainid = msg.args[0];
@@ -158,7 +156,14 @@ async function handleMessage(msg, ws) {
                 return errorMsg;
             }
             break
-        case "indicatemaker":
+        case "indicateliqv2":
+            chainid = msg.args[0];
+            market = msg.args[1];
+            liquidity = msg.args[2];
+            const redis_key_liquidity = `liquidity:${chainid}:${market}`;
+            const expiration = Date.now() + 15000;
+            liquidity.forEach(l => l.push(expiration));
+            redis.LPUSH(redis_key_liquidity, ...liquidity.map(JSON.stringify));
             break
         case "submitorder":
             chainid = msg.args[0];
@@ -267,16 +272,15 @@ async function handleMessage(msg, ws) {
             const fills = await getfills(chainid, market);
             const lastprices = getLastPrices();
             try {
-                const priceData = validMarkets[chainid][market].marketSummary.price;
-                let volumes = validMarkets[chainid][market].volumes;
-                if (!volumes) {
-                    volumes = {
-                        base: 0, 
-                        quote: 0
-                    }
-                }
-                const priceChange = parseFloat(priceData.change.absolute.toPrecision(6));
-                const marketSummaryMsg = {op: 'marketsummary', args: [market, priceData.last, priceData.high, priceData.low, priceChange, volumes.base, volumes.quote]};
+                const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
+                const lastprice = redis.get(`lastprice:${chainid}:${market}`);
+                const baseVolume = redis.get(`volume:${chainid}:${market}:base`);
+                const quoteVolume = redis.get(`volume:${chainid}:${market}:quote`);
+                const yesterdayPrice = redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
+                const priceChange = lastPrice - yesterdayPrice;
+                const hi24 = Math.max(lastPrice, yesterdayPrice);
+                const lo24 = Math.min(lastPrice, yesterdayPrice);
+                const marketSummaryMsg = {op: 'marketsummary', args: [market, lastprice, hi24, lo24, priceChange, baseVolume, quoteVolume]};
                 ws.send(JSON.stringify(marketSummaryMsg));
             } catch (e) {
                 console.error(e);
@@ -334,14 +338,15 @@ async function handleMessage(msg, ws) {
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
     if (chainid == 1001) throw new Error("Not for Starknet orders");
 
-    let update, fillId, market;
+    let update, fillId, market, fillPrice;
     try {
         const values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm')", values);
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
             market = update2.rows[0].market;
+            fillPrice = update2.rows[0].price;
         }
     }
     catch (e) {
@@ -349,7 +354,18 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         console.error(e);
         return false;
     }
-    return { success: update.rowCount > 0, fillId, market };
+
+    const success = update.rowCount > 0;
+    if (success && (['f', 'pf']).includes(newstatus)) {
+        const redis_key_price = `lastprice:${chainid}:${market}`;
+        const redis_key_markets = `markets:${chainid}`;
+        const today = new Date().toISOString().slice(0,10);
+        const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`;
+        redis.set(redis_key_price, fillPrice);
+        redis.SADD(redis_key_markets, market);
+        redis.set(redis_key_today_price, fillPrice);
+    }
+    return { success, fillId, market };
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
@@ -654,169 +670,15 @@ async function getfills(chainid, market) {
 }
 
 function getLiquidity(chainid, market) {
-    const baseCurrency = market.split("-")[0];
-    const quoteCurrency = market.split("-")[1];
-    if (market === "ETH-USDC") {
-        validMarkets[chainid][market].liquidity = [
-            [25, 0.0005, 'd'],
-            [25, 0.0006, 'd'],
-            [25, 0.0007, 'd'],
-            [25, 0.0008, 'd'],
-            [25, 0.0009, 'd'],
-            [25, 0.0010, 'd'],
-            [25, 0.0011, 'd'],
-            [25, 0.0012, 'd'],
-            [25, 0.0013, 'd'],
-            [25, 0.0014, 'd'],
-            [50, 0.0020, 'd'],
-            [50, 0.0030, 'd'],
-            [10, 0.0040, 'd'],
-            [10, 0.0050, 'd'],
-            [10, 0.0060, 'd'],
-            [10, 0.0070, 'd'],
-        ]
-    }
-    else if (baseCurrency == "ETH" || baseCurrency == "WETH") {
-        validMarkets[chainid][market].liquidity = [
-            [43, 0.0008, 'd'],
-            [50, 0.0015, 'd'],
-            [17.5, 0.003, 'd'],
-            [12.1, 0.005, 'd'],
-            [5.2, 0.008, 'd'],
-            [10.847, 0.01, 'd'],
-            [7.023, 0.011, 'd'],
-            [1.3452, 0.013, 'd'],
-            [1.62, 0.02, 'd'],
-            [4.19, 0.025, 'd'],
-            [1.23, 0.039, 'd'],
-            [3.02, 0.041, 'd'],
-            [1.32, 0.049, 'd'],
-            [2.07, 0.051, 'd'],
-            [1.07, 0.052, 'd'],
-            [2.13, 0.063, 'd'],
-        ]
-    }
-    else if (baseCurrency == "WBTC") {
-        validMarkets[chainid][market].liquidity = [
-            [2.6, 0.0008, 'd'],
-            [3.4, 0.0015, 'd'],
-            [1.25, 0.003, 'd'],
-            [0.11, 0.005, 'd'],
-            [0.12, 0.008, 'd'],
-            [1.0847, 0.01, 'd'],
-            [0.7023, 0.011, 'd'],
-            [0.3452, 0.013, 'd'],
-            [1.62, 0.02, 'd'],
-            [0.19, 0.025, 'd'],
-            [0.23, 0.039, 'd'],
-            [1.02, 0.041, 'd'],
-            [0.32, 0.049, 'd'],
-            [0.07, 0.051, 'd'],
-            [0.07, 0.052, 'd'],
-            [0.13, 0.063, 'd'],
-        ]
-    }
-    else if ((["FXS"]).includes(baseCurrency)) {
-        validMarkets[chainid][market].liquidity = [
-            [7000, 0.0014, 'd'],
-            [6000, 0.0017, 'd'],
-            [1800, 0.0024, 'd'],
-            [1303, 0.0037, 'd'],
-            [2900, 0.0043, 'd'],
-            [1301, 0.0054, 'd'],
-            [4000, 0.007, 'd'],
-            [1590, 0.0073, 'd'],
-            [5200, 0.0088, 'd'],
-            [1900, 0.0095, 'd'],
-            [1190, 0.0098, 'd'],
-            [2900, 0.0109, 'd'],
-            [2300, 0.0137, 'd'],
-            [1020, 0.0161, 'd'],
-            [1070, 0.0182, 'd'],
-            [2130, 0.0193, 'd'],
-        ]
-    }
-    else if ((["USDC","USDT","FRAX", "DAI"]).includes(baseCurrency)) {
-        validMarkets[chainid][market].liquidity = [
-            [110000, 0.0004, 'd'],
-            [170000, 0.0007, 'd'],
-            [18000, 0.0014, 'd'],
-            [13030, 0.0017, 'd'],
-            [29000, 0.0023, 'd'],
-            [13010, 0.0024, 'd'],
-            [14000, 0.03, 'd'],
-            [11590, 0.0033, 'd'],
-            [25200, 0.0038, 'd'],
-            [1900, 0.0045, 'd'],
-            [11900, 0.0048, 'd'],
-            [2900, 0.0049, 'd'],
-            [12300, 0.0057, 'd'],
-            [1020, 0.0061, 'd'],
-            [21070, 0.0082, 'd'],
-            [2130, 0.0093, 'd'],
-        ]
-    }
-    else {
-        validMarkets[chainid][market].liquidity = [];
-    }
-    return validMarkets[chainid][market].liquidity;
+    const redis_key_liquidity = `liquidity:${chainid}:${market}`
+    let liquidity = await redis.LRANGE(redis_key_liquidity, 0, -1)
+    liquidity = liquidity.map(JSON.parse);
+    const now = Date.now();
+    const expired_values = liquidity.filter(l[3] < now);
+    expired_values.forEach(v => redis.LREM(redis_key_liquidity, 1, v));
+    const active_liquidity = liquidity.filter(l => l[3] > now);
+    return active_liquidity;
 }
-
-async function cryptowatchWsSetup() {
-    const cryptowatch_market_ids = {
-        579: "WBTC-USDT",
-        6630: "WBTC-USDC",
-        63532: "WBTC-DAI",
-        588: "ETH-USDT",
-        6631: "ETH-USDC",
-        63533: "ETH-DAI",
-        580: "ETH-BTC",
-        6636: "USDC-USDT",
-        297241: "FXS-FRAX",
-        63349: "DAI-USDT",
-        61485: "DAI-USDC",
-    }
-
-    const subscriptionMsg = {
-      "subscribe": {
-        "subscriptions": []
-      }
-    }
-    for (let market_id in cryptowatch_market_ids) {
-          subscriptionMsg.subscribe.subscriptions.push({
-            "streamSubscription": {
-              "resource": `markets:${market_id}:trades`
-            }
-          })
-    }
-    let cryptowatch_ws = new WebSocket("wss://stream.cryptowat.ch/connect?apikey=" + process.env.CRYPTOWATCH_API_KEY);
-    cryptowatch_ws.on('open', onopen);
-    cryptowatch_ws.on('message', onmessage);
-    cryptowatch_ws.on('close', onclose);
-    function onopen() {
-        cryptowatch_ws.send(JSON.stringify(subscriptionMsg));
-    }
-    function onmessage (data) {
-        const msg = JSON.parse(data);
-        if (!msg.marketUpdate) return;
-
-        let market = cryptowatch_market_ids[msg.marketUpdate.market.marketId];
-        let trades = msg.marketUpdate.tradesUpdate.trades;
-        let price = parseFloat(trades[trades.length - 1].priceStr).toPrecision(6) / 1;
-        for (let chain in validMarkets) {
-            if (market in validMarkets[chain]) {
-                validMarkets[chain][market].marketSummary.price.last = price;
-                if (market === "ETH-USDC" && "ETH-FRAX" in validMarkets[chain]) {
-                    validMarkets[chain]["ETH-FRAX"].marketSummary.price.last = price;
-                }
-            }
-        }
-    };
-    function onclose () {
-        setTimeout(cryptowatchWsSetup, 5000);
-    }
-}
-
 
 async function updateVolumes() {
     const one_day_ago = new Date(Date.now() - 86400*1000).toISOString();
@@ -829,11 +691,12 @@ async function updateVolumes() {
         try {
             const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
             const quoteVolume = parseFloat((row.base_volume * price).toPrecision(6))
-            validMarkets[row.chainid][row.market].volumes = {
-                base: parseFloat(row.base_volume.toPrecision(6)),
-                quote: quoteVolume,
-            };
-        }
+            const baseVolume = parseFloat(row.base_volume.toPrecision(6)),
+            const redis_key_base = `volume:${row.chainid}:${row.market}:base`;
+            const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`;
+            redis.set(redis_key_base, baseVolume);
+            redis.set(redis_key_quote, quoteVolume);
+k       }
         catch (e) {
             console.log("Could not update volumes");
         }
@@ -869,7 +732,7 @@ async function updatePendingOrders() {
     return true;
 }
 
-function getLastPrices() {
+function getLastPrices(chainid) {
     const uniqueProducts = [];
     const lastprices = []
     for (let chain in validMarkets) {
