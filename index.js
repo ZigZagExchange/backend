@@ -158,14 +158,14 @@ async function handleMessage(msg, ws) {
                 return errorMsg;
             }
             break
-        case "indicateliqv2":
+        case "indicateliq2":
             chainid = msg.args[0];
             market = msg.args[1];
             liquidity = msg.args[2];
-            const redis_key_liquidity = `liquidity:${chainid}:${market}`;
-            const expiration = Date.now() + 15000;
+            const expiration = (Date.now() / 1000 + 15) | 0;
             liquidity.forEach(l => l.push(expiration));
-            redis.LPUSH(redis_key_liquidity, ...liquidity.map(JSON.stringify));
+            liquidity = liquidity.map(l => JSON.stringify(l))
+            redis.LPUSH(`liquidity:${chainid}:${market}`, ...liquidity);
             break
         case "submitorder":
             chainid = msg.args[0];
@@ -291,7 +291,7 @@ async function handleMessage(msg, ws) {
             ws.send(JSON.stringify({"op":"orders", args: [openorders]}))
             ws.send(JSON.stringify({"op":"fills", args: [fills]}))
             if ( ([1,1000]).includes(chainid) ) {
-                const liquidity = getLiquidity(chainid, market);
+                const liquidity = await getLiquidity(chainid, market);
                 ws.send(JSON.stringify({"op":"liquidity2", args: [chainid, market, liquidity]}))
             }
             ws.chainid = chainid;
@@ -672,12 +672,13 @@ async function getfills(chainid, market) {
 async function getLiquidity(chainid, market) {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
     let liquidity = await redis.LRANGE(redis_key_liquidity, 0, -1)
+    console.log(liquidity);
     if (liquidity.length === 0) return [];
 
     liquidity = liquidity.map(JSON.parse);
 
-    const now = Date.now();
-    const expired_values = liquidity.filter(l => l[3] < now);
+    const now = Date.now() / 1000 | 0;
+    const expired_values = liquidity.filter(l => l[3] < now).map(l => JSON.stringify(l));
     expired_values.forEach(v => redis.LREM(redis_key_liquidity, 1, v));
     const active_liquidity = liquidity.filter(l => l[3] > now);
     return active_liquidity;
