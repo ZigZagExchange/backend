@@ -63,6 +63,28 @@ const zksyncOrderSchema = Joi.object({
 // Globals
 const USER_CONNECTIONS = {}
 const VALID_CHAINS = [1,1000,1001];
+const V1_TOKEN_IDS = {
+    0: 'ETH',
+    1: 'DAI',
+    2: 'USDC',
+    4: 'USDT',
+    15: 'WBTC',
+    61: 'WETH',
+    92: 'FRAX',
+}
+const V1_MARKETS = [
+    "ETH-USDT",
+    "ETH-USDC",
+    "ETH-DAI",
+    "ETH-FRAX",
+    "ETH-WBTC",
+    "USDC-USDT",
+    "DAI-USDT",
+    "DAI-USDC",
+    "WBTC-USDT",
+    "WBTC-USDC",
+    "WBTC-DAI",
+]
 
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
@@ -74,6 +96,7 @@ setInterval(function () {
 }, 3000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
+setInterval(broadcastLiquidity, 5000);
 
 const expressApp = express();
 expressApp.use(express.json());
@@ -121,7 +144,7 @@ async function onWsConnection(ws, req) {
     });
     ws.on('message', function incoming(json) {
         const msg = JSON.parse(json);
-        if (msg.op != 'ping') {
+        if (msg.op != 'indicateliq2') {
             console.log('Received: %s', json);
         }
         handleMessage(msg, ws);
@@ -162,17 +185,38 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             liquidity = msg.args[2];
-            const expiration = (Date.now() / 1000 + 15) | 0;
-            liquidity.forEach(l => l.push(expiration));
-            liquidity = liquidity.map(l => JSON.stringify(l))
-            redis.LPUSH(`liquidity:${chainid}:${market}`, ...liquidity);
+            updateLiquidity(chainid, market, liquidity);
             break
         case "submitorder":
             chainid = msg.args[0];
             zktx = msg.args[1];
+            if (chainid !== 1) {
+                const errorMsg = { op: "error", args: ["submitorder", "v1 orders only supported on mainnet. upgrade to v2 orders"] };
+                if (ws) ws.send(JSON.stringify(errorMsg));
+                return errorMsg;
+            }
+            const tokenBuy = V1_TOKEN_IDS[zktx.tokenBuy];
+            const tokenSell = V1_TOKEN_IDS[zktx.tokenSell];
+            if (V1_MARKETS.includes(tokenBuy + "-" + tokenSell)) {
+                market = tokenBuy + "-" + tokenSell;
+            } 
+            else if (V1_MARKETS.includes(tokenSell + "-" + tokenBuy)) {
+                market = tokenSell + "-" + tokenBuy;
+            } 
+            else {
+                const errorMsg = { op: "error", args: ["submitorder", "invalid market"] };
+                if (ws) ws.send(JSON.stringify(errorMsg));
+                return errorMsg;
+            }
+            return await processorderzksync(chainid, market, zktx);
+            break
+        case "submitorder2":
+            chainid = msg.args[0];
+            market = msg.args[1];
+            zktx = msg.args[2];
             if (chainid == 1 || chainid == 1000) {
                 try {
-                    return await processorderzksync(chainid, zktx);
+                    return await processorderzksync(chainid, market, zktx);
                 }
                 catch(e) {
                     console.error(e);
@@ -183,7 +227,7 @@ async function handleMessage(msg, ws) {
             }
             else if (chainid === 1001) {
                 try {
-                    return await processorderstarknet(chainid, zktx);
+                    return await processorderstarknet(chainid, market, zktx);
                 } catch (e) {
                     console.error(e);
                     const errorMsg = {"op":"error", args: ["submitorder", e.message]};
@@ -234,7 +278,7 @@ async function handleMessage(msg, ws) {
             }
             let quoteMessage;
             try {
-                const quote = genquote(chainid, market, side, baseQuantity, quoteQuantity);
+                const quote = await genquote(chainid, market, side, baseQuantity, quoteQuantity);
                 quoteMessage = {op:"quote",args:[chainid, market, side, quote.softBaseQuantity.toPrecision(8), quote.softPrice,quote.softQuoteQuantity.toPrecision(8)]};
             } catch (e) {
                 quoteMessage = {op:"error",args:["requestquote", e.message]};
@@ -275,7 +319,13 @@ async function handleMessage(msg, ws) {
             const lastprices = await getLastPrices();
             try {
                 const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
-                const lastprice = lastprices.find(l => l[0] === market)[1];
+                let lastprice;
+                try {
+                    lastprice = lastprices.find(l => l[0] === market)[1];
+                } catch (e) {
+                    console.error("No price found for " + market);
+                    lastprice = 0;
+                }
                 const baseVolume = await redis.get(`volume:${chainid}:${market}:base`);
                 const quoteVolume = await redis.get(`volume:${chainid}:${market}:quote`);
                 const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
@@ -358,12 +408,13 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
     }
 
     const success = update.rowCount > 0;
+    const marketInfo = await getMarketInfo(market, chainid);
     if (success && (['f', 'pf']).includes(newstatus)) {
         const today = new Date().toISOString().slice(0,10);
         const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`;
-        redis.HSET(`lastprice:${chainid}`, market, fillPrice);
+        redis.HSET(`lastprices:${chainid}`, market, fillPrice.toFixed(marketInfo.pricePrecisionDecimals));
         redis.SADD(`markets:${chainid}`, market);
-        redis.SET(redis_key_today_price, fillPrice);
+        redis.SET(redis_key_today_price, fillPrice.toFixed(marketInfo.pricePrecisionDecimals));
     }
     return { success, fillId, market };
 }
@@ -390,34 +441,29 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
     return { success: update.rowCount > 0, fillId, market };
 }
 
-async function processorderzksync(chainid, zktx) {
+async function processorderzksync(chainid, market, zktx) {
     const inputValidation = zksyncOrderSchema.validate(zktx);
     if (inputValidation.error) throw new Error(inputValidation.error);
 
-    const tokenSell = zkTokenIds[chainid][zktx.tokenSell];
-    const tokenBuy = zkTokenIds[chainid][zktx.tokenBuy];
+    const marketInfo = await getMarketInfo(market, chainid);
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
-    let market = tokenSell.name + "-" + tokenBuy.name;
-    if (validMarkets[chainid][market]) {
+    if (zktx.tokenSell === marketInfo.baseAssetId && zktx.tokenBuy == marketInfo.quoteAssetId) {
         side = 's';
-        base_token = tokenSell;
-        quote_token = tokenBuy;
-        price = ( zktx.ratio[1] / Math.pow(10, quote_token.decimals) ) / 
-                ( zktx.ratio[0] / Math.pow(10, base_token.decimals) );
-        base_quantity = zktx.amount / Math.pow(10, base_token.decimals);
+        price = ( zktx.ratio[1] / Math.pow(10, marketInfo.quoteAsset.decimals) ) / 
+                ( zktx.ratio[0] / Math.pow(10, marketInfo.baseAsset.decimals) );
+        base_quantity = zktx.amount / Math.pow(10, marketInfo.baseAsset.decimals);
         quote_quantity = base_quantity * price;
     }
-    else {
-        market = tokenBuy.name + "-" + tokenSell.name;
+    else if (zktx.tokenSell === marketInfo.quoteAssetId && zktx.tokenBuy == marketInfo.baseAssetId) {
         side = 'b'
-        base_token = tokenBuy;
-        quote_token = tokenSell;
-        price = ( zktx.ratio[0] / Math.pow(10, quote_token.decimals) ) / 
-                ( zktx.ratio[1] / Math.pow(10, base_token.decimals) );
-        quote_quantity = zktx.amount / Math.pow(10, quote_token.decimals);
-        const base_quantity_decimals = Math.min(base_token.decimals, 10);
-        base_quantity = ((quote_quantity / price).toFixed(base_quantity_decimals)) / 1;
-        base_quantity = base_quantity.toPrecision(10) / 1;
+        price = ( zktx.ratio[0] / Math.pow(10, marketInfo.quoteAsset.decimals) ) / 
+                ( zktx.ratio[1] / Math.pow(10, marketInfo.baseAsset.decimals) );
+        quote_quantity = zktx.amount / Math.pow(10, marketInfo.quoteAsset.decimals);
+        const base_quantity_decimals = Math.min(marketInfo.baseAsset.decimals, 10);
+        base_quantity = ((quote_quantity / price).toFixed(marketInfo.baseAsset.decimals)) / 1;
+    }
+    else {
+        throw new Error("Buy/sell tokens do not match market");
     }
     const order_type = 'limit';
     const expires = zktx.validUntil;
@@ -455,14 +501,13 @@ async function processorderzksync(chainid, zktx) {
     return orderreceipt;
 }
 
-async function processorderstarknet(chainid, zktx) {
+async function processorderstarknet(chainid, market, zktx) {
     for (let i in zktx) {
         if (typeof zktx[i] !== "string") throw new Error("All order arguments must be cast to string");
     }
     const user = zktx[1];
     const baseCurrency = starknetContracts[zktx[2]];
     const quoteCurrency = starknetContracts[zktx[3]];
-    const market = baseCurrency + "-" + quoteCurrency;
     if (zktx[4] != 1 && zktx[4] != 0) throw new Error("Invalid side");
     const side = zktx[4] == 0 ? 'b': 's';
     const base_quantity = zktx[5] / Math.pow(10, starknetAssets[baseCurrency].decimals);
@@ -586,7 +631,6 @@ async function cancelorder(chainid, orderId, ws) {
 }
 
 async function matchorder(chainid, orderId, fillOrder) {
-    // TODO: Validation logic to make sure the orders match and the user is getting a good fill
     let values = [orderId, chainid];
     const select = await pool.query("SELECT userid, price, base_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'", values);
     if (select.rows.length === 0) throw new Error("Order " + orderId + " is not open");
@@ -671,15 +715,14 @@ async function getfills(chainid, market) {
 
 async function getLiquidity(chainid, market) {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
-    let liquidity = await redis.LRANGE(redis_key_liquidity, 0, -1)
-    console.log(liquidity);
+    let liquidity = await redis.ZRANGEBYSCORE(redis_key_liquidity, "0", "1000000");
     if (liquidity.length === 0) return [];
 
     liquidity = liquidity.map(JSON.parse);
 
     const now = Date.now() / 1000 | 0;
     const expired_values = liquidity.filter(l => l[3] < now).map(l => JSON.stringify(l));
-    expired_values.forEach(v => redis.LREM(redis_key_liquidity, 1, v));
+    expired_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     const active_liquidity = liquidity.filter(l => l[3] > now);
     return active_liquidity;
 }
@@ -691,17 +734,18 @@ async function updateVolumes() {
         values: [one_day_ago]
     }
     const select = await pool.query(query);
-    select.rows.forEach(row => {
+    select.rows.forEach(async (row) => {
         try {
-            const price = validMarkets[row.chainid][row.market].marketSummary.price.last;
-            const quoteVolume = parseFloat((row.base_volume * price).toPrecision(6));
-            const baseVolume = parseFloat(row.base_volume.toPrecision(6));
+            const price = await redis.HGET(`lastprices:${row.chainid}`, row.market);
+            const quoteVolume = (row.base_volume * price).toPrecision(6);
+            const baseVolume = row.base_volume.toPrecision(6);
             const redis_key_base = `volume:${row.chainid}:${row.market}:base`;
             const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`;
             redis.set(redis_key_base, baseVolume);
             redis.set(redis_key_quote, quoteVolume);
-k       }
+        }
         catch (e) {
+            console.error(e);
             console.log("Could not update volumes");
         }
     })
@@ -741,7 +785,6 @@ async function getLastPrices(chainid) {
     const redis_key_prices = `lastprices:${chainid}`;
     let redis_values = await redis.HGETALL(redis_key_prices);
     
-    await seedInitialData(chainid);
     // First time running the backend? Seed some approximate price data for some common markets
     // They'll be updated by the first trade in each market
     if (Object.keys(redis_values).length === 0) {
@@ -770,7 +813,7 @@ async function seedInitialData(chainid) {
     await redis.SET(`volume:${chainid}:USDC-USDT:quote`, "0");
 }
 
-function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
+async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
     if (baseQuantity && quoteQuantity) throw new Error("Only one of baseQuantity or quoteQuantity should be set");
     if (!([1,1000]).includes(chainid)) throw new Error("Quotes not supported for this chain");
     if (!validMarkets[chainid][market]) throw new Error("Invalid market");
@@ -778,40 +821,49 @@ function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
     if (baseQuantity && baseQuantity <= 0) throw new Error("Quantity must be positive");
     if (quoteQuantity && quoteQuantity <= 0) throw new Error("Quantity must be positive");
 
-    const lastPrice = validMarkets[chainid][market].marketSummary.price.last;
-    let SOFT_SPREAD, HARD_SPREAD;
-    const baseCurrency = market.split("-")[0];
-    const quoteCurrency = market.split("-")[1];
-    if ((["USDC", "USDT", "FRAX", "DAI"]).includes(baseCurrency)) {
-        SOFT_SPREAD = 0.0006;
-        HARD_SPREAD = 0.0003;
-    }
-    else {
-        SOFT_SPREAD = 0.001;
-        HARD_SPREAD = 0.0005;
+    const marketInfo = await getMarketInfo(market, chainid);
+    const liquidity = await getLiquidity(chainid, market);
+    let sum = 0, unfilledQuantity, avgPrice;
+    if (side === 'b' && baseQuantity) {
+        unfilledQuantity = baseQuantity;
+        const asks = liquidity.filter(l => l[0] === 's');
+        for (let i = 0; i < asks.length; i--) {
+            const askPrice = asks[i][1];
+            const askQuantity = asks[i][2];
+            if (askQuantity >= unfilledQuantity) {
+                sum += unfilledQuantity * askPrice;
+                unfilledQuantity = 0;
+                break;
+            }
+            else {
+                sum += askQuantity * askPrice;
+                unfilledQuantity -= askQuantity;
+            }
+        }
+        avgPrice = sum / baseQuantity;
     }
     let softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity;
     if (baseQuantity && side === 'b') {
-        softQuoteQuantity = (baseQuantity * lastPrice * (1 + SOFT_SPREAD)) + gasFees[quoteCurrency];
-        hardQuoteQuantity = (baseQuantity * lastPrice * (1 + HARD_SPREAD)) + gasFees[quoteCurrency];
+        softQuoteQuantity = (baseQuantity * lastPrice * (1 + SOFT_SPREAD)) + marketInfo.quoteFee;
+        hardQuoteQuantity = (baseQuantity * lastPrice * (1 + HARD_SPREAD)) + marketInfo.quoteFee;
         softBaseQuantity = baseQuantity;
         hardBaseQuantity = baseQuantity;
     }
     else if (baseQuantity && side === 's') {
-        softQuoteQuantity = (baseQuantity - gasFees[baseCurrency]) * lastPrice * (1 - SOFT_SPREAD);
-        hardQuoteQuantity = (baseQuantity - gasFees[baseCurrency]) * lastPrice * (1 - HARD_SPREAD);
+        softQuoteQuantity = (baseQuantity - marketInfo.baseFee) * lastPrice * (1 - SOFT_SPREAD);
+        hardQuoteQuantity = (baseQuantity - marketInfo.baseFee) * lastPrice * (1 - HARD_SPREAD);
         softBaseQuantity = baseQuantity;
         hardBaseQuantity = baseQuantity;
     }
     else if (quoteQuantity && side === 'b') {
-        softBaseQuantity = (quoteQuantity - gasFees[quoteCurrency]) / lastPrice * (1 - SOFT_SPREAD);
-        hardBaseQuantity = (quoteQuantity - gasFees[quoteCurrency]) / lastPrice * (1 - HARD_SPREAD);
+        softBaseQuantity = (quoteQuantity - marketInfo.quoteFee) / lastPrice * (1 - SOFT_SPREAD);
+        hardBaseQuantity = (quoteQuantity - marketInfo.quoteFee) / lastPrice * (1 - HARD_SPREAD);
         softQuoteQuantity = quoteQuantity;
         hardQuoteQuantity = quoteQuantity;
     }
     else if (quoteQuantity && side === 's') {
-        softBaseQuantity = (quoteQuantity / lastPrice * (1 + SOFT_SPREAD)) + gasFees[baseCurrency];
-        hardBaseQuantity = (quoteQuantity / lastPrice * (1 + HARD_SPREAD)) + gasFees[baseCurrency];
+        softBaseQuantity = (quoteQuantity / lastPrice * (1 + SOFT_SPREAD)) + marketInfo.baseFee;
+        hardBaseQuantity = (quoteQuantity / lastPrice * (1 + HARD_SPREAD)) + marketInfo.baseFee;
         softQuoteQuantity = quoteQuantity;
         hardQuoteQuantity = quoteQuantity;
     }
@@ -833,4 +885,37 @@ function clearDeadConnections () {
         }
     });
     console.log("num clients", wss.clients.size);
+}
+
+async function broadcastLiquidity() {
+    for (let i in VALID_CHAINS) {
+        const chainid = VALID_CHAINS[i];
+        const markets = await redis.SMEMBERS(`activemarkets:${chainid}`);
+        if (!markets || markets.length === 0) continue;
+        for (let j in markets) {
+            const market_id = markets[j];
+            const liquidity = await getLiquidity(chainid, market_id);
+            broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
+        }
+    }
+}
+
+async function updateLiquidity (chainid, market, liquidity) {
+    const expiration = (Date.now() / 1000 + 15) | 0;
+    const marketInfo = await getMarketInfo(market, chainid);
+    liquidity.forEach(l => l.push(expiration));
+    const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
+    redis.DEL(`liquidity:${chainid}:${market}`);
+    redis.ZADD(`liquidity:${chainid}:${market}`, redis_members);
+    redis.SADD(`activemarkets:${chainid}`, market)
+}
+
+const _MARKET_INFO = {}; // CACHE VARIABLE ONLY. DO NOT ACCESS DIRECTLY
+async function getMarketInfo(market, chainid = null) {
+    const marketkey = `${chainid}:${market}`;
+    if (!_MARKET_INFO[marketkey]) {
+        const url = `https://zigzag-markets.herokuapp.com/markets?id=${market}&chainid=${chainid}`;
+        _MARKET_INFO[marketkey] = await fetch(url).then(r => r.json()).then(r => r[0]);
+    }
+    return _MARKET_INFO[marketkey];
 }

@@ -23,7 +23,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured. 
 
-The current list of operations available over HTTP POST are: `submitorder`, `requestquote`, `orderreceiptreq`
+The current list of operations available over HTTP POST are: `submitorder2`, `requestquote`, `orderreceiptreq`
 
 # Sending orders on zksync
 
@@ -31,7 +31,7 @@ The Zksync limit order system is pretty complicated, so we've simplified it down
 
 There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the $1 flat fee.
 
-Using the price from the `quote` response, you can send a limit order with `submitorder`. An order sent at the `quote` price will fill like a market order. 
+Using the price from the `quote` response, you can send a limit order with `submitorder2`. An order sent at the `quote` price will fill like a market order. 
 
 ## Structure
 
@@ -88,9 +88,9 @@ Description: Associate userId with connection. Note that userId is a **string**,
 
 ---
 
-Operation: **submitorder**    
+Operation: **submitorder2**    
 
-Arguments: `[chainId, zkOrder]`   
+Arguments: `[chainId, market, zkOrder]`   
 
 Description: Submit an order. 
 
@@ -106,9 +106,10 @@ Zksync
 
 ```json
 {
-  "op": "submitorder",
+  "op": "submitorder2",
   "args": [
     1000,
+    "ETH-DAI",
     {
       "accountId": 202976,
       "recipient": "0x88D23A44D07F86B2342B4B06BD88b1ea313B6976",
@@ -140,9 +141,10 @@ Starknet
 
 ```json
 {
-  "op": "submitorder",
+  "op": "submitorder2",
   "args": [
     1001,
+    "ETH-USDT",
     [
       "1001",
       "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
@@ -423,7 +425,7 @@ Operation: **userorderack**
 
 Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
-Description: ack message for a submitorder message
+Description: ack message for a submitorder2 message
 
 ```json
 { "op":"userorderack", "args": [ 1000, 5, "ETH-USDT", "s", 3370.93, 0.1, 337.093, 4294967295, "23", "o", 0.1 ]}
@@ -489,7 +491,7 @@ Operation: **quote**
 
 Arguments: `[chainid, market, side, baseQuantity, price, quoteQuantity]`
 
-Description: Response to requestquote. Returns a fully filled quote with baseQuantity, price, and quoteQuantity. The price can then be used with submitorder to ensure a fill. 
+Description: Response to requestquote. Returns a fully filled quote with baseQuantity, price, and quoteQuantity. The price can then be used with submitorder2 to ensure a fill. 
 
 ```json
 { "op":"quote", "args": [1, "ETH-USDT", "b", 0.032, "4900", "156.8"] }
