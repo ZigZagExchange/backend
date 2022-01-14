@@ -816,62 +816,81 @@ async function seedInitialData(chainid) {
 async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
     if (baseQuantity && quoteQuantity) throw new Error("Only one of baseQuantity or quoteQuantity should be set");
     if (!([1,1000]).includes(chainid)) throw new Error("Quotes not supported for this chain");
-    if (!validMarkets[chainid][market]) throw new Error("Invalid market");
     if (!(['b','s']).includes(side)) throw new Error("Invalid side");
     if (baseQuantity && baseQuantity <= 0) throw new Error("Quantity must be positive");
     if (quoteQuantity && quoteQuantity <= 0) throw new Error("Quantity must be positive");
 
     const marketInfo = await getMarketInfo(market, chainid);
     const liquidity = await getLiquidity(chainid, market);
-    let sum = 0, unfilledQuantity, avgPrice;
+    let softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity, softPrice, hardPrice;
     if (side === 'b' && baseQuantity) {
-        unfilledQuantity = baseQuantity;
-        const asks = liquidity.filter(l => l[0] === 's');
-        for (let i = 0; i < asks.length; i--) {
-            const askPrice = asks[i][1];
-            const askQuantity = asks[i][2];
-            if (askQuantity >= unfilledQuantity) {
-                sum += unfilledQuantity * askPrice;
-                unfilledQuantity = 0;
-                break;
-            }
-            else {
-                sum += askQuantity * askPrice;
-                unfilledQuantity -= askQuantity;
-            }
-        }
-        avgPrice = sum / baseQuantity;
+        if (baseQuantity < marketInfo.baseFee) throw new Error("Amount is inadequate to pay fee");
+        const asks = liquidity.filter(l => l[0] === 's').map(l => l.slice(1,3));
+        const ladderPrice = getQuoteFromLadder(asks, baseQuantity);
+        hardBaseQuantity = baseQuantity
+        hardQuoteQuantity = baseQuantity * ladderPrice + marketInfo.quoteFee
+        hardPrice = (hardQuoteQuantity / baseQuantity).toFixed(marketInfo.pricePrecisionDecimals)
+        softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals)
+        softBaseQuantity = baseQuantity
+        softQuoteQuantity = baseQuantity * softPrice
     }
-    let softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity;
-    if (baseQuantity && side === 'b') {
-        softQuoteQuantity = (baseQuantity * lastPrice * (1 + SOFT_SPREAD)) + marketInfo.quoteFee;
-        hardQuoteQuantity = (baseQuantity * lastPrice * (1 + HARD_SPREAD)) + marketInfo.quoteFee;
-        softBaseQuantity = baseQuantity;
-        hardBaseQuantity = baseQuantity;
+    if (side === 'b' && quoteQuantity) {
+        if (quoteQuantity < marketInfo.quoteFee) throw new Error("Amount is inadequate to pay fee");
+        const asks = liquidity.filter(l => l[0] === 's').map(l => [ l[1], l[1]*l[2] ]);
+        const ladderPrice = getQuoteFromLadder(asks, quoteQuantity);
+        console.log(ladderPrice);
+        hardQuoteQuantity = quoteQuantity
+        hardBaseQuantity = quoteQuantity / ladderPrice + marketInfo.baseFee
+        hardPrice = hardQuoteQuantity / baseQuantity
+        softPrice = hardPrice * 1.0005
+        softQuoteQuantity = quoteQuantity
+        softBaseQuantity = quoteQuantity / softPrice
     }
-    else if (baseQuantity && side === 's') {
-        softQuoteQuantity = (baseQuantity - marketInfo.baseFee) * lastPrice * (1 - SOFT_SPREAD);
-        hardQuoteQuantity = (baseQuantity - marketInfo.baseFee) * lastPrice * (1 - HARD_SPREAD);
-        softBaseQuantity = baseQuantity;
-        hardBaseQuantity = baseQuantity;
+    if (side === 's' && baseQuantity) {
+        if (baseQuantity < marketInfo.baseFee) throw new Error("Amount is inadequate to pay fee");
+        const bids = liquidity.filter(l => l[0] === 's').map(l => l.slice(1,3)).reverse();
+        const ladderPrice = getQuoteFromLadder(bids, baseQuantity);
+        hardBaseQuantity = baseQuantity
+        hardQuoteQuantity = baseQuantity * hardPrice + marketInfo.quoteFee
+        hardPrice = (hardQuoteQuantity / baseQuantity).toFixed(marketInfo.pricePrecisionDecimals)
+        softPrice = (hardPrice * 0.9995).toFixed(marketInfo.pricePrecisionDecimals)
+        softBaseQuantity = baseQuantity
+        softQuoteQuantity = baseQuantity * softPrice
     }
-    else if (quoteQuantity && side === 'b') {
-        softBaseQuantity = (quoteQuantity - marketInfo.quoteFee) / lastPrice * (1 - SOFT_SPREAD);
-        hardBaseQuantity = (quoteQuantity - marketInfo.quoteFee) / lastPrice * (1 - HARD_SPREAD);
-        softQuoteQuantity = quoteQuantity;
-        hardQuoteQuantity = quoteQuantity;
+    if (side === 's' && quoteQuantity) {
+        if (quoteQuantity < marketInfo.quoteFee) throw new Error("Amount is inadequate to pay fee");
+        const bids = liquidity.filter(l => l[0] === 's').map(l => [ l[1], l[1]*l[2] ]).reverse();
+        const ladderPrice = getQuoteFromLadder(bids, quoteQuantity);
+        hardQuoteQuantity = quoteQuantity
+        hardBaseQuantity = quoteQuantity / ladderPrice + marketInfo.baseFee
+        hardPrice = hardQuoteQuantity / baseQuantity
+        softPrice = ladderPrice * 0.9995
+        softQuoteQuantity = quoteQuantity
+        softBaseQuantity = quoteQuantity / softPrice
     }
-    else if (quoteQuantity && side === 's') {
-        softBaseQuantity = (quoteQuantity / lastPrice * (1 + SOFT_SPREAD)) + marketInfo.baseFee;
-        hardBaseQuantity = (quoteQuantity / lastPrice * (1 + HARD_SPREAD)) + marketInfo.baseFee;
-        softQuoteQuantity = quoteQuantity;
-        hardQuoteQuantity = quoteQuantity;
-    }
-    const softPrice = (softQuoteQuantity / softBaseQuantity).toPrecision(6);
-    const hardPrice = (hardQuoteQuantity / hardBaseQuantity).toPrecision(6);;
-    if (softPrice < 0  || hardPrice < 0) throw new Error("Amount is inadequate to pay fee");
     if (isNaN(softPrice)  || isNaN(hardPrice)) throw new Error("Internal Error. No price generated.");
     return { softPrice, hardPrice, softQuoteQuantity, hardQuoteQuantity, softBaseQuantity, hardBaseQuantity };
+}
+
+// Ladder has to be a sorted 2-D array contaning price and quantity
+// Example: [ [3500,1], [3501,2] ]
+function getQuoteFromLadder(ladder, qty) {
+    let sum = 0, unfilledQuantity = qty;
+    for (let i = 0; i < ladder.length; i--) {
+        const askPrice = ladder[i][0];
+        const askQuantity = ladder[i][1];
+        if (askQuantity >= unfilledQuantity) {
+            sum += unfilledQuantity * askPrice;
+            unfilledQuantity = 0;
+            break;
+        }
+        else {
+            sum += askQuantity * askPrice;
+            unfilledQuantity -= askQuantity;
+        }
+    }
+    const avgPrice = sum / qty;
+    return avgPrice;
 }
 
 function clearDeadConnections () {
