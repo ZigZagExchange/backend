@@ -499,6 +499,48 @@ Description: Response to requestquote. Returns a fully filled quote with baseQua
 
 ---
 
+Operation: **marketinfo**
+
+Arguments: `[marketInfoJson]`
+
+Description: Returns a standard market info JSON from the Zigzag Markets API. Returned on every `subscribemarket` call
+
+```json
+{ 
+    "op":"marketinfo", 
+    "args": [
+      {
+        "baseAssetId": "65",
+        "quoteAssetId": "1",
+        "baseFee": 1,
+        "quoteFee": 1,
+        "minSize": 1,
+        "maxSize": 100,
+        "zigzagChainId": 1,
+        "pricePrecisionDecimal": 6,
+        "baseAsset": {
+          "id": 65,
+          "address": "0x19ebaa7f212b09de2aee2a32d40338553c70e2e3",
+          "symbol": "ARTM",
+          "decimals": 18,
+          "enabledForFees": false
+        },
+        "quoteAsset": {
+          "id": 1,
+          "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "symbol": "DAI",
+          "decimals": 18,
+          "enabledForFees": true
+        },
+        "id": "nORHCLNmmeS5Cp5or2Xt4gMMovgfVsbwYXA941zq0ks",
+        "alias": "ARTM-DAI"
+      }
+    ]
+ }
+```
+
+---
+
 Operation: **error**
 
 Arguments: `[operation, error]`

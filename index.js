@@ -334,6 +334,9 @@ async function handleMessage(msg, ws) {
                 const lo24 = Math.min(lastprice, yesterdayPrice);
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, lastprice, hi24, lo24, priceChange, baseVolume, quoteVolume]};
                 ws.send(JSON.stringify(marketSummaryMsg));
+                const marketinfo = await getMarketInfo(market, chainid);
+                const marketInfoMsg = {op: 'marketinfo', args: [marketinfo]};
+                ws.send(JSON.stringify(marketInfoMsg));
             } catch (e) {
                 console.error(e);
             }
