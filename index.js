@@ -88,12 +88,6 @@ const V1_MARKETS = [
 
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
-setInterval(function () {
-    VALID_CHAINS.forEach(async (chainid) => {
-        const lastprices = await getLastPrices(chainid);
-        broadcastMessage(chainid, null, {"op":"lastprice", args: [lastprices]});
-    });
-}, 3000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
 setInterval(broadcastLiquidity, 5000);
@@ -363,7 +357,7 @@ async function handleMessage(msg, ws) {
                 const chainid = update[0];
                 const orderId = update[1];
                 const newstatus = update[2];
-                let success, fillId, market;
+                let success, fillId, market, lastprice;
                 if (newstatus == 'b') {
                     const txhash = update[3];
                     const result = await updateMatchedOrder(chainid, orderId, newstatus, txhash);
@@ -377,12 +371,19 @@ async function handleMessage(msg, ws) {
                     success = result.success;
                     fillId = result.fillId;
                     market = result.market;
+                    lastprice = result.fillPriceWithoutFee;
                 }
                 if (success) {
                     const fillUpdate = [...update];
                     fillUpdate[1] = fillId;
                     broadcastMessage(chainid, market, {op:"orderstatus",args: [[update]]});
                     broadcastMessage(chainid, market, {op:"fillstatus",args: [[fillUpdate]]});
+                }
+                if (success && newstatus == 'f') {
+                    const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
+                    const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
+                    const priceChange = (lastprice - yesterdayPrice).toString();
+                    broadcastMessage(chainid, null, {op:"lastprice",args: [[[market, lastprice, priceChange]]]});
                 }
             }
         default:
@@ -393,14 +394,19 @@ async function handleMessage(msg, ws) {
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
     if (chainid == 1001) throw new Error("Not for Starknet orders");
 
-    let update, fillId, market, fillPrice;
+    let update, fillId, market, fillPrice, base_quantity, quote_quantity, side;
     try {
         const values = [newstatus,chainid, orderid];
-        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm')", values);
+        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING base_quantity, quote_quantity, side, market", values);
+        if (update.rows.length > 0) {
+            base_quantity = update.rows[0].base_quantity;
+            quote_quantity = update.rows[0].quote_quantity;
+            side = update.rows[0].side;
+            market = update.rows[0].market;
+        }
         const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
-            market = update2.rows[0].market;
             fillPrice = update2.rows[0].price;
         }
     }
@@ -410,16 +416,26 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         return false;
     }
 
-    const success = update.rowCount > 0;
     const marketInfo = await getMarketInfo(market, chainid);
+    let fillPriceWithoutFee;
+    if (side === 's') {
+        const baseQuantityWithoutFee = base_quantity - marketInfo.baseFee;
+        fillPriceWithoutFee = (quote_quantity / baseQuantityWithoutFee).toFixed(marketInfo.pricePrecisionDecimals);;
+    }
+    else if (side === 'b') {
+        const quoteQuantityWithoutFee = quote_quantity - marketInfo.quoteFee;
+        fillPriceWithoutFee = (quoteQuantityWithoutFee / base_quantity).toFixed(marketInfo.pricePrecisionDecimals);
+    }
+
+    const success = update.rowCount > 0;
     if (success && (['f', 'pf']).includes(newstatus)) {
         const today = new Date().toISOString().slice(0,10);
         const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`;
-        redis.HSET(`lastprices:${chainid}`, market, fillPrice.toFixed(marketInfo.pricePrecisionDecimals));
+        redis.HSET(`lastprices:${chainid}`, market, fillPriceWithoutFee);
         redis.SADD(`markets:${chainid}`, market);
-        redis.SET(redis_key_today_price, fillPrice.toFixed(marketInfo.pricePrecisionDecimals));
+        redis.SET(redis_key_today_price, fillPriceWithoutFee);
     }
-    return { success, fillId, market };
+    return { success, fillId, market, fillPrice, fillPriceWithoutFee };
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
