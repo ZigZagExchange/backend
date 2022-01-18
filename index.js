@@ -854,7 +854,12 @@ async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
         hardBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals);
         hardQuoteQuantity = (baseQuantity * ladderPrice + marketInfo.quoteFee).toFixed(marketInfo.quoteAsset.decimals);
         hardPrice = ladderPrice.toFixed(marketInfo.pricePrecisionDecimals)
-        softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals)
+        if (side === 'b') {
+            softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals)
+        }
+        else if (side === 's') {
+            softPrice = (hardPrice * 0.9995).toFixed(marketInfo.pricePrecisionDecimals)
+        }
         softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals);
         softQuoteQuantity = (baseQuantity * softPrice).toFixed(marketInfo.quoteAsset.decimals);
     }
@@ -871,7 +876,12 @@ async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
         hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals);
         hardBaseQuantity = (quoteQuantity / ladderPrice + marketInfo.baseFee).toFixed(marketInfo.baseAsset.decimals);
         hardPrice = ladderPrice.toFixed(marketInfo.pricePrecisionDecimals);
-        softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals);
+        if (side === 'b') {
+            softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals)
+        }
+        else if (side === 's') {
+            softPrice = (hardPrice * 0.9995).toFixed(marketInfo.pricePrecisionDecimals)
+        }
         softQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals);
         softBaseQuantity = (quoteQuantity / softPrice).toFixed(marketInfo.baseAsset.decimals);
     }
