@@ -131,7 +131,7 @@ async function onWsConnection(ws, req) {
     ws.chainid = 1; // subscribe to zksync mainnet by default
     ws.userid = null;
 
-    const lastprices = await getLastPrices();
+    const lastprices = await getLastPrices(1);
     ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
     ws.on('pong', () => {
         ws.isAlive = true;
@@ -310,7 +310,7 @@ async function handleMessage(msg, ws) {
             market = msg.args[1];
             const openorders = await getopenorders(chainid, market);
             const fills = await getfills(chainid, market);
-            const lastprices = await getLastPrices();
+            const lastprices = await getLastPrices(chainid);
             try {
                 const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
                 let lastprice;
@@ -397,18 +397,18 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
     let update, fillId, market, fillPrice, base_quantity, quote_quantity, side;
     try {
         const values = [newstatus,chainid, orderid];
-        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING base_quantity, quote_quantity, side, market", values);
+        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market", values);
         if (update.rows.length > 0) {
-            base_quantity = update.rows[0].base_quantity;
-            quote_quantity = update.rows[0].quote_quantity;
             side = update.rows[0].side;
             market = update.rows[0].market;
         }
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
             fillPrice = update2.rows[0].price;
+            base_quantity = update2.rows[0].amount;
         }
+        quote_quantity = base_quantity * fillPrice;
     }
     catch (e) {
         console.error("Error while updating fill status");
@@ -651,18 +651,32 @@ async function cancelorder(chainid, orderId, ws) {
 
 async function matchorder(chainid, orderId, fillOrder) {
     let values = [orderId, chainid];
-    const select = await pool.query("SELECT userid, price, base_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'", values);
+    const select = await pool.query("SELECT userid, price, base_quantity, quote_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'", values);
     if (select.rows.length === 0) throw new Error("Order " + orderId + " is not open");
     const selectresult = select.rows[0];
     const zktx = JSON.parse(selectresult.zktx);
 
+    // Determine fill price
+    const marketInfo = await getMarketInfo(selectresult.market, chainid);
+    let baseQuantity, quoteQuantity;
+    if (selectresult.side === 's') {
+        baseQuantity = selectresult.base_quantity;
+        quoteQuantity  = fillOrder.amount / 10**marketInfo.quoteAsset.decimals;
+    }
+    if (selectresult.side === 'b') {
+        baseQuantity  = fillOrder.amount / 10**marketInfo.baseAsset.decimals;
+        quoteQuantity = selectresult.quote_quantity;
+    }
+    const fillPrice = (quoteQuantity / baseQuantity).toFixed(marketInfo.pricePrecisionDecimals);
+
+
     const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id", values);
     if (update1.rows.length === 0) throw new Error("Order " + orderId + " is not open");
 
-    values = [orderId, chainid, selectresult.market, selectresult.userid, selectresult.price, selectresult.base_quantity, selectresult.side];
+    values = [orderId, chainid, selectresult.market, selectresult.userid, fillPrice, selectresult.base_quantity, selectresult.side];
     const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount, side, fill_status) VALUES ($2, $3, $1, $4, $5, $6, $7, 'm') RETURNING id", values);
     const fill_id = update2.rows[0].id;
-    const fill = [chainid, fill_id, selectresult.market, selectresult.side, selectresult.price, selectresult.base_quantity, 'm', null, selectresult.userid, null]; 
+    const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, null]; 
 
     return { zktx, fill };
 }
@@ -803,33 +817,15 @@ async function getLastPrices(chainid) {
     const lastprices = [];
     const redis_key_prices = `lastprices:${chainid}`;
     let redis_values = await redis.HGETALL(redis_key_prices);
-    
-    // First time running the backend? Seed some approximate price data for some common markets
-    // They'll be updated by the first trade in each market
-    if (Object.keys(redis_values).length === 0) {
-        await seedInitialData(chainid);
-        redis_values = await redis.HGETALL(redis_key_prices);
-    } 
 
     for (let market in redis_values) {
+        const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
+        const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
         const price = redis_values[market];
-        const change = 0;
-        lastprices.push([market, price, change]);
+        const priceChange = price - yesterdayPrice;
+        lastprices.push([market, price, priceChange]);
     }
     return lastprices;
-}
-
-async function seedInitialData(chainid) {
-    const redis_key_prices = `lastprices:${chainid}`;
-    await redis.HSET(`lastprices:${chainid}`, "ETH-USDT", "3500");
-    await redis.HSET(`lastprices:${chainid}`, "ETH-USDC", "3500");
-    await redis.HSET(`lastprices:${chainid}`, "USDC-USDT", "0.9993");
-    await redis.SET(`volume:${chainid}:ETH-USDT:base`, "0");
-    await redis.SET(`volume:${chainid}:ETH-USDT:quote`, "0");
-    await redis.SET(`volume:${chainid}:ETH-USDC:base`, "0");
-    await redis.SET(`volume:${chainid}:ETH-USDC:quote`, "0");
-    await redis.SET(`volume:${chainid}:USDC-USDT:base`, "0");
-    await redis.SET(`volume:${chainid}:USDC-USDT:quote`, "0");
 }
 
 async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
