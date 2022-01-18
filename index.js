@@ -852,12 +852,14 @@ async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
             ladderPrice = getQuoteFromLadder(bids, baseQuantity);
         }
         hardBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals);
-        hardQuoteQuantity = (baseQuantity * ladderPrice + marketInfo.quoteFee).toFixed(marketInfo.quoteAsset.decimals);
-        hardPrice = ladderPrice.toFixed(marketInfo.pricePrecisionDecimals)
         if (side === 'b') {
+            hardQuoteQuantity = (baseQuantity * ladderPrice + marketInfo.quoteFee).toFixed(marketInfo.baseAsset.decimals);
+            hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(marketInfo.pricePrecisionDecimals);
             softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals)
         }
         else if (side === 's') {
+            hardQuoteQuantity = ((baseQuantity - marketInfo.baseFee) * ladderPrice).toFixed(marketInfo.baseAsset.decimals);
+            hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(marketInfo.pricePrecisionDecimals);
             softPrice = (hardPrice * 0.9995).toFixed(marketInfo.pricePrecisionDecimals)
         }
         softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals);
@@ -874,12 +876,14 @@ async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
             ladderPrice = getQuoteFromLadder(bids, quoteQuantity);
         }
         hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals);
-        hardBaseQuantity = (quoteQuantity / ladderPrice + marketInfo.baseFee).toFixed(marketInfo.baseAsset.decimals);
-        hardPrice = ladderPrice.toFixed(marketInfo.pricePrecisionDecimals);
         if (side === 'b') {
+            hardBaseQuantity = ((quoteQuantity - marketInfo.quoteFee) / ladderPrice).toFixed(marketInfo.baseAsset.decimals);
+            hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(marketInfo.pricePrecisionDecimals);
             softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals)
         }
         else if (side === 's') {
+            hardBaseQuantity = (quoteQuantity / ladderPrice + marketInfo.baseFee).toFixed(marketInfo.baseAsset.decimals);
+            hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(marketInfo.pricePrecisionDecimals);
             softPrice = (hardPrice * 0.9995).toFixed(marketInfo.pricePrecisionDecimals)
         }
         softQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals);
