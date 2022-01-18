@@ -882,7 +882,6 @@ async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
 // Ladder has to be a sorted 2-D array contaning price and quantity
 // Example: [ [3500,1], [3501,2] ]
 function getQuoteFromLadder(ladder, qty) {
-    console.log(ladder);
     let sum = 0, unfilledQuantity = qty;
     for (let i = 0; i < ladder.length; i++) {
         const askPrice = ladder[i][0];
