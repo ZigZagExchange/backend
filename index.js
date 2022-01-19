@@ -90,7 +90,7 @@ await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
-setInterval(broadcastLiquidity, 5000);
+setInterval(broadcastLiquidity, 7000);
 
 const expressApp = express();
 expressApp.use(express.json());
@@ -321,15 +321,15 @@ async function handleMessage(msg, ws) {
                     console.error("No price found for " + market);
                     lastprice = 0;
                 }
+                const marketinfo = await getMarketInfo(market, chainid);
                 const baseVolume = await redis.get(`volume:${chainid}:${market}:base`);
                 const quoteVolume = await redis.get(`volume:${chainid}:${market}:quote`);
                 const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
-                const priceChange = lastprice - yesterdayPrice;
+                const priceChange = (lastprice - yesterdayPrice).toFixed(marketinfo.pricePrecisionDecimals);
                 const hi24 = Math.max(lastprice, yesterdayPrice);
                 const lo24 = Math.min(lastprice, yesterdayPrice);
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, lastprice, hi24, lo24, priceChange, baseVolume, quoteVolume]};
                 ws.send(JSON.stringify(marketSummaryMsg));
-                const marketinfo = await getMarketInfo(market, chainid);
                 const marketInfoMsg = {op: 'marketinfo', args: [marketinfo]};
                 ws.send(JSON.stringify(marketInfoMsg));
             } catch (e) {
