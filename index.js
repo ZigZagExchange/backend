@@ -946,7 +946,6 @@ async function updateLiquidity (chainid, market, liquidity) {
     const marketInfo = await getMarketInfo(market, chainid);
     liquidity.forEach(l => l.push(expiration));
     const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
-    redis.DEL(`liquidity:${chainid}:${market}`);
     redis.ZADD(`liquidity:${chainid}:${market}`, redis_members);
     redis.SADD(`activemarkets:${chainid}`, market)
 }
