@@ -325,7 +325,13 @@ async function handleMessage(msg, ws) {
                 const baseVolume = await redis.get(`volume:${chainid}:${market}:base`);
                 const quoteVolume = await redis.get(`volume:${chainid}:${market}:quote`);
                 const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
-                const priceChange = (lastprice - yesterdayPrice).toFixed(marketinfo.pricePrecisionDecimals);
+                let priceChange;
+                if (yesterdayPrice) {
+                    priceChange = (lastprice - yesterdayPrice).toFixed(marketinfo.pricePrecisionDecimals);
+                }
+                else {
+                    priceChange = 0;
+                }
                 const hi24 = Math.max(lastprice, yesterdayPrice);
                 const lo24 = Math.min(lastprice, yesterdayPrice);
                 const marketSummaryMsg = {op: 'marketsummary', args: [market, lastprice, hi24, lo24, priceChange, baseVolume, quoteVolume]};
@@ -484,6 +490,13 @@ async function processorderzksync(chainid, market, zktx) {
     }
     else {
         throw new Error("Buy/sell tokens do not match market");
+    }
+
+    if (base_quantity < marketInfo.baseFee) {
+        throw new Error("Order size inadequate to pay fee");
+    }
+    if (quote_quantity < marketInfo.quoteFee) {
+        throw new Error("Order size inadequate to pay fee");
     }
     const order_type = 'limit';
     const expires = zktx.validUntil;
