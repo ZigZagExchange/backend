@@ -165,7 +165,8 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             liquidity = msg.args[2];
-            updateLiquidity(chainid, market, liquidity);
+            const client_id = msg.args[3];
+            updateLiquidity(chainid, market, liquidity, client_id);
             break
         case "submitorder":
             // this entire operation is only for backward compatibility for Argent
@@ -944,7 +945,7 @@ async function broadcastLiquidity() {
     }
 }
 
-async function updateLiquidity (chainid, market, liquidity) {
+async function updateLiquidity (chainid, market, liquidity, client_id) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
     for (let i in liquidity) {
@@ -952,9 +953,19 @@ async function updateLiquidity (chainid, market, liquidity) {
         if (!expires || expires > FIFTEEN_SECONDS) {
             liquidity[i][3] = FIFTEEN_SECONDS;
         }
+        liquidity[i][4] = client_id;
+    }
+    const redis_key_liquidity = `liquidity:${chainid}:${market}`
+    if (client_id) {
+        liquidity
+        let old_liquidity = await redis.ZRANGEBYSCORE(redis_key_liquidity, "0", "1000000");
+        old_liquidity = old_liquidity.map(JSON.parse);
+        const old_values = old_liquidity.filter(l => l[4] && l[4] === client_id).map(l => JSON.stringify(l));
+        console.log(old_values);
+        old_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     }
     const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
-    redis.ZADD(`liquidity:${chainid}:${market}`, redis_members);
+    redis.ZADD(redis_key_liquidity, redis_members);
     redis.SADD(`activemarkets:${chainid}`, market)
 }
 
