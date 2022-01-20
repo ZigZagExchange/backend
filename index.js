@@ -498,10 +498,10 @@ async function processorderzksync(chainid, market, zktx) {
         throw new Error("Buy/sell tokens do not match market");
     }
 
-    if (base_quantity < marketInfo.baseFee) {
+    if (side === 's' && base_quantity < marketInfo.baseFee) {
         throw new Error("Order size inadequate to pay fee");
     }
-    if (quote_quantity < marketInfo.quoteFee) {
+    if (side === 'b' && quote_quantity < marketInfo.quoteFee) {
         throw new Error("Order size inadequate to pay fee");
     }
     const order_type = 'limit';
