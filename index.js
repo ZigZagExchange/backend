@@ -957,11 +957,9 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     }
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
     if (client_id) {
-        liquidity
         let old_liquidity = await redis.ZRANGEBYSCORE(redis_key_liquidity, "0", "1000000");
         old_liquidity = old_liquidity.map(JSON.parse);
         const old_values = old_liquidity.filter(l => l[4] && l[4] === client_id).map(l => JSON.stringify(l));
-        console.log(old_values);
         old_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     }
     const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
