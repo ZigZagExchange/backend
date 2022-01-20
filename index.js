@@ -150,7 +150,7 @@ async function handleMessage(msg, ws) {
     let orderId, zktx, userid, chainid, market, userconnkey, liquidity;
     switch (msg.op) {
         case "marketsreq":
-            const chainid = msg.args[0];
+            chainid = msg.args[0];
             const markets = await getLastPrices(chainid);
             const marketsMsg = {op:"markets", args: [markets]}
             if (ws) ws.send(JSON.stringify(errorMsg));
