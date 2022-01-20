@@ -151,7 +151,7 @@ async function handleMessage(msg, ws) {
     switch (msg.op) {
         case "marketsreq":
             chainid = msg.args[0];
-            const markets = await getLastPrices(chainid);
+            const lastPricesMarkets = await getLastPrices(chainid);
             const marketsMsg = {op:"markets", args: [markets]}
             if (ws) ws.send(JSON.stringify(errorMsg));
             return marketsMsg;
@@ -963,10 +963,11 @@ async function broadcastLiquidity() {
 async function updateLiquidity (chainid, market, liquidity) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
+    console.log(liquidity);
     for (let i in liquidity) {
-        const expires = liquidity[i][2];
+        const expires = liquidity[i][3];
         if (!expires || expires > FIFTEEN_SECONDS) {
-            liquidity[i][2] = FIFTEEN_SECONDS;
+            liquidity[i][3] = FIFTEEN_SECONDS;
         }
     }
     const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
