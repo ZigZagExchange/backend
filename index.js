@@ -63,28 +63,8 @@ const zksyncOrderSchema = Joi.object({
 // Globals
 const USER_CONNECTIONS = {}
 const VALID_CHAINS = [1,1000,1001];
-const V1_TOKEN_IDS = {
-    0: 'ETH',
-    1: 'DAI',
-    2: 'USDC',
-    4: 'USDT',
-    15: 'WBTC',
-    61: 'WETH',
-    92: 'FRAX',
-}
-const V1_MARKETS = [
-    "ETH-USDT",
-    "ETH-USDC",
-    "ETH-DAI",
-    "ETH-FRAX",
-    "ETH-WBTC",
-    "USDC-USDT",
-    "DAI-USDT",
-    "DAI-USDC",
-    "WBTC-USDT",
-    "WBTC-USDC",
-    "WBTC-DAI",
-]
+const V1_TOKEN_IDS = {};
+await populateV1TokenIds();
 
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
@@ -188,6 +168,8 @@ async function handleMessage(msg, ws) {
             updateLiquidity(chainid, market, liquidity);
             break
         case "submitorder":
+            // this entire operation is only for backward compatibility for Argent
+            // we can get rid of it once they switch to submitorder2
             chainid = msg.args[0];
             zktx = msg.args[1];
             if (chainid !== 1) {
@@ -195,6 +177,8 @@ async function handleMessage(msg, ws) {
                 if (ws) ws.send(JSON.stringify(errorMsg));
                 return errorMsg;
             }
+
+            const V1_MARKETS = await getV1Markets(chainid);
             const tokenBuy = V1_TOKEN_IDS[zktx.tokenBuy];
             const tokenSell = V1_TOKEN_IDS[zktx.tokenSell];
             if (V1_MARKETS.includes(tokenBuy + "-" + tokenSell)) {
@@ -982,4 +966,28 @@ async function getMarketInfo(market, chainid = null) {
         _MARKET_INFO[marketkey] = await fetch(url).then(r => r.json()).then(r => r[0]);
     }
     return _MARKET_INFO[marketkey];
+}
+
+async function populateV1TokenIds() {
+    let i =0;
+    while (true) {
+        const result = await fetch(`https://api.zksync.io/api/v0.2/tokens?from=${i}&limit=100&direction=newer`)
+            .then(r => r.json());
+        const list = result.result.list;
+        if (list.length === 0) {
+            break;
+        }
+        else {
+            list.forEach(l => {
+                V1_TOKEN_IDS[l.id] = l.symbol;
+            });
+            i += 100;
+        }
+    }
+}
+
+async function getV1Markets(chainid) {
+    const v1Prices = await getLastPrices(chainid);
+    const v1markets = v1Prices.map(l => l[0]);
+    return v1markets;
 }
