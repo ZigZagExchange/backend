@@ -95,7 +95,7 @@ setInterval(broadcastLiquidity, 7000);
 const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
-    const httpMessages = ["requestquote", "submitorder", "orderreceiptreq"];
+    const httpMessages = ["requestquote", "submitorder", "orderreceiptreq", "marketsreq"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
@@ -149,6 +149,12 @@ async function onWsConnection(ws, req) {
 async function handleMessage(msg, ws) {
     let orderId, zktx, userid, chainid, market, userconnkey, liquidity;
     switch (msg.op) {
+        case "marketsreq":
+            const chainid = msg.args[0];
+            const markets = await getLastPrices(chainid);
+            const marketsMsg = {op:"markets", args: [markets]}
+            if (ws) ws.send(JSON.stringify(errorMsg));
+            return marketsMsg;
         case "login":
             chainid = msg.args[0];
             userid = msg.args[1];

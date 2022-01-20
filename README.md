@@ -541,6 +541,44 @@ Description: Returns a standard market info JSON from the Zigzag Markets API. Re
 
 ---
 
+Operation: **marketsreq**
+
+Arguments: `[chainid]`
+
+Description: Request a list of markets. Available over REST. Response is a markets message.
+
+```json
+{"op":"marketsreq","args":[1]}
+```
+
+```bash
+curl "https://zigzag-exchange.herokuapp.com/" -X POST -H 'Content-Type:application/json' -d '{"op":"marketsreq","args":[1]}'
+```
+
+---
+
+Operation: **markets**
+
+Arguments: `[markets]`. market = `[marketId,lastPrice,priceChange24h]`
+
+Description: Request a list of markets. Available over REST. Response is a `markets` message. 
+
+```json
+{
+  "op": "markets",
+  "args": [
+    [
+      [ "ETH-USDT", "3500", 120 ],
+      [ "ETH-USDC", "3500", 122 ],
+      [ "USDC-USDT", "0.9993", 0.0001 ]
+    ]
+  ]
+}
+
+```
+
+---
+
 Operation: **error**
 
 Arguments: `[operation, error]`
