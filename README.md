@@ -168,11 +168,11 @@ Operation: **indicateliq2**
 
 Arguments: `[chainId, market, liquidity]`
 
-liquidity = `[[side, price, baseQuantity], ...]`
+liquidity = `[[side, price, baseQuantity, expires], ...]`
 
 Description: Used by market makers to indicate liquidity. side = {'b','s'} (buy, sell).
 
-Liquidity should be refreshed every 10 seconds or so. Indicated liquidity is expired after 15 seconds.
+Expiration is a UNIX timestamp in seconds. If an expiration is not set or is set to greater than 15 seconds, it is defaulted to 15 seconds.
 
 ```json
 {
@@ -181,10 +181,10 @@ Liquidity should be refreshed every 10 seconds or so. Indicated liquidity is exp
     1000,
     "ETH-USDT",
     [
-        ["b", 3100, 1.2322],
-        ["b", 3200, 2.2324],
-        ["s", 3300, 0.2822],
-        ["s", 3500, 1.2832]
+        ["b", 3100, 1.2322, 1642677967],
+        ["b", 3200, 2.2324, 1642677967],
+        ["s", 3300, 0.2822, 1642677967],
+        ["s", 3500, 1.2832, 1642677967]
     ]
   ]
 }

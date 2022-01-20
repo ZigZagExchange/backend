@@ -961,9 +961,14 @@ async function broadcastLiquidity() {
 }
 
 async function updateLiquidity (chainid, market, liquidity) {
-    const expiration = (Date.now() / 1000 + 15) | 0;
+    const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
-    liquidity.forEach(l => l.push(expiration));
+    for (let i in liquidity) {
+        const expires = liquidity[i][2];
+        if (!expires || expires > FIFTEEN_SECONDS) {
+            liquidity[i][2] = FIFTEEN_SECONDS;
+        }
+    }
     const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
     redis.ZADD(`liquidity:${chainid}:${market}`, redis_members);
     redis.SADD(`activemarkets:${chainid}`, market)
