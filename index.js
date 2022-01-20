@@ -95,7 +95,7 @@ setInterval(broadcastLiquidity, 4000);
 const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
-    const httpMessages = ["requestquote", "submitorder", "orderreceiptreq", "marketsreq"];
+    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
