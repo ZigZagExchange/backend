@@ -963,7 +963,6 @@ async function broadcastLiquidity() {
 async function updateLiquidity (chainid, market, liquidity) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
-    console.log(liquidity);
     for (let i in liquidity) {
         const expires = liquidity[i][3];
         if (!expires || expires > FIFTEEN_SECONDS) {
