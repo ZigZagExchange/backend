@@ -193,7 +193,15 @@ async function handleMessage(msg, ws) {
                 if (ws) ws.send(JSON.stringify(errorMsg));
                 return errorMsg;
             }
-            return await processorderzksync(chainid, market, zktx);
+            try {
+                return await processorderzksync(chainid, market, zktx);
+            }
+            catch(e) {
+                console.error(e);
+                const errorMsg = {"op":"error", args: ["submitorder", e.message]};
+                if (ws) ws.send(JSON.stringify(errorMsg));
+                return errorMsg;
+            }
             break
         case "submitorder2":
             chainid = msg.args[0];
