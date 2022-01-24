@@ -949,7 +949,19 @@ async function broadcastLiquidity() {
             const market_id = markets[j];
             const liquidity = await getLiquidity(chainid, market_id);
             broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
+           
+            // Update last price while you're at it
+            const asks = liquidity.filter(l => l[0] === 's').map(l => l[1]);
+            const bids = liquidity.filter(l => l[0] === 'b').map(l => l[1]);
+            if (asks.length == 0 || bids.length == 0) continue;
+            const mid = (Math.min(...asks) + Math.max(...bids)) / 2;
+            const marketInfo = await getMarketInfo(market_id, chainid);
+            redis.HSET(`lastprices:${chainid}`, market_id, mid.toFixed(marketInfo.pricePrecisionDecimals));
         }
+
+        // Broadcast last prices
+        const lastprices = await getLastPrices(chainid);
+        broadcastMessage(chainid, null, {op:"lastprice", args: [lastprices]});
     }
 }
 
