@@ -68,7 +68,7 @@ await populateV1TokenIds();
 
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
-setInterval(updateVolumes, 120000);
+setInterval(updateVolumes, 12000);
 setInterval(updatePendingOrders, 60000);
 setInterval(broadcastLiquidity, 4000);
 
@@ -787,8 +787,10 @@ async function updateVolumes() {
             const baseVolume = row.base_volume.toPrecision(6);
             const redis_key_base = `volume:${row.chainid}:${row.market}:base`;
             const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`;
+            const redis_key_volume_sort = `volume:${row.chainid}:sorted`;
             redis.set(redis_key_base, baseVolume);
             redis.set(redis_key_quote, quoteVolume);
+            redis.ZADD(redis_key_volume_sort, { score: quoteVolume, value: row.market });
         }
         catch (e) {
             console.error(e);
