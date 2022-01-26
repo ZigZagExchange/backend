@@ -845,7 +845,6 @@ async function getLastPrices(chainid) {
         const priceChange = (price - yesterdayPrice).toFixed(marketInfo.pricePrecisionDecimals);
         lastprices.push([market, price, priceChange]);
     }
-    console.log(lastprices);
     return lastprices;
 }
 
