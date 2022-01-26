@@ -845,7 +845,7 @@ async function getLastPrices(chainid) {
         const quoteVolume = await redis.get(`volume:${chainid}:${market}:quote`);
         lastprices.push([market, price, priceChange, quoteVolume]);
     }
-    lastprices.sort((a,b) => b[4] - a[4]);
+    lastprices.sort((a,b) => b[3] - a[3]);
     lastprices = lastprices.map(row => row.slice(0,3));
     return lastprices;
 }
