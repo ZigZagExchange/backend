@@ -831,15 +831,21 @@ async function updatePendingOrders() {
 async function getLastPrices(chainid) {
     const lastprices = [];
     const redis_key_prices = `lastprices:${chainid}`;
+    const redis_key_volumes_sorted = `volume:${chainid}:sorted`;
     let redis_values = await redis.HGETALL(redis_key_prices);
+    let volumes = await redis.ZRANGEBYSCORE(redis_key_volumes_sorted, "0", "100000");
+    volumes = volumes.reverse();
 
-    for (let market in redis_values) {
+    for (let i in volumes) {
+        const market = volumes[i];
+        const marketInfo = await getMarketInfo(market, chainid);
         const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
         const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
         const price = redis_values[market];
-        const priceChange = price - yesterdayPrice;
+        const priceChange = (price - yesterdayPrice).toFixed(marketInfo.pricePrecisionDecimals);
         lastprices.push([market, price, priceChange]);
     }
+    console.log(lastprices);
     return lastprices;
 }
 
