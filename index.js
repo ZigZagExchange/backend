@@ -68,7 +68,7 @@ await populateV1TokenIds();
 
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
-setInterval(updateVolumes, 12000);
+setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
 setInterval(broadcastLiquidity, 4000);
 
