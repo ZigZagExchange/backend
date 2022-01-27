@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS offers (
-    id SERIAL,
+    id SERIAL PRIMARY KEY,
     userid TEXT,
     nonce INTEGER,
     market TEXT,
@@ -16,10 +16,9 @@ CREATE TABLE IF NOT EXISTS offers (
     update_timestamp TIMESTAMPTZ,
     unfilled NUMERIC NOT NULL CHECK (unfilled <= base_quantity)
 );
-CREATE INDEX IF NOT EXISTS idx_offers_price_time ON offers USING btree (chainid, market, price, insert_timestamp);
 
 CREATE TABLE IF NOT EXISTS fills (
-  id                 SERIAL,
+  id                 SERIAL PRIMARY KEY,
   insert_timestamp   TIMESTAMPTZ     NOT NULL DEFAULT now(),
   chainid            INTEGER         NOT NULL,
   market             TEXT            NOT NULL,
