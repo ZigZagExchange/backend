@@ -474,9 +474,9 @@ async function processorderzksync(chainid, market, zktx) {
         try {
             let [userAccountState, sellSymbol] = await Promise.all([
                 syncProvider.getState(zktx.recipient),
-                syncProvider.tokenSet.resolveTokenSymbol(marketInfo.tokenSell)
+                syncProvider.tokenSet.resolveTokenSymbol(zktx.tokenSell)
             ]);
-            if(zktx.nonce != userAccountState.committed.nonce+1) { throw new Error("User account nonce dose not match.");}
+            if(zktx.nonce != userAccountState.committed.nonce) { throw new Error("User account nonce dose not match.");}
             if(zktx.amount >= userAccountState.committed.balances[sellSymbol]) { throw new Error("User account has not enugh balance.");}
         } catch (e) {
             // pass
