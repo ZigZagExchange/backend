@@ -838,7 +838,6 @@ async function updatePendingOrders() {
 async function getLastPrices(chainid) {
     let lastprices = [];
     const redis_key_prices = `lastprices:${chainid}`;
-    const redis_key_volumes_sorted = `volume:${chainid}:sorted`;
     let redis_values = await redis.HGETALL(redis_key_prices);
 
     for (let market in redis_values) {
