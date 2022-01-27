@@ -477,7 +477,8 @@ async function processorderzksync(chainid, market, zktx) {
                 syncProvider.tokenSet.resolveTokenSymbol(zktx.tokenSell)
             ]);
             if(zktx.nonce != userAccountState.committed.nonce) { throw new Error("User account nonce dose not match.");}
-            if(zktx.amount >= userAccountState.committed.balances[sellSymbol]) { throw new Error("User account has not enugh balance.");}
+            const userBalance = userAccountState.committed.balances[sellSymbol];
+            if(!userBalance || zktx.amount >= userBalance) { throw new Error("User account has not enugh balance.");}
         } catch (e) {
             // pass
         }
