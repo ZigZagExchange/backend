@@ -64,6 +64,7 @@ const zksyncOrderSchema = Joi.object({
 const USER_CONNECTIONS = {}
 const VALID_CHAINS = [1,1000,1001];
 const V1_TOKEN_IDS = {};
+const syncProvider = await zksync.getDefaultProvider("mainnet");
 await populateV1TokenIds();
 
 await updateVolumes();
@@ -469,7 +470,18 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
 async function processorderzksync(chainid, market, zktx) {
     const inputValidation = zksyncOrderSchema.validate(zktx);
     if (inputValidation.error) throw new Error(inputValidation.error);
-
+    if(chainid == 1) {
+        try {
+            let [userAccountState, sellSymbol] = await Promise.all([
+                syncProvider.getState(zktx.recipient),
+                syncProvider.tokenSet.resolveTokenSymbol(marketInfo.tokenSell)
+            ]);
+            if(zktx.nonce != userAccountState.committed.nonce+1) { throw new Error("User account nonce dose not match.");}
+            if(zktx.amount >= userAccountState.committed.balances[sellSymbol]) { throw new Error("User account has not enugh balance.");}
+        } catch (e) {
+            // pass
+        }
+    }
     const marketInfo = await getMarketInfo(market, chainid);
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
     if (zktx.tokenSell === marketInfo.baseAssetId && zktx.tokenBuy == marketInfo.quoteAssetId) {
@@ -484,7 +496,6 @@ async function processorderzksync(chainid, market, zktx) {
         price = ( zktx.ratio[0] / Math.pow(10, marketInfo.quoteAsset.decimals) ) / 
                 ( zktx.ratio[1] / Math.pow(10, marketInfo.baseAsset.decimals) );
         quote_quantity = zktx.amount / Math.pow(10, marketInfo.quoteAsset.decimals);
-        const base_quantity_decimals = Math.min(marketInfo.baseAsset.decimals, 10);
         base_quantity = ((quote_quantity / price).toFixed(marketInfo.baseAsset.decimals)) / 1;
     }
     else {
