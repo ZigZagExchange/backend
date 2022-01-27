@@ -833,8 +833,6 @@ async function getLastPrices(chainid) {
     const redis_key_prices = `lastprices:${chainid}`;
     const redis_key_volumes_sorted = `volume:${chainid}:sorted`;
     let redis_values = await redis.HGETALL(redis_key_prices);
-    let volumes = await redis.ZRANGEBYSCORE(redis_key_volumes_sorted, "0", "100000");
-    volumes = volumes.reverse();
 
     for (let market in redis_values) {
         const marketInfo = await getMarketInfo(market, chainid);
@@ -842,11 +840,8 @@ async function getLastPrices(chainid) {
         const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
         const price = redis_values[market];
         const priceChange = (price - yesterdayPrice).toFixed(marketInfo.pricePrecisionDecimals);
-        const quoteVolume = await redis.get(`volume:${chainid}:${market}:quote`);
-        lastprices.push([market, price, priceChange, quoteVolume]);
+        lastprices.push([market, price, priceChange]);
     }
-    lastprices.sort((a,b) => b[4] - a[4]);
-    lastprices = lastprices.map(row => row.slice(0,3));
     return lastprices;
 }
 
