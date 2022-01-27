@@ -783,8 +783,15 @@ async function updateVolumes() {
     select.rows.forEach(async (row) => {
         try {
             const price = await redis.HGET(`lastprices:${row.chainid}`, row.market);
-            const quoteVolume = (row.base_volume * price).toPrecision(6);
-            const baseVolume = row.base_volume.toPrecision(6);
+            let quoteVolume = (row.base_volume * price).toPrecision(6);
+            let baseVolume = row.base_volume.toPrecision(6);
+            // Prevent exponential notation
+            if (quoteVolume.includes('e')) {
+                quoteVolume = (row.base_volume * price).toFixed(0);
+            }
+            if (baseVolume.includes('e')) {
+                baseVolume = row.base_volume.toFixed(0);
+            }
             const redis_key_base = `volume:${row.chainid}:${row.market}:base`;
             const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`;
             const redis_key_volume_sort = `volume:${row.chainid}:sorted`;
