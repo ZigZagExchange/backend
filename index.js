@@ -63,6 +63,7 @@ const zksyncOrderSchema = Joi.object({
 const USER_CONNECTIONS = {}
 const VALID_CHAINS = [1,1000,1001];
 const V1_TOKEN_IDS = {};
+const NONCES = {};
 await populateV1TokenIds();
 
 await updateVolumes();
@@ -389,6 +390,13 @@ async function handleMessage(msg, ws) {
                     const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
                     const priceChange = (lastprice - yesterdayPrice).toString();
                     broadcastMessage(chainid, null, {op:"lastprice",args: [[[market, lastprice, priceChange]]]});
+                    const userId = update[5];
+                    const userNonce = update[6];
+                    if(userId && userNonce) {
+                        if(!NONCES[userId]) { NONCES[userId] = {}; };
+                        // save nonce +1 to protect agains spamming the same nonce
+                        NONCES[userId][chainid] = userNonce+1;
+                    }
                 }
             }
             break;
@@ -481,6 +489,10 @@ async function processorderzksync(chainid, market, zktx) {
 
     const inputValidation = zksyncOrderSchema.validate(zktx);
     if (inputValidation.error) throw new Error(inputValidation.error);
+
+    if(NONCES[zktx.accountId] && NONCES[zktx.accountId][chainid] && NONCES[zktx.accountId][chainid] > zktx.nonce) {
+        throw new Error("badnonce");
+    }
 
     // Prevent DOS attacks. Rate limit one order every 3 seconds.
     const redis_rate_limit_key = `ratelimit:zksync:${chainid}:${zktx.accountId}`;
