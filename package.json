@@ -28,7 +28,8 @@
     "pg": "^8.7.1",
     "redis": "^4.0.0",
     "starknet": "^2.0.2",
-    "ws": "^8.2.2"
+    "ws": "^8.2.2",
+    "zksync": "^0.11.6"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.3",
