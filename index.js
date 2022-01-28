@@ -486,23 +486,23 @@ async function processorderzksync(chainid, market, zktx) {
     if (inputValidation.error) throw new Error(inputValidation.error);
 
     // Check nonce and balance to make sure it works
-    let syncProvider;
-    if(chainid == 1) {
-        syncProvider = mainnetSyncProvider;
-    } else if (chainid === 1000) {
-        syncProvider = rinkebySyncProvider;
-    }
-    let [userAccountState, sellSymbol] = await Promise.all([
-        syncProvider.getState(zktx.recipient),
-        syncProvider.tokenSet.resolveTokenSymbol(zktx.tokenSell)
-    ]);
-    if (zktx.nonce != userAccountState.committed.nonce) { 
-        throw new Error("User account nonce dose not match.");
-    }
-    const userBalance = userAccountState.committed.balances[sellSymbol];
-    if(!userBalance || zktx.amount >= userBalance) { 
-        throw new Error("User account has not enugh balance.");
-    }
+    //let syncProvider;
+    //if(chainid == 1) {
+    //    syncProvider = mainnetSyncProvider;
+    //} else if (chainid === 1000) {
+    //    syncProvider = rinkebySyncProvider;
+    //}
+    //let [userAccountState, sellSymbol] = await Promise.all([
+    //    syncProvider.getState(zktx.recipient),
+    //    syncProvider.tokenSet.resolveTokenSymbol(zktx.tokenSell)
+    //]);
+    //if (zktx.nonce != userAccountState.committed.nonce) { 
+    //    throw new Error("User account nonce dose not match.");
+    //}
+    //const userBalance = userAccountState.committed.balances[sellSymbol];
+    //if(!userBalance || zktx.amount >= userBalance) { 
+    //    throw new Error("User account has not enugh balance.");
+    //}
 
     // Prevent DOS attacks. Rate limit one order every 3 seconds.
     const redis_rate_limit_key = `ratelimit:zksync:${chainid}:${zktx.accountId}`;
