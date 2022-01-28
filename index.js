@@ -393,7 +393,7 @@ async function handleMessage(msg, ws) {
                 }
             }
         case "dailyvolumereq":
-            const chainid = msg.args[0];
+            chainid = msg.args[0];
             const historicalVolume = await dailyVolumes(chainid);
             const dailyVolumeMsg = { "op": "dailyvolume", args: [historicalVolume] };
             if (ws) ws.send(JSON.stringify(dailyVolumeMsg));
