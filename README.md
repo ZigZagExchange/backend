@@ -579,6 +579,46 @@ Description: Request a list of markets. Available over REST. Response is a `mark
 
 ---
 
+Operation: **dailyvolumereq**
+
+Arguments: `[chainreq]`
+
+Description: Request daily volumes by pairs.
+
+Available over HTTP.
+
+```json
+{ "op":"dailyvolumereq", "args": [1000] }
+```
+
+```bash
+curl "https://zigzag-exchange.herokuapp.com/" -H 'Content-Type:application/json' -d '{"op":"dailyvolumereq", "args":[1000]}'
+```
+
+---
+
+Operation: **dailyvolume**
+
+Arguments: `[volumes]`. volume = `[chainid,market,date,baseVolume,quoteVolume]`
+
+Description: Daily volume by pair.
+
+```json
+{
+  "op": "dailyvolume",
+  "args": [
+    [
+      [ 1001, "ETH-USDT", "2021-11-28T18:30:00.000Z", 14.5387724, 63882.260941443 ],
+      [ 1000, "USDC-USDT", "2022-01-16T18:30:00.000Z", 115, 119.99047 ],
+      [ 1, "WBTC-USDT", "2021-12-05T18:30:00.000Z", 1.927e-05, 1.93041 ]
+    ]
+  ]
+}
+
+```
+
+---
+
 Operation: **error**
 
 Arguments: `[operation, error]`

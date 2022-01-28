@@ -76,7 +76,7 @@ setInterval(broadcastLiquidity, 4000);
 const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
-    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq"];
+    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq", "dailyvolumereq"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
@@ -361,7 +361,7 @@ async function handleMessage(msg, ws) {
             const updates = msg.args[0];
             for (let i in updates) {
                 const update = updates[i];
-                const chainid = update[0];
+                const chainid = Number(update[0]);
                 const orderId = update[1];
                 const newstatus = update[2];
                 let success, fillId, market, lastprice;
@@ -393,12 +393,21 @@ async function handleMessage(msg, ws) {
                     broadcastMessage(chainid, null, {op:"lastprice",args: [[[market, lastprice, priceChange]]]});
                 }
             }
+            break;
+        case "dailyvolumereq":
+            chainid = msg.args[0];
+            const historicalVolume = await dailyVolumes(chainid);
+            const dailyVolumeMsg = { "op": "dailyvolume", args: [historicalVolume] };
+            if (ws) ws.send(JSON.stringify(dailyVolumeMsg));
+            return dailyVolumeMsg;
         default:
             break
     }
 }
 
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
+    chainid = Number(chainid);
+    orderid = Number(orderid);
     if (chainid == 1001) throw new Error("Not for Starknet orders");
 
     let update, fillId, market, fillPrice, base_quantity, quote_quantity, side;
@@ -446,6 +455,8 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
+    chainid = Number(chainid);
+    orderid = Number(orderid);
     let update, fillId, market;
     try {
         let values = [newstatus,chainid, orderid];
@@ -483,6 +494,16 @@ async function processorderzksync(chainid, market, zktx) {
             // pass
         }
     }
+
+    // Prevent DOS attacks. Rate limit one order every 3 seconds.
+    const redis_rate_limit_key = `ratelimit:zksync:${chainid}:${zktx.accountId}`;
+    const ratelimit = await redis.get(redis_rate_limit_key);
+    if (ratelimit) throw new Error("Only one order per 3 seconds allowed");
+    else {
+        await redis.set(redis_rate_limit_key, "1");
+    }
+    await redis.expire(redis_rate_limit_key, 3);
+
     const marketInfo = await getMarketInfo(market, chainid);
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
     if (zktx.tokenSell === marketInfo.baseAssetId && zktx.tokenBuy == marketInfo.quoteAssetId) {
@@ -850,7 +871,6 @@ async function updatePendingOrders() {
 async function getLastPrices(chainid) {
     let lastprices = [];
     const redis_key_prices = `lastprices:${chainid}`;
-    const redis_key_volumes_sorted = `volume:${chainid}:sorted`;
     let redis_values = await redis.HGETALL(redis_key_prices);
 
     for (let market in redis_values) {
@@ -1042,4 +1062,20 @@ async function getV1Markets(chainid) {
     const v1Prices = await getLastPrices(chainid);
     const v1markets = v1Prices.map(l => l[0]);
     return v1markets;
+}
+
+async function dailyVolumes(chainid) {
+    const redis_key = `volume:history:${chainid}`;
+    const cache = await redis.get(redis_key);
+    if (cache) return JSON.parse(cache);
+    const query = {
+        text: "SELECT chainid, market, DATE(insert_timestamp) AS trade_date, SUM(base_quantity) AS base_volume, SUM(quote_quantity) AS quote_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND chainid = $1 GROUP BY (chainid, market, trade_date)",
+        values: [chainid],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    const volumes = select.rows;
+    await redis.set(redis_key, JSON.stringify(volumes));
+    await redis.expire(redis_key, 1200);
+    return volumes;
 }
