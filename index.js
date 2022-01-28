@@ -404,6 +404,8 @@ async function handleMessage(msg, ws) {
 }
 
 async function updateOrderFillStatus(chainid, orderid, newstatus) {
+    chainid = Number(chainid);
+    orderid = Number(orderid);
     if (chainid == 1001) throw new Error("Not for Starknet orders");
 
     let update, fillId, market, fillPrice, base_quantity, quote_quantity, side;
@@ -451,6 +453,8 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
+    chainid = Number(chainid);
+    orderid = Number(orderid);
     let update, fillId, market;
     try {
         let values = [newstatus,chainid, orderid];
