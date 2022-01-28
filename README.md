@@ -591,13 +591,17 @@ Available over HTTP.
 { "op":"dailyvolumereq", "args": [1000] }
 ```
 
+```bash
+curl "https://zigzag-exchange.herokuapp.com/" -H 'Content-Type:application/json' -d '{"op":"dailyvolumereq", "args":[1000]}'
+```
+
 ---
 
 Operation: **dailyvolume**
 
 Arguments: `[volumes]`. volume = `[chainid,market,date,baseVolume,quoteVolume]`
 
-Description: Request daily volumes by pairs
+Description: Daily volume by pair.
 
 ```json
 {
