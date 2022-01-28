@@ -392,6 +392,7 @@ async function handleMessage(msg, ws) {
                     broadcastMessage(chainid, null, {op:"lastprice",args: [[[market, lastprice, priceChange]]]});
                 }
             }
+            break;
         case "dailyvolumereq":
             chainid = msg.args[0];
             const historicalVolume = await dailyVolumes(chainid);
@@ -479,6 +480,15 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
 async function processorderzksync(chainid, market, zktx) {
     const inputValidation = zksyncOrderSchema.validate(zktx);
     if (inputValidation.error) throw new Error(inputValidation.error);
+
+    // Prevent DOS attacks. Rate limit one order every 3 seconds.
+    const redis_rate_limit_key = `ratelimit:zksync:${chainid}:${zktx.accountId}`;
+    const ratelimit = await redis.get(redis_rate_limit_key);
+    if (ratelimit) throw new Error("Only one order per 3 seconds allowed");
+    else {
+        await redis.set(redis_rate_limit_key, "1");
+    }
+    await redis.expire(redis_rate_limit_key, 3);
 
     const marketInfo = await getMarketInfo(market, chainid);
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
