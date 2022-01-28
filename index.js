@@ -75,7 +75,7 @@ setInterval(broadcastLiquidity, 4000);
 const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
-    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq"];
+    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq", "dailyvolumereq"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
@@ -392,6 +392,12 @@ async function handleMessage(msg, ws) {
                     broadcastMessage(chainid, null, {op:"lastprice",args: [[[market, lastprice, priceChange]]]});
                 }
             }
+        case "dailyvolumereq":
+            const chainid = msg.args[0];
+            const historicalVolume = await dailyVolumes(chainid);
+            const dailyVolumeMsg = { "op": "dailyvolume", args: [historicalVolume] };
+            if (ws) ws.send(JSON.stringify(dailyVolumeMsg));
+            return dailyVolumeMsg;
         default:
             break
     }
@@ -1029,4 +1035,19 @@ async function getV1Markets(chainid) {
     const v1Prices = await getLastPrices(chainid);
     const v1markets = v1Prices.map(l => l[0]);
     return v1markets;
+}
+
+async function dailyVolumes(chainid) {
+    const cache = await redis.get(`volume:history:${chainid}`);
+    if (cache) return JSON.parse(cache);
+    const query = {
+        text: "SELECT chainid, market, DATE(insert_timestamp) AS trade_date, SUM(base_quantity) AS base_volume, SUM(quote_quantity) AS quote_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND chainid = $1 GROUP BY (chainid, market, trade_date)",
+        values: [chainid],
+        rowMode: 'array'
+    }
+    const select = await pool.query(query);
+    const volumes = select.rows;
+    await redis.set("volume:history", JSON.stringify(volumes));
+    await redis.expire("volume:history", 1200);
+    return volumes;
 }
