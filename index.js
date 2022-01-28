@@ -360,7 +360,7 @@ async function handleMessage(msg, ws) {
             const updates = msg.args[0];
             for (let i in updates) {
                 const update = updates[i];
-                const chainid = update[0];
+                const chainid = Number(update[0]);
                 const orderId = update[1];
                 const newstatus = update[2];
                 let success, fillId, market, lastprice;
