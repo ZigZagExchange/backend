@@ -394,7 +394,7 @@ async function handleMessage(msg, ws) {
                     const userNonce = update[6];
                     if(userId && userNonce) {
                         if(!NONCES[userId]) { NONCES[userId] = {}; };
-                        // save nonce +1 to protect agains spamming the same nonce
+                        // nonce+1 to save the next expected nonce
                         NONCES[userId][chainid] = userNonce+1;
                     }
                 }
