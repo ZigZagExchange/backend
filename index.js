@@ -11,7 +11,6 @@ import * as starknet from 'starknet';
 import express from 'express';
 import * as Redis from 'redis';
 import Joi from 'joi';
-import * as zksync from "zksync";
 
 dotenv.config()
 
@@ -64,8 +63,6 @@ const zksyncOrderSchema = Joi.object({
 const USER_CONNECTIONS = {}
 const VALID_CHAINS = [1,1000,1001];
 const V1_TOKEN_IDS = {};
-const mainnetSyncProvider = await zksync.getDefaultProvider("mainnet");
-const rinkebySyncProvider = await zksync.getDefaultProvider("rinkeby");
 await populateV1TokenIds();
 
 await updateVolumes();
