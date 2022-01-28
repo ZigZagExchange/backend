@@ -1042,7 +1042,8 @@ async function getV1Markets(chainid) {
 }
 
 async function dailyVolumes(chainid) {
-    const cache = await redis.get(`volume:history:${chainid}`);
+    const redis_key = `volume:history:${chainid}`;
+    const cache = await redis.get(redis_key);
     if (cache) return JSON.parse(cache);
     const query = {
         text: "SELECT chainid, market, DATE(insert_timestamp) AS trade_date, SUM(base_quantity) AS base_volume, SUM(quote_quantity) AS quote_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND chainid = $1 GROUP BY (chainid, market, trade_date)",
@@ -1051,7 +1052,7 @@ async function dailyVolumes(chainid) {
     }
     const select = await pool.query(query);
     const volumes = select.rows;
-    await redis.set("volume:history", JSON.stringify(volumes));
-    await redis.expire("volume:history", 1200);
+    await redis.set(redis_key, JSON.stringify(volumes));
+    await redis.expire(redis_key, 1200);
     return volumes;
 }
