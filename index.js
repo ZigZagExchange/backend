@@ -1012,6 +1012,8 @@ async function broadcastLiquidity() {
 async function updateLiquidity (chainid, market, liquidity, client_id) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
+
+    // Add expirations to liquidity if needed
     for (let i in liquidity) {
         const expires = liquidity[i][3];
         if (!expires || expires > FIFTEEN_SECONDS) {
@@ -1020,15 +1022,21 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
         liquidity[i][4] = client_id;
     }
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
+
+    // Delete old liquidity by same client
     if (client_id) {
         let old_liquidity = await redis.ZRANGEBYSCORE(redis_key_liquidity, "0", "1000000");
         old_liquidity = old_liquidity.map(JSON.parse);
         const old_values = old_liquidity.filter(l => l[4] && l[4] === client_id).map(l => JSON.stringify(l));
         old_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     }
-    const redis_members = liquidity.map(l => ({ score: l[1].toString(), value: JSON.stringify(l) }));
-    redis.ZADD(redis_key_liquidity, redis_members);
-    redis.SADD(`activemarkets:${chainid}`, market)
+
+    // Set new liquidity
+    if (liquidity.length > 0) {
+        const redis_members = liquidity.map(l => ({ score: l[1].toString(), value: JSON.stringify(l) }));
+        redis.ZADD(redis_key_liquidity, redis_members);
+        redis.SADD(`activemarkets:${chainid}`, market)
+    }
 }
 
 async function getMarketInfo(market, chainid = null) {
