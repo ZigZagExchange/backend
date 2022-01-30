@@ -11,7 +11,6 @@ import * as starknet from 'starknet';
 import express from 'express';
 import * as Redis from 'redis';
 import Joi from 'joi';
-import * as zksync from "zksync";
 
 dotenv.config()
 
@@ -64,8 +63,7 @@ const zksyncOrderSchema = Joi.object({
 const USER_CONNECTIONS = {}
 const VALID_CHAINS = [1,1000,1001];
 const V1_TOKEN_IDS = {};
-const mainnetSyncProvider = await zksync.getDefaultProvider("mainnet");
-const rinkebySyncProvider = await zksync.getDefaultProvider("rinkeby");
+const NONCES = {};
 await populateV1TokenIds();
 
 await updateVolumes();
@@ -392,6 +390,14 @@ async function handleMessage(msg, ws) {
                     const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
                     const priceChange = (lastprice - yesterdayPrice).toString();
                     broadcastMessage(chainid, null, {op:"lastprice",args: [[[market, lastprice, priceChange]]]});
+                    // TODO: Account for nonce checks here
+                    //const userId = update[5];
+                    //const userNonce = update[6];
+                    //if(userId && userNonce) {
+                    //    if(!NONCES[userId]) { NONCES[userId] = {}; };
+                    //    // nonce+1 to save the next expected nonce
+                    //    NONCES[userId][chainid] = userNonce+1;
+                    //}
                 }
             }
             break;
@@ -485,23 +491,9 @@ async function processorderzksync(chainid, market, zktx) {
     const inputValidation = zksyncOrderSchema.validate(zktx);
     if (inputValidation.error) throw new Error(inputValidation.error);
 
-    // Check nonce and balance to make sure it works
-    //let syncProvider;
-    //if(chainid == 1) {
-    //    syncProvider = mainnetSyncProvider;
-    //} else if (chainid === 1000) {
-    //    syncProvider = rinkebySyncProvider;
-    //}
-    //let [userAccountState, sellSymbol] = await Promise.all([
-    //    syncProvider.getState(zktx.recipient),
-    //    syncProvider.tokenSet.resolveTokenSymbol(zktx.tokenSell)
-    //]);
-    //if (zktx.nonce != userAccountState.committed.nonce) { 
-    //    throw new Error("User account nonce dose not match.");
-    //}
-    //const userBalance = userAccountState.committed.balances[sellSymbol];
-    //if(!userBalance || zktx.amount >= userBalance) { 
-    //    throw new Error("User account has not enugh balance.");
+    // TODO: Activate nonce check here
+    //if(NONCES[zktx.accountId] && NONCES[zktx.accountId][chainid] && NONCES[zktx.accountId][chainid] > zktx.nonce) {
+    //    throw new Error("badnonce");
     //}
 
     // Prevent DOS attacks. Rate limit one order every 3 seconds.
