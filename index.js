@@ -1035,7 +1035,7 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     }
 
     // Set new liquidity
-    const redis_members = liquidity.map(l => ({ score: l[1].toString(), value: JSON.stringify(l) }));
+    const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
     redis.ZADD(redis_key_liquidity, redis_members);
     redis.SADD(`activemarkets:${chainid}`, market)
 }
