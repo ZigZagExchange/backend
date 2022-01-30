@@ -1034,9 +1034,14 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
         const old_values = old_liquidity.filter(l => l[4] && l[4] === client_id).map(l => JSON.stringify(l));
         old_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     }
-    const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
-    redis.ZADD(redis_key_liquidity, redis_members);
-    redis.SADD(`activemarkets:${chainid}`, market)
+    try {
+        const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
+        redis.ZADD(redis_key_liquidity, redis_members);
+        redis.SADD(`activemarkets:${chainid}`, market)
+    } catch (e) {
+        console.log(liquidity);
+        console.error(e);
+    }
 }
 
 const _MARKET_INFO = {}; // CACHE VARIABLE ONLY. DO NOT ACCESS DIRECTLY
