@@ -111,8 +111,6 @@ async function onWsConnection(ws, req) {
     ws.chainid = 1; // subscribe to zksync mainnet by default
     ws.userid = null;
 
-    const lastprices = await getLastPrices(1);
-    ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
     ws.on('pong', () => {
         ws.isAlive = true;
     });
@@ -124,6 +122,8 @@ async function onWsConnection(ws, req) {
         handleMessage(msg, ws);
     });
     ws.on('error', console.error);
+    const lastprices = await getLastPrices(1);
+    ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
 }
 
 async function handleMessage(msg, ws) {
@@ -449,7 +449,7 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         const quoteQuantityWithoutFee = quote_quantity - marketInfo.quoteFee;
         fillPriceWithoutFee = (quoteQuantityWithoutFee / base_quantity).toFixed(marketInfo.pricePrecisionDecimals);
     }
-
+    
     const success = update.rowCount > 0;
     if (success && (['f', 'pf']).includes(newstatus)) {
         const today = new Date().toISOString().slice(0,10);
@@ -1026,24 +1026,24 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
         const old_values = old_liquidity.filter(l => l[4] && l[4] === client_id).map(l => JSON.stringify(l));
         old_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     }
-    try {
-        const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
-        redis.ZADD(redis_key_liquidity, redis_members);
-        redis.SADD(`activemarkets:${chainid}`, market)
-    } catch (e) {
-        console.log(liquidity);
-        console.error(e);
-    }
+    const redis_members = liquidity.map(l => ({ score: l[1].toString(), value: JSON.stringify(l) }));
+    redis.ZADD(redis_key_liquidity, redis_members);
+    redis.SADD(`activemarkets:${chainid}`, market)
 }
 
-const _MARKET_INFO = {}; // CACHE VARIABLE ONLY. DO NOT ACCESS DIRECTLY
 async function getMarketInfo(market, chainid = null) {
-    const marketkey = `${chainid}:${market}`;
-    if (!_MARKET_INFO[marketkey]) {
-        const url = `https://zigzag-markets.herokuapp.com/markets?id=${market}&chainid=${chainid}`;
-        _MARKET_INFO[marketkey] = await fetch(url).then(r => r.json()).then(r => r[0]);
+    const redis_key = `marketinfo:${chainid}:${market}`;
+    const marketinfo = await redis.get(redis_key);
+    if (marketinfo) {
+        return JSON.parse(marketinfo);
     }
-    return _MARKET_INFO[marketkey];
+    else {
+        const url = `https://zigzag-markets.herokuapp.com/markets?id=${market}&chainid=${chainid}`;
+        const marketinfo = await fetch(url).then(r => r.json()).then(r => r[0]);
+        redis.set(redis_key, JSON.stringify(marketinfo));
+        redis.expire(redis_key, 86400);
+        return marketinfo;
+    }
 }
 
 async function populateV1TokenIds() {
