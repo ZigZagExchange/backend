@@ -739,6 +739,7 @@ async function broadcastMessage(chainid, market, msg) {
 }
 
 async function getopenorders(chainid, market) {
+    chainid = Number(chainid);
     const query = {
         text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE market=$1 AND chainid=$2 AND unfilled > 0 AND order_status IN ('o', 'pm', 'pf')",
         values: [market, chainid],
@@ -749,6 +750,7 @@ async function getopenorders(chainid, market) {
 }
 
 async function getorder(chainid, orderid) {
+    chainid = Number(chainid);
     const query = {
         text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE chainid=$1 AND id=$2",
         values: [chainid, orderid],
@@ -764,6 +766,7 @@ async function getorder(chainid, orderid) {
 }
 
 async function getuserfills(chainid, userid) {
+    chainid = Number(chainid);
     const query = {
         text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25",
         values: [chainid, userid],
@@ -801,7 +804,7 @@ async function getLiquidity(chainid, market) {
     liquidity = liquidity.map(JSON.parse);
 
     const now = Date.now() / 1000 | 0;
-    const expired_values = liquidity.filter(l => l[3] < now).map(l => JSON.stringify(l));
+    const expired_values = liquidity.filter(l => l[3] < now || !l[3]).map(l => JSON.stringify(l));
     expired_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     const active_liquidity = liquidity.filter(l => l[3] > now);
     return active_liquidity;
