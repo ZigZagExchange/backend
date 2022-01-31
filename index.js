@@ -1030,7 +1030,8 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     liquidity = liquidity.filter(l => 
         (['b','s']).includes(l[0]) &&
         !isNaN(parseFloat(l[1])) && 
-        !isNaN(parseFloat(l[2]))
+        !isNaN(parseFloat(l[2])) &&
+        parseFloat(l[2]) > marketInfo.baseFee
     );
 
     // Add expirations to liquidity if needed
@@ -1052,9 +1053,14 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     }
 
     // Set new liquidity
-    const redis_members = liquidity.filter(l => l[1]).map(l => ({ score: l[1], value: JSON.stringify(l) }));
-    redis.ZADD(redis_key_liquidity, redis_members);
-    redis.SADD(`activemarkets:${chainid}`, market)
+    const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
+    try {
+        await redis.ZADD(redis_key_liquidity, redis_members);
+        await redis.SADD(`activemarkets:${chainid}`, market)
+    } catch (e) {
+        console.error(e);
+        console.log(liquidity);
+    }
 }
 
 async function getMarketInfo(market, chainid = null) {
