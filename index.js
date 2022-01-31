@@ -76,12 +76,12 @@ const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
     //const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "dailyvolumereq", "refreshliquidity", "marketsreq"];
-    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "dailyvolumereq"];
+    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "dailyvolumereq", "refreshliquidity"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
     }
-    console.log('Received: %s', JSON.stringify(req.body));
+    console.log('REST: %s', JSON.stringify(req.body));
     if (!httpMessages.includes(req.body.op)) {
         res.json({ op: "error", args: [req.body.op, "Not supported in HTTP"] });
         return
@@ -118,7 +118,7 @@ async function onWsConnection(ws, req) {
     ws.on('message', function incoming(json) {
         const msg = JSON.parse(json);
         if (msg.op != 'indicateliq2') {
-            console.log('Received: %s', json);
+            console.log('WS: %s', json);
         }
         handleMessage(msg, ws);
     });
