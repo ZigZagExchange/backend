@@ -1025,6 +1025,13 @@ async function broadcastLiquidity() {
 async function updateLiquidity (chainid, market, liquidity, client_id) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
+    
+    // validation
+    liquidity = liquidity.filter(l => 
+        (['b','s']).includes(l[0]) &&
+        !isNaN(parseFloat(l[1])) && 
+        !isNaN(parseFloat(l[2]))
+    );
 
     // Add expirations to liquidity if needed
     for (let i in liquidity) {
@@ -1046,13 +1053,8 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
 
     // Set new liquidity
     const redis_members = liquidity.filter(l => l[1]).map(l => ({ score: l[1], value: JSON.stringify(l) }));
-    try {
-        await redis.ZADD(redis_key_liquidity, redis_members);
-        await redis.SADD(`activemarkets:${chainid}`, market)
-    } catch (e) {
-        console.error(e);
-        console.log(liquidity);
-    }
+    redis.ZADD(redis_key_liquidity, redis_members);
+    redis.SADD(`activemarkets:${chainid}`, market)
 }
 
 async function getMarketInfo(market, chainid = null) {
