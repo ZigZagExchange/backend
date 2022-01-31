@@ -75,7 +75,8 @@ setInterval(broadcastLiquidity, 4000);
 const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
-    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq", "dailyvolumereq", "refreshliquidity"];
+    //const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "dailyvolumereq", "refreshliquidity", "marketsreq"];
+    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "dailyvolumereq"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
@@ -133,7 +134,7 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             const lastPricesMarkets = await getLastPrices(chainid);
             const marketsMsg = {op:"markets", args: [markets]}
-            if (ws) ws.send(JSON.stringify(errorMsg));
+            if (ws) ws.send(JSON.stringify(marketsMsg));
             return marketsMsg;
         case "login":
             chainid = msg.args[0];
