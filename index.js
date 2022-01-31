@@ -417,7 +417,7 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
     orderid = Number(orderid);
     if (chainid == 1001) throw new Error("Not for Starknet orders");
 
-    let update, fillId, market, fillPrice, base_quantity, quote_quantity, side;
+    let update, fillId, market, fillPrice, base_quantity, quote_quantity, side, maker_user_id;
     try {
         const values = [newstatus,chainid, orderid];
         update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market", values);
@@ -425,11 +425,12 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
             side = update.rows[0].side;
             market = update.rows[0].market;
         }
-        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount", values);
+        const update2 = await pool.query("UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
             fillPrice = update2.rows[0].price;
             base_quantity = update2.rows[0].amount;
+            maker_user_id = update2.rows[0].maker_user_id;
         }
         quote_quantity = base_quantity * fillPrice;
     }
@@ -720,8 +721,8 @@ async function matchorder(chainid, orderId, fillOrder) {
     const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id", values);
     if (update1.rows.length === 0) throw new Error("Order " + orderId + " is not open");
 
-    values = [orderId, chainid, selectresult.market, selectresult.userid, fillPrice, selectresult.base_quantity, selectresult.side];
-    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, price, amount, side, fill_status) VALUES ($2, $3, $1, $4, $5, $6, $7, 'm') RETURNING id", values);
+    values = [chainid, selectresult.market, orderId, selectresult.userid, fillOrder.accountId.toString(), fillPrice, selectresult.base_quantity, selectresult.side];
+    const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id", values);
     const fill_id = update2.rows[0].id;
     const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, null]; 
 
@@ -1035,9 +1036,14 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     }
 
     // Set new liquidity
-    const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
-    redis.ZADD(redis_key_liquidity, redis_members);
-    redis.SADD(`activemarkets:${chainid}`, market)
+    const redis_members = liquidity.filter(l => l[1]).map(l => ({ score: l[1], value: JSON.stringify(l) }));
+    try {
+        await redis.ZADD(redis_key_liquidity, redis_members);
+        await redis.SADD(`activemarkets:${chainid}`, market)
+    } catch (e) {
+        console.error(e);
+        console.log(liquidity);
+    }
 }
 
 async function getMarketInfo(market, chainid = null) {
