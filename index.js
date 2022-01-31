@@ -161,6 +161,13 @@ async function handleMessage(msg, ws) {
                 return errorMsg;
             }
             break
+        case "liquidity2":
+            chainid = msg.args[0];
+            market_id = msg.args[1];
+            const liquidity = await getLiquidity(chainid, market_id);
+            const msg = {"op":"liquidity2", args: [chainid, market_id, liquidity]}
+            if (ws) ws.send(JSON.stringify(msg));
+            break
         case "indicateliq2":
             chainid = msg.args[0];
             market = msg.args[1];
