@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS offers (
     update_timestamp TIMESTAMPTZ,
     unfilled NUMERIC NOT NULL CHECK (unfilled <= base_quantity)
 );
+CREATE INDEX IF NOT EXISTS offers_order_status_by_market_idx ON offers(chainid, market, order_status);
 
 CREATE TABLE IF NOT EXISTS fills (
   id                 SERIAL PRIMARY KEY,

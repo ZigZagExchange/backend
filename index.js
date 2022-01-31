@@ -751,7 +751,7 @@ async function broadcastMessage(chainid, market, msg) {
 async function getopenorders(chainid, market) {
     chainid = Number(chainid);
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE market=$1 AND chainid=$2 AND unfilled > 0 AND order_status IN ('o', 'pm', 'pf')",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE market=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf')",
         values: [market, chainid],
         rowMode: 'array'
     }
