@@ -75,7 +75,7 @@ setInterval(broadcastLiquidity, 4000);
 const expressApp = express();
 expressApp.use(express.json());
 expressApp.post("/", async function (req, res) {
-    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq", "dailyvolumereq"];
+    const httpMessages = ["requestquote", "submitorder", "submitorder2", "orderreceiptreq", "marketsreq", "dailyvolumereq", "refreshliquidity"];
     if (req.headers['content-type'] != "application/json") {
         res.json({ op: "error", args: ["Content-Type header must be set to application/json"] });
         return
@@ -161,12 +161,13 @@ async function handleMessage(msg, ws) {
                 return errorMsg;
             }
             break
-        case "liquidity2":
+        case "refreshliquidity":
             chainid = msg.args[0];
             market_id = msg.args[1];
             const liquidity = await getLiquidity(chainid, market_id);
             const msg = {"op":"liquidity2", args: [chainid, market_id, liquidity]}
             if (ws) ws.send(JSON.stringify(msg));
+            return msg;
             break
         case "indicateliq2":
             chainid = msg.args[0];

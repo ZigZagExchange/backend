@@ -23,7 +23,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured. 
 
-The current list of operations available over HTTP POST are: `submitorder2`, `requestquote`, `orderreceiptreq`
+The current list of operations available over HTTP POST are: `submitorder2`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq`
 
 # Sending orders on zksync
 
@@ -359,6 +359,20 @@ Description: Indications of market maker interest. liquidity = [side,price,baseQ
       ]
   ]
 }
+```
+
+---
+
+Operation: **refreshliquidity**    
+
+Arguments: `[chainId, market]`
+
+Description: Liquidity is usually sent out every 3-5 seconds. If you want it more often than that you can use this to get a fresh snapshot.
+
+Available over REST. 
+
+```json
+{ "op": "refreshliquidity", "args": [ 1000, "ETH-USDT"] }
 ```
 
 ---
