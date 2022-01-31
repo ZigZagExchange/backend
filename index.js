@@ -163,11 +163,11 @@ async function handleMessage(msg, ws) {
             break
         case "refreshliquidity":
             chainid = msg.args[0];
-            market_id = msg.args[1];
-            const liquidity = await getLiquidity(chainid, market_id);
-            const msg = {"op":"liquidity2", args: [chainid, market_id, liquidity]}
-            if (ws) ws.send(JSON.stringify(msg));
-            return msg;
+            market = msg.args[1];
+            liquidity = await getLiquidity(chainid, market);
+            const liquidityMsg = {"op":"liquidity2", args: [chainid, market, liquidity]}
+            if (ws) ws.send(JSON.stringify(liquidityMsg));
+            return liquidityMsg;
             break
         case "indicateliq2":
             chainid = msg.args[0];
@@ -729,10 +729,11 @@ async function matchorder(chainid, orderId, fillOrder) {
     const update1 = await pool.query("UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id", values);
     if (update1.rows.length === 0) throw new Error("Order " + orderId + " is not open");
 
-    values = [chainid, selectresult.market, orderId, selectresult.userid, fillOrder.accountId.toString(), fillPrice, selectresult.base_quantity, selectresult.side];
+    const maker_user_id = fillOrder.accountId.toString();
+    values = [chainid, selectresult.market, orderId, selectresult.userid, maker_user_id, fillPrice, selectresult.base_quantity, selectresult.side];
     const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id", values);
     const fill_id = update2.rows[0].id;
-    const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, null]; 
+    const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, maker_user_id]; 
 
     return { zktx, fill };
 }
