@@ -1074,14 +1074,9 @@ async function getMarketInfo(market, chainid = null) {
     else {
         const url = `https://zigzag-markets.herokuapp.com/markets?id=${market}&chainid=${chainid}`;
         const marketinfo = await fetch(url).then(r => r.json()).then(r => r[0]);
-        console.log(marketinfo);
-        try {
-            await redis.set(redis_key, JSON.stringify(marketinfo));
-            await redis.expire(redis_key, 86400);
-        } catch (e) {
-            console.error(e);
-        }
-
+        if (!marketinfo) throw new Error(`No marketinfo found for ${market}`);
+        redis.set(redis_key, JSON.stringify(marketinfo));
+        redis.expire(redis_key, 86400);
         return marketinfo;
     }
 }
