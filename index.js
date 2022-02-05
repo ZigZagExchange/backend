@@ -1169,8 +1169,7 @@ async function updateMarketsZkSync(market=null, chainid=1) {
           const ttl = await redis.ttl(redis_key);
           redis.set(redis_key, JSON.stringify(marketInfo));
           redis.expire(redis_key, ttl);
-          console.log(JSON.stringify({op:"marketInfo",args:[marketInfo]}))
-          broadcastMessage(chainid, market_id, {op:"marketInfo",args:[marketInfo]});
+          broadcastMessage(chainid, market_id, {op:"marketinfo",args:[marketInfo]});
         }
     }));
 }
