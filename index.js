@@ -1076,7 +1076,7 @@ async function getMarketInfo(market, chainid = null) {
         const marketinfo = await fetch(url).then(r => r.json()).then(r => r[0]);
         if (!marketinfo) throw new Error(`No marketinfo found for ${market}`);
         redis.set(redis_key, JSON.stringify(marketinfo));
-        redis.expire(redis_key, 86400);
+        redis.expire(redis_key, 26400);
         return marketinfo;
     }
 }
