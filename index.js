@@ -11,6 +11,7 @@ import * as starknet from 'starknet';
 import express from 'express';
 import * as Redis from 'redis';
 import Joi from 'joi';
+import * as zksync from "zksync";
 
 dotenv.config()
 
@@ -59,6 +60,9 @@ const zksyncOrderSchema = Joi.object({
     ethSignature: Joi.any(),
 });
 
+const mainnetSyncProvider = await zksync.getDefaultProvider("mainnet");
+const rinkebySyncProvider = await zksync.getDefaultProvider("rinkeby");
+
 // Globals
 const USER_CONNECTIONS = {}
 const VALID_CHAINS = [1,1000,1001];
@@ -67,9 +71,10 @@ const NONCES = {};
 await populateV1TokenIds();
 
 await updateVolumes();
-setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
+setInterval(clearDeadConnections, 60000);
 setInterval(updatePendingOrders, 60000);
+setInterval(updateMarketsZkSync, 30000);
 setInterval(broadcastLiquidity, 4000);
 
 const expressApp = express();
@@ -1077,8 +1082,97 @@ async function getMarketInfo(market, chainid = null) {
         if (!marketinfo) throw new Error(`No marketinfo found for ${market}`);
         redis.set(redis_key, JSON.stringify(marketinfo));
         redis.expire(redis_key, 26400);
+        updateMarketsZkSync(market, chainid);
         return marketinfo;
     }
+}
+
+async function updateMarketsZkSync(market=null, chainid=1) {
+    let syncProvider;
+    if(chainid == 1) {
+        syncProvider = mainnetSyncProvider;
+    } else {
+        syncProvider = rinkebySyncProvider;
+    }
+
+    // get markets - activemarkets or just market
+    const markets = {};
+    const FEES = {};
+    if(market) {
+      markets[market] = await getmarketInfo(market, chainid);
+    } else {
+      const market_pairs = await redis.SMEMBERS(`activemarkets:${chainid}`);
+      await Promise.all(Object.keys(market_pairs).map(async index => {
+          const pair = market_pairs[index];
+          const marketInfo = await getmarketInfo(pair, chainid);
+          markets[pair] = marketInfo;
+          if(marketInfo.baseAsset.enabledForFees) {
+              FEES[marketInfo.baseAsset.symbol] = null;
+          }
+          if(marketInfo.quoteAsset.enabledForFees) {
+              FEES[marketInfo.quoteAsset.symbol] = null;
+          }
+      }));
+    }
+
+    // fetch fee once per token (async)
+    await Promise.all(Object.keys(FEES).map(async token => {
+        try {
+          const feeReturn = await syncProvider.getTransactionFee(
+              "Swap",
+              '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
+              token
+          );
+          FEES[token] = parseFloat(syncProvider.tokenSet.formatToken(token, feeReturn.totalFee));
+        } catch (e) {
+          console.log("Can't get fee for: "+token);
+          // token is no longer good for this run
+          FEES.delete(token);
+        }
+    }));
+
+    // calculate fees for each pair
+    await Promise.all(Object.keys(markets).map(async market_id => {
+        const marketInfo = markets[market_id]
+        const baseAsset = marketInfo.baseAsset.symbol;
+        const quoteAsset = marketInfo.quoteAsset.symbol;
+        let baseFee, quoteFee;
+        // both pairs available for fees
+        if(FEES[baseAsset] && FEES[quoteAsset]) {
+            baseFee = FEES[baseAsset];
+            quoteFee = FEES[quoteAsset];
+        // one quoteAsset available for fees, calcualte base
+        } else if(!FEES[baseAsset] && FEES[quoteAsset]) {
+            const redis_key_price = `lastprices:1`;
+            let redis_price = await redis.HGET(redis_key_price, market_id);
+            if(!redis_price) { return; }
+            baseFee = FEES[quoteAsset] / redis_price;
+            quoteFee = FEES[quoteAsset];
+        // one baseAsset available for fees, calculate quote
+        } else if(FEES[baseAsset] && !FEES[quoteAsset]) {
+            const redis_key_price = `lastprices:${chainid}`;
+            let redis_price = await redis.HGET(redis_key_price, market_id);
+            if(!redis_price) { return; }
+            baseFee = FEES[baseAsset];
+            quoteFee = FEES[baseAsset] * redis_price;
+        // both unavailable - keep default
+        } else {
+            return;
+        }
+
+        const baseDelta = Math.abs(marketInfo.baseFee - baseFee) / marketInfo.baseFee;
+        const quoteDelta = Math.abs(marketInfo.quoteFee - quoteFee) / marketInfo.quoteFee;
+        if(baseDelta > 0.025 || quoteDelta > 0.025) {
+          marketInfo.baseFee = baseFee * 1.02;
+          marketInfo.quoteFee = quoteFee * 1.02;
+          const redis_key = `marketinfo:${chainid}:${market_id}`;
+          const ttl = await redis.ttl(redis_key);
+          redis.set(redis_key, JSON.stringify(marketInfo));
+          redis.expire(redis_key, ttl);
+          console.log(JSON.stringify({op:"marketInfo",args:[marketInfo]}))
+          broadcastMessage(chainid, market_id, {op:"marketInfo",args:[marketInfo]});
+        }
+    }));
 }
 
 async function populateV1TokenIds() {
