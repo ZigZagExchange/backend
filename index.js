@@ -606,7 +606,6 @@ async function processorderstarknet(chainid, market, zktx) {
 
     const orderupdates = [];
     const marketFills = [];
-    fills.rows.forEach(row => { 
     fills.rows.forEach(row => {
         if (row.maker_unfilled > 0)
             orderupdates.push([chainid,row.maker_offer_id,'pm', row.amount, row.maker_unfilled]);
