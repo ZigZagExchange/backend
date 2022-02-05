@@ -681,7 +681,7 @@ async function cancelallorders(userid) {
     const values = [userid];
     const select = await pool.query("SELECT id FROM offers WHERE userid=$1 AND order_status='o'", values);
     const ids = select.rows.map(s => s.id);
-    const update = await pool.query("UPDATE offers SET order_status='c' WHERE userid=$1 AND order_status='o'", values);
+    const update = await pool.query("UPDATE offers SET order_status='c',zktx=NULL WHERE userid=$1 AND order_status='o'", values);
     return ids;
 }
 
@@ -697,7 +697,7 @@ async function cancelorder(chainid, orderId, ws) {
         throw new Error("Unauthorized");
     }
     const updatevalues = [orderId];
-    const update = await pool.query("UPDATE offers SET order_status='c' WHERE id=$1 RETURNING market", updatevalues);
+    const update = await pool.query("UPDATE offers SET order_status='c', zktx=NULL WHERE id=$1 RETURNING market", updatevalues);
     let market;
     if (update.rows.length > 0) {
         market = update.rows[0].market;
@@ -871,7 +871,7 @@ async function updatePendingOrders() {
     }
     const updateFills = await pool.query(query);
     const expiredQuery = {
-        text: "UPDATE offers SET order_status='e' WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
+        text: "UPDATE offers SET order_status='e', zktx=NULL WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
         values: []
     }
     const updateExpires = await pool.query(expiredQuery);
