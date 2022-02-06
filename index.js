@@ -1062,8 +1062,8 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     try {
         if (liquidity.length > 0) {
             await redis.ZADD(redis_key_liquidity, redis_members);
-        }        
-        await redis.SADD(`activemarkets:${chainid}`, market, 'EX', 1800)
+        }
+        await redis.SADD(`activemarkets:${chainid}`, market)
     } catch (e) {
         console.error(e);
         console.log(liquidity);
