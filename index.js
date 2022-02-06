@@ -606,7 +606,7 @@ async function processorderstarknet(chainid, market, zktx) {
 
     const orderupdates = [];
     const marketFills = [];
-    fills.rows.forEach(row => { 
+    fills.rows.forEach(row => {
         if (row.maker_unfilled > 0)
             orderupdates.push([chainid,row.maker_offer_id,'pm', row.amount, row.maker_unfilled]);
         else
@@ -1057,8 +1057,8 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     try {
         if (liquidity.length > 0) {
             await redis.ZADD(redis_key_liquidity, redis_members);
-        }
-        await redis.SADD(`activemarkets:${chainid}`, market)
+        }        
+        await redis.SADD(`activemarkets:${chainid}`, market, 'EX', 1800)
     } catch (e) {
         console.error(e);
         console.log(liquidity);
