@@ -1006,6 +1006,10 @@ async function broadcastLiquidity() {
         for (let j in markets) {
             const market_id = markets[j];
             const liquidity = await getLiquidity(chainid, market_id);
+            if(liquidity.length === 0) {
+               await redis.SREM(`activemarkets:${chainid}`, market_id);
+               continue;
+            }
             broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
            
             // Update last price while you're at it
