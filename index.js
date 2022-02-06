@@ -1072,13 +1072,22 @@ async function getMarketInfo(market, chainid = null) {
         return JSON.parse(marketinfo);
     }
     else {
-        const url = `https://zigzag-markets.herokuapp.com/markets?id=${market}&chainid=${chainid}`;
-        const marketinfo = await fetch(url).then(r => r.json()).then(r => r[0]);
-        if (!marketinfo) throw new Error(`No marketinfo found for ${market}`);
-        redis.set(redis_key, JSON.stringify(marketinfo));
-        redis.expire(redis_key, 26400);
+        const marketinfo = await fetchMarketInfoFromMarkets(market, chainid).then(r => r[0]);
         return marketinfo;
     }
+}
+
+async function fetchMarketInfoFromMarkets(markets, chainid) {
+    const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets}&chainid=${chainid}`;
+    const marketinfo_list = await fetch(url).then(r => r.json());
+    if (!marketinfo_list) throw new Error(`No marketinfo found.`);
+    for(let i=0; i<marketinfo_list.length; i++) {
+        const marketinfo = marketinfo_list[i];
+        const redis_key = `marketinfo:${chainid}:${marketinfo.alias}`;
+        redis.set(redis_key, JSON.stringify(marketinfo));
+        redis.expire(redis_key, 26400);
+    }
+    return marketinfo_list;
 }
 
 async function populateV1TokenIds() {
