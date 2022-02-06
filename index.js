@@ -1088,11 +1088,7 @@ async function updateMarketInfo() {
         const chainid = chainIds[i];
         const markets = await redis.SMEMBERS(`activemarkets:${chainid}`);
         if(!markets) { return; }
-        const newMarketInfo = await fetchMarketInfoFromMarkets(markets, chainid);
-        newMarketInfo.forEach(marketInfo => {
-            const marketInfoMsg = {op: 'marketinfo', args: [marketInfo]};
-            broadcastMessage(chainid, marketinfo.alias, marketInfoMsg);
-        });
+        await fetchMarketInfoFromMarkets(markets, chainid);
     }
 }
 
@@ -1102,9 +1098,13 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
     if (!marketinfo_list) throw new Error(`No marketinfo found.`);
     for(let i=0; i<marketinfo_list.length; i++) {
         const marketinfo = marketinfo_list[i];
-        const redis_key = `marketinfo:${chainid}:${marketinfo.alias}`;
+        const market_id = marketinfo.alias;
+        const redis_key = `marketinfo:${chainid}:${market_id}`;
         redis.set(redis_key, JSON.stringify(marketinfo));
         redis.expire(redis_key, 26400);
+
+        const marketInfoMsg = {op: 'marketinfo', args: [marketinfo]};
+        broadcastMessage(chainid, market_id, marketInfoMsg);
     }
     return marketinfo_list;
 }
