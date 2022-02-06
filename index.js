@@ -1089,7 +1089,12 @@ async function updateMarketInfo() {
         for(let i=1; i<marketInfoKeys.length;i++) {
             markets = markets + "," + marketInfoKeys[0].split(":")[2];
         }
-        await fetchMarketInfoFromMarkets(markets, chainid);
+        const newMarketInfo = await fetchMarketInfoFromMarkets(markets, chainid);
+
+        newMarketInfo.forEach(marketInfo => {
+            const marketInfoMsg = {op: 'marketinfo', args: [marketInfo]};
+            broadcastMessage(chainid, marketinfo.alias, marketInfoMsg);
+        });
     }
 }
 
