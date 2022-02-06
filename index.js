@@ -70,6 +70,7 @@ await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
+setInterval(updateMarketInfo, 18000); 
 setInterval(broadcastLiquidity, 4000);
 
 const expressApp = express();
@@ -1074,6 +1075,21 @@ async function getMarketInfo(market, chainid = null) {
     else {
         const marketinfo = await fetchMarketInfoFromMarkets(market, chainid).then(r => r[0]);
         return marketinfo;
+    }
+}
+
+async function updateMarketInfo() {
+    const chainIds = [1, 1000];
+    for(let i=0; i<chainIds.length; i++) {
+        const chainid = chainIds[i];
+        const marketInfoKeys = await redis.keys(`marketinfo:${chainid}:*`);
+        if(!marketInfoKeys.length) { return; }
+
+        let markets = marketInfoKeys[0].split(":")[2];
+        for(let i=1; i<marketInfoKeys.length;i++) {
+            markets = markets + "," + marketInfoKeys[0].split(":")[2];
+        }
+        await fetchMarketInfoFromMarkets(markets, chainid);
     }
 }
 
