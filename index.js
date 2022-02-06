@@ -1082,15 +1082,9 @@ async function updateMarketInfo() {
     const chainIds = [1, 1000];
     for(let i=0; i<chainIds.length; i++) {
         const chainid = chainIds[i];
-        const marketInfoKeys = await redis.keys(`marketinfo:${chainid}:*`);
-        if(!marketInfoKeys.length) { return; }
-
-        let markets = marketInfoKeys[0].split(":")[2];
-        for(let i=1; i<marketInfoKeys.length;i++) {
-            markets = markets + "," + marketInfoKeys[0].split(":")[2];
-        }
+        const markets = await redis.SMEMBERS(`activemarkets:${chainid}`);
+        if(!markets) { return; }
         const newMarketInfo = await fetchMarketInfoFromMarkets(markets, chainid);
-
         newMarketInfo.forEach(marketInfo => {
             const marketInfoMsg = {op: 'marketinfo', args: [marketInfo]};
             broadcastMessage(chainid, marketinfo.alias, marketInfoMsg);
