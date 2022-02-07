@@ -1101,7 +1101,7 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
         const market_id = marketinfo.alias;
         const redis_key = `marketinfo:${chainid}:${market_id}`;
         redis.set(redis_key, JSON.stringify(marketinfo));
-        redis.expire(redis_key, 26400);
+        redis.expire(redis_key, 1800);
 
         const marketInfoMsg = {op: 'marketinfo', args: [marketinfo]};
         broadcastMessage(chainid, market_id, marketInfoMsg);
