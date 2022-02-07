@@ -70,7 +70,7 @@ await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
-setInterval(updateMarketInfo, 18000); 
+setInterval(updateMarketInfo, 60000); 
 setInterval(broadcastLiquidity, 4000);
 
 const expressApp = express();
@@ -1096,7 +1096,7 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets}&chainid=${chainid}`;
     const marketinfo_list = await fetch(url).then(r => r.json());
     if (!marketinfo_list) throw new Error(`No marketinfo found.`);
-    for(let i=0; i<marketinfo_list.length; i++) {
+    for(let i=0; i < marketinfo_list.length; i++) {
         const marketinfo = marketinfo_list[i];
         const market_id = marketinfo.alias;
         const redis_key = `marketinfo:${chainid}:${market_id}`;
