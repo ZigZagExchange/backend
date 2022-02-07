@@ -1008,6 +1008,7 @@ async function broadcastLiquidity() {
             const liquidity = await getLiquidity(chainid, market_id);
             if(liquidity.length === 0) {
                await redis.SREM(`activemarkets:${chainid}`, market_id);
+               await redis.HDEL(`lastprices:${chainid}`, market_id);
                continue;
             }
             broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
@@ -1083,6 +1084,7 @@ async function getMarketInfo(market, chainid = null) {
 }
 
 async function updateMarketInfo() {
+    console.time("updating market info");
     const chainIds = [1, 1000];
     for(let i=0; i<chainIds.length; i++) {
         const chainid = chainIds[i];
@@ -1090,6 +1092,7 @@ async function updateMarketInfo() {
         if(!markets) { return; }
         await fetchMarketInfoFromMarkets(markets, chainid);
     }
+    console.timeEnd("updating market info");
 }
 
 async function fetchMarketInfoFromMarkets(markets, chainid) {
@@ -1100,8 +1103,7 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
         const marketinfo = marketinfo_list[i];
         const market_id = marketinfo.alias;
         const redis_key = `marketinfo:${chainid}:${market_id}`;
-        redis.set(redis_key, JSON.stringify(marketinfo));
-        redis.expire(redis_key, 1800);
+        redis.set(redis_key, JSON.stringify(marketinfo), { 'EX': 1800 });
 
         const marketInfoMsg = {op: 'marketinfo', args: [marketinfo]};
         broadcastMessage(chainid, market_id, marketInfoMsg);
