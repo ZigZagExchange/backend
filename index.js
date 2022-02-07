@@ -70,6 +70,7 @@ await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
+setInterval(updateMarketInfo, 18000); 
 setInterval(broadcastLiquidity, 4000);
 
 const expressApp = express();
@@ -1005,6 +1006,10 @@ async function broadcastLiquidity() {
         for (let j in markets) {
             const market_id = markets[j];
             const liquidity = await getLiquidity(chainid, market_id);
+            if(liquidity.length === 0) {
+               await redis.SREM(`activemarkets:${chainid}`, market_id);
+               continue;
+            }
             broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
            
             // Update last price while you're at it
@@ -1057,8 +1062,8 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     try {
         if (liquidity.length > 0) {
             await redis.ZADD(redis_key_liquidity, redis_members);
-        }        
-        await redis.SADD(`activemarkets:${chainid}`, market, 'EX', 1800)
+        }
+        await redis.SADD(`activemarkets:${chainid}`, market)
     } catch (e) {
         console.error(e);
         console.log(liquidity);
@@ -1072,13 +1077,36 @@ async function getMarketInfo(market, chainid = null) {
         return JSON.parse(marketinfo);
     }
     else {
-        const url = `https://zigzag-markets.herokuapp.com/markets?id=${market}&chainid=${chainid}`;
-        const marketinfo = await fetch(url).then(r => r.json()).then(r => r[0]);
-        if (!marketinfo) throw new Error(`No marketinfo found for ${market}`);
-        redis.set(redis_key, JSON.stringify(marketinfo));
-        redis.expire(redis_key, 26400);
+        const marketinfo = await fetchMarketInfoFromMarkets(market, chainid).then(r => r[0]);
         return marketinfo;
     }
+}
+
+async function updateMarketInfo() {
+    const chainIds = [1, 1000];
+    for(let i=0; i<chainIds.length; i++) {
+        const chainid = chainIds[i];
+        const markets = await redis.SMEMBERS(`activemarkets:${chainid}`);
+        if(!markets) { return; }
+        await fetchMarketInfoFromMarkets(markets, chainid);
+    }
+}
+
+async function fetchMarketInfoFromMarkets(markets, chainid) {
+    const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets}&chainid=${chainid}`;
+    const marketinfo_list = await fetch(url).then(r => r.json());
+    if (!marketinfo_list) throw new Error(`No marketinfo found.`);
+    for(let i=0; i<marketinfo_list.length; i++) {
+        const marketinfo = marketinfo_list[i];
+        const market_id = marketinfo.alias;
+        const redis_key = `marketinfo:${chainid}:${market_id}`;
+        redis.set(redis_key, JSON.stringify(marketinfo));
+        redis.expire(redis_key, 26400);
+
+        const marketInfoMsg = {op: 'marketinfo', args: [marketinfo]};
+        broadcastMessage(chainid, market_id, marketInfoMsg);
+    }
+    return marketinfo_list;
 }
 
 async function populateV1TokenIds() {
