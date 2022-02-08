@@ -1087,10 +1087,14 @@ async function updateMarketInfo() {
     console.time("updating market info");
     const chainIds = [1, 1000];
     for(let i=0; i<chainIds.length; i++) {
-        const chainid = chainIds[i];
-        const markets = await redis.SMEMBERS(`activemarkets:${chainid}`);
-        if(!markets) { return; }
-        await fetchMarketInfoFromMarkets(markets, chainid);
+        try {
+            const chainid = chainIds[i];
+            const markets = await redis.SMEMBERS(`activemarkets:${chainid}`);
+            if(!markets) { return; }
+            await fetchMarketInfoFromMarkets(markets, chainid);
+        } catch (e) {
+            console.error(e);
+        }
     }
     console.timeEnd("updating market info");
 }
