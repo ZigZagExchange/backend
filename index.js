@@ -925,12 +925,12 @@ async function genquote(chainid, market, side, baseQuantity, quoteQuantity) {
         if (side === 'b') {
             hardQuoteQuantity = (baseQuantity * ladderPrice + marketInfo.quoteFee).toFixed(marketInfo.baseAsset.decimals);
             hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(marketInfo.pricePrecisionDecimals);
-            softPrice = (hardPrice * 1.0005).toFixed(marketInfo.pricePrecisionDecimals)
+            softPrice = (hardPrice * 1.001).toFixed(marketInfo.pricePrecisionDecimals)
         }
         else if (side === 's') {
             hardQuoteQuantity = ((baseQuantity - marketInfo.baseFee) * ladderPrice).toFixed(marketInfo.baseAsset.decimals);
             hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(marketInfo.pricePrecisionDecimals);
-            softPrice = (hardPrice * 0.9995).toFixed(marketInfo.pricePrecisionDecimals)
+            softPrice = (hardPrice * 0.999).toFixed(marketInfo.pricePrecisionDecimals)
         }
         softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals);
         softQuoteQuantity = (baseQuantity * softPrice).toFixed(marketInfo.quoteAsset.decimals);
