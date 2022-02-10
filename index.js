@@ -1101,18 +1101,22 @@ async function updateMarketInfo() {
 
 async function fetchMarketInfoFromMarkets(markets, chainid) {
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets}&chainid=${chainid}`;
-    const marketinfo_list = await fetch(url).then(r => r.json());
-    if (!marketinfo_list) throw new Error(`No marketinfo found.`);
-    for(let i=0; i < marketinfo_list.length; i++) {
-        const marketinfo = marketinfo_list[i];
-        const market_id = marketinfo.alias;
-        const redis_key = `marketinfo:${chainid}:${market_id}`;
-        redis.set(redis_key, JSON.stringify(marketinfo), { 'EX': 1800 });
+    const marketInfoList = await fetch(url).then(r => r.json());
+    if (!marketInfoList) throw new Error(`No marketinfo found.`);
+    for(let i=0; i < marketInfoList.length; i++) {
+        const marketInfo = marketInfoList[i];
+        if(!marketInfo) { return; }
+        const oldMarketInfo = await getMarketInfo(marketInfo.alias, chainid);
+        if(JSON.stringify(oldMarketInfo) != JSON.stringify(marketInfo)) {
+            const market_id = marketInfo.alias;
+            const redis_key = `marketinfo:${chainid}:${market_id}`;
+            redis.set(redis_key, JSON.stringify(marketInfo), { 'EX': 1800 });
 
-        const marketInfoMsg = {op: 'marketinfo', args: [marketinfo]};
-        broadcastMessage(chainid, market_id, marketInfoMsg);
+            const marketInfoMsg = {op: 'marketinfo', args: [marketInfo]};
+            broadcastMessage(chainid, market_id, marketInfoMsg);
+        }
     }
-    return marketinfo_list;
+    return marketInfoList;
 }
 
 async function populateV1TokenIds() {
