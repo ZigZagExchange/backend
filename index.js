@@ -397,6 +397,9 @@ async function handleMessage(msg, ws) {
                     fillId = result.fillId;
                     market = result.market;
                     lastprice = result.fillPriceWithoutFee;
+                    const mmAccount = result.maker_user_id;
+                    const redisKey = `bussymarketmaker:${chainid}:${mmAccount}`;
+                    redis.del(redisKey);
                 }
                 if (success) {
                     const fillUpdate = [...update];
@@ -478,7 +481,7 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         redis.SADD(`markets:${chainid}`, market);
         redis.SET(redis_key_today_price, fillPriceWithoutFee);
     }
-    return { success, fillId, market, fillPrice, fillPriceWithoutFee };
+    return { success, fillId, market, fillPrice, fillPriceWithoutFee, maker_user_id};
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
