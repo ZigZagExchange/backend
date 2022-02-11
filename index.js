@@ -566,7 +566,7 @@ async function processorderzksync(chainid, market, zktx) {
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
 
     // broadcast new order
-    broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
+    broadcastOrder(chainid, market, side, price, base_quantity, quote_quantity, {"op":"orders", args: [[orderreceipt]]});
     try {
         const userconnkey = `${chainid}:${userid}`;
         USER_CONNECTIONS[userconnkey].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
@@ -739,6 +739,38 @@ async function matchorder(chainid, orderId, fillOrder) {
     return { zktx, fill };
 }
 
+async function broadcastOrder(chainid, market, side, price, base_quantity, quote_quantity, msg) {
+    const liquidity = await getLiquidity(chainid, market);
+    const marketInfo = await getMarketInfo(market, chainid);
+    let matchingLiqidity;
+    if(side = 'b') {
+        price = (price * quote_quantity + marketInfo.quoteFee) / quote_quantity; //correct flat fee
+        matchingLiqidity = liquidity.filter(l => l[0] == 'b' && l[1] < price && l[2] > (quote_quantity/price));
+    } else {
+        price = (price * base_quantity - marketInfo.baseFee) / base_quantity; //correct flat fee
+        matchingLiqidity = liquidity.filter(l => l[0] == 's' && l[1] > price && l[2] > base_quantity);
+    }
+
+    let send = 0;
+    for(let i = 0; i < matchingLiqidity.length; i++) {
+        const liquidityPosition = matchingLiqidity[i];
+        wss.clients.forEach(ws => {
+            if (ws.uuid !== liquidityPosition[3]) return true;
+            if (ws.readyState !== WebSocket.OPEN) return true;
+            if (chainid && ws.chainid !== chainid) return true;
+            if (market && !ws.marketSubscriptions.includes(market)) return true;
+
+            ws.send(JSON.stringify(msg));
+            send = send + 1;
+        });
+    }
+
+    if(send == 0) {
+        // no mm can fill at this point (also includes matchingLiqidity.length == 0)
+        broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
+        return;
+    }
+}
 
 async function broadcastMessage(chainid, market, msg) {
     wss.clients.forEach(ws => {
