@@ -67,8 +67,8 @@ await populateV1TokenIds();
 
 // constants
 const VALID_CHAINS = [1,1000,1001];
-const marketMakerTimout = 900;
-const setMMPassivTime = 20;
+const MARKET_MAKER_TIMEOUT = 900;
+const SET_MM_PASSIVE_TIME = 20;
 
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
@@ -324,7 +324,7 @@ async function handleMessage(msg, ws) {
                 const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
                 const market = matchOrderResult.fill[2];
                 ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
-                redis.set(redisKey, JSON.stringify({"orderId":orderId, "ws_uuid":ws.uuid}), {'EX' : marketMakerTimout});
+                redis.set(redisKey, JSON.stringify({"orderId":orderId, "ws_uuid":ws.uuid}), {'EX' : MARKET_MAKER_TIMEOUT});
                 broadcastMessage(chainid, market, {op:"orderstatus",args:[[[chainid,orderId,'m']]]});
                 broadcastMessage(chainid, market, {op:"fills",args:[[matchOrderResult.fill]]});
             } catch (e) {
@@ -1138,12 +1138,12 @@ async function updatePassiveMM() {
         const keys = await redis.keys(redisPattern);
         keys.forEach(key => {
             const remainingTime = await redis.ttl(key);
-            // key is waiting for more than set setMMPassivTime
-            if(remainingTime > 0 && remainingTime < (marketMakerTimout - setMMPassivTime)) {
+            // key is waiting for more than set SET_MM_PASSIVE_TIME
+            if(remainingTime > 0 && remainingTime < (MARKET_MAKER_TIMEOUT - SET_MM_PASSIVE_TIME)) {
                 const marketmaker = JSON.parse(await redis.get(key));
                 if(marketmaker) {
                     const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
-                    redis.set(redisKey, marketmaker.orderId, {'EX' : marketMakerTimout});
+                    redis.set(redisKey, marketmaker.orderId, {'EX' : MARKET_MAKER_TIMEOUT});
                 }
             }
         });
