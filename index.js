@@ -30,7 +30,7 @@ pool.query(migration)
 
 const redis_url = process.env.REDIS_URL;
 const redis_use_tls = redis_url.includes("rediss");
-const redis = Redis.createClient({ 
+const redis = Redis.createClient({
     url: redis_url,
     socket: {
         tls: redis_use_tls,
@@ -70,7 +70,7 @@ await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
-setInterval(updateMarketInfo, 60000); 
+setInterval(updateMarketInfo, 60000);
 setInterval(broadcastLiquidity, 4000);
 
 const expressApp = express();
@@ -103,7 +103,7 @@ server.on('upgrade', function upgrade(request, socket, head) {
 });
 
 server.listen(port);
-    
+
 async function onWsConnection(ws, req) {
     ws.uuid = randomUUID();
     console.log("New connection: ", req.connection.remoteAddress);
@@ -193,10 +193,10 @@ async function handleMessage(msg, ws) {
             const tokenSell = V1_TOKEN_IDS[zktx.tokenSell];
             if (V1_MARKETS.includes(tokenBuy + "-" + tokenSell)) {
                 market = tokenBuy + "-" + tokenSell;
-            } 
+            }
             else if (V1_MARKETS.includes(tokenSell + "-" + tokenBuy)) {
                 market = tokenSell + "-" + tokenBuy;
-            } 
+            }
             else {
                 const errorMsg = { op: "error", args: ["submitorder", "invalid market"] };
                 if (ws) ws.send(JSON.stringify(errorMsg));
@@ -459,7 +459,7 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         const quoteQuantityWithoutFee = quote_quantity - marketInfo.quoteFee;
         fillPriceWithoutFee = (quoteQuantityWithoutFee / base_quantity).toFixed(marketInfo.pricePrecisionDecimals);
     }
-    
+
     const success = update.rowCount > 0;
     if (success && (['f', 'pf']).includes(newstatus)) {
         const today = new Date().toISOString().slice(0,10);
@@ -519,14 +519,14 @@ async function processorderzksync(chainid, market, zktx) {
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
     if (zktx.tokenSell === marketInfo.baseAssetId && zktx.tokenBuy == marketInfo.quoteAssetId) {
         side = 's';
-        price = ( zktx.ratio[1] / Math.pow(10, marketInfo.quoteAsset.decimals) ) / 
+        price = ( zktx.ratio[1] / Math.pow(10, marketInfo.quoteAsset.decimals) ) /
                 ( zktx.ratio[0] / Math.pow(10, marketInfo.baseAsset.decimals) );
         base_quantity = zktx.amount / Math.pow(10, marketInfo.baseAsset.decimals);
         quote_quantity = base_quantity * price;
     }
     else if (zktx.tokenSell === marketInfo.quoteAssetId && zktx.tokenBuy == marketInfo.baseAssetId) {
         side = 'b'
-        price = ( zktx.ratio[0] / Math.pow(10, marketInfo.quoteAsset.decimals) ) / 
+        price = ( zktx.ratio[0] / Math.pow(10, marketInfo.quoteAsset.decimals) ) /
                 ( zktx.ratio[1] / Math.pow(10, marketInfo.baseAsset.decimals) );
         quote_quantity = zktx.amount / Math.pow(10, marketInfo.quoteAsset.decimals);
         base_quantity = ((quote_quantity / price).toFixed(marketInfo.baseAsset.decimals)) / 1;
@@ -551,7 +551,7 @@ async function processorderzksync(chainid, market, zktx) {
         market,
         side,
         price,
-        base_quantity, 
+        base_quantity,
         quote_quantity,
         order_type,
         'o',
@@ -564,7 +564,7 @@ async function processorderzksync(chainid, market, zktx) {
     const insert = await pool.query(query, queryargs);
     const orderId = insert.rows[0].id;
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
-    
+
     // broadcast new order
     broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
     try {
@@ -734,7 +734,7 @@ async function matchorder(chainid, orderId, fillOrder) {
     values = [chainid, selectresult.market, orderId, selectresult.userid, maker_user_id, fillPrice, selectresult.base_quantity, selectresult.side];
     const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id", values);
     const fill_id = update2.rows[0].id;
-    const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, maker_user_id]; 
+    const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, maker_user_id];
 
     return { zktx, fill };
 }
@@ -1012,7 +1012,7 @@ async function broadcastLiquidity() {
                continue;
             }
             broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
-           
+
             // Update last price while you're at it
             const asks = liquidity.filter(l => l[0] === 's').map(l => l[1]);
             const bids = liquidity.filter(l => l[0] === 'b').map(l => l[1]);
@@ -1031,11 +1031,11 @@ async function broadcastLiquidity() {
 async function updateLiquidity (chainid, market, liquidity, client_id) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
-    
+
     // validation
-    liquidity = liquidity.filter(l => 
+    liquidity = liquidity.filter(l =>
         (['b','s']).includes(l[0]) &&
-        !isNaN(parseFloat(l[1])) && 
+        !isNaN(parseFloat(l[1])) &&
         !isNaN(parseFloat(l[2])) &&
         parseFloat(l[2]) > marketInfo.baseFee
     );
