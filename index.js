@@ -174,7 +174,7 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             liquidity = msg.args[2];
-            const client_id = msg.args[3];
+            const client_id = ws.uuid;
             updateLiquidity(chainid, market, liquidity, client_id);
             break
         case "submitorder":
