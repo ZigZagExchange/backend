@@ -68,11 +68,14 @@ await populateV1TokenIds();
 // constants
 const VALID_CHAINS = [1,1000,1001];
 const marketMakerTimout = 900;
+const setMMPassivTime = 20;
+
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
 setInterval(updateMarketInfo, 60000);
+setInterval(updatePassiveMM, 10000);
 setInterval(broadcastLiquidity, 4000);
 
 const expressApp = express();
@@ -177,7 +180,11 @@ async function handleMessage(msg, ws) {
             market = msg.args[1];
             liquidity = msg.args[2];
             const client_id = ws.uuid;
-            updateLiquidity(chainid, market, liquidity, client_id);
+            try {
+                updateLiquidity(chainid, market, liquidity, client_id);
+            } catch (e) {
+                  ws.send(JSON.stringify({op:"error",args:["indicateliq2", e]}));
+            }
             break
         case "submitorder":
             // this entire operation is only for backward compatibility for Argent
@@ -1078,6 +1085,13 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
 
+    const redisKey = `passivws:${chainId}:${client_id}`;
+    const waitingOrderId = await redis.get(redisKey);
+    if(waitingOrderId) {
+        const remainingTime = await redis.ttl(redisKey);
+        throw new Error("Your address did not respond to order: "+waitingOrderId+") yet. Remaining timeout: "+remainingTime+".")
+    }
+
     // validation
     liquidity = liquidity.filter(l =>
         (['b','s']).includes(l[0]) &&
@@ -1114,6 +1128,25 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     } catch (e) {
         console.error(e);
         console.log(liquidity);
+    }
+}
+
+async function updatePassiveMM() {
+    for(i in VALID_CHAINS) {
+        const chainId = VALID_CHAINS[i];
+        const redisPattern = `bussymarketmaker:${chainId}:*`;
+        const keys = await redis.keys(redisPattern);
+        keys.forEach(key => {
+            const remainingTime = await redis.ttl(key);
+            // key is waiting for more than set setMMPassivTime
+            if(remainingTime > 0 && remainingTime < (marketMakerTimout - setMMPassivTime)) {
+                const marketmaker = JSON.parse(await redis.get(key));
+                if(marketmaker) {
+                    const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
+                    redis.set(redisKey, marketmaker.orderId, {'EX' : marketMakerTimout});
+                }
+            }
+        });
     }
 }
 
