@@ -66,6 +66,8 @@ const V1_TOKEN_IDS = {};
 const NONCES = {};
 await populateV1TokenIds();
 
+// constants
+const prossessingOrderTimeout = 900;
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
@@ -301,12 +303,20 @@ async function handleMessage(msg, ws) {
             if (blacklisted_accounts.includes(fillOrder.accountId.toString())) {
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", "You're running a bad version of the market maker. Please run git pull to update your code."]}));
                 return false;
+
+            const redisKey = `bussymarketmaker:${chainid}:${fillOrder.accountId.toString()}`;
+            const processingOrderId = await redis.get(redisKey);
+            if(processingOrderId) {
+                const remainingTime = await redis.ttl(redisKey);
+                ws.send(JSON.stringify({op:"error",args:["fillrequest", "Your address did not respond to order: "+processingOrderId+") yet. Remaining timeout: "+remainingTime+"."]}));
+                return false;
             }
 
             try {
                 const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
                 const market = matchOrderResult.fill[2];
                 ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
+                redis.set(redisKey, orderId, {'EX' : prossessingOrderTimeout});
                 broadcastMessage(chainid, market, {op:"orderstatus",args:[[[chainid,orderId,'m']]]});
                 broadcastMessage(chainid, market, {op:"fills",args:[[matchOrderResult.fill]]});
             } catch (e) {
