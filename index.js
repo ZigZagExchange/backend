@@ -796,7 +796,8 @@ async function broadcastOrderSelected(chainid, market, side, price, base_quantit
 
 async function broadcastOrderAll (chainid, orderId, order=null) {
     if(!order) {
-        order = await getuserorders(chainid, orderId);
+        const query = "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE id=$1 AND order_status IN ('o','pm','pf')";
+        order = await pool.query(query, orderId);
         if(!order) return;
     }
     broadcastMessagee(chainid, market, {"op":"orders", args: [[order]]});
