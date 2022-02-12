@@ -1111,7 +1111,11 @@ async function updateMarketInfo() {
 async function fetchMarketInfoFromMarkets(markets, chainid) {
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets}&chainid=${chainid}`;
     let marketInfoList;
-    marketInfoList = await fetch(url).then(r => r.json()).catch(console.error);
+    try {
+        marketInfoList = await fetch(url).then(r => r.json()).catch(console.error);
+    } catch (e) {
+        throw new Error("bad marketinfo call");
+    }
     if (!marketInfoList) throw new Error(`No marketinfo found.`);
     for(let i=0; i < marketInfoList.length; i++) {
         const marketInfo = marketInfoList[i];
