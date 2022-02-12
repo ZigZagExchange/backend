@@ -1121,7 +1121,7 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
         const marketInfo = marketInfoList[i];
         if(!marketInfo || marketInfo.error) { continue; }
         let oldMarketInfo = await redis.get(`marketinfo:${chainid}:${marketInfo.alias}`);
-        if(!oldMarketInfo || JSON.stringify(oldMarketInfo) != JSON.stringify(marketInfo)) {
+        if(!oldMarketInfo || oldMarketInfo != JSON.stringify(marketInfo)) {
             const market_id = marketInfo.alias;
             const redis_key = `marketinfo:${chainid}:${market_id}`;
             redis.set(redis_key, JSON.stringify(marketInfo), { 'EX': 1800 });
