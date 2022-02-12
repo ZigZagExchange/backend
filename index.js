@@ -123,8 +123,17 @@ async function onWsConnection(ws, req) {
         handleMessage(msg, ws);
     });
     ws.on('error', console.error);
-    const lastprices = await getLastPrices(1);
-    ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
+    try {
+        let chainid = 1;
+        if (process.env.DEFAULT_CHAIN_ID) {
+           chainid = parseInt(process.env.DEFAULT_CHAIN_ID);
+        }
+        const lastprices = await getLastPrices(chainid);
+        ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
+    } catch (e) {
+        console.error("Could not fetch lastprices");
+        console.error(e);
+    }
 }
 
 async function handleMessage(msg, ws) {
