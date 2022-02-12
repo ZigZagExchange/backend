@@ -1101,13 +1101,14 @@ async function updateMarketInfo() {
 
 async function fetchMarketInfoFromMarkets(markets, chainid) {
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets}&chainid=${chainid}`;
-    const marketInfoList = await fetch(url).then(r => r.json());
+    let marketInfoList;
+    marketInfoList = await fetch(url).then(r => r.json());
     if (!marketInfoList) throw new Error(`No marketinfo found.`);
     for(let i=0; i < marketInfoList.length; i++) {
         const marketInfo = marketInfoList[i];
         if(!marketInfo || marketInfo.error) { return; }
-        const oldMarketInfo = await getMarketInfo(marketInfo.alias, chainid);
-        if(JSON.stringify(oldMarketInfo) != JSON.stringify(marketInfo)) {
+        let oldMarketInfo = await redis.get(`marketinfo:${chainid}:${marketInfo.alias}`);
+        if(oldMarketInfo && JSON.stringify(oldMarketInfo) != JSON.stringify(marketInfo)) {
             const market_id = marketInfo.alias;
             const redis_key = `marketinfo:${chainid}:${market_id}`;
             redis.set(redis_key, JSON.stringify(marketInfo), { 'EX': 1800 });
