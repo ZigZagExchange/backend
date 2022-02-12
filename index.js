@@ -1106,7 +1106,7 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
     if (!marketInfoList) throw new Error(`No marketinfo found.`);
     for(let i=0; i < marketInfoList.length; i++) {
         const marketInfo = marketInfoList[i];
-        if(!marketInfo || marketInfo.error) { return; }
+        if(!marketInfo || marketInfo.error) { continue; }
         let oldMarketInfo = await redis.get(`marketinfo:${chainid}:${marketInfo.alias}`);
         if(oldMarketInfo && JSON.stringify(oldMarketInfo) != JSON.stringify(marketInfo)) {
             const market_id = marketInfo.alias;
