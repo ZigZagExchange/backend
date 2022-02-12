@@ -1153,6 +1153,11 @@ async function updatePassiveMM() {
                 if(marketmaker) {
                     const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
                     redis.set(redisKey, marketmaker.orderId, {'EX' : MARKET_MAKER_TIMEOUT});
+
+                    const orderId = (JSON.parse(await redis.get(redisKey))).orderId;
+                    await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING id", (orderId, chainId));
+
+                    broadcastOrderAll(chainId, orderId);
                 }
             }
         });
