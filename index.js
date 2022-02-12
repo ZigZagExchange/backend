@@ -587,7 +587,7 @@ async function processorderzksync(chainid, market, zktx) {
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
 
     // broadcast new order
-    broadcastOrder(chainid, market, side, price, base_quantity, quote_quantity, {"op":"orders", args: [[orderreceipt]]});
+    broadcastOrderSelected(chainid, market, side, price, base_quantity, quote_quantity, {"op":"orders", args: [[orderreceipt]]});
     try {
         const userconnkey = `${chainid}:${userid}`;
         USER_CONNECTIONS[userconnkey].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
@@ -760,7 +760,7 @@ async function matchorder(chainid, orderId, fillOrder) {
     return { zktx, fill };
 }
 
-async function broadcastOrder(chainid, market, side, price, base_quantity, quote_quantity, msg) {
+async function broadcastOrderSelected(chainid, market, side, price, base_quantity, quote_quantity, msg) {
     const liquidity = await getLiquidity(chainid, market);
     const marketInfo = await getMarketInfo(market, chainid);
     let matchingLiqidity;
@@ -788,9 +788,18 @@ async function broadcastOrder(chainid, market, side, price, base_quantity, quote
 
     if(send == 0) {
         // no mm can fill at this point (also includes matchingLiqidity.length == 0)
-        broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
+        broadcastOrderAll(orderreceipt);
         return;
     }
+    setTimeout(broadcastOrderAll, 2500)
+}
+
+async function broadcastOrderAll (chainid, orderId, order=null) {
+    if(!order) {
+        order = await getuserorders(chainid, orderId);
+        if(!order) return;
+    }
+    broadcastMessagee(chainid, market, {"op":"orders", args: [[order]]});
 }
 
 async function broadcastMessage(chainid, market, msg) {
