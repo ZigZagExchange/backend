@@ -1105,7 +1105,7 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
     if (!marketInfoList) throw new Error(`No marketinfo found.`);
     for(let i=0; i < marketInfoList.length; i++) {
         const marketInfo = marketInfoList[i];
-        if(!marketInfo) { return; }
+        if(!marketInfo || marketInfo.error) { return; }
         const oldMarketInfo = await getMarketInfo(marketInfo.alias, chainid);
         if(JSON.stringify(oldMarketInfo) != JSON.stringify(marketInfo)) {
             const market_id = marketInfo.alias;
