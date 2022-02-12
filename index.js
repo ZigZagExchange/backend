@@ -898,11 +898,10 @@ async function getLastPrices(chainid) {
     let redis_values = await redis.HGETALL(redis_key_prices);
 
     for (let market in redis_values) {
-        const marketInfo = await getMarketInfo(market, chainid);
         const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
         const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
         const price = redis_values[market];
-        const priceChange = (price - yesterdayPrice).toFixed(marketInfo.pricePrecisionDecimals);
+        const priceChange = (price - yesterdayPrice).toPrecision(4);
         lastprices.push([market, price, priceChange]);
     }
     return lastprices;
