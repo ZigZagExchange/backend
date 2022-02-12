@@ -1086,7 +1086,10 @@ async function getMarketInfo(market, chainid = null) {
     if (marketinfo) {
         return JSON.parse(marketinfo);
     }
-    else throw new Error("marketinfo missing for " + market);
+    else {
+        const marketinfo = await fetchMarketInfoFromMarkets(market, chainid).then(r => r[0]);
+        return marketinfo;
+    }
 }
 
 async function updateMarketInfo() {
