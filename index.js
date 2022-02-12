@@ -800,7 +800,7 @@ async function broadcastOrderAll (chainid, orderId, order=null) {
         order = await pool.query(query, orderId);
         if(!order) return;
     }
-    broadcastMessagee(chainid, market, {"op":"orders", args: [[order]]});
+    broadcastMessagee(chainid, market, {"op":"orders", args: [order]});
 }
 
 async function broadcastMessage(chainid, market, msg) {
