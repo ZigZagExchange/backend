@@ -791,7 +791,7 @@ async function broadcastOrderSelected(chainid, market, side, price, base_quantit
         broadcastOrderAll(orderreceipt);
         return;
     }
-    setTimeout(broadcastOrderAll, 2500)
+    setTimeout(broadcastOrderAll, 1000)
 }
 
 async function broadcastOrderAll (chainid, orderId, order=null) {
