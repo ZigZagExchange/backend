@@ -148,7 +148,6 @@ async function handleMessage(msg, ws) {
                 const activeMarkets = await redis.SMEMBERS(`activemarkets:${chainid}`);
                 for (let i in activeMarkets) {
                     const details = await getMarketInfo(activeMarkets[i], chainid);
-                    console.log(details);
                     if (details) marketInfo.push(details);
                 }
                 marketsMsg = {op:"marketinfo2", args: [marketInfo]}
