@@ -70,6 +70,23 @@ const VALID_CHAINS = [1,1000,1001];
 const MARKET_MAKER_TIMEOUT = 900;
 const SET_MM_PASSIVE_TIME = 20;
 
+// reset redis mm timeouts
+for(i in VALID_CHAINS) {
+    const chainId = VALID_CHAINS[i];
+    const redisPatternBussy = `bussymarketmaker:${chainId}:*`;
+    const keysBussy = await redis.keys(redisPatternBussy);
+    keysBussy.forEach(key => {
+        const redisKey = `bussymarketmaker:${chainId}:${key}`;
+        redis.del(redisKey);
+    });
+    const redisPatternPassiv = `passivws:${chainId}:*`;
+    const keysPassiv = await redis.keys(redisPatternPassiv);
+    keysPassiv.forEach(key => {
+        const redisKey = `passivws:${chainId}:${key}`;
+        redis.del(redisKey);
+    });
+}
+
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
