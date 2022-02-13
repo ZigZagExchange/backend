@@ -1124,7 +1124,7 @@ async function fetchMarketInfoFromMarkets(markets, chainid) {
         if(!oldMarketInfo || oldMarketInfo != JSON.stringify(marketInfo)) {
             const market_id = marketInfo.alias;
             const redis_key = `marketinfo:${chainid}:${market_id}`;
-            redis.set(redis_key, JSON.stringify(marketInfo), { 'EX': 1800 });
+            redis.set(redis_key, JSON.stringify(marketInfo));
 
             const marketInfoMsg = {op: 'marketinfo', args: [marketInfo]};
             broadcastMessage(chainid, market_id, marketInfoMsg);
