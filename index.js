@@ -75,13 +75,13 @@ for(i in VALID_CHAINS) {
     const chainId = VALID_CHAINS[i];
     const redisPatternBussy = `bussymarketmaker:${chainId}:*`;
     const keysBussy = await redis.keys(redisPatternBussy);
-    keysBussy.forEach(key => {
+    keysBussy.forEach(async key => {
         const redisKey = `bussymarketmaker:${chainId}:${key}`;
         redis.del(redisKey);
     });
     const redisPatternPassiv = `passivws:${chainId}:*`;
     const keysPassiv = await redis.keys(redisPatternPassiv);
-    keysPassiv.forEach(key => {
+    keysPassiv.forEach(async key => {
         const redisKey = `passivws:${chainId}:${key}`;
         redis.del(redisKey);
     });
