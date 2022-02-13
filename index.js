@@ -140,9 +140,23 @@ async function handleMessage(msg, ws) {
     let orderId, zktx, userid, chainid, market, userconnkey, liquidity;
     switch (msg.op) {
         case "marketsreq":
+            let marketsMsg;
             chainid = msg.args && msg.args[0] || 1;
-            const lastPricesMarkets = await getLastPrices(chainid);
-            const marketsMsg = {op:"markets", args: [lastPricesMarkets]}
+            const detailedFlag = msg.args[1];
+            if (detailedFlag) {
+                const marketInfo = [];
+                const activeMarkets = await redis.SMEMBERS(`activemarkets:${chainid}`);
+                for (let i in activeMarkets) {
+                    const details = await getMarketInfo(activeMarkets[i], chainid);
+                    console.log(details);
+                    if (details) marketInfo.push(details);
+                }
+                marketsMsg = {op:"marketinfo2", args: [marketInfo]}
+            }
+            else {
+                const marketInfo = await getLastPrices(chainid);
+                marketsMsg = {op:"markets", args: [marketInfo]}
+            } 
             if (ws) ws.send(JSON.stringify(marketsMsg));
             return marketsMsg;
         case "login":

@@ -562,18 +562,61 @@ Description: Returns a standard market info JSON from the Zigzag Markets API. Re
 
 ---
 
+Operation: **marketinfo2**
+
+A `marketinfo2` message is the same as a marketinfo message but it contains information for multiple markets instead of 1.
+
+It's returned by calling `marketsreq` with the detailed flag turned on.
+
+```json
+{ 
+    "op":"marketinfo", 
+    "args": [[
+      {
+        "baseAssetId": "65",
+        "quoteAssetId": "1",
+        "baseFee": 1,
+        "quoteFee": 1,
+        "minSize": 1,
+        "maxSize": 100,
+        "zigzagChainId": 1,
+        "pricePrecisionDecimal": 6,
+        "baseAsset": {
+          "id": 65,
+          "address": "0x19ebaa7f212b09de2aee2a32d40338553c70e2e3",
+          "symbol": "ARTM",
+          "decimals": 18,
+          "enabledForFees": false
+        },
+        "quoteAsset": {
+          "id": 1,
+          "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "symbol": "DAI",
+          "decimals": 18,
+          "enabledForFees": true
+        },
+        "id": "nORHCLNmmeS5Cp5or2Xt4gMMovgfVsbwYXA941zq0ks",
+        "alias": "ARTM-DAI"
+      }
+    ]]
+ }
+```
+
+---
+
 Operation: **marketsreq**
 
-Arguments: `[chainid]`
+Arguments: `[chainid, detailed]`
 
-Description: Request a list of markets. Available over REST. Response is a markets message.
+Description: Request a list of markets. Available over REST. Response is a markets message if detailed flag is unset, or a marketinfo2 message if the detailed flag is set. 
 
 ```json
 {"op":"marketsreq","args":[1]}
+{"op":"marketsreq","args":[1, true]}
 ```
 
 ```bash
-curl "https://zigzag-exchange.herokuapp.com/" -X POST -H 'Content-Type:application/json' -d '{"op":"marketsreq","args":[1]}'
+curl "https://zigzag-exchange.herokuapp.com/" -X POST -H 'Content-Type:application/json' -d '{"op":"marketsreq","args":[1, true]}'
 ```
 
 ---
