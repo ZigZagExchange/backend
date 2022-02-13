@@ -570,7 +570,7 @@ It's returned by calling `marketsreq` with the detailed flag turned on.
 
 ```json
 { 
-    "op":"marketinfo", 
+    "op":"marketinfo2", 
     "args": [[
       {
         "baseAssetId": "65",
