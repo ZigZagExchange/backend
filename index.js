@@ -596,7 +596,7 @@ async function processorderzksync(chainid, market, zktx) {
         // user connection doesn't exist. just pass along
     }
 
-    return orderreceipt;
+    return {"op":"userorderack", args: [orderreceipt]};
 }
 
 async function processorderstarknet(chainid, market, zktx) {
