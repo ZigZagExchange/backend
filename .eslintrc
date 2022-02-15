@@ -1,0 +1,18 @@
+{
+    "plugins": ["prettier"],
+    "extends": ["airbnb", "plugin:@typescript-eslint/recommended", "prettier"],
+    "rules": {
+      "prettier/prettier": [0, {
+        "singleQuote": true,
+        "semi": false
+      }],
+      "no-bitwise": [0],
+      "no-console": [0],
+      "semi": [2, "never"],
+      "quotes": [1, "single"],
+      "import/prefer-default-export": [0],
+      "react/jsx-filename-extension": ["warn", {
+        "extensions": [".ts", ".tsx"]
+      }]
+    }
+  }

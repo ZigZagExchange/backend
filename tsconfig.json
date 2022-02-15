@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "es2019",
+    "lib": ["es2019", "es2020.promise", "es2020.bigint", "es2020.string", "dom"],
+    "rootDir": "src",
+    "outDir": "dist",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "declaration": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "types": ["node"],
+    "stripInternal": true,
+    "incremental": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "importsNotUsedAsValues": "error"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "typedocOptions": {
+    "entryPoints": ["./src/index.ts"],
+    "readme": "none",
+    "out": "website/static/api"
+  }
+}
