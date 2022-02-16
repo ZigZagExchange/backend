@@ -1017,7 +1017,16 @@ async function broadcastLiquidity() {
             const asks = liquidity.filter(l => l[0] === 's').map(l => l[1]);
             const bids = liquidity.filter(l => l[0] === 'b').map(l => l[1]);
             if (asks.length == 0 || bids.length == 0) continue;
-            const mid = (Math.min(...asks) + Math.max(...bids)) / 2;
+            let askPrice = 0, askVolume = 0, bidPrice = 0, bidVolume = 0;
+            for (let i in asks.length) {
+                asksPrice = asksPrice + asks[i][1] * asks[i][2];
+                askVolume = askVolume + asks[i][2];
+            }
+            for (let i in bids.length) {
+                bidPrice = bidPrice + bids[i][1] * bids[i][2];
+                bidVolume = bidVolume + bids[i][2];
+            }
+            const mid = ((asksPrice / askVolume) + (bidPrice / bidVolume)) / 2;
             const marketInfo = await getMarketInfo(market_id, chainid);
             redis.HSET(`lastprices:${chainid}`, market_id, mid.toFixed(marketInfo.pricePrecisionDecimals));
         }
