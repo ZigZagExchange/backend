@@ -398,7 +398,6 @@ async function handleMessage(msg, ws) {
                     const yesterday = new Date(Date.now() - 86400*1000).toISOString().slice(0,10);
                     const yesterdayPrice = await redis.get(`dailyprice:${chainid}:${market}:${yesterday}`);
                     const priceChange = (lastprice - yesterdayPrice).toString();
-                    broadcastMessage(chainid, null, {op:"lastprice",args: [[[market, lastprice, priceChange]]]});
                     // TODO: Account for nonce checks here
                     //const userId = update[5];
                     //const userNonce = update[6];
