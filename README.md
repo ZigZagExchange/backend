@@ -83,7 +83,7 @@ pm | partial match.
 
 ## Operations
 
-Operation: **login**    
+###### Operation: **login**    
 
 Arguments: `[chainId, userId]`   
 
@@ -96,7 +96,7 @@ Description: Associate userId with connection. Note that userId is a **string**,
 
 ---
 
-Operation: **submitorder2**    
+###### Operation: **submitorder2**    
 
 Arguments: `[chainId, market, zkOrder]`   
 
@@ -172,7 +172,7 @@ Starknet
 
 ---
 
-Operation: **indicateliq2**    
+###### Operation: **indicateliq2**    
 
 Arguments: `[chainId, market, liquidity]`
 
@@ -201,7 +201,7 @@ Expiration is a UNIX timestamp in seconds. If an expiration is not set or is set
 
 ---
 
-Operation: **fillrequest**    
+###### Operation: **fillrequest**    
 
 Arguments: `[chainId, orderId, fillOrder]`    
 
@@ -243,7 +243,7 @@ Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrd
 
 ---
 
-Operation: **userordermatch**    
+###### Operation: **userordermatch**    
 
 Arguments: `[chainId, takerOrder, makerOrder]                                     
 
@@ -255,7 +255,7 @@ NO EXAMPLE AVAILABLE YET
 
 ---
 
-Operation: **orderreceiptreq**    
+###### Operation: **orderreceiptreq**    
 
 Arguments: `[chainid,orderid]`
 
@@ -267,7 +267,7 @@ Description: Get an order receipt. Returns a message with the same format as use
 
 ---
 
-Operation: **orders**    
+###### Operation: **orders**    
 
 Arguments: `[orders]`
 
@@ -288,7 +288,7 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
 
 ---
 
-Operation: **fills**    
+###### Operation: **fills**    
 
 Arguments: `[fills]`
 
@@ -309,7 +309,7 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
 
 ---
 
-Operation: **orderstatus**    
+###### Operation: **orderstatus**    
 
 Arguments: `[orderupdates]`
 
@@ -327,7 +327,7 @@ Description: A series of order status updates. orderupdate = `[chainId,orderId,s
 
 ---
 
-Operation: **orderstatusupdate**    
+###### Operation: **orderstatusupdate**    
 
 Arguments: `[orderupdates]`
 
@@ -347,7 +347,7 @@ Only 'f' and 'r' status updates are permitted, and only for matched orders.
 
 ---
 
-Operation: **liquidity2**    
+###### Operation: **liquidity2**    
 
 Arguments: `[chainId, market, liquidity]`
 
@@ -371,7 +371,7 @@ Description: Indications of market maker interest. liquidity = [side,price,baseQ
 
 ---
 
-Operation: **refreshliquidity**    
+###### Operation: **refreshliquidity**    
 
 Arguments: `[chainId, market]`
 
@@ -385,7 +385,7 @@ Available over REST.
 
 ---
 
-Operation: **lastprice**    
+###### Operation: **lastprice**    
 
 Arguments: `[priceUpdates]`
 
@@ -406,7 +406,7 @@ Description: A group of market price updates. priceUpdate = [market,price,change
 
 ---
 
-Operation: **marketsummary**    
+###### Operation: **marketsummary**    
 
 Arguments: `[chainId,market,price,24hi,24lo,pricechange,baseVolume,quoteVolume]`  
 
@@ -418,7 +418,7 @@ Description: Price action summary over the last 24 hours
 
 ---
 
-Operation: **subscribemarket**    
+###### Operation: **subscribemarket**    
 
 Arguments: `[chainId,market]`
 
@@ -430,7 +430,7 @@ Description: Subscribe to orderbook and price data for a market
 
 ---
 
-Operation: **unsubscribemarket**    
+###### Operation: **unsubscribemarket**    
 
 Arguments: `[chainId,market]`
 
@@ -442,7 +442,7 @@ Description: Unsubscribe from a market
 
 ---
 
-Operation: **userorderack**    
+###### Operation: **userorderack**    
 
 Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
@@ -454,7 +454,7 @@ Description: ack message for a submitorder2 message
 
 ---
 
-Operation: **userordermatch**    
+###### Operation: **userordermatch**    
 
 Arguments: `[orderId,zkOrder,zkFillOrder]`
 
@@ -466,7 +466,7 @@ No example available
 
 ---
 
-Operation: **cancelorder**    
+###### Operation: **cancelorder**    
 
 Arguments: `[chainId, orderId]`
 
@@ -478,7 +478,7 @@ Description: Cancel an order
 
 ---
 
-Operation: **cancelall**    
+###### Operation: **cancelall**    
 
 Arguments: `[chainId,userId]`
 
@@ -490,7 +490,7 @@ Description: Cancel all orders for a user
 
 ---
 
-Operation: **requestquote**
+###### Operation: **requestquote**
 
 Arguments: `[chainid, market, side, baseQuantity, quoteQuantity]`
 
@@ -508,7 +508,7 @@ This operation is also available over HTTP POST and returns a `quote` message.
 
 ---
 
-Operation: **quote**
+###### Operation: **quote**
 
 Arguments: `[chainid, market, side, baseQuantity, price, quoteQuantity]`
 
@@ -520,7 +520,7 @@ Description: Response to requestquote. Returns a fully filled quote with baseQua
 
 ---
 
-Operation: **marketinfo**
+###### Operation: **marketinfo**
 
 Arguments: `[marketInfoJson]`
 
@@ -562,7 +562,7 @@ Description: Returns a standard market info JSON from the Zigzag Markets API. Re
 
 ---
 
-Operation: **marketinfo2**
+###### Operation: **marketinfo2**
 
 A `marketinfo2` message is the same as a marketinfo message but it contains information for multiple markets instead of 1.
 
@@ -604,7 +604,7 @@ It's returned by calling `marketsreq` with the detailed flag turned on.
 
 ---
 
-Operation: **marketsreq**
+###### Operation: **marketsreq**
 
 Arguments: `[chainid, detailed]`
 
@@ -621,7 +621,7 @@ curl "https://zigzag-exchange.herokuapp.com/" -X POST -H 'Content-Type:applicati
 
 ---
 
-Operation: **markets**
+###### Operation: **markets**
 
 Arguments: `[markets]`. market = `[marketId,lastPrice,priceChange24h]`
 
@@ -643,7 +643,7 @@ Description: Request a list of markets. Available over REST. Response is a `mark
 
 ---
 
-Operation: **dailyvolumereq**
+###### Operation: **dailyvolumereq**
 
 Arguments: `[chainreq]`
 
@@ -661,7 +661,7 @@ curl "https://zigzag-exchange.herokuapp.com/" -H 'Content-Type:application/json'
 
 ---
 
-Operation: **dailyvolume**
+###### Operation: **dailyvolume**
 
 Arguments: `[volumes]`. volume = `[chainid,market,date,baseVolume,quoteVolume]`
 
@@ -683,7 +683,7 @@ Description: Daily volume by pair.
 
 ---
 
-Operation: **error**
+###### Operation: **error**
 
 Arguments: `[operation, error]`
 
