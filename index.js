@@ -123,17 +123,39 @@ async function onWsConnection(ws, req) {
         handleMessage(msg, ws);
     });
     ws.on('error', console.error);
-    const lastprices = await getLastPrices(1);
-    ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
+    try {
+        let chainid = 1;
+        if (process.env.DEFAULT_CHAIN_ID) {
+           chainid = parseInt(process.env.DEFAULT_CHAIN_ID);
+        }
+        const lastprices = await getLastPrices(chainid);
+        ws.send(JSON.stringify({op:"lastprice", args: [lastprices]}));
+    } catch (e) {
+        console.error("Could not fetch lastprices");
+        console.error(e);
+    }
 }
 
 async function handleMessage(msg, ws) {
     let orderId, zktx, userid, chainid, market, userconnkey, liquidity;
     switch (msg.op) {
         case "marketsreq":
+            let marketsMsg;
             chainid = msg.args && msg.args[0] || 1;
-            const lastPricesMarkets = await getLastPrices(chainid);
-            const marketsMsg = {op:"markets", args: [lastPricesMarkets]}
+            const detailedFlag = msg.args[1];
+            if (detailedFlag) {
+                const marketInfo = [];
+                const activeMarkets = await redis.SMEMBERS(`activemarkets:${chainid}`);
+                for (let i in activeMarkets) {
+                    const details = await getMarketInfo(activeMarkets[i], chainid);
+                    if (details) marketInfo.push(details);
+                }
+                marketsMsg = {op:"marketinfo2", args: [marketInfo]}
+            }
+            else {
+                const marketInfo = await getLastPrices(chainid);
+                marketsMsg = {op:"markets", args: [marketInfo]}
+            } 
             if (ws) ws.send(JSON.stringify(marketsMsg));
             return marketsMsg;
         case "login":
@@ -1110,16 +1132,20 @@ async function updateMarketInfo() {
 async function fetchMarketInfoFromMarkets(markets, chainid) {
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets}&chainid=${chainid}`;
     let marketInfoList;
-    marketInfoList = await fetch(url).then(r => r.json());
+    try {
+        marketInfoList = await fetch(url).then(r => r.json()).catch(console.error);
+    } catch (e) {
+        throw new Error("bad marketinfo call");
+    }
     if (!marketInfoList) throw new Error(`No marketinfo found.`);
     for(let i=0; i < marketInfoList.length; i++) {
         const marketInfo = marketInfoList[i];
-        if(!marketInfo || marketInfo.error) { return; }
+        if(!marketInfo || marketInfo.error) { continue; }
         let oldMarketInfo = await redis.get(`marketinfo:${chainid}:${marketInfo.alias}`);
-        if(oldMarketInfo && JSON.stringify(oldMarketInfo) != JSON.stringify(marketInfo)) {
+        if(!oldMarketInfo || oldMarketInfo != JSON.stringify(marketInfo)) {
             const market_id = marketInfo.alias;
             const redis_key = `marketinfo:${chainid}:${market_id}`;
-            redis.set(redis_key, JSON.stringify(marketInfo), { 'EX': 1800 });
+            redis.set(redis_key, JSON.stringify(marketInfo));
 
             const marketInfoMsg = {op: 'marketinfo', args: [marketInfo]};
             broadcastMessage(chainid, market_id, marketInfoMsg);

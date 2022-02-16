@@ -31,7 +31,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured. 
 
-The current list of operations available over HTTP POST are: `submitorder2`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq`
+The current list of operations available over HTTP POST are: `submitorder2`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq` and `marketsreq`.
 
 # Sending orders on zksync
 
@@ -83,7 +83,7 @@ pm | partial match.
 
 ## Operations
 
-Operation: **login**    
+###### Operation: **login**    
 
 Arguments: `[chainId, userId]`   
 
@@ -96,7 +96,7 @@ Description: Associate userId with connection. Note that userId is a **string**,
 
 ---
 
-Operation: **submitorder2**    
+###### Operation: **submitorder2**    
 
 Arguments: `[chainId, market, zkOrder]`   
 
@@ -172,7 +172,7 @@ Starknet
 
 ---
 
-Operation: **indicateliq2**    
+###### Operation: **indicateliq2**    
 
 Arguments: `[chainId, market, liquidity]`
 
@@ -201,7 +201,7 @@ Expiration is a UNIX timestamp in seconds. If an expiration is not set or is set
 
 ---
 
-Operation: **fillrequest**    
+###### Operation: **fillrequest**    
 
 Arguments: `[chainId, orderId, fillOrder]`    
 
@@ -243,7 +243,7 @@ Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrd
 
 ---
 
-Operation: **userordermatch**    
+###### Operation: **userordermatch**    
 
 Arguments: `[chainId, takerOrder, makerOrder]                                     
 
@@ -255,7 +255,7 @@ NO EXAMPLE AVAILABLE YET
 
 ---
 
-Operation: **orderreceiptreq**    
+###### Operation: **orderreceiptreq**    
 
 Arguments: `[chainid,orderid]`
 
@@ -267,7 +267,7 @@ Description: Get an order receipt. Returns a message with the same format as use
 
 ---
 
-Operation: **orders**    
+###### Operation: **orders**    
 
 Arguments: `[orders]`
 
@@ -288,7 +288,7 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
 
 ---
 
-Operation: **fills**    
+###### Operation: **fills**    
 
 Arguments: `[fills]`
 
@@ -309,7 +309,7 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
 
 ---
 
-Operation: **orderstatus**    
+###### Operation: **orderstatus**    
 
 Arguments: `[orderupdates]`
 
@@ -327,7 +327,7 @@ Description: A series of order status updates. orderupdate = `[chainId,orderId,s
 
 ---
 
-Operation: **orderstatusupdate**    
+###### Operation: **orderstatusupdate**    
 
 Arguments: `[orderupdates]`
 
@@ -347,7 +347,7 @@ Only 'f' and 'r' status updates are permitted, and only for matched orders.
 
 ---
 
-Operation: **liquidity2**    
+###### Operation: **liquidity2**    
 
 Arguments: `[chainId, market, liquidity]`
 
@@ -371,7 +371,7 @@ Description: Indications of market maker interest. liquidity = [side,price,baseQ
 
 ---
 
-Operation: **refreshliquidity**    
+###### Operation: **refreshliquidity**    
 
 Arguments: `[chainId, market]`
 
@@ -385,7 +385,7 @@ Available over REST.
 
 ---
 
-Operation: **lastprice**    
+###### Operation: **lastprice**    
 
 Arguments: `[priceUpdates]`
 
@@ -406,7 +406,7 @@ Description: A group of market price updates. priceUpdate = [market,price,change
 
 ---
 
-Operation: **marketsummary**    
+###### Operation: **marketsummary**    
 
 Arguments: `[chainId,market,price,24hi,24lo,pricechange,baseVolume,quoteVolume]`  
 
@@ -418,7 +418,7 @@ Description: Price action summary over the last 24 hours
 
 ---
 
-Operation: **subscribemarket**    
+###### Operation: **subscribemarket**    
 
 Arguments: `[chainId,market]`
 
@@ -430,7 +430,7 @@ Description: Subscribe to orderbook and price data for a market
 
 ---
 
-Operation: **unsubscribemarket**    
+###### Operation: **unsubscribemarket**    
 
 Arguments: `[chainId,market]`
 
@@ -442,7 +442,7 @@ Description: Unsubscribe from a market
 
 ---
 
-Operation: **userorderack**    
+###### Operation: **userorderack**    
 
 Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
@@ -454,7 +454,7 @@ Description: ack message for a submitorder2 message
 
 ---
 
-Operation: **userordermatch**    
+###### Operation: **userordermatch**    
 
 Arguments: `[orderId,zkOrder,zkFillOrder]`
 
@@ -466,7 +466,7 @@ No example available
 
 ---
 
-Operation: **cancelorder**    
+###### Operation: **cancelorder**    
 
 Arguments: `[chainId, orderId]`
 
@@ -478,7 +478,7 @@ Description: Cancel an order
 
 ---
 
-Operation: **cancelall**    
+###### Operation: **cancelall**    
 
 Arguments: `[chainId,userId]`
 
@@ -490,7 +490,7 @@ Description: Cancel all orders for a user
 
 ---
 
-Operation: **requestquote**
+###### Operation: **requestquote**
 
 Arguments: `[chainid, market, side, baseQuantity, quoteQuantity]`
 
@@ -508,7 +508,7 @@ This operation is also available over HTTP POST and returns a `quote` message.
 
 ---
 
-Operation: **quote**
+###### Operation: **quote**
 
 Arguments: `[chainid, market, side, baseQuantity, price, quoteQuantity]`
 
@@ -520,7 +520,7 @@ Description: Response to requestquote. Returns a fully filled quote with baseQua
 
 ---
 
-Operation: **marketinfo**
+###### Operation: **marketinfo**
 
 Arguments: `[marketInfoJson]`
 
@@ -562,23 +562,66 @@ Description: Returns a standard market info JSON from the Zigzag Markets API. Re
 
 ---
 
-Operation: **marketsreq**
+###### Operation: **marketinfo2**
 
-Arguments: `[chainid]`
+A `marketinfo2` message is the same as a marketinfo message but it contains information for multiple markets instead of 1.
 
-Description: Request a list of markets. Available over REST. Response is a markets message.
+It's returned by calling `marketsreq` with the detailed flag turned on.
 
 ```json
-{"op":"marketsreq","args":[1]}
-```
-
-```bash
-curl "https://zigzag-exchange.herokuapp.com/" -X POST -H 'Content-Type:application/json' -d '{"op":"marketsreq","args":[1]}'
+{ 
+    "op":"marketinfo2", 
+    "args": [[
+      {
+        "baseAssetId": "65",
+        "quoteAssetId": "1",
+        "baseFee": 1,
+        "quoteFee": 1,
+        "minSize": 1,
+        "maxSize": 100,
+        "zigzagChainId": 1,
+        "pricePrecisionDecimal": 6,
+        "baseAsset": {
+          "id": 65,
+          "address": "0x19ebaa7f212b09de2aee2a32d40338553c70e2e3",
+          "symbol": "ARTM",
+          "decimals": 18,
+          "enabledForFees": false
+        },
+        "quoteAsset": {
+          "id": 1,
+          "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "symbol": "DAI",
+          "decimals": 18,
+          "enabledForFees": true
+        },
+        "id": "nORHCLNmmeS5Cp5or2Xt4gMMovgfVsbwYXA941zq0ks",
+        "alias": "ARTM-DAI"
+      }
+    ]]
+ }
 ```
 
 ---
 
-Operation: **markets**
+###### Operation: **marketsreq**
+
+Arguments: `[chainid, detailed]`
+
+Description: Request a list of markets. Available over REST. Response is a markets message if detailed flag is unset, or a marketinfo2 message if the detailed flag is set. 
+
+```json
+{"op":"marketsreq","args":[1]}
+{"op":"marketsreq","args":[1, true]}
+```
+
+```bash
+curl "https://zigzag-exchange.herokuapp.com/" -X POST -H 'Content-Type:application/json' -d '{"op":"marketsreq","args":[1, true]}'
+```
+
+---
+
+###### Operation: **markets**
 
 Arguments: `[markets]`. market = `[marketId,lastPrice,priceChange24h]`
 
@@ -600,7 +643,7 @@ Description: Request a list of markets. Available over REST. Response is a `mark
 
 ---
 
-Operation: **dailyvolumereq**
+###### Operation: **dailyvolumereq**
 
 Arguments: `[chainreq]`
 
@@ -618,7 +661,7 @@ curl "https://zigzag-exchange.herokuapp.com/" -H 'Content-Type:application/json'
 
 ---
 
-Operation: **dailyvolume**
+###### Operation: **dailyvolume**
 
 Arguments: `[volumes]`. volume = `[chainid,market,date,baseVolume,quoteVolume]`
 
@@ -640,7 +683,7 @@ Description: Daily volume by pair.
 
 ---
 
-Operation: **error**
+###### Operation: **error**
 
 Arguments: `[operation, error]`
 
