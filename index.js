@@ -30,7 +30,7 @@ pool.query(migration)
 
 const redis_url = process.env.REDIS_URL;
 const redis_use_tls = redis_url.includes("rediss");
-const redis = Redis.createClient({ 
+const redis = Redis.createClient({
     url: redis_url,
     socket: {
         tls: redis_use_tls,
@@ -61,16 +61,38 @@ const zksyncOrderSchema = Joi.object({
 
 // Globals
 const USER_CONNECTIONS = {}
-const VALID_CHAINS = [1,1000,1001];
 const V1_TOKEN_IDS = {};
 const NONCES = {};
 await populateV1TokenIds();
+
+// constants
+const VALID_CHAINS = [1,1000,1001];
+const MARKET_MAKER_TIMEOUT = 900;
+const SET_MM_PASSIVE_TIME = 20;
+
+// reset redis mm timeouts
+for(i in VALID_CHAINS) {
+    const chainId = VALID_CHAINS[i];
+    const redisPatternBussy = `bussymarketmaker:${chainId}:*`;
+    const keysBussy = await redis.keys(redisPatternBussy);
+    keysBussy.forEach(async key => {
+        const redisKey = `bussymarketmaker:${chainId}:${key}`;
+        redis.del(redisKey);
+    });
+    const redisPatternPassiv = `passivws:${chainId}:*`;
+    const keysPassiv = await redis.keys(redisPatternPassiv);
+    keysPassiv.forEach(async key => {
+        const redisKey = `passivws:${chainId}:${key}`;
+        redis.del(redisKey);
+    });
+}
 
 await updateVolumes();
 setInterval(clearDeadConnections, 60000);
 setInterval(updateVolumes, 120000);
 setInterval(updatePendingOrders, 60000);
-setInterval(updateMarketInfo, 60000); 
+setInterval(updateMarketInfo, 60000);
+setInterval(updatePassiveMM, 10000);
 setInterval(broadcastLiquidity, 4000);
 
 const expressApp = express();
@@ -103,7 +125,7 @@ server.on('upgrade', function upgrade(request, socket, head) {
 });
 
 server.listen(port);
-    
+
 async function onWsConnection(ws, req) {
     ws.uuid = randomUUID();
     console.log("New connection: ", req.connection.remoteAddress);
@@ -196,8 +218,12 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             liquidity = msg.args[2];
-            const client_id = msg.args[3];
-            updateLiquidity(chainid, market, liquidity, client_id);
+            const client_id = ws.uuid;
+            try {
+                updateLiquidity(chainid, market, liquidity, client_id);
+            } catch (e) {
+                  ws.send(JSON.stringify({op:"error",args:["indicateliq2", e]}));
+            }
             break
         case "submitorder":
             // this entire operation is only for backward compatibility for Argent
@@ -215,10 +241,10 @@ async function handleMessage(msg, ws) {
             const tokenSell = V1_TOKEN_IDS[zktx.tokenSell];
             if (V1_MARKETS.includes(tokenBuy + "-" + tokenSell)) {
                 market = tokenBuy + "-" + tokenSell;
-            } 
+            }
             else if (V1_MARKETS.includes(tokenSell + "-" + tokenBuy)) {
                 market = tokenSell + "-" + tokenBuy;
-            } 
+            }
             else {
                 const errorMsg = { op: "error", args: ["submitorder", "invalid market"] };
                 if (ws) ws.send(JSON.stringify(errorMsg));
@@ -325,10 +351,19 @@ async function handleMessage(msg, ws) {
                 return false;
             }
 
+            const redisKey = `bussymarketmaker:${chainid}:${fillOrder.accountId.toString()}`;
+            const processingOrderId = (JSON.parse(await redis.get(redisKey))).orderId;
+            if(processingOrderId) {
+                const remainingTime = await redis.ttl(redisKey);
+                ws.send(JSON.stringify({op:"error",args:["fillrequest", "Your address did not respond to order: "+processingOrderId+") yet. Remaining timeout: "+remainingTime+"."]}));
+                return false;
+            }
+
             try {
                 const matchOrderResult = await matchorder(chainid, orderId, fillOrder);
                 const market = matchOrderResult.fill[2];
                 ws.send(JSON.stringify({op:"userordermatch",args:[chainid, orderId, matchOrderResult.zktx,fillOrder]}));
+                redis.set(redisKey, JSON.stringify({"orderId":orderId, "ws_uuid":ws.uuid}), {'EX' : MARKET_MAKER_TIMEOUT});
                 broadcastMessage(chainid, market, {op:"orderstatus",args:[[[chainid,orderId,'m']]]});
                 broadcastMessage(chainid, market, {op:"fills",args:[[matchOrderResult.fill]]});
             } catch (e) {
@@ -409,6 +444,9 @@ async function handleMessage(msg, ws) {
                     fillId = result.fillId;
                     market = result.market;
                     lastprice = result.fillPriceWithoutFee;
+                    const mmAccount = result.maker_user_id;
+                    const redisKey = `bussymarketmaker:${chainid}:${mmAccount}`;
+                    redis.del(redisKey);
                 }
                 if (success) {
                     const fillUpdate = [...update];
@@ -481,7 +519,7 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         const quoteQuantityWithoutFee = quote_quantity - marketInfo.quoteFee;
         fillPriceWithoutFee = (quoteQuantityWithoutFee / base_quantity).toFixed(marketInfo.pricePrecisionDecimals);
     }
-    
+
     const success = update.rowCount > 0;
     if (success && (['f', 'pf']).includes(newstatus)) {
         const today = new Date().toISOString().slice(0,10);
@@ -490,7 +528,7 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         redis.SADD(`markets:${chainid}`, market);
         redis.SET(redis_key_today_price, fillPriceWithoutFee);
     }
-    return { success, fillId, market, fillPrice, fillPriceWithoutFee };
+    return { success, fillId, market, fillPrice, fillPriceWithoutFee, maker_user_id};
 }
 
 async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
@@ -541,14 +579,14 @@ async function processorderzksync(chainid, market, zktx) {
     let side, base_token, quote_token, base_quantity, quote_quantity, price;
     if (zktx.tokenSell === marketInfo.baseAssetId && zktx.tokenBuy == marketInfo.quoteAssetId) {
         side = 's';
-        price = ( zktx.ratio[1] / Math.pow(10, marketInfo.quoteAsset.decimals) ) / 
+        price = ( zktx.ratio[1] / Math.pow(10, marketInfo.quoteAsset.decimals) ) /
                 ( zktx.ratio[0] / Math.pow(10, marketInfo.baseAsset.decimals) );
         base_quantity = zktx.amount / Math.pow(10, marketInfo.baseAsset.decimals);
         quote_quantity = base_quantity * price;
     }
     else if (zktx.tokenSell === marketInfo.quoteAssetId && zktx.tokenBuy == marketInfo.baseAssetId) {
         side = 'b'
-        price = ( zktx.ratio[0] / Math.pow(10, marketInfo.quoteAsset.decimals) ) / 
+        price = ( zktx.ratio[0] / Math.pow(10, marketInfo.quoteAsset.decimals) ) /
                 ( zktx.ratio[1] / Math.pow(10, marketInfo.baseAsset.decimals) );
         quote_quantity = zktx.amount / Math.pow(10, marketInfo.quoteAsset.decimals);
         base_quantity = ((quote_quantity / price).toFixed(marketInfo.baseAsset.decimals)) / 1;
@@ -573,7 +611,7 @@ async function processorderzksync(chainid, market, zktx) {
         market,
         side,
         price,
-        base_quantity, 
+        base_quantity,
         quote_quantity,
         order_type,
         'o',
@@ -586,9 +624,9 @@ async function processorderzksync(chainid, market, zktx) {
     const insert = await pool.query(query, queryargs);
     const orderId = insert.rows[0].id;
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
-    
+
     // broadcast new order
-    broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
+    broadcastOrderSelected(chainid, market, side, price, base_quantity, quote_quantity, {"op":"orders", args: [[orderreceipt]]});
     try {
         const userconnkey = `${chainid}:${userid}`;
         USER_CONNECTIONS[userconnkey].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
@@ -756,11 +794,53 @@ async function matchorder(chainid, orderId, fillOrder) {
     values = [chainid, selectresult.market, orderId, selectresult.userid, maker_user_id, fillPrice, selectresult.base_quantity, selectresult.side];
     const update2 = await pool.query("INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id", values);
     const fill_id = update2.rows[0].id;
-    const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, maker_user_id]; 
+    const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, maker_user_id];
 
     return { zktx, fill };
 }
 
+async function broadcastOrderSelected(chainid, market, side, price, base_quantity, quote_quantity, msg) {
+    const liquidity = await getLiquidity(chainid, market);
+    const marketInfo = await getMarketInfo(market, chainid);
+    let matchingLiqidity;
+    if(side = 'b') {
+        price = (price * quote_quantity + marketInfo.quoteFee) / quote_quantity; //correct flat fee
+        matchingLiqidity = liquidity.filter(l => l[0] == 'b' && l[1] < price && l[2] > (quote_quantity/price));
+    } else {
+        price = (price * base_quantity - marketInfo.baseFee) / base_quantity; //correct flat fee
+        matchingLiqidity = liquidity.filter(l => l[0] == 's' && l[1] > price && l[2] > base_quantity);
+    }
+
+    let send = 0;
+    for(let i = 0; i < matchingLiqidity.length; i++) {
+        const liquidityPosition = matchingLiqidity[i];
+        wss.clients.forEach(ws => {
+            if (ws.uuid !== liquidityPosition[3]) return true;
+            if (ws.readyState !== WebSocket.OPEN) return true;
+            if (chainid && ws.chainid !== chainid) return true;
+            if (market && !ws.marketSubscriptions.includes(market)) return true;
+
+            ws.send(JSON.stringify(msg));
+            send = send + 1;
+        });
+    }
+
+    if(send == 0) {
+        // no mm can fill at this point (also includes matchingLiqidity.length == 0)
+        broadcastOrderAll(orderreceipt);
+        return;
+    }
+    setTimeout(broadcastOrderAll, 1000)
+}
+
+async function broadcastOrderAll (chainid, orderId, order=null) {
+    if(!order) {
+        const query = "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE id=$1 AND order_status IN ('o','pm','pf')";
+        order = await pool.query(query, orderId);
+        if(!order) return;
+    }
+    broadcastMessagee(chainid, market, {"op":"orders", args: [order]});
+}
 
 async function broadcastMessage(chainid, market, msg) {
     wss.clients.forEach(ws => {
@@ -1034,7 +1114,7 @@ async function broadcastLiquidity() {
                continue;
             }
             broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
-           
+
             // Update last price while you're at it
             const asks = liquidity.filter(l => l[0] === 's').map(l => l[1]);
             const bids = liquidity.filter(l => l[0] === 'b').map(l => l[1]);
@@ -1053,11 +1133,18 @@ async function broadcastLiquidity() {
 async function updateLiquidity (chainid, market, liquidity, client_id) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainid);
-    
+
+    const redisKey = `passivws:${chainId}:${client_id}`;
+    const waitingOrderId = await redis.get(redisKey);
+    if(waitingOrderId) {
+        const remainingTime = await redis.ttl(redisKey);
+        throw new Error("Your address did not respond to order: "+waitingOrderId+") yet. Remaining timeout: "+remainingTime+".")
+    }
+
     // validation
-    liquidity = liquidity.filter(l => 
+    liquidity = liquidity.filter(l =>
         (['b','s']).includes(l[0]) &&
-        !isNaN(parseFloat(l[1])) && 
+        !isNaN(parseFloat(l[1])) &&
         !isNaN(parseFloat(l[2])) &&
         parseFloat(l[2]) > marketInfo.baseFee
     );
@@ -1090,6 +1177,30 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
     } catch (e) {
         console.error(e);
         console.log(liquidity);
+    }
+}
+
+async function updatePassiveMM() {
+    for(i in VALID_CHAINS) {
+        const chainId = VALID_CHAINS[i];
+        const redisPattern = `bussymarketmaker:${chainId}:*`;
+        const keys = await redis.keys(redisPattern);
+        keys.forEach(key => {
+            const remainingTime = await redis.ttl(key);
+            // key is waiting for more than set SET_MM_PASSIVE_TIME
+            if(remainingTime > 0 && remainingTime < (MARKET_MAKER_TIMEOUT - SET_MM_PASSIVE_TIME)) {
+                const marketmaker = JSON.parse(await redis.get(key));
+                if(marketmaker) {
+                    const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
+                    redis.set(redisKey, marketmaker.orderId, {'EX' : MARKET_MAKER_TIMEOUT});
+
+                    const orderId = (JSON.parse(await redis.get(redisKey))).orderId;
+                    await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING id", (orderId, chainId));
+
+                    broadcastOrderAll(chainId, orderId);
+                }
+            }
+        });
     }
 }
 
