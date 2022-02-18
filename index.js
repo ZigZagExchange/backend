@@ -71,7 +71,7 @@ const MARKET_MAKER_TIMEOUT = 900;
 const SET_MM_PASSIVE_TIME = 20;
 
 // reset redis mm timeouts
-for(i in VALID_CHAINS) {
+for(let i in VALID_CHAINS) {
     const chainId = VALID_CHAINS[i];
     const redisPatternBussy = `bussymarketmaker:${chainId}:*`;
     const keysBussy = await redis.keys(redisPatternBussy);
