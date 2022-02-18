@@ -1138,9 +1138,9 @@ async function broadcastLiquidity() {
     }
 }
 
-async function updateLiquidity (chainid, market, liquidity, client_id) {
+async function updateLiquidity (chainId, market, liquidity, client_id) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
-    const marketInfo = await getMarketInfo(market, chainid);
+    const marketInfo = await getMarketInfo(market, chainId);
 
     const redisKey = `passivws:${chainId}:${client_id}`;
     const waitingOrderId = await redis.get(redisKey);
@@ -1165,7 +1165,7 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
         }
         liquidity[i][4] = client_id;
     }
-    const redis_key_liquidity = `liquidity:${chainid}:${market}`
+    const redis_key_liquidity = `liquidity:${chainId}:${market}`
 
     // Delete old liquidity by same client
     if (client_id) {
@@ -1181,7 +1181,7 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
         if (liquidity.length > 0) {
             await redis.ZADD(redis_key_liquidity, redis_members);
         }
-        await redis.SADD(`activemarkets:${chainid}`, market)
+        await redis.SADD(`activemarkets:${chainId}`, market)
     } catch (e) {
         console.error(e);
         console.log(liquidity);
