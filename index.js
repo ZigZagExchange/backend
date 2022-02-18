@@ -1189,7 +1189,7 @@ async function updateLiquidity (chainid, market, liquidity, client_id) {
 }
 
 async function updatePassiveMM() {
-    for(i in VALID_CHAINS) {
+    for(let i in VALID_CHAINS) {
         const chainId = VALID_CHAINS[i];
         const redisPattern = `bussymarketmaker:${chainId}:*`;
         const keys = await redis.keys(redisPattern);
