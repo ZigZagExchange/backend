@@ -177,7 +177,7 @@ async function handleMessage(msg, ws) {
             else {
                 const marketInfo = await getLastPrices(chainid);
                 marketsMsg = {op:"markets", args: [marketInfo]}
-            } 
+            }
             if (ws) ws.send(JSON.stringify(marketsMsg));
             return marketsMsg;
         case "login":
@@ -1193,7 +1193,7 @@ async function updatePassiveMM() {
         const chainId = VALID_CHAINS[i];
         const redisPattern = `bussymarketmaker:${chainId}:*`;
         const keys = await redis.keys(redisPattern);
-        keys.forEach(key => {
+        keys.forEach(async (key) => {
             const remainingTime = await redis.ttl(key);
             // key is waiting for more than set SET_MM_PASSIVE_TIME
             if(remainingTime > 0 && remainingTime < (MARKET_MAKER_TIMEOUT - SET_MM_PASSIVE_TIME)) {
