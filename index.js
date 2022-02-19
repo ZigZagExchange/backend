@@ -1173,7 +1173,7 @@ async function updatePassiveMM() {
                     if (orderQuery.rows.length == 0) { return; }
                     const order = orderQuery.rows[0];
                     const orderreceipt = [
-                        chainid,
+                        chainId,
                         orderId,
                         order.market,
                         order.side,
@@ -1186,7 +1186,7 @@ async function updatePassiveMM() {
                         null,
                         order.base_quantity
                     ];
-                    broadcastMessage(chainid, order.market, {"op":"orders", args: [orderreceipt]});
+                    broadcastMessage(chainId, order.market, {"op":"orders", args: [orderreceipt]});
                 }
             }
         });
