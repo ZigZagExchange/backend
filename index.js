@@ -1182,7 +1182,7 @@ async function updateLiquidity (chainId, market, liquidity, client_id) {
     // Set new liquidity
     const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
     try {
-        if (liquidity.length > 0) {c
+        if (liquidity.length > 0) {
             console.log("updateLiquidity");
             console.log(redis_members);
             await redis.ZADD(redis_key_liquidity, redis_members);
