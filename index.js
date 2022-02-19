@@ -76,14 +76,12 @@ for(let i in VALID_CHAINS) {
     const redisPatternBussy = `bussymarketmaker:${chainId}:*`;
     const keysBussy = await redis.keys(redisPatternBussy);
     keysBussy.forEach(async key => {
-        const redisKey = `bussymarketmaker:${chainId}:${key}`;
-        redis.del(redisKey);
+        redis.del(key);
     });
     const redisPatternPassiv = `passivws:${chainId}:*`;
     const keysPassiv = await redis.keys(redisPatternPassiv);
     keysPassiv.forEach(async key => {
-        const redisKey = `passivws:${chainId}:${key}`;
-        redis.del(redisKey);
+        redis.del(key);
     });
 }
 
@@ -218,9 +216,9 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             liquidity = msg.args[2];
-            const client_id = ws.uuid;
+            const marketMakerID = ws.uuid;
             try {
-                updateLiquidity(chainid, market, liquidity, client_id);
+                updateLiquidity(chainid, market, liquidity, marketMakerID);
             } catch (e) {
                   ws.send(JSON.stringify({op:"error",args:["indicateliq2", e]}));
             }
@@ -348,6 +346,7 @@ async function handleMessage(msg, ws) {
             const blacklisted_accounts = blacklist.split(",");
             if (blacklisted_accounts.includes(fillOrder.accountId.toString())) {
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", "You're running a bad version of the market maker. Please run git pull to update your code."]}));
+                console.log("fillrequest - return blacklisted market maker.");
                 return false;
             }
 
@@ -357,6 +356,7 @@ async function handleMessage(msg, ws) {
                 const processingOrderId = processing.orderId;
                 const remainingTime = await redis.ttl(redisKey);
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", "Your address did not respond to order: "+processingOrderId+") yet. Remaining timeout: "+remainingTime+"."]}));
+                console.log("fillrequest - return timed out market maker.");
                 return false;
             }
 
@@ -1098,11 +1098,11 @@ async function broadcastLiquidity() {
     }
 }
 
-async function updateLiquidity (chainId, market, liquidity, client_id) {
+async function updateLiquidity (chainId, market, liquidity, marketMakerID) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainId);
 
-    const redisKey = `passivws:${chainId}:${client_id}`;
+    const redisKey = `passivws:${chainId}:${marketMakerID}`;
     const waitingOrderId = await redis.get(redisKey);
     if(waitingOrderId) {
         const remainingTime = await redis.ttl(redisKey);
@@ -1162,14 +1162,10 @@ async function updatePassiveMM() {
                     const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
                     redis.set(redisKey, JSON.stringify(marketmaker.orderId), {'EX' : MARKET_MAKER_TIMEOUT});
 
-                    const orderId = marketmaker.orderId;
-                    const query = {
-                        text: "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status",
-                        values: [orderId, chainId],
-                        rowMode: 'array'
-                    }
-                    const orderQuery = await pool.query(query);
                     // resend order
+                    const orderId = marketmaker.orderId;
+                    const values = [orderId, chainId];
+                    const orderQuery = await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status", values);
                     if (orderQuery.rows.length == 0) { return; }
                     const order = orderQuery.rows[0];
                     const orderreceipt = [
