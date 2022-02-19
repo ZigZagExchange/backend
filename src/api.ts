@@ -1120,12 +1120,22 @@ export default class API extends EventEmitter {
         // Update last price while you're at it
         const asks = liquidity
           .filter((l) => l[0] === 's')
-          .map((l) => Number(l[1]))
         const bids = liquidity
           .filter((l) => l[0] === 'b')
-          .map((l) => Number(l[1]))
         if (asks.length === 0 || bids.length === 0) return
-        const mid = (Math.min(...asks) + Math.max(...bids)) / 2
+        let askPrice = 0
+        let askVolume = 0
+        let bidPrice = 0
+        let bidVolume = 0
+        for (let ask in asks) {
+            askPrice = askPrice + ask[1] * ask[2]
+            askVolume = askVolume + ask[2]
+        }
+        for (let bid in bids) {
+            bidPrice = bidPrice + bid[1] * bid[2]
+            bidVolume = bidVolume + bid[2]
+        }
+        const mid = ((askPrice / askVolume) + (bidPrice / bidVolume)) / 2
         const marketInfo = await this.getMarketInfo(market_id, chainid)
         this.redis.HSET(
           `lastprices:${chainid}`,
