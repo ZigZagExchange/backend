@@ -1123,15 +1123,15 @@ async function updateLiquidity (chainId, market, liquidity, marketMakerID) {
         if (!expires || expires > FIFTEEN_SECONDS) {
             liquidity[i][3] = FIFTEEN_SECONDS;
         }
-        liquidity[i][4] = client_id;
+        liquidity[i][4] = marketMakerID;
     }
     const redis_key_liquidity = `liquidity:${chainId}:${market}`
 
     // Delete old liquidity by same client
-    if (client_id) {
+    if (marketMakerID) {
         let old_liquidity = await redis.ZRANGEBYSCORE(redis_key_liquidity, "0", "1000000");
         old_liquidity = old_liquidity.map(JSON.parse);
-        const old_values = old_liquidity.filter(l => l[4] && l[4] === client_id).map(l => JSON.stringify(l));
+        const old_values = old_liquidity.filter(l => l[4] && l[4] === marketMakerID).map(l => JSON.stringify(l));
         old_values.forEach(v => redis.ZREM(redis_key_liquidity, v));
     }
 
