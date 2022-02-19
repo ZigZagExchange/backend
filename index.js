@@ -1163,7 +1163,12 @@ async function updatePassiveMM() {
                     redis.set(redisKey, JSON.stringify(marketmaker.orderId), {'EX' : MARKET_MAKER_TIMEOUT});
 
                     const orderId = marketmaker.orderId;
-                    const orderQuery = await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status", (orderId, chainId));
+                    const query = {
+                        text: "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status",
+                        values: [orderId, chainId],
+                        rowMode: 'array'
+                    }
+                    const orderQuery = await pool.query(query);
                     // resend order
                     if (orderQuery.rows.length == 0) { return; }
                     const order = orderQuery.rows[0];
