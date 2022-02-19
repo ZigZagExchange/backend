@@ -1239,7 +1239,7 @@ export default class API extends EventEmitter {
               EX: this.MARKET_MAKER_TIMEOUT,
             })
 
-            const orderId = JSON.parse(`${await this.redis.get(redisKey)}`)
+            const orderId = marketmaker
               .orderId as string
             const orderQuery  = await this.db.query(
               "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
