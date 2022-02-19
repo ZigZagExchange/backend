@@ -947,8 +947,10 @@ async function updateVolumes() {
             redis.set(redis_key_base, baseVolume);
             redis.set(redis_key_quote, quoteVolume);
             if(quoteVolume && row.market) {
+                console.log("updateVolumes")
+                console.log(quoteVolume);
                 redis.ZADD(redis_key_volume_sort, { score: quoteVolume, value: row.market });
-            }            
+            }
         }
         catch (e) {
             console.error(e);
@@ -1180,7 +1182,9 @@ async function updateLiquidity (chainId, market, liquidity, client_id) {
     // Set new liquidity
     const redis_members = liquidity.map(l => ({ score: l[1], value: JSON.stringify(l) }));
     try {
-        if (liquidity.length > 0) {
+        if (liquidity.length > 0) {c
+            console.log("updateLiquidity");
+            console.log(redis_members);
             await redis.ZADD(redis_key_liquidity, redis_members);
         }
         await redis.SADD(`activemarkets:${chainId}`, market)
