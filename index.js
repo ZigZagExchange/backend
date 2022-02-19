@@ -1080,7 +1080,6 @@ async function broadcastLiquidity() {
             if (asks.length == 0 || bids.length == 0) continue;
             let askPrice = 0, askVolume = 0, bidPrice = 0, bidVolume = 0;
             asks.forEach(ask => {
-                console.log(ask)
                 askPrice = askPrice + ask[1] * ask[2];
                 askVolume = askVolume + ask[2];
             });
@@ -1161,7 +1160,7 @@ async function updatePassiveMM() {
                 const marketmaker = JSON.parse(await redis.get(key));
                 if(marketmaker) {
                     const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
-                    redis.set(redisKey, marketmaker.orderId, {'EX' : MARKET_MAKER_TIMEOUT});
+                    redis.set(redisKey, JSON.stringify(marketmaker.orderId), {'EX' : MARKET_MAKER_TIMEOUT});
 
                     const orderId = marketmaker.orderId;
                     const orderQuery = await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status", (orderId, chainId));
