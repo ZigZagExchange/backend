@@ -1075,8 +1075,8 @@ async function broadcastLiquidity() {
             broadcastMessage(chainid, market_id, {"op":"liquidity2", args: [chainid, market_id, liquidity]});
 
             // Update last price while you're at it
-            const asks = liquidity.filter(l => l[0] === 's').map(l => l[1]);
-            const bids = liquidity.filter(l => l[0] === 'b').map(l => l[1]);
+            const asks = liquidity.filter(l => l[0] === 's');
+            const bids = liquidity.filter(l => l[0] === 'b');
             if (asks.length == 0 || bids.length == 0) continue;
             let askPrice = 0, askVolume = 0, bidPrice = 0, bidVolume = 0;
             for (let i in asks.length) {
