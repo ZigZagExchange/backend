@@ -625,7 +625,7 @@ async function processorderzksync(chainid, market, zktx) {
     const orderreceipt = [chainid,orderId,market,side,price,base_quantity,quote_quantity,expires,user.toString(),'o',null,base_quantity];
 
     // broadcast new order
-    broadcastOrderSelected(chainid, market, side, price, base_quantity, quote_quantity, {"op":"orders", args: [[orderreceipt]]});
+    broadcastMessage(chainid, market, {"op":"orders", args: [[orderreceipt]]});
     try {
         const userconnkey = `${chainid}:${userid}`;
         USER_CONNECTIONS[userconnkey].send(JSON.stringify({"op":"userorderack", args: [orderreceipt]}));
@@ -796,49 +796,6 @@ async function matchorder(chainid, orderId, fillOrder) {
     const fill = [chainid, fill_id, selectresult.market, selectresult.side, fillPrice, selectresult.base_quantity, 'm', null, selectresult.userid, maker_user_id];
 
     return { zktx, fill };
-}
-
-async function broadcastOrderSelected(chainid, market, side, price, base_quantity, quote_quantity, msg) {
-    const liquidity = await getLiquidity(chainid, market);
-    const marketInfo = await getMarketInfo(market, chainid);
-    let matchingLiqidity;
-    if(side = 'b') {
-        price = (price * quote_quantity + marketInfo.quoteFee) / quote_quantity; //correct flat fee
-        matchingLiqidity = liquidity.filter(l => l[0] == 'b' && l[1] < price && l[2] > (quote_quantity/price));
-    } else {
-        price = (price * base_quantity - marketInfo.baseFee) / base_quantity; //correct flat fee
-        matchingLiqidity = liquidity.filter(l => l[0] == 's' && l[1] > price && l[2] > base_quantity);
-    }
-
-    let send = 0;
-    for(let i = 0; i < matchingLiqidity.length; i++) {
-        const liquidityPosition = matchingLiqidity[i];
-        wss.clients.forEach(ws => {
-            if (ws.uuid !== liquidityPosition[3]) return true;
-            if (ws.readyState !== WebSocket.OPEN) return true;
-            if (chainid && ws.chainid !== chainid) return true;
-            if (market && !ws.marketSubscriptions.includes(market)) return true;
-
-            ws.send(JSON.stringify(msg));
-            send = send + 1;
-        });
-    }
-
-    if(send == 0) {
-        // no mm can fill at this point (also includes matchingLiqidity.length == 0)
-        broadcastOrderAll(orderreceipt);
-        return;
-    }
-    setTimeout(broadcastOrderAll, 1000)
-}
-
-async function broadcastOrderAll (chainid, orderId, order=null) {
-    if(!order) {
-        const query = "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE id=$1 AND order_status IN ('o','pm','pf')";
-        order = await pool.query(query, orderId);
-        if(!order) return;
-    }
-    broadcastMessagee(chainid, market, {"op":"orders", args: [order]});
 }
 
 async function broadcastMessage(chainid, market, msg) {
@@ -1207,9 +1164,25 @@ async function updatePassiveMM() {
                     redis.set(redisKey, marketmaker.orderId, {'EX' : MARKET_MAKER_TIMEOUT});
 
                     const orderId = (JSON.parse(await redis.get(redisKey))).orderId;
-                    await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING id", (orderId, chainId));
-
-                    broadcastOrderAll(chainId, orderId);
+                    const = await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status", (orderId, chainId));
+                    // resend order
+                    if (orderQuery.rows.length == 0) { return; }
+                    const order = orderQuery.rows[0];
+                    const orderreceipt = [
+                        chainid,
+                        orderId,
+                        order.market,
+                        order.side,
+                        order.price,
+                        order.base_quantity,
+                        order.quote_quantity,
+                        order.expires,
+                        order.userid,
+                        order.order_status,
+                        null,
+                        order.base_quantity
+                    ];
+                    broadcastMessage(chainid, order.market, {"op":"orders", args: [orderreceipt]});
                 }
             }
         });
