@@ -352,8 +352,9 @@ async function handleMessage(msg, ws) {
             }
 
             const redisKey = `bussymarketmaker:${chainid}:${fillOrder.accountId.toString()}`;
-            const processingOrderId = (JSON.parse(await redis.get(redisKey))).orderId;
-            if(processingOrderId) {
+            const processing = (JSON.parse(await redis.get(redisKey)));
+            if(processing) {
+                const processingOrderId = processing.orderId;
                 const remainingTime = await redis.ttl(redisKey);
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", "Your address did not respond to order: "+processingOrderId+") yet. Remaining timeout: "+remainingTime+"."]}));
                 return false;
@@ -1163,7 +1164,7 @@ async function updatePassiveMM() {
                     const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
                     redis.set(redisKey, marketmaker.orderId, {'EX' : MARKET_MAKER_TIMEOUT});
 
-                    const orderId = (JSON.parse(await redis.get(redisKey))).orderId;
+                    const orderId = marketmaker.orderId;
                     const orderQuery = await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status", (orderId, chainId));
                     // resend order
                     if (orderQuery.rows.length == 0) { return; }
