@@ -348,6 +348,7 @@ async function handleMessage(msg, ws) {
             const blacklisted_accounts = blacklist.split(",");
             if (blacklisted_accounts.includes(fillOrder.accountId.toString())) {
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", "You're running a bad version of the market maker. Please run git pull to update your code."]}));
+                console.log("fillrequest - return blacklisted market maker.");
                 return false;
             }
 
@@ -357,6 +358,7 @@ async function handleMessage(msg, ws) {
                 const processingOrderId = processing.orderId;
                 const remainingTime = await redis.ttl(redisKey);
                 ws.send(JSON.stringify({op:"error",args:["fillrequest", "Your address did not respond to order: "+processingOrderId+") yet. Remaining timeout: "+remainingTime+"."]}));
+                console.log("fillrequest - return timed out market maker.");
                 return false;
             }
 
