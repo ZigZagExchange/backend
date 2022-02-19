@@ -220,7 +220,7 @@ async function handleMessage(msg, ws) {
             try {
                 updateLiquidity(chainid, market, liquidity, marketMakerID);
             } catch (e) {
-                  ws.send(JSON.stringify({op:"error",args:["indicateliq2", e]}));
+                ws.send(JSON.stringify({op:"error",args:["indicateliq2", e]}));
             }
             break
         case "submitorder":
@@ -1106,7 +1106,7 @@ async function updateLiquidity (chainId, market, liquidity, marketMakerID) {
     const waitingOrderId = await redis.get(redisKey);
     if(waitingOrderId) {
         const remainingTime = await redis.ttl(redisKey);
-        throw new Error("Your address did not respond to order: "+waitingOrderId+") yet. Remaining timeout: "+remainingTime+".")
+        throw new Error("Your address did not respond to order: ("+waitingOrderId+") yet. Remaining timeout: "+remainingTime+".");
     }
 
     // validation
