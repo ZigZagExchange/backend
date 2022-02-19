@@ -218,9 +218,9 @@ async function handleMessage(msg, ws) {
             chainid = msg.args[0];
             market = msg.args[1];
             liquidity = msg.args[2];
-            const client_id = ws.uuid;
+            const marketMakerID = ws.uuid;
             try {
-                updateLiquidity(chainid, market, liquidity, client_id);
+                updateLiquidity(chainid, market, liquidity, marketMakerID);
             } catch (e) {
                   ws.send(JSON.stringify({op:"error",args:["indicateliq2", e]}));
             }
@@ -1098,11 +1098,11 @@ async function broadcastLiquidity() {
     }
 }
 
-async function updateLiquidity (chainId, market, liquidity, client_id) {
+async function updateLiquidity (chainId, market, liquidity, marketMakerID) {
     const FIFTEEN_SECONDS = (Date.now() / 1000 | 0) + 15;
     const marketInfo = await getMarketInfo(market, chainId);
 
-    const redisKey = `passivws:${chainId}:${client_id}`;
+    const redisKey = `passivws:${chainId}:${marketMakerID}`;
     const waitingOrderId = await redis.get(redisKey);
     if(waitingOrderId) {
         const remainingTime = await redis.ttl(redisKey);
