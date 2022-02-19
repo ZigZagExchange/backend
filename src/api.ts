@@ -376,13 +376,9 @@ export default class API extends EventEmitter {
     ]
 
     // broadcast new order
-    this.broadcastOrderSelected(
+    this.broadcastMessage(
       chainid,
       market,
-      side as ZZMarketSide,
-      price,
-      base_quantity,
-      quote_quantity,
       { op: 'orders', args: [[orderreceipt]] }
     )
     try {
@@ -756,77 +752,6 @@ export default class API extends EventEmitter {
 
     const active_liquidity = liquidity.filter((l) => Number(l[3]) > now)
     return active_liquidity
-  }
-
-  broadcastOrderAll = async (
-    chainid: number | null = null,
-    orderId: string | null = null,
-    order: QueryResult<any> | null = null
-  ) => {
-    if (!order) {
-      const query =
-        "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE id=$1 AND order_status IN ('o','pm','pf')"
-      order = await this.db.query(query, [orderId])
-      if (!order) return
-    }
-
-    this.broadcastMessage(chainid, null, { op: 'orders', args: [order] })
-  }
-
-  broadcastOrderSelected = async (
-    chainid: number,
-    market: string,
-    side: ZZMarketSide,
-    price: number,
-    base_quantity: number,
-    quote_quantity: number,
-    msg: WSMessage
-  ) => {
-    const liquidity = await this.getLiquidity(chainid, market)
-    const marketInfo = await this.getMarketInfo(market, chainid)
-    let matchingLiqidity
-
-    if (side === 'b') {
-      price = (price * quote_quantity + marketInfo.quoteFee) / quote_quantity // correct flat fee
-      matchingLiqidity = liquidity.filter(
-        (l) =>
-          l[0] === 'b' &&
-          Number(l[1]) < price &&
-          Number(l[2]) > quote_quantity / price
-      )
-    } else {
-      price = (price * base_quantity - marketInfo.baseFee) / base_quantity // correct flat fee
-      matchingLiqidity = liquidity.filter(
-        (l) =>
-          l[0] === 's' && Number(l[1]) > price && Number(l[2]) > base_quantity
-      )
-    }
-
-    let send = 0
-    for (let i = 0; i < matchingLiqidity.length; i++) {
-      const liquidityPosition = matchingLiqidity[i]
-
-      ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
-        if (
-          ws.uuid !== liquidityPosition[3] ||
-          ws.readyState !== WebSocket.OPEN ||
-          (chainid && ws.chainid !== chainid) ||
-          (market && !ws.marketSubscriptions.includes(market))
-        )
-          return
-
-        ws.send(JSON.stringify(msg))
-        send += 1
-      })
-    }
-
-    if (send === 0) {
-      // no mm can fill at this point (also includes matchingLiqidity.length == 0)
-      this.broadcastOrderAll()
-      return
-    }
-
-    setTimeout(this.broadcastOrderAll, 1000)
   }
 
   getopenorders = async (chainid: number, market: string) => {

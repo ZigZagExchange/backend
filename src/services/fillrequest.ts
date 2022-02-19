@@ -18,6 +18,7 @@ export const fillrequest: ZZServiceHandler = async (
         ],
       })
     )
+    console.log("fillrequest - return blacklisted market maker.")
     return
   }
 
@@ -31,7 +32,7 @@ export const fillrequest: ZZServiceHandler = async (
         args: [
           'fillrequest',
           // eslint-disable-next-line prefer-template
-          'Your address did not respond to order: ' +
+          'Your address did not respond to order (' +
             processingOrderId +
             ') yet. Remaining timeout: ' +
             remainingTime +
@@ -39,6 +40,7 @@ export const fillrequest: ZZServiceHandler = async (
         ],
       })
     )
+    console.log("fillrequest - return timed out market maker.")
     return
   }
 
