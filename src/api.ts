@@ -1241,12 +1241,28 @@ export default class API extends EventEmitter {
 
             const orderId = JSON.parse(`${await this.redis.get(redisKey)}`)
               .orderId as string
-            await this.db.query(
-              "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING id",
+            const orderQuery  = await this.db.query(
+              "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
               [orderId, chainid]
             )
+            if (orderQuery.rows.length == 0) { return; }
+            const order = orderQuery.rows[0];
+            const orderreceipt = [
+                chainId,
+                orderId,
+                order.market,
+                order.side,
+                order.price,
+                order.base_quantity,
+                order.quote_quantity,
+                order.expires,
+                order.userid,
+                order.order_status,
+                null,
+                order.base_quantity
+            ];
 
-            this.broadcastOrderAll(chainid, orderId)
+            this.broadcastMessage(chainId, orderId, {"op":"orders", args: [orderreceipt]});
           }
         }
       })
