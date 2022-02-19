@@ -904,9 +904,7 @@ async function updateVolumes() {
             const redis_key_volume_sort = `volume:${row.chainid}:sorted`;
             redis.set(redis_key_base, baseVolume);
             redis.set(redis_key_quote, quoteVolume);
-            if(quoteVolume && row.market) {
-                console.log("updateVolumes")
-                console.log(quoteVolume);
+            if (!isNaN(quoteVolume)) {
                 redis.ZADD(redis_key_volume_sort, { score: quoteVolume, value: row.market });
             }
         }
