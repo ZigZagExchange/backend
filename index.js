@@ -218,7 +218,7 @@ async function handleMessage(msg, ws) {
             liquidity = msg.args[2];
             const marketMakerID = ws.uuid;
             try {
-                updateLiquidity(chainid, market, liquidity, marketMakerID);
+                await updateLiquidity(chainid, market, liquidity, marketMakerID);
             } catch (e) {
                 ws.send(JSON.stringify({op:"error",args:["indicateliq2", e]}));
             }
