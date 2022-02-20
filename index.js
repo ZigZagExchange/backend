@@ -1182,7 +1182,7 @@ async function updatePassiveMM() {
                         null,
                         order.base_quantity
                     ];
-                    broadcastMessage(chainId, order.market, {"op":"orders", args: [orderreceipt]});
+                    broadcastMessage(chainId, order.market, {"op":"orders", args: [[orderreceipt]]});
                 }
             }
         });
