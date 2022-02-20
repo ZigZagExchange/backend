@@ -1159,30 +1159,34 @@ async function updatePassiveMM() {
             if(remainingTime > 0 && remainingTime < (MARKET_MAKER_TIMEOUT - SET_MM_PASSIVE_TIME)) {
                 const marketmaker = JSON.parse(await redis.get(key));
                 if(marketmaker) {
-                    const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;
-                    redis.set(redisKey, JSON.stringify(marketmaker.orderId), {'EX' : MARKET_MAKER_TIMEOUT});
+                    const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;                
+                    redis.exists(redisKey, (err, ok) => {
+                        if(!ok) {
+                            redis.set(redisKey, JSON.stringify(marketmaker.orderId), {'EX' : MARKET_MAKER_TIMEOUT});
 
-                    // resend order
-                    const orderId = marketmaker.orderId;
-                    const values = [orderId, chainId];
-                    const orderQuery = await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status", values);
-                    if (orderQuery.rows.length == 0) { return; }
-                    const order = orderQuery.rows[0];
-                    const orderreceipt = [
-                        chainId,
-                        orderId,
-                        order.market,
-                        order.side,
-                        order.price,
-                        order.base_quantity,
-                        order.quote_quantity,
-                        order.expires,
-                        order.userid,
-                        order.order_status,
-                        null,
-                        order.base_quantity
-                    ];
-                    broadcastMessage(chainId, order.market, {"op":"orders", args: [[orderreceipt]]});
+                            // resend order
+                            const orderId = marketmaker.orderId;
+                            const values = [orderId, chainId];
+                            const orderQuery = await pool.query("UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market,side,price,base_quantity,quote_quantity,expires,userid,order_status", values);
+                            if (orderQuery.rows.length == 0) { return; }
+                            const order = orderQuery.rows[0];
+                            const orderreceipt = [
+                                chainId,
+                                orderId,
+                                order.market,
+                                order.side,
+                                order.price,
+                                order.base_quantity,
+                                order.quote_quantity,
+                                order.expires,
+                                order.userid,
+                                order.order_status,
+                                null,
+                                order.base_quantity
+                            ];
+                            broadcastMessage(chainId, order.market, {"op":"orders", args: [[orderreceipt]]});
+                        }                        
+                    });                    
                 }
             }
         });
