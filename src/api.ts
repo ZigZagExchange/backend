@@ -75,6 +75,20 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
+    // reset redis mm timeouts
+    this.VALID_CHAINS.map(async (chainid) => {
+      const redisPatternBussy = `bussymarketmaker:${chainid}:*`
+      const keysBussy = await this.redis.keys(redisPatternBussy)
+      keysBussy.forEach(async (key: string) => {
+          this.redis.del(key)
+      })
+      const redisPatternPassiv = `passivws:${chainid}:*`
+      const keysPassiv = await this.redis.keys(redisPatternPassiv)
+      keysPassiv.forEach(async (key: string) => {
+          this.redis.del(key)
+      })
+    })
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -1123,15 +1137,17 @@ export default class API extends EventEmitter {
         const bids = liquidity
           .filter((l) => l[0] === 'b')
         if (asks.length === 0 || bids.length === 0) return
-        let askPrice = 0
-        let askVolume = 0
-        let bidPrice = 0
-        let bidVolume = 0
-        for (let ask in asks) {
+        let askPrice: number = 0
+        let askVolume: number = 0
+        let bidPrice: number = 0
+        let bidVolume: number = 0
+        let ask: any
+        for (ask in asks) {
             askPrice = askPrice + ask[1] * ask[2]
             askVolume = askVolume + ask[2]
         }
-        for (let bid in bids) {
+        let bid: any
+        for (bid in bids) {
             bidPrice = bidPrice + bid[1] * bid[2]
             bidVolume = bidVolume + bid[2]
         }
@@ -1245,34 +1261,39 @@ export default class API extends EventEmitter {
           const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
           if (marketmaker) {
             const redisKey = `passivws:${chainid}:${marketmaker.ws_uuid}`
-            this.redis.set(redisKey, marketmaker.orderId, {
-              EX: this.MARKET_MAKER_TIMEOUT,
+            this.redis.exists(redisKey, async (err: any, ok: any) => {
+              if(!ok) {
+                this.redis.set(
+                  redisKey, 
+                  JSON.stringify(marketmaker.orderId), 
+                  {'EX' : this.MARKET_MAKER_TIMEOUT}
+                )
+
+                const orderId = marketmaker.orderId as string
+                const orderQuery  = await this.db.query(
+                  "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
+                  [orderId, chainid]
+                )
+                if (orderQuery.rows.length == 0) { return; }
+
+                const order = orderQuery.rows[0]
+                const orderreceipt = [
+                  chainid,
+                    orderId,
+                    order.market,
+                    order.side,
+                    order.price,
+                    order.base_quantity,
+                    order.quote_quantity,
+                    order.expires,
+                    order.userid,
+                    order.order_status,
+                    null,
+                    order.base_quantity
+                ]
+                this.broadcastMessage(chainid, order.market, {"op":"orders", args: [[orderreceipt]]})
+              }
             })
-
-            const orderId = marketmaker
-              .orderId as string
-            const orderQuery  = await this.db.query(
-              "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
-              [orderId, chainid]
-            )
-            if (orderQuery.rows.length == 0) { return; }
-            const order = orderQuery.rows[0];
-            const orderreceipt = [
-                chainId,
-                orderId,
-                order.market,
-                order.side,
-                order.price,
-                order.base_quantity,
-                order.quote_quantity,
-                order.expires,
-                order.userid,
-                order.order_status,
-                null,
-                order.base_quantity
-            ];
-
-            this.broadcastMessage(chainId, orderId, {"op":"orders", args: [orderreceipt]});
           }
         }
       })
