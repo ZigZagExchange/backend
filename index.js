@@ -1160,7 +1160,7 @@ async function updatePassiveMM() {
                 const marketmaker = JSON.parse(await redis.get(key));
                 if(marketmaker) {
                     const redisKey = `passivws:${chainId}:${marketmaker.ws_uuid}`;                
-                    redis.exists(redisKey, (err, ok) => {
+                    redis.exists(redisKey, async (err, ok) => {
                         if(!ok) {
                             redis.set(redisKey, JSON.stringify(marketmaker.orderId), {'EX' : MARKET_MAKER_TIMEOUT});
 
