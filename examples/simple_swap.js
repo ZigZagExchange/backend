@@ -8,20 +8,20 @@ import WebSocket from 'ws';
  *  In the settings below you can set market, amount, side and your private ethereum key. This is only for a single trade.
  * 
  *  The basic flow is:  
- *      1. Subscripte to the market you want to trade on.
+ *      1. Subscript to the market you want to trade on.
  *          { "op":"subscribemarket", "args":[chainId,market] }
  *          
- *      2. You will recive an ws message "op":"marketinfo". This has any needed details to your market.
+ *      2. You will receive a ws message "op":"marketinfo". This has any needed details to your market.
  *          Here is the README with the exact content: https://github.com/ZigZagExchange/markets/blob/master/README.md
  * 
- *      3. Next you want to ask for an quote: (only set baseQuantity or quoteQuantity)
+ *      3. Next, you want to ask for a quote: (only set baseQuantity or quoteQuantity)
  *          { "op":"requestquote", "args": [chainid, market, side, baseQuantity, quoteQuantity] }
  * 
  *      4. You will recive an ws message "op":"quote" It contains following args: [chainid, market, side, baseQuantity, price, quoteQuantity]
  *          
  *      5. You can use that to build an zkSync order, see here: `async function sendOrder(quote)`
  *
- *      6. Last step is to send it like this: { "op":"submitorder2", "args": [chainId, market, zkOrder] }
+ *      6. The last step is to send it like this: { "op":"submitorder2", "args": [chainId, market, zkOrder] }
  * 
  *  The last step returns an userorderack. You can use that to track the order. 
  *  Check out the README here to learn more: https://github.com/ZigZagExchange/backend/blob/master/README.md
