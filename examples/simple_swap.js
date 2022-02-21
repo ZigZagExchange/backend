@@ -54,7 +54,6 @@ let MARKETS = {};
 // Connect to zksync
 const ETH_NETWORK = (setting_zigzagChainId === 1) ? "mainnet" : "rinkeby";
 const ethersProvider = ethers.getDefaultProvider(ETH_NETWORK);
-let ;
 try {
     syncProvider = await zksync.getDefaultProvider(ETH_NETWORK);    
     ethWallet = new ethers.Wallet(ethereum_key);
