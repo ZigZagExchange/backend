@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS offers (
 );
 CREATE INDEX IF NOT EXISTS offers_order_status_by_market_idx ON offers(chainid, market, order_status);
 
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS txhash TEXT;
+
 CREATE TABLE IF NOT EXISTS fills (
   id                 SERIAL PRIMARY KEY,
   insert_timestamp   TIMESTAMPTZ     NOT NULL DEFAULT now(),

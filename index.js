@@ -535,11 +535,8 @@ async function updateMatchedOrder(chainid, orderid, newstatus, txhash) {
     orderid = Number(orderid);
     let update, fillId, market;
     try {
-        let values = [newstatus,chainid, orderid];
-        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'", values);
-        values = [newstatus,txhash,chainid, orderid];
-        const rediskey = `order:${orderid}:txhash`
-        redis.set(rediskey, txhash);
+        let values = [newstatus,chainid, orderid, txhash];
+        update = await pool.query("UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m' AND txhash=$4", values);
         const update2 = await pool.query("UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market", values);
         if (update2.rows.length > 0) {
             fillId = update2.rows[0].id;
@@ -821,16 +818,13 @@ async function getopenorders(chainid, market) {
 async function getorder(chainid, orderid) {
     chainid = Number(chainid);
     const query = {
-        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE chainid=$1 AND id=$2",
+        text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND id=$2",
         values: [chainid, orderid],
         rowMode: 'array'
     }
     const select = await pool.query(query);
     if (select.rows.length == 0) throw new Error("Order not found")
-    const order = select.rows[0];
-    const rediskey = `order:${orderid}:txhash`;
-    const txhash = await redis.get(rediskey);
-    order.push(txhash);
+    const order = select.rows[0];    
     return order;
 }
 
