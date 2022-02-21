@@ -75,6 +75,20 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
+    // reset redis mm timeouts
+    this.VALID_CHAINS.map(async (chainid) => {
+      const redisPatternBussy = `bussymarketmaker:${chainid}:*`
+      const keysBussy = await this.redis.keys(redisPatternBussy)
+      keysBussy.forEach(async (key: string) => {
+          this.redis.del(key)
+      })
+      const redisPatternPassiv = `passivws:${chainid}:*`
+      const keysPassiv = await this.redis.keys(redisPatternPassiv)
+      keysPassiv.forEach(async (key: string) => {
+          this.redis.del(key)
+      })
+    })
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -378,13 +392,9 @@ export default class API extends EventEmitter {
     ]
 
     // broadcast new order
-    this.broadcastOrderSelected(
+    this.broadcastMessage(
       chainid,
       market,
-      side as ZZMarketSide,
-      price,
-      base_quantity,
-      quote_quantity,
       { op: 'orders', args: [[orderreceipt]] }
     )
     try {
@@ -760,77 +770,6 @@ export default class API extends EventEmitter {
     return active_liquidity
   }
 
-  broadcastOrderAll = async (
-    chainid: number | null = null,
-    orderId: string | null = null,
-    order: QueryResult<any> | null = null
-  ) => {
-    if (!order) {
-      const query =
-        "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE id=$1 AND order_status IN ('o','pm','pf')"
-      order = await this.db.query(query, [orderId])
-      if (!order) return
-    }
-
-    this.broadcastMessage(chainid, null, { op: 'orders', args: [order] })
-  }
-
-  broadcastOrderSelected = async (
-    chainid: number,
-    market: string,
-    side: ZZMarketSide,
-    price: number,
-    base_quantity: number,
-    quote_quantity: number,
-    msg: WSMessage
-  ) => {
-    const liquidity = await this.getLiquidity(chainid, market)
-    const marketInfo = await this.getMarketInfo(market, chainid)
-    let matchingLiqidity
-
-    if (side === 'b') {
-      price = (price * quote_quantity + marketInfo.quoteFee) / quote_quantity // correct flat fee
-      matchingLiqidity = liquidity.filter(
-        (l) =>
-          l[0] === 'b' &&
-          Number(l[1]) < price &&
-          Number(l[2]) > quote_quantity / price
-      )
-    } else {
-      price = (price * base_quantity - marketInfo.baseFee) / base_quantity // correct flat fee
-      matchingLiqidity = liquidity.filter(
-        (l) =>
-          l[0] === 's' && Number(l[1]) > price && Number(l[2]) > base_quantity
-      )
-    }
-
-    let send = 0
-    for (let i = 0; i < matchingLiqidity.length; i++) {
-      const liquidityPosition = matchingLiqidity[i]
-
-      ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
-        if (
-          ws.uuid !== liquidityPosition[3] ||
-          ws.readyState !== WebSocket.OPEN ||
-          (chainid && ws.chainid !== chainid) ||
-          (market && !ws.marketSubscriptions.includes(market))
-        )
-          return
-
-        ws.send(JSON.stringify(msg))
-        send += 1
-      })
-    }
-
-    if (send === 0) {
-      // no mm can fill at this point (also includes matchingLiqidity.length == 0)
-      this.broadcastOrderAll()
-      return
-    }
-
-    setTimeout(this.broadcastOrderAll, 1000)
-  }
-
   getopenorders = async (chainid: number, market: string) => {
     chainid = Number(chainid)
     const query = {
@@ -1199,12 +1138,24 @@ export default class API extends EventEmitter {
         // Update last price while you're at it
         const asks = liquidity
           .filter((l) => l[0] === 's')
-          .map((l) => Number(l[1]))
         const bids = liquidity
           .filter((l) => l[0] === 'b')
-          .map((l) => Number(l[1]))
         if (asks.length === 0 || bids.length === 0) return
-        const mid = (Math.min(...asks) + Math.max(...bids)) / 2
+        let askPrice: number = 0
+        let askVolume: number = 0
+        let bidPrice: number = 0
+        let bidVolume: number = 0
+        let ask: any
+        for (ask in asks) {
+            askPrice = askPrice + ask[1] * ask[2]
+            askVolume = askVolume + ask[2]
+        }
+        let bid: any
+        for (bid in bids) {
+            bidPrice = bidPrice + bid[1] * bid[2]
+            bidVolume = bidVolume + bid[2]
+        }
+        const mid = ((askPrice / askVolume) + (bidPrice / bidVolume)) / 2
         const marketInfo = await this.getMarketInfo(market_id, chainid)
         this.redis.HSET(
           `lastprices:${chainid}`,
@@ -1314,18 +1265,39 @@ export default class API extends EventEmitter {
           const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
           if (marketmaker) {
             const redisKey = `passivws:${chainid}:${marketmaker.ws_uuid}`
-            this.redis.set(redisKey, marketmaker.orderId, {
-              EX: this.MARKET_MAKER_TIMEOUT,
+            this.redis.exists(redisKey, async (err: any, ok: any) => {
+              if(!ok) {
+                this.redis.set(
+                  redisKey, 
+                  JSON.stringify(marketmaker.orderId), 
+                  {'EX' : this.MARKET_MAKER_TIMEOUT}
+                )
+
+                const orderId = marketmaker.orderId as string
+                const orderQuery  = await this.db.query(
+                  "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
+                  [orderId, chainid]
+                )
+                if (orderQuery.rows.length == 0) { return; }
+
+                const order = orderQuery.rows[0]
+                const orderreceipt = [
+                  chainid,
+                    orderId,
+                    order.market,
+                    order.side,
+                    order.price,
+                    order.base_quantity,
+                    order.quote_quantity,
+                    order.expires,
+                    order.userid,
+                    order.order_status,
+                    null,
+                    order.base_quantity
+                ]
+                this.broadcastMessage(chainid, order.market, {"op":"orders", args: [[orderreceipt]]})
+              }
             })
-
-            const orderId = JSON.parse(`${await this.redis.get(redisKey)}`)
-              .orderId as string
-            await this.db.query(
-              "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING id",
-              [orderId, chainid]
-            )
-
-            this.broadcastOrderAll(chainid, orderId)
           }
         }
       })
