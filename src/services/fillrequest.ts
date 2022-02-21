@@ -18,13 +18,14 @@ export const fillrequest: ZZServiceHandler = async (
         ],
       })
     )
-    console.log("fillrequest - return blacklisted market maker.")
+    console.log('fillrequest - return blacklisted market maker.')
     return
   }
 
   const redisKey = `bussymarketmaker:${chainid}:${fillOrder.accountId.toString()}`
-  const processingOrderId = (JSON.parse(await api.redis.get(redisKey) as string) as any).orderId
-  if (processingOrderId) {
+  const redisBusyMM = (await api.redis.get(redisKey)) as string
+  if (redisBusyMM) {
+    const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
     const remainingTime = await api.redis.ttl(redisKey)
     ws.send(
       JSON.stringify({
@@ -40,7 +41,7 @@ export const fillrequest: ZZServiceHandler = async (
         ],
       })
     )
-    console.log("fillrequest - return timed out market maker.")
+    console.log('fillrequest - return timed out market maker.')
     return
   }
 
