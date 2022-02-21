@@ -525,7 +525,6 @@ async function updateOrderFillStatus(chainid, orderid, newstatus) {
         const today = new Date().toISOString().slice(0,10);
         const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`;
         redis.HSET(`lastprices:${chainid}`, market, fillPriceWithoutFee);
-        redis.SADD(`markets:${chainid}`, market);
         redis.SET(redis_key_today_price, fillPriceWithoutFee);
     }
     return { success, fillId, market, fillPrice, fillPriceWithoutFee, maker_user_id};
