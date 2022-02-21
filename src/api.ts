@@ -1142,13 +1142,13 @@ export default class API extends EventEmitter {
         let askVolume: number = 0
         let bidPrice: number = 0
         let bidVolume: number = 0
-        let ask: any
-        for (ask in asks) {
+        for (let i in asks) {
+          const ask: any = asks[i]
           askPrice = askPrice + ask[1] * ask[2]
           askVolume = askVolume + ask[2]
         }
-        let bid: any
-        for (bid in bids) {
+        for (let i in bids) {
+          const bid: any = bids[i]
           bidPrice = bidPrice + bid[1] * bid[2]
           bidVolume = bidVolume + bid[2]
         }
