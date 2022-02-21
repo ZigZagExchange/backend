@@ -49,14 +49,14 @@ export default class API extends EventEmitter {
   }
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
-    if (Object.prototype.hasOwnProperty.call(services, msg.op)) {
+    if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
       return false
     }
 
-    return (services as any)[msg.op].apply(ws, [
-      ws,
+    return (services as any)[msg.op].apply(this, [
       this,
+      ws,
       Array.isArray(msg.args) ? msg.args : [],
     ])
   }
@@ -90,7 +90,10 @@ export default class API extends EventEmitter {
     this.started = false
   }
 
-  fetchMarketInfoFromMarkets = async (markets: string[], chainid: number) => {
+  fetchMarketInfoFromMarkets = async (
+    markets: string[],
+    chainid: number
+  ): Promise<ZZMarketInfo | null> => {
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets.join(
       ','
     )}&chainid=${chainid}`
@@ -121,7 +124,6 @@ export default class API extends EventEmitter {
   ): Promise<ZZMarketInfo> => {
     const redis_key = `marketinfo:${chainid}:${market}`
     let marketinfo = await this.redis.get(redis_key)
-
     try {
       if (marketinfo) {
         return JSON.parse(marketinfo) as ZZMarketInfo
@@ -983,7 +985,9 @@ export default class API extends EventEmitter {
     const redis_values = await this.redis.HGETALL(redis_key_prices)
 
     // eslint-disable-next-line no-restricted-syntax
-    for (const [market] of redis_values as any) {
+    const markets = Object.keys(redis_values)
+    for (let i = 0; i < markets.length; i++) {
+      const market = markets[i]
       const marketInfo = await this.getMarketInfo(market, chainid)
       const yesterday = new Date(Date.now() - 86400 * 1000)
         .toISOString()

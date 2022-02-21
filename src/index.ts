@@ -7,13 +7,17 @@ import db from 'src/db'
 import API from 'src/api'
 import type { RedisClientType } from 'redis'
 
-
 const socketServer = createSocketServer()
 const httpServer = createHttpServer(socketServer)
 
 const port = Number(process.env.PORT) || 3004
-const api = new API(socketServer, db, httpServer, redis as RedisClientType)
+const api = new API(
+  socketServer as any,
+  db,
+  httpServer,
+  redis as RedisClientType
+)
 
 api.start(port).then(() => {
-    console.log('Successfully started server.')
+  console.log('Successfully started server.')
 })

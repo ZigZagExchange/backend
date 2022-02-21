@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon -x ts-node -e 'ts tsx json' -r ./src/env src/",
-    "start": "ts-node -r ./src/env src/"
+    "start": "ts-node -r ./src/env src/",
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -63,7 +64,9 @@
     "eslint-plugin-jsx-a11y": "^6.5.1",
     "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-react": "^7.28.0",
+    "husky": "^7.0.0",
     "prettier": "^2.5.1",
-    "prettier-eslint": "^13.0.0"
+    "prettier-eslint": "^13.0.0",
+    "pretty-quick": "^3.1.3"
   }
 }

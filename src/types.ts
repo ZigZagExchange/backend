@@ -26,7 +26,7 @@ export type WSocket = WebSocket & {
   userid: string
 }
 
-export type ZZAPITransport = { api?: API }
+export type ZZAPITransport = { api: API }
 export type ZZServiceHandler = (api: API, ws: WSocket, args: any[]) => any
 export type ZZSocketServer = WebSocketServer & ZZAPITransport
 export type ZZHttpServer = Application & ZZAPITransport

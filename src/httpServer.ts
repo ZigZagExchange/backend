@@ -3,9 +3,12 @@ import express from 'express'
 import { createServer } from 'http'
 import type { WebSocket, WebSocketServer } from 'ws'
 import type { ZZHttpServer } from 'src/types'
+import cmcRoutes from 'src/routes/cmc'
 
-export const createHttpServer = (socketServer: WebSocketServer): ZZHttpServer => {
-  const expressApp = express() as ZZHttpServer
+export const createHttpServer = (
+  socketServer: WebSocketServer
+): ZZHttpServer => {
+  const expressApp = express() as any as ZZHttpServer
   const server = createServer(expressApp)
 
   const httpMessages = [
@@ -36,17 +39,22 @@ export const createHttpServer = (socketServer: WebSocketServer): ZZHttpServer =>
       return
     }
 
-    const responseMessage = await expressApp.api?.serviceHandler(req.body)
+    const responseMessage = await expressApp.api.serviceHandler(req.body)
 
     res.header('Content-Type', 'application/json')
     res.json(responseMessage)
   })
 
   server.on('upgrade', (request, socket, head) => {
+    console.log('upgrade')
     socketServer.handleUpgrade(request, socket, head, (ws: WebSocket) => {
       socketServer.emit('connection', ws, request)
     })
   })
-  
+
+  cmcRoutes(expressApp)
+
+  expressApp.listen = (...args: any) => server.listen(...args)
+
   return expressApp
 }
