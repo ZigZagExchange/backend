@@ -8,7 +8,7 @@ import WebSocket from 'ws';
  *  In the settings below you can set market, amount, side and your private ethereum key. This is only for a single trade.
  * 
  *  The basic flow is:  
- *      1. Subscript to the market you want to trade on.
+ *      1. Subscribe to the market you want to trade on.
  *          { "op":"subscribemarket", "args":[chainId,market] }
  *          
  *      2. You will receive a ws message "op":"marketinfo". This has any needed details to your market.
