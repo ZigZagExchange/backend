@@ -80,12 +80,12 @@ export default class API extends EventEmitter {
       const redisPatternBussy = `bussymarketmaker:${chainid}:*`
       const keysBussy = await this.redis.keys(redisPatternBussy)
       keysBussy.forEach(async (key: string) => {
-          this.redis.del(key)
+        this.redis.del(key)
       })
       const redisPatternPassiv = `passivws:${chainid}:*`
       const keysPassiv = await this.redis.keys(redisPatternPassiv)
       keysPassiv.forEach(async (key: string) => {
-          this.redis.del(key)
+        this.redis.del(key)
       })
     })
 
@@ -392,11 +392,10 @@ export default class API extends EventEmitter {
     ]
 
     // broadcast new order
-    this.broadcastMessage(
-      chainid,
-      market,
-      { op: 'orders', args: [[orderreceipt]] }
-    )
+    this.broadcastMessage(chainid, market, {
+      op: 'orders',
+      args: [[orderreceipt]],
+    })
     try {
       const userconnkey = `${chainid}:${userid}`
       this.USER_CONNECTIONS[userconnkey].send(
@@ -1136,10 +1135,8 @@ export default class API extends EventEmitter {
         })
 
         // Update last price while you're at it
-        const asks = liquidity
-          .filter((l) => l[0] === 's')
-        const bids = liquidity
-          .filter((l) => l[0] === 'b')
+        const asks = liquidity.filter((l) => l[0] === 's')
+        const bids = liquidity.filter((l) => l[0] === 'b')
         if (asks.length === 0 || bids.length === 0) return
         let askPrice: number = 0
         let askVolume: number = 0
@@ -1147,15 +1144,15 @@ export default class API extends EventEmitter {
         let bidVolume: number = 0
         let ask: any
         for (ask in asks) {
-            askPrice = askPrice + ask[1] * ask[2]
-            askVolume = askVolume + ask[2]
+          askPrice = askPrice + ask[1] * ask[2]
+          askVolume = askVolume + ask[2]
         }
         let bid: any
         for (bid in bids) {
-            bidPrice = bidPrice + bid[1] * bid[2]
-            bidVolume = bidVolume + bid[2]
+          bidPrice = bidPrice + bid[1] * bid[2]
+          bidVolume = bidVolume + bid[2]
         }
-        const mid = ((askPrice / askVolume) + (bidPrice / bidVolume)) / 2
+        const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
         const marketInfo = await this.getMarketInfo(market_id, chainid)
         this.redis.HSET(
           `lastprices:${chainid}`,
@@ -1265,37 +1262,40 @@ export default class API extends EventEmitter {
           const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
           if (marketmaker) {
             const redisKey = `passivws:${chainid}:${marketmaker.ws_uuid}`
-            this.redis.exists(redisKey, async (err: any, ok: any) => {
-              if(!ok) {
-                this.redis.set(
-                  redisKey, 
-                  JSON.stringify(marketmaker.orderId), 
-                  {'EX' : this.MARKET_MAKER_TIMEOUT}
-                )
+            ;(this.redis as any).exists(redisKey, async (err: any, ok: any) => {
+              if (!ok) {
+                this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
+                  EX: this.MARKET_MAKER_TIMEOUT,
+                })
 
                 const orderId = marketmaker.orderId as string
-                const orderQuery  = await this.db.query(
+                const orderQuery = await this.db.query(
                   "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
                   [orderId, chainid]
                 )
-                if (orderQuery.rows.length == 0) { return; }
+                if (orderQuery.rows.length == 0) {
+                  return
+                }
 
                 const order = orderQuery.rows[0]
                 const orderreceipt = [
                   chainid,
-                    orderId,
-                    order.market,
-                    order.side,
-                    order.price,
-                    order.base_quantity,
-                    order.quote_quantity,
-                    order.expires,
-                    order.userid,
-                    order.order_status,
-                    null,
-                    order.base_quantity
+                  orderId,
+                  order.market,
+                  order.side,
+                  order.price,
+                  order.base_quantity,
+                  order.quote_quantity,
+                  order.expires,
+                  order.userid,
+                  order.order_status,
+                  null,
+                  order.base_quantity,
                 ]
-                this.broadcastMessage(chainid, order.market, {"op":"orders", args: [[orderreceipt]]})
+                this.broadcastMessage(chainid, order.market, {
+                  op: 'orders',
+                  args: [[orderreceipt]],
+                })
               }
             })
           }
