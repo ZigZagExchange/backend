@@ -238,9 +238,8 @@ export default class API extends EventEmitter {
         `lastprices:${chainid}`,
         `${market}`,
         `${fillPriceWithoutFee}`
-      )
-      this.redis.SADD(`markets:${chainid}`, `${market}`)
-      this.redis.SET(`${redis_key_today_price}`, `${fillPriceWithoutFee}`)
+      )     
+      this.redis.SET(`${redis_key_today_price}`, `${fillPriceWithoutFee}`,  { EX: 10080 })
     }
     return {
       success,
@@ -264,14 +263,12 @@ export default class API extends EventEmitter {
     let fillId
     let market
     try {
-      let values = [newstatus, chainid, orderid]
+      let values = [newstatus, txhash, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status='m'",
+        "UPDATE offers SET order_status=$1 AND txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
         values
       )
-      values = [newstatus, txhash, chainid, orderid]
-      const rediskey = `order:${orderid}:txhash`
-      this.redis.set(rediskey, txhash)
+      values = [newstatus, txhash, chainid, orderid]      
       const update2 = await this.db.query(
         'UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market',
         values
@@ -772,7 +769,7 @@ export default class API extends EventEmitter {
   getopenorders = async (chainid: number, market: string) => {
     chainid = Number(chainid)
     const query = {
-      text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE market=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf')",
+      text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE market=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf')",
       values: [market, chainid],
       rowMode: 'array',
     }
@@ -783,16 +780,13 @@ export default class API extends EventEmitter {
   getorder = async (chainid: number, orderid: string) => {
     chainid = Number(chainid)
     const query = {
-      text: 'SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled FROM offers WHERE chainid=$1 AND id=$2',
+      text: 'SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND id=$2',
       values: [chainid, orderid],
       rowMode: 'array',
     }
     const select = await this.db.query(query)
     if (select.rows.length === 0) throw new Error('Order not found')
     const order = select.rows[0]
-    const rediskey = `order:${orderid}:txhash`
-    const txhash = await this.redis.get(rediskey)
-    order.push(txhash)
     return order
   }
 
