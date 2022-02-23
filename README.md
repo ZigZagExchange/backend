@@ -313,7 +313,7 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
 
 Arguments: `[orderupdates]`
 
-Description: A series of order status updates. orderupdate = `[chainId,orderId,status,...args]`. See [Order Status](#order-statuses) for status flags.
+Description: A series of order status updates. orderupdate = `[chainId,orderId,status,txHash,remaining]`. See [Order Status](#order-statuses) for status flags.
 
 ```json
 { 
@@ -341,6 +341,22 @@ Only 'f' and 'r' status updates are permitted, and only for matched orders.
     "op": "orderstatusupdate", 
     "args": [[
         [ 1000, 5, "f", 4700.23, "9ddba58f75a6b8e65828c2fb5e7e6d80001fccbd6ce0c931181dfdcdb4721162"]
+    ]]
+}
+```
+
+---
+
+###### Operation: **fillstatus**    
+
+Description: An update about the fill status of an active order. fillstatus =  `[chainId,fillId,status,txHash,remaining]`. See [Order Status](#order-statuses) for status flags.
+
+
+```json
+{ 
+    "op": "fillstatus", 
+    "args": [[
+        [1000,9258,"f","51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",null]
     ]]
 }
 ```
