@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon -x ts-node -e 'ts tsx json' -r ./src/env src/",
-    "start": "ts-node -r ./src/env src/",
+    "start": "ts-node --transpile-only -r ./src/env src/",
     "prepare": "husky install"
   },
   "repository": {

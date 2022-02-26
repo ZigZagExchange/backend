@@ -2,3 +2,5 @@ node_modules/
 zigzag.db
 *.swp
 .env
+dist/
+tsconfig.tsbuildinfo
