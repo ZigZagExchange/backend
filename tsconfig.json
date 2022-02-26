@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "es2019",
+    "lib": ["es2019", "es2020.promise", "es2020.bigint", "es2020.string"],
+    "rootDir": "src",
+    "outDir": "dist",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "declaration": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "types": ["node"],
+    "stripInternal": true,
+    "incremental": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "importsNotUsedAsValues": "error",
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["./src/*"]
+    }  
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "typedocOptions": {
+    "entryPoints": ["./src/app.ts"],
+    "readme": "none",
+    "out": "apidocs/"
+  }
+}
