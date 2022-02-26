@@ -1247,7 +1247,7 @@ export default class API extends EventEmitter {
     }
   }
 
-  updatePassiveMM = () => {
+  updatePassiveMM = async () => {
     const orders = this.VALID_CHAINS.map(async (chainid: number) => {
       const redisPattern = `bussymarketmaker:${chainid}:*`
       const keys = await this.redis.keys(redisPattern)
