@@ -188,6 +188,21 @@ export default class API extends EventEmitter {
     let quote_quantity
     let side
     let maker_user_id
+    try {
+      const valuesOffers = [newstatus, chainid, orderid]
+      update = await this.db.query(
+        "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
+        valuesOffers
+      )
+      if (update.rows.length > 0) {
+        side = update.rows[0].side
+        market = update.rows[0].market
+      }
+    } catch (e) {
+      console.error('Error while updating offers.')
+      console.error(e)
+      return false
+    }
 
     const marketInfo = await this.getMarketInfo(market, chainid)
     let fillPriceWithoutFee
@@ -213,19 +228,10 @@ export default class API extends EventEmitter {
       feeAmount = 0
     }
     
-    try {
-      const valuesOffers = [newstatus, chainid, orderid]
-      update = await this.db.query(
-        "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
-        valuesOffers
-      )
-      if (update.rows.length > 0) {
-        side = update.rows[0].side
-        market = update.rows[0].market
-      }
-      const valuesFills = [newstatus, chainid, orderid, feeAmount, feeToken]
+    try {      
+      const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainid]
       const update2 = await this.db.query(
-        "UPDATE fills SET fill_status=$1,feeamount=$3,feetoken=$5 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
+        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
         valuesFills
       )
       if (update2.rows.length > 0) {
@@ -236,7 +242,7 @@ export default class API extends EventEmitter {
       }
       quote_quantity = base_quantity * fillPrice
     } catch (e) {
-      console.error('Error while updating fill status')
+      console.error('Error while updating fills.')
       console.error(e)
       return false
     }
