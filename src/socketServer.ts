@@ -39,7 +39,9 @@ export const createSocketServer = (): ZZSocketServer => {
 
     ws.on('error', console.error)
 
-    const lastprices = await wss.api.getLastPrices(1)
+    const lastprices = await wss.api.getLastPrices(
+      process.env.DEFAULT_CHAIN_ID || 1
+    )
     ws.send(JSON.stringify({ op: 'lastprice', args: [lastprices] }))
   }
 
