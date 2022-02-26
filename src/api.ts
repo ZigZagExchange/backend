@@ -205,30 +205,16 @@ export default class API extends EventEmitter {
     }
 
     const marketInfo = await this.getMarketInfo(market, chainid)
-    let fillPriceWithoutFee
     let feeAmount
     let feeToken
-    if (side === 's') {
-      const baseQuantityWithoutFee = base_quantity - marketInfo.baseFee
-      fillPriceWithoutFee = (quote_quantity / baseQuantityWithoutFee).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
-      feeAmount = marketInfo.baseFee
-      feeToken = marketInfo.baseAsset.symbol
-    } else if (side === 'b') {
-      const quoteQuantityWithoutFee = quote_quantity - marketInfo.quoteFee
-      fillPriceWithoutFee = (quoteQuantityWithoutFee / base_quantity).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
-      feeAmount = marketInfo.quoteFee
-      feeToken = marketInfo.quoteAsset.symbol
-    }
-    
-    if(newstatus === 'r') {
+    feeAmount = marketInfo.baseFee
+    feeToken = marketInfo.baseAsset.symbol
+
+    if (newstatus === 'r') {
       feeAmount = 0
     }
-    
-    try {      
+
+    try {
       const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainid]
       const update2 = await this.db.query(
         "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
@@ -251,22 +237,17 @@ export default class API extends EventEmitter {
     if (success && ['f', 'pf'].includes(newstatus)) {
       const today = new Date().toISOString().slice(0, 10)
       const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`
-      this.redis.HSET(
-        `lastprices:${chainid}`,
-        `${market}`,
-        `${fillPriceWithoutFee}`
-      )     
-      this.redis.SET(`${redis_key_today_price}`, `${fillPriceWithoutFee}`,  { EX: 10080 })
+      this.redis.HSET(`lastprices:${chainid}`, `${market}`, `${fillPrice}`)
+      this.redis.SET(`${redis_key_today_price}`, `${fillPrice}`, { EX: 10080 })
     }
     return {
       success,
       fillId,
       market,
       fillPrice,
-      fillPriceWithoutFee,
       maker_user_id,
       feeAmount,
-      feeToken
+      feeToken,
     }
   }
 
@@ -287,7 +268,7 @@ export default class API extends EventEmitter {
         "UPDATE offers SET order_status=$1 AND txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
         values
       )
-      values = [newstatus, txhash, chainid, orderid]      
+      values = [newstatus, txhash, chainid, orderid]
       const update2 = await this.db.query(
         'UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market',
         values
@@ -749,7 +730,7 @@ export default class API extends EventEmitter {
       selectresult.userid,
       maker_user_id,
       null,
-      null
+      null,
     ]
 
     return { zktx, fill }
@@ -913,7 +894,7 @@ export default class API extends EventEmitter {
     const fillsQuery = {
       text: "UPDATE fills SET fill_status='e', feeamount=0 WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
       values: [one_min_ago],
-    }    
+    }
     await this.db.query(fillsQuery)
 
     const expiredQuery = {

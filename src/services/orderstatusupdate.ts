@@ -5,7 +5,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
   ws,
   [updates]
 ) => {
-  const promises = Object.keys(updates).map(async i => {
+  const promises = Object.keys(updates).map(async (i) => {
     const update = updates[i]
     const chainid = Number(update[0])
     const orderId = update[1]
@@ -16,26 +16,30 @@ export const orderstatusupdate: ZZServiceHandler = async (
     let lastprice
     let feeAmount
     let feeToken
-    
+
     if (newstatus === 'b') {
       const txhash = update[3]
-      const result = await api.updateMatchedOrder(
+      const result = (await api.updateMatchedOrder(
         chainid,
         orderId,
         newstatus,
         txhash
-      ) as AnyObject
+      )) as AnyObject
       success = result.success
       fillId = result.fillId
       market = result.market
     }
     if (newstatus === 'r' || newstatus === 'f') {
       const txhash = update[3]
-      const result = await api.updateOrderFillStatus(chainid, orderId, newstatus) as AnyObject
+      const result = (await api.updateOrderFillStatus(
+        chainid,
+        orderId,
+        newstatus
+      )) as AnyObject
       success = result.success
       fillId = result.fillId
       market = result.market
-      lastprice = result.fillPriceWithoutFee
+      lastprice = result.fillPrice
       feeAmount = result.feeAmount
       feeToken = result.feeToken
       const mmAccount = result.maker_user_id
@@ -47,9 +51,9 @@ export const orderstatusupdate: ZZServiceHandler = async (
       fillUpdate[1] = fillId
       fillUpdate[5] = feeAmount
       fillUpdate[6] = feeToken
-      api.broadcastMessage(chainid, market, { 
-        op: 'orderstatus', 
-        args: [[update]] 
+      api.broadcastMessage(chainid, market, {
+        op: 'orderstatus',
+        args: [[update]],
       })
       api.broadcastMessage(chainid, market, {
         op: 'fillstatus',
@@ -60,9 +64,9 @@ export const orderstatusupdate: ZZServiceHandler = async (
       const yesterday = new Date(Date.now() - 86400 * 1000)
         .toISOString()
         .slice(0, 10)
-      const yesterdayPrice = Number(await api.redis.get(
-        `dailyprice:${chainid}:${market}:${yesterday}`
-      ))
+      const yesterdayPrice = Number(
+        await api.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
+      )
       const priceChange = (lastprice - yesterdayPrice).toString()
       api.broadcastMessage(chainid, null, {
         op: 'lastprice',
