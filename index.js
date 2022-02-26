@@ -116,7 +116,13 @@ async function onWsConnection(ws, req) {
         ws.isAlive = true;
     });
     ws.on('message', function incoming(json) {
-        const msg = JSON.parse(json);
+        let msg;
+        try {
+            msg = JSON.parse(json);
+        } catch (e) {
+            ws.send(JSON.stringify({ error: "Bad JSON" }));
+            return;
+        }
         if (msg.op != 'indicateliq2') {
             console.log('WS: %s', json);
         }
