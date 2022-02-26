@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS fills (
 ) WITH (OIDS=FALSE);
 
 ALTER TABLE fills ADD COLUMN IF NOT EXISTS side TEXT;
+ALTER TABLE fills ADD COLUMN IF NOT EXISTS feeamount TEXT;
+ALTER TABLE fills ADD COLUMN IF NOT EXISTS feetoken TEXT;
 
 
 -------------------------------------------------------------------

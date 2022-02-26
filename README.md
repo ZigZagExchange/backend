@@ -178,7 +178,7 @@ Arguments: `[chainId, market, liquidity]`
 
 liquidity = `[[side, price, baseQuantity, expires], ...]`
 
-Description: Used by market makers to indicate liquidity. side = {'b','s'} (buy, sell).
+Description: Used by market makers to indicate liquidity. side = {"b","s"} (buy, sell).
 
 Expiration is a UNIX timestamp in seconds. If an expiration is not set or is set to greater than 15 seconds, it is defaulted to 15 seconds.
 
@@ -292,16 +292,16 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
 
 Arguments: `[fills]`
 
-Description: Latest fills for a market. order = [chainId,id,market,side,price,baseQuantity,fillstatus,txhash,takeruserid,makeruserid]
+Description: Latest fills for a market. order = [chainId,id,market,side,price,baseQuantity,fillstatus,txhash,takeruserid,makeruserid,feeamount,feetoken]
 
 ```json
 {
     "op":"fills",
     "args":[
       [
-        [1001,402,"ETH-USDT",'s',4406.829995978547,0.0677283,"f","0xe5e306e147d21740c9798e31b764cd65de148f8df41359693b6ed1cfeff527","0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0","0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba"],
-        [1001,401,"ETH-USDT",'b',4405.759991924418,0.0322717,"f","0x55c01db07f251fa539ae0e2fa61a8a275af6f4ca57fda5044f54b1e8ca0dd66","0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0","0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba"],
-        [1001,400,"ETH-USDT",'s',4405.759991924418,0.0647607,"f","0x4387a5860db3b3b028ba277fadf5c309c595664359f6c2b267d2eac9e106459","0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0","0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba"]
+        [1001,402,"ETH-USDT","s",4406.829995978547,0.0677283,"f","0xe5e306e147d21740c9798e31b764cd65de148f8df41359693b6ed1cfeff527","0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0","0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",0.48,"USDC"],
+        [1001,401,"ETH-USDT","b",4405.759991924418,0.0322717,"f","0x55c01db07f251fa539ae0e2fa61a8a275af6f4ca57fda5044f54b1e8ca0dd66","0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0","0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",0.000072,"ETH"],
+        [1001,400,"ETH-USDT","s",4405.759991924418,0.0647607,"f","0x4387a5860db3b3b028ba277fadf5c309c595664359f6c2b267d2eac9e106459","0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0","0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",0.203,"DAI"],
       ]
     ]
 }
@@ -333,7 +333,7 @@ Arguments: `[orderupdates]`
 
 Description: Used by market makers to submit chain commitment information on a matched order. orderupdate =  `[chainId,orderId,status,...args]`
 
-Only 'f' and 'r' status updates are permitted, and only for matched orders.
+Only "f" and "r" status updates are permitted, and only for matched orders.
 
 
 ```json
@@ -349,14 +349,14 @@ Only 'f' and 'r' status updates are permitted, and only for matched orders.
 
 ###### Operation: **fillstatus**    
 
-Description: An update about the fill status of an active order. fillstatus =  `[chainId,fillId,status,txHash,remaining]`. See [Order Status](#order-statuses) for status flags.
+Description: An update about the fill status of an active order. fillstatus =  `[chainId,fillId,status,txHash,remaining,feeamount,feetoken]`. See [Order Status](#order-statuses) for status flags.
 
 
 ```json
 { 
     "op": "fillstatus", 
     "args": [[
-        [1000,9258,"f","51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",null]
+        [1000,9258,"f","51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",null,0.000072,"ETH"]
     ]]
 }
 ```

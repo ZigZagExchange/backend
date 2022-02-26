@@ -14,6 +14,8 @@ export const orderstatusupdate: ZZServiceHandler = async (
     let fillId
     let market
     let lastprice
+    let feeAmount
+    let feeToken
     
     if (newstatus === 'b') {
       const txhash = update[3]
@@ -34,6 +36,8 @@ export const orderstatusupdate: ZZServiceHandler = async (
       fillId = result.fillId
       market = result.market
       lastprice = result.fillPriceWithoutFee
+      feeAmount = result.feeAmount
+      feeToken = result.feeToken
       const mmAccount = result.maker_user_id
       const redisKey = `bussymarketmaker:${chainid}:${mmAccount}`
       await api.redis.del(redisKey)
@@ -41,7 +45,12 @@ export const orderstatusupdate: ZZServiceHandler = async (
     if (success) {
       const fillUpdate = [...update]
       fillUpdate[1] = fillId
-      api.broadcastMessage(chainid, market, { op: 'orderstatus', args: [[update]] })
+      fillUpdate[5] = feeAmount
+      fillUpdate[6] = feeToken
+      api.broadcastMessage(chainid, market, { 
+        op: 'orderstatus', 
+        args: [[update]] 
+      })
       api.broadcastMessage(chainid, market, {
         op: 'fillstatus',
         args: [[fillUpdate]],
