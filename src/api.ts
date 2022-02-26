@@ -208,10 +208,9 @@ export default class API extends EventEmitter {
       feeAmount = marketInfo.quoteFee
       feeToken = marketInfo.quoteAsset.symbol
     }
-
+    
     if(newstatus === 'r') {
       feeAmount = 0
-      feeToken = null
     }
     
     try {
