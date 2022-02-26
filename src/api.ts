@@ -884,13 +884,13 @@ export default class API extends EventEmitter {
         args: [orderUpdates],
       })
     }
-    // const fillsQuery = {
-    //   text: "UPDATE fills SET fill_status='e' WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
-    //   values: [one_min_ago],
-    // }
+    const fillsQuery = {
+      text: "UPDATE fills SET fill_status='e' WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
+      values: [one_min_ago],
+    }
 
     // Update fills
-    await this.db.query(query)
+    await this.db.query(fillsQuery)
 
     const expiredQuery = {
       text: "UPDATE offers SET order_status='e', zktx=NULL WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
