@@ -189,19 +189,45 @@ export default class API extends EventEmitter {
     let side
     let maker_user_id
 
+    const marketInfo = await this.getMarketInfo(market, chainid)
+    let fillPriceWithoutFee
+    let feeAmount
+    let feeToken
+    if (side === 's') {
+      const baseQuantityWithoutFee = base_quantity - marketInfo.baseFee
+      fillPriceWithoutFee = (quote_quantity / baseQuantityWithoutFee).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+      feeAmount = marketInfo.baseFee
+      feeToken = marketInfo.baseAsset.symbol
+    } else if (side === 'b') {
+      const quoteQuantityWithoutFee = quote_quantity - marketInfo.quoteFee
+      fillPriceWithoutFee = (quoteQuantityWithoutFee / base_quantity).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+      feeAmount = marketInfo.quoteFee
+      feeToken = marketInfo.quoteAsset.symbol
+    }
+
+    if(newstatus === 'r') {
+      feeAmount = 0
+      feeToken = null
+    }
+    
     try {
-      const values = [newstatus, chainid, orderid]
+      const valuesOffers = [newstatus, chainid, orderid]
       update = await this.db.query(
         "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
-        values
+        valuesOffers
       )
       if (update.rows.length > 0) {
         side = update.rows[0].side
         market = update.rows[0].market
       }
+      const valuesFills = [newstatus, chainid, orderid, feeAmount, feeToken]
       const update2 = await this.db.query(
-        "UPDATE fills SET fill_status=$1 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
-        values
+        "UPDATE fills SET fill_status=$1,feeamount=$3,feetoken=$5 WHERE taker_offer_id=$3 AND chainid=$2 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
+        valuesFills
       )
       if (update2.rows.length > 0) {
         fillId = update2.rows[0].id
@@ -214,20 +240,6 @@ export default class API extends EventEmitter {
       console.error('Error while updating fill status')
       console.error(e)
       return false
-    }
-
-    const marketInfo = await this.getMarketInfo(market, chainid)
-    let fillPriceWithoutFee
-    if (side === 's') {
-      const baseQuantityWithoutFee = base_quantity - marketInfo.baseFee
-      fillPriceWithoutFee = (quote_quantity / baseQuantityWithoutFee).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
-    } else if (side === 'b') {
-      const quoteQuantityWithoutFee = quote_quantity - marketInfo.quoteFee
-      fillPriceWithoutFee = (quoteQuantityWithoutFee / base_quantity).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
     }
 
     const success = update.rowCount > 0
@@ -248,6 +260,8 @@ export default class API extends EventEmitter {
       fillPrice,
       fillPriceWithoutFee,
       maker_user_id,
+      feeAmount,
+      feeToken
     }
   }
 
@@ -560,6 +574,9 @@ export default class API extends EventEmitter {
   //     const relayResult = await starknet.defaultProvider.addTransaction(
   //       transactionDetails
   //     )
+  //
+  //   TODO we want to add fees here
+  //
   //     console.log('Starknet tx success')
   //     const fillupdate = await this.db.query(
   //       "UPDATE fills SET fill_status='f', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
@@ -885,7 +902,7 @@ export default class API extends EventEmitter {
       })
     }
     // const fillsQuery = {
-    //   text: "UPDATE fills SET fill_status='e' WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
+    //   text: "UPDATE fills SET fill_status='e', feeamount=0 WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
     //   values: [one_min_ago],
     // }
 
