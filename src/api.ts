@@ -1168,10 +1168,10 @@ export default class API extends EventEmitter {
       })
 
       // eslint-disable-next-line consistent-return
-      return Promise.all(results)
+      return await Promise.all(results)
     })
 
-    return Promise.all(result)
+    return await Promise.all(result)
   }
 
   updateLiquidity = async (
@@ -1301,10 +1301,10 @@ export default class API extends EventEmitter {
         }
       })
 
-      return Promise.all(results)
+      return await Promise.all(results)
     })
 
-    return Promise.all(orders)
+    return await Promise.all(orders)
   }
 
   populateV1TokenIds = async () => {

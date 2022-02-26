@@ -13,7 +13,7 @@ export const marketsreq: ZZServiceHandler = async (
       const details: ZZMarketInfo = await api.getMarketInfo(market, chainId)
       if (details) marketInfo.push(details)
     })
-    Promise.all(result)
+    await Promise.all(result)
     marketsMsg = {op:"marketinfo2", args: [marketInfo]}
   }
   else {
