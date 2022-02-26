@@ -743,6 +743,8 @@ export default class API extends EventEmitter {
       null,
       selectresult.userid,
       maker_user_id,
+      null,
+      null
     ]
 
     return { zktx, fill }
@@ -810,7 +812,7 @@ export default class API extends EventEmitter {
   getuserfills = async (chainid: number, userid: string) => {
     chainid = Number(chainid)
     const query = {
-      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25',
+      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25',
       values: [chainid, userid],
       rowMode: 'array',
     }
@@ -830,7 +832,7 @@ export default class API extends EventEmitter {
 
   getfills = async (chainid: number, market: ZZMarket) => {
     const query = {
-      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 5",
+      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 5",
       values: [market, chainid],
       rowMode: 'array',
     }
