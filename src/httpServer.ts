@@ -46,7 +46,6 @@ export const createHttpServer = (
   })
 
   server.on('upgrade', (request, socket, head) => {
-    console.log('upgrade')
     socketServer.handleUpgrade(request, socket, head, (ws: WebSocket) => {
       socketServer.emit('connection', ws, request)
     })
