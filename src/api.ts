@@ -22,7 +22,7 @@ import type {
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
-  MARKET_MAKER_TIMEOUT = 900
+  MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
 
