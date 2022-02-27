@@ -108,12 +108,15 @@ export default class API extends EventEmitter {
     markets: string[],
     chainid: number
   ): Promise<ZZMarketInfo | null> => {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 30000)
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets.join(
       ','
     )}&chainid=${chainid}`
-    const marketInfoList = (await fetch(url).then((r: any) =>
-      r.json()
-    )) as ZZMarketInfo
+    const marketInfoList = (await fetch(url, { signal: controller.signal })
+      .then((r: any) => {
+        r.json()
+      })) as ZZMarketInfo
     if (!marketInfoList) throw new Error(`No marketinfo found.`)
     for (let i = 0; i < marketInfoList.length; i++) {
       const marketInfo = marketInfoList[i]
