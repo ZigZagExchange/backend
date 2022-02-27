@@ -22,7 +22,7 @@ import type {
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
-  MARKET_MAKER_TIMEOUT = 900
+  MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
 
@@ -1273,9 +1273,8 @@ export default class API extends EventEmitter {
           const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
           if (marketmaker) {
             const redisKey = `passivws:${chainid}:${marketmaker.ws_uuid}`
-            console.log(redisKey)
             ;(this.redis as any).exists(redisKey, async (err: any, ok: any) => {
-              if (!ok) {
+              if (ok == 0) {
                 this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
                   EX: this.MARKET_MAKER_TIMEOUT,
                 })
