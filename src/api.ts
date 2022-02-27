@@ -70,7 +70,7 @@ export default class API extends EventEmitter {
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateMarketInfo, 60000),
+      setInterval(this.updateMarketInfo, 10000),
       setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -115,9 +115,7 @@ export default class API extends EventEmitter {
     )}&chainid=${chainid}`
     const marketInfoList = (await fetch(url, {
       signal: controller.signal,
-    }).then((r: any) => {
-      r.json()
-    })) as ZZMarketInfo
+    }).then((r: any) => r.json())) as ZZMarketInfo
     if (!marketInfoList) throw new Error(`No marketinfo found.`)
     for (let i = 0; i < marketInfoList.length; i++) {
       const marketInfo = marketInfoList[i]
