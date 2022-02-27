@@ -65,7 +65,6 @@ export default class API extends EventEmitter {
     if (this.started) return
 
     await this.redis.connect()
-    this.updateMarketInfo()
 
     this.watchers = [
       setInterval(this.clearDeadConnections, 60000),
