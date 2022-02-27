@@ -113,15 +113,18 @@ export default class API extends EventEmitter {
     const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets.join(
       ','
     )}&chainid=${chainid}`
-    const marketInfoList = (await fetch(url, { signal: controller.signal })
-      .then((r: any) => {
-        r.json()
-      })) as ZZMarketInfo
+    const marketInfoList = (await fetch(url, {
+      signal: controller.signal,
+    }).then((r: any) => {
+      r.json()
+    })) as ZZMarketInfo
     if (!marketInfoList) throw new Error(`No marketinfo found.`)
     for (let i = 0; i < marketInfoList.length; i++) {
       const marketInfo = marketInfoList[i]
       if (!marketInfo) return null
-      const oldMarketInfo = await this.redis.get(`marketinfo:${chainid}:${marketInfo.alias}`);
+      const oldMarketInfo = await this.redis.get(
+        `marketinfo:${chainid}:${marketInfo.alias}`
+      )
       if (oldMarketInfo !== JSON.stringify(marketInfo)) {
         const market_id = marketInfo.alias
         const redis_key = `marketinfo:${chainid}:${market_id}`
@@ -936,6 +939,7 @@ export default class API extends EventEmitter {
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]
       const marketInfo = await this.getMarketInfo(market, chainid)
+      if (!marketInfo || marketInfo.error) continue
       const yesterday = new Date(Date.now() - 86400 * 1000)
         .toISOString()
         .slice(0, 10)
