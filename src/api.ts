@@ -190,6 +190,7 @@ export default class API extends EventEmitter {
     let maker_user_id
     try {
       const valuesOffers = [newstatus, chainid, orderid]
+      console.log(valuesOffers)
       update = await this.db.query(
         "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
         valuesOffers
