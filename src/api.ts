@@ -118,8 +118,8 @@ export default class API extends EventEmitter {
     for (let i = 0; i < marketInfoList.length; i++) {
       const marketInfo = marketInfoList[i]
       if (!marketInfo) return null
-      const oldMarketInfo = await this.getMarketInfo(marketInfo.alias, chainid)
-      if (JSON.stringify(oldMarketInfo) !== JSON.stringify(marketInfo)) {
+      const oldMarketInfo = await this.redis.get(`marketinfo:${chainid}:${marketInfo.alias}`);
+      if (oldMarketInfo !== JSON.stringify(marketInfo)) {
         const market_id = marketInfo.alias
         const redis_key = `marketinfo:${chainid}:${market_id}`
         this.redis.set(redis_key, JSON.stringify(marketInfo), { EX: 1800 })
@@ -161,7 +161,7 @@ export default class API extends EventEmitter {
       try {
         const chainid = chainIds[i]
         const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
-        if (!markets) return
+        if (!markets) continue
         await this.fetchMarketInfoFromMarkets(markets, chainid)
       } catch (e) {
         console.error(e)
