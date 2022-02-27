@@ -166,7 +166,6 @@ export default class API extends EventEmitter {
         const chainid = chainIds[i]
         const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
         if (!markets || markets.length == 0) continue
-        console.log(markets, chainid)
         await this.fetchMarketInfoFromMarkets(markets, chainid)
       } catch (e) {
         console.error(e)
