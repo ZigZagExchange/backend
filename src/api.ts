@@ -199,7 +199,7 @@ export default class API extends EventEmitter {
         market = update.rows[0].market
       }
     } catch (e) {
-      console.error('Error while updating offers.')
+      console.error('Error while updateOrderFillStatus offers.')
       console.error(e)
       return false
     }
@@ -228,7 +228,7 @@ export default class API extends EventEmitter {
       }
       quote_quantity = base_quantity * fillPrice
     } catch (e) {
-      console.error('Error while updating fills.')
+      console.error('Error while updateOrderFillStatus fills.')
       console.error(e)
       return false
     }
@@ -262,16 +262,21 @@ export default class API extends EventEmitter {
     let update
     let fillId
     let market
+    let values = [newstatus, txhash, chainid, orderid]
     try {
-      let values = [newstatus, txhash, chainid, orderid]
-      console.log(values)
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1 AND txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
+        "UPDATE offers SET order_status=$1, txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
         values
       )
-      values = [newstatus, txhash, chainid, orderid]
+    } catch (e) {
+      console.error('Error while updateMatchedOrder offers.')
+      console.error(e)
+      return false
+    }
+
+    try {
       const update2 = await this.db.query(
-        'UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market',
+        'UPDATE fills SET fill_status=$1, txhash=$2 WHERE chainid=$3 AND taker_offer_id=$4 RETURNING id, market',
         values
       )
       if (update2.rows.length > 0) {
@@ -279,10 +284,11 @@ export default class API extends EventEmitter {
         market = update2.rows[0].market
       }
     } catch (e) {
-      console.error('Error while updating matched order')
+      console.error('Error while updateMatchedOrder fills.')
       console.error(e)
       return false
     }
+
     return { success: update.rowCount > 0, fillId, market }
   }
 
@@ -1169,10 +1175,10 @@ export default class API extends EventEmitter {
       })
 
       // eslint-disable-next-line consistent-return
-      return Promise.all(results)
+      return await Promise.all(results)
     })
 
-    return Promise.all(result)
+    return await Promise.all(result)
   }
 
   updateLiquidity = async (
@@ -1248,7 +1254,7 @@ export default class API extends EventEmitter {
     }
   }
 
-  updatePassiveMM = () => {
+  updatePassiveMM = async () => {
     const orders = this.VALID_CHAINS.map(async (chainid: number) => {
       const redisPattern = `bussymarketmaker:${chainid}:*`
       const keys = await this.redis.keys(redisPattern)
@@ -1302,10 +1308,10 @@ export default class API extends EventEmitter {
         }
       })
 
-      return Promise.all(results)
+      return await Promise.all(results)
     })
 
-    return Promise.all(orders)
+    return await Promise.all(orders)
   }
 
   populateV1TokenIds = async () => {
