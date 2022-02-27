@@ -119,7 +119,6 @@ export default class API extends EventEmitter {
     }).then((r: any) => {
       r.json()
     })) as ZZMarketInfo
-    console.log(marketInfoList)
     if (!marketInfoList) throw new Error(`No marketinfo found.`)
     for (let i = 0; i < marketInfoList.length; i++) {
       const marketInfo = marketInfoList[i]
@@ -150,6 +149,11 @@ export default class API extends EventEmitter {
       if (marketinfo) {
         return JSON.parse(marketinfo) as ZZMarketInfo
       }
+
+      marketinfo = await this.fetchMarketInfoFromMarkets(
+        [market],
+        chainid
+      ).then((r: any) => r[0])
     } catch (err) {
       console.log(err)
     }
