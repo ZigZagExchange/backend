@@ -199,7 +199,7 @@ export default class API extends EventEmitter {
         market = update.rows[0].market
       }
     } catch (e) {
-      console.error('Error while updating offers.')
+      console.error('Error while updateOrderFillStatus offers.')
       console.error(e)
       return false
     }
@@ -228,7 +228,7 @@ export default class API extends EventEmitter {
       }
       quote_quantity = base_quantity * fillPrice
     } catch (e) {
-      console.error('Error while updating fills.')
+      console.error('Error while updateOrderFillStatus fills.')
       console.error(e)
       return false
     }
@@ -270,7 +270,7 @@ export default class API extends EventEmitter {
       )
       values = [newstatus, txhash, chainid, orderid]
       const update2 = await this.db.query(
-        'UPDATE fills SET fill_status=$1, txhash=$2 WHERE taker_offer_id=$4 AND chainid=$3 RETURNING id, market',
+        'UPDATE fills SET fill_status=$1, txhash=$2 WHERE chainid=$3 AND taker_offer_id=$4 RETURNING id, market',
         values
       )
       if (update2.rows.length > 0) {
@@ -278,7 +278,7 @@ export default class API extends EventEmitter {
         market = update2.rows[0].market
       }
     } catch (e) {
-      console.error('Error while updating matched order')
+      console.error('Error while updateMatchedOrder fills.')
       console.error(e)
       return false
     }
