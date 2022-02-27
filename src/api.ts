@@ -1274,7 +1274,10 @@ export default class API extends EventEmitter {
           if (marketmaker) {
             const redisKey = `passivws:${chainid}:${marketmaker.ws_uuid}`
             ;(this.redis as any).exists(redisKey, async (err: any, ok: any) => {
-              if (ok == 0) {
+              console.log(ok)
+              console.log(err)
+              if(err) return
+              if (ok !== 0) {
                 this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
                   EX: this.MARKET_MAKER_TIMEOUT,
                 })
