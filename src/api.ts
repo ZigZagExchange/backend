@@ -262,13 +262,19 @@ export default class API extends EventEmitter {
     let update
     let fillId
     let market
-    try {
-      let values = [newstatus, txhash, chainid, orderid]
+    let values = [newstatus, txhash, chainid, orderid]
+    try {      
       update = await this.db.query(
         "UPDATE offers SET order_status=$1 AND txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
         values
       )
-      values = [newstatus, txhash, chainid, orderid]
+    } catch (e) {
+      console.error('Error while updateMatchedOrder offers.')
+      console.error(e)
+      return false
+    }
+
+    try {  
       const update2 = await this.db.query(
         'UPDATE fills SET fill_status=$1, txhash=$2 WHERE chainid=$3 AND taker_offer_id=$4 RETURNING id, market',
         values
@@ -282,6 +288,7 @@ export default class API extends EventEmitter {
       console.error(e)
       return false
     }
+    
     return { success: update.rowCount > 0, fillId, market }
   }
 
