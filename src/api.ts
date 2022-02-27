@@ -65,6 +65,7 @@ export default class API extends EventEmitter {
     if (this.started) return
 
     await this.redis.connect()
+    this.updateMarketInfo()
 
     this.watchers = [
       setInterval(this.clearDeadConnections, 60000),
@@ -163,7 +164,8 @@ export default class API extends EventEmitter {
       try {
         const chainid = chainIds[i]
         const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
-        if (!markets) continue
+        if (!markets || markets.length == 0) continue
+        console.log(markets, chainid)
         await this.fetchMarketInfoFromMarkets(markets, chainid)
       } catch (e) {
         console.error(e)
