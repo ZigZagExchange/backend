@@ -989,6 +989,9 @@ export default class API extends EventEmitter {
     if (![1, 1000].includes(chainid))
       throw new Error('Quotes not supported for this chain')
     if (!['b', 's'].includes(side)) throw new Error('Invalid side')
+
+    if (baseQuantity) baseQuantity = Number(baseQuantity)
+    if (quoteQuantity) quoteQuantity = Number(quoteQuantity)
     if (baseQuantity && baseQuantity <= 0)
       throw new Error('Quantity must be positive')
     if (quoteQuantity && quoteQuantity <= 0)
@@ -1274,7 +1277,7 @@ export default class API extends EventEmitter {
           if (marketmaker) {
             const redisKey = `passivews:${chainid}:${marketmaker.ws_uuid}`
             const passivews = await this.redis.get(redisKey)
-            if(!passivews) {
+            if (!passivews) {
               this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
                 EX: remainingTime,
               })
@@ -1306,7 +1309,7 @@ export default class API extends EventEmitter {
               this.broadcastMessage(chainid, order.market, {
                 op: 'orders',
                 args: [[orderreceipt]],
-              })              
+              })
             }
           }
         }
