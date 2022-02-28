@@ -1001,13 +1001,13 @@ export default class API extends EventEmitter {
     const liquidity = await this.getLiquidity(chainid, market)
     if (liquidity.length === 0) throw new Error('No liquidity for pair')
 
-    let softQuoteQuantity: number | undefined
-    let hardQuoteQuantity: number | undefined
-    let softBaseQuantity: number | undefined
-    let hardBaseQuantity: number | undefined
-    let softPrice: number | undefined
-    let hardPrice: number | undefined
-    let ladderPrice: number | undefined
+    let softQuoteQuantity: any
+    let hardQuoteQuantity: any
+    let softBaseQuantity: any
+    let hardBaseQuantity: any
+    let softPrice: any
+    let hardPrice: any
+    let ladderPrice: any
 
     if (baseQuantity) {
       if (baseQuantity < marketInfo.baseFee)
@@ -1044,27 +1044,27 @@ export default class API extends EventEmitter {
           marketInfo.pricePrecisionDecimals
         )
       } else {
-        hardQuoteQuantity = +(
+        hardQuoteQuantity = (
           (baseQuantity - marketInfo.baseFee) *
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / hardBaseQuantity).toFixed(
+        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 0.999).toFixed(
+        softPrice = (hardPrice * 0.999).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       }
 
-      softBaseQuantity = +baseQuantity.toFixed(marketInfo.baseAsset.decimals)
-      softQuoteQuantity = +(baseQuantity * softPrice).toFixed(
+      softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals)
+      softQuoteQuantity = (baseQuantity * softPrice).toFixed(
         marketInfo.quoteAsset.decimals
       )
     } else if (quoteQuantity) {
       if (quoteQuantity < marketInfo.quoteFee)
         throw new Error('Amount is inadequate to pay fee')
 
-      hardQuoteQuantity = +quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
+      hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
 
       if (side === 'b') {
         const asks: any[] = liquidity
@@ -1072,14 +1072,14 @@ export default class API extends EventEmitter {
           .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
         ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
 
-        hardBaseQuantity = +(
+        hardBaseQuantity = (
           (quoteQuantity - marketInfo.quoteFee) /
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / hardBaseQuantity).toFixed(
+        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 1.0005).toFixed(
+        softPrice = (hardPrice * 1.0005).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       } else {
@@ -1092,16 +1092,16 @@ export default class API extends EventEmitter {
           quoteQuantity / ladderPrice +
           marketInfo.baseFee
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / Number(hardBaseQuantity)).toFixed(
+        hardPrice = (hardQuoteQuantity / Number(hardBaseQuantity)).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 0.9995).toFixed(
+        softPrice = (hardPrice * 0.9995).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       }
 
-      softQuoteQuantity = +quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
-      softBaseQuantity = +(quoteQuantity / softPrice).toFixed(
+      softQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
+      softBaseQuantity = (quoteQuantity / softPrice).toFixed(
         marketInfo.baseAsset.decimals
       )
     }
