@@ -15,6 +15,7 @@ export const createHttpServer = (
     'requestquote',
     'submitorder',
     'submitorder2',
+    'submitorder3',
     'orderreceiptreq',
     'dailyvolumereq',
     'refreshliquidity',

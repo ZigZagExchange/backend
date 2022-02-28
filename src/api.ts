@@ -858,22 +858,10 @@ export default class API extends EventEmitter {
         if (baseVolume.includes('e')) {
           baseVolume = row.base_volume.toFixed(0)
         }
-        const redis_key_base = `volume:${row.chainid}:${row.market}:base`
-        const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`
-        const redis_key_volume_sort = `volume:${row.chainid}:sorted`
-        const redistx = []
-        redistx.push(this.redis.set(redis_key_base, baseVolume))
-        redistx.push(this.redis.set(redis_key_quote, quoteVolume))
-        if (quoteVolume && row.market) {
-          redistx.push(
-            this.redis.ZADD(redis_key_volume_sort as string, {
-              score: Number(quoteVolume),
-              value: row.market,
-            })
-          )
-
-          await Promise.all(redistx)
-        }
+        const redis_key_base = `volume:${row.chainid}:base`
+        const redis_key_quote = `volume:${row.chainid}:quote`
+        this.redis.HSET(redis_key_base, row.market, baseVolume)
+        this.redis.HSET(redis_key_quote, row.market, quoteVolume)
       } catch (err) {
         console.error(err)
         console.log('Could not update volumes')
@@ -930,10 +918,12 @@ export default class API extends EventEmitter {
   getLastPrices = async (chainid: number) => {
     const lastprices = []
     const redis_key_prices = `lastprices:${chainid}`
-    const redis_values = await this.redis.HGETALL(redis_key_prices)
+    const redis_key_volumes = `volume:${chainid}:quote`
+    const redis_prices = await this.redis.HGETALL(redis_key_prices)
+    const redis_volumes = await this.redis.HGETALL(redis_key_prices)
 
     // eslint-disable-next-line no-restricted-syntax
-    const markets = Object.keys(redis_values)
+    const markets = Object.keys(redis_prices)
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]
       const marketInfo = await this.getMarketInfo(market, chainid)
@@ -944,11 +934,12 @@ export default class API extends EventEmitter {
       const yesterdayPrice = Number(
         await this.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
       )
-      const price = +redis_values[market]
+      const price = +redis_prices[market]
       const priceChange = +(price - yesterdayPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
-      lastprices.push([market, price, priceChange])
+      const quoteVolume = redis_volumes[market] || 0
+      lastprices.push([market, price, priceChange, quoteVolume])
     }
 
     return lastprices
