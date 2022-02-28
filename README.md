@@ -30,7 +30,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured.
 
-The current list of operations available over HTTP POST are: `submitorder2`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq` and `marketsreq`.
+The current list of operations available over HTTP POST are: `submitorder3`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq` and `marketsreq`.
 
 # Sending orders on zksync
 
@@ -38,7 +38,7 @@ The Zksync limit order system is pretty complicated, so we've simplified it down
 
 There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the $1 flat fee.
 
-Using the price from the `quote` response, you can send a limit order with `submitorder2`. An order sent at the `quote` price will fill like a market order.
+Using the price from the `quote` response, you can send a limit order with `submitorder3`. An order sent at the `quote` price will fill like a market order.
 
 ## Structure
 
@@ -94,7 +94,7 @@ Description: Associate userId with connection. Note that userId is a **string**,
 
 ---
 
-###### Operation: **submitorder2**
+###### Operation: **submitorder3**
 
 Arguments: `[chainId, market, zkOrder]`
 
@@ -112,7 +112,7 @@ Zksync
 
 ```json
 {
-  "op": "submitorder2",
+  "op": "submitorder3",
   "args": [
     1000,
     "ETH-DAI",
@@ -143,7 +143,7 @@ Starknet
 
 ```json
 {
-  "op": "submitorder2",
+  "op": "submitorder3",
   "args": [
     1001,
     "ETH-USDT",
@@ -492,7 +492,7 @@ Available over REST.
 
 Arguments: `[priceUpdates]`
 
-Description: A group of market price updates. priceUpdate = [market,price,change]
+Description: A group of market price updates. priceUpdate = [market,price,change,quoteVolume]
 
 ```json
 {
@@ -552,7 +552,7 @@ Description: Unsubscribe from a market
 
 Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
-Description: ack message for a submitorder2 message
+Description: ack message for a submitorder3 message
 
 ```json
 {
@@ -633,7 +633,7 @@ This operation is also available over HTTP POST and returns a `quote` message.
 
 Arguments: `[chainid, market, side, baseQuantity, price, quoteQuantity]`
 
-Description: Response to requestquote. Returns a fully filled quote with baseQuantity, price, and quoteQuantity. The price can then be used with submitorder2 to ensure a fill.
+Description: Response to requestquote. Returns a fully filled quote with baseQuantity, price, and quoteQuantity. The price can then be used with submitorder3 to ensure a fill.
 
 ```json
 { "op": "quote", "args": [1, "ETH-USDT", "b", 0.032, "4900", "156.8"] }
