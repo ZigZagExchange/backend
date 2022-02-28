@@ -920,7 +920,7 @@ export default class API extends EventEmitter {
     const redis_key_prices = `lastprices:${chainid}`
     const redis_key_volumes = `volume:${chainid}:quote`
     const redis_prices = await this.redis.HGETALL(redis_key_prices)
-    const redis_volumes = await this.redis.HGETALL(redis_key_prices)
+    const redis_volumes = await this.redis.HGETALL(redis_volumes)
 
     // eslint-disable-next-line no-restricted-syntax
     const markets = Object.keys(redis_prices)
