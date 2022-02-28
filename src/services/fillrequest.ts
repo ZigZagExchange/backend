@@ -22,55 +22,10 @@ export const fillrequest: ZZServiceHandler = async (
     return
   }
 
-  const redisKey = `bussymarketmaker:${chainid}:${fillOrder.accountId.toString()}`
-  const redisBusyMM = (await api.redis.get(redisKey)) as string
-  if (redisBusyMM) {
-    const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
-    const remainingTime = await api.redis.ttl(redisKey)
-    ws.send(
-      JSON.stringify({
-        op: 'error',
-        args: [
-          'fillrequest',
-          // eslint-disable-next-line prefer-template
-          'Your address did not respond to order (' +
-            processingOrderId +
-            ') yet. Remaining timeout: ' +
-            remainingTime +
-            '.',
-        ],
-      })
-    )
-    console.log('fillrequest - return timed out market maker.')
-    return
-  }
-
   try {
-    const matchOrderResult = await api.matchorder(chainid, orderId, fillOrder)
-    const market = matchOrderResult.fill[2]
-    ws.send(
-      JSON.stringify({
-        op: 'userordermatch',
-        args: [chainid, orderId, matchOrderResult.zktx, fillOrder],
-      })
-    )
-    await api.redis.set(
-      redisKey,
-      JSON.stringify({ orderId, ws_uuid: ws.uuid }),
-      { EX: api.MARKET_MAKER_TIMEOUT }
-    )
-
-    api.broadcastMessage(chainid, market, {
-      op: 'orderstatus',
-      args: [[[chainid, orderId, 'm']]],
-    })
-
-    api.broadcastMessage(chainid, market, {
-      op: 'fills',
-      args: [[matchOrderResult.fill]],
-    })
+    await api.matchorder(chainid, orderId, fillOrder, ws)    
   } catch (err: any) {
-    console.error(err)
+    console.log(err)
     ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', err.message] }))
   }
 }
