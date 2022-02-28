@@ -21,4 +21,5 @@ export const marketsreq: ZZServiceHandler = async (
   }
 
   if (ws) ws.send(JSON.stringify(marketsMsg))
+  return marketsMsg
 }
