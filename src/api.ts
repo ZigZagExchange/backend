@@ -407,13 +407,13 @@ export default class API extends EventEmitter {
     try {
       const userconnkey = `${chainid}:${userid}`
       this.USER_CONNECTIONS[userconnkey].send(
-        JSON.stringify({ op: 'userorderack', args: [orderreceipt] })
+        JSON.stringify({ op: 'userorderack', args: orderreceipt })
       )
     } catch (e) {
       // user connection doesn't exist. just pass along
     }
 
-    return { op: 'userorderack', args: [orderreceipt] }
+    return { op: 'userorderack', args: orderreceipt }
   }
 
   // async processorderstarknet(chainid: number, market: string, zktx: AnyObject) {
