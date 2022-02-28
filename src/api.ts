@@ -733,7 +733,10 @@ export default class API extends EventEmitter {
   ) => {
     const redisKey = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
-    if(existingMembers === 0) return
+    if(existingMembers === 0) {
+      this.redis.DEL(redisKey)
+      return
+    }
 
     let redis_members;
     if(side === 'b') {
@@ -741,7 +744,10 @@ export default class API extends EventEmitter {
     } else {
       redis_members = await this.redis.ZPOPMAX(redisKey)
     }
-    if (!redis_members) return
+    if (!redis_members) {
+      this.redis.DEL(redisKey)
+      return
+    }
 
     const fillPrice = redis_members.score
     const value = JSON.parse(redis_members.value)    
@@ -828,6 +834,7 @@ export default class API extends EventEmitter {
       })
     )
 
+    this.redis.DEL(redisKey)
     this.redis.set(
       redisKey,
       JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
