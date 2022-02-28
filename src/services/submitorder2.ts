@@ -8,6 +8,7 @@ export const submitorder2: ZZServiceHandler = async (
   if (chainid === 1 || chainid === 1000) {
     try {
       const order = await api.processorderzksync(chainid, market, zktx)
+      if (ws) ws.send(JSON.stringify(order))
       return order.args
     } catch (err: any) {
       console.error(err)
