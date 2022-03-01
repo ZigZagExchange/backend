@@ -18,6 +18,7 @@ export const subscribemarket: ZZServiceHandler = async (
     } catch (e) {
       console.error(`No price found for ${market}`)
       lastprice = 0
+      priceChange = 0
     }
     const marketinfo = await api.getMarketInfo(market, chainid)
     const baseVolume = await api.redis.HGET(`volume:${chainid}:base`, market)
