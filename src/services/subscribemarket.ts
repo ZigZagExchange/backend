@@ -25,8 +25,12 @@ export const subscribemarket: ZZServiceHandler = async (
     const yesterdayPrice = Number(
       await api.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
     )
-    const hi24 = Math.max(lastprice, yesterdayPrice)
-    const lo24 = Math.min(lastprice, yesterdayPrice)
+    const hi24 = Math.max(lastprice, yesterdayPrice).toFixed(
+      marketinfo.pricePrecisionDecimals
+    )
+    const lo24 = Math.min(lastprice, yesterdayPrice).toFixed(
+      marketinfo.pricePrecisionDecimals
+    )
     const marketSummaryMsg = {
       op: 'marketsummary',
       args: [
