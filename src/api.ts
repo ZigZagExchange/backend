@@ -407,13 +407,13 @@ export default class API extends EventEmitter {
     try {
       const userconnkey = `${chainid}:${userid}`
       this.USER_CONNECTIONS[userconnkey].send(
-        JSON.stringify({ op: 'userorderack', args: [orderreceipt] })
+        JSON.stringify({ op: 'userorderack', args: orderreceipt })
       )
     } catch (e) {
       // user connection doesn't exist. just pass along
     }
 
-    return { op: 'userorderack', args: [orderreceipt] }
+    return { op: 'userorderack', args: orderreceipt }
   }
 
   // async processorderstarknet(chainid: number, market: string, zktx: AnyObject) {
@@ -858,22 +858,10 @@ export default class API extends EventEmitter {
         if (baseVolume.includes('e')) {
           baseVolume = row.base_volume.toFixed(0)
         }
-        const redis_key_base = `volume:${row.chainid}:${row.market}:base`
-        const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`
-        const redis_key_volume_sort = `volume:${row.chainid}:sorted`
-        const redistx = []
-        redistx.push(this.redis.set(redis_key_base, baseVolume))
-        redistx.push(this.redis.set(redis_key_quote, quoteVolume))
-        if (quoteVolume && row.market) {
-          redistx.push(
-            this.redis.ZADD(redis_key_volume_sort as string, {
-              score: Number(quoteVolume),
-              value: row.market,
-            })
-          )
-
-          await Promise.all(redistx)
-        }
+        const redis_key_base = `volume:${row.chainid}:base`
+        const redis_key_quote = `volume:${row.chainid}:quote`
+        this.redis.HSET(redis_key_base, row.market, baseVolume)
+        this.redis.HSET(redis_key_quote, row.market, quoteVolume)
       } catch (err) {
         console.error(err)
         console.log('Could not update volumes')
@@ -930,10 +918,12 @@ export default class API extends EventEmitter {
   getLastPrices = async (chainid: number) => {
     const lastprices = []
     const redis_key_prices = `lastprices:${chainid}`
-    const redis_values = await this.redis.HGETALL(redis_key_prices)
+    const redis_key_volumes = `volume:${chainid}:quote`
+    const redis_prices = await this.redis.HGETALL(redis_key_prices)
+    const redis_volumes = await this.redis.HGETALL(redis_key_volumes)
 
     // eslint-disable-next-line no-restricted-syntax
-    const markets = Object.keys(redis_values)
+    const markets = Object.keys(redis_prices)
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]
       const marketInfo = await this.getMarketInfo(market, chainid)
@@ -944,11 +934,12 @@ export default class API extends EventEmitter {
       const yesterdayPrice = Number(
         await this.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
       )
-      const price = +redis_values[market]
+      const price = +redis_prices[market]
       const priceChange = +(price - yesterdayPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
-      lastprices.push([market, price, priceChange])
+      const quoteVolume = redis_volumes[market] || 0
+      lastprices.push([market, price, priceChange, quoteVolume])
     }
 
     return lastprices
@@ -989,6 +980,9 @@ export default class API extends EventEmitter {
     if (![1, 1000].includes(chainid))
       throw new Error('Quotes not supported for this chain')
     if (!['b', 's'].includes(side)) throw new Error('Invalid side')
+
+    if (baseQuantity) baseQuantity = Number(baseQuantity)
+    if (quoteQuantity) quoteQuantity = Number(quoteQuantity)
     if (baseQuantity && baseQuantity <= 0)
       throw new Error('Quantity must be positive')
     if (quoteQuantity && quoteQuantity <= 0)
@@ -998,13 +992,13 @@ export default class API extends EventEmitter {
     const liquidity = await this.getLiquidity(chainid, market)
     if (liquidity.length === 0) throw new Error('No liquidity for pair')
 
-    let softQuoteQuantity: number | undefined
-    let hardQuoteQuantity: number | undefined
-    let softBaseQuantity: number | undefined
-    let hardBaseQuantity: number | undefined
-    let softPrice: number | undefined
-    let hardPrice: number | undefined
-    let ladderPrice: number | undefined
+    let softQuoteQuantity: any
+    let hardQuoteQuantity: any
+    let softBaseQuantity: any
+    let hardBaseQuantity: any
+    let softPrice: any
+    let hardPrice: any
+    let ladderPrice: any
 
     if (baseQuantity) {
       if (baseQuantity < marketInfo.baseFee)
@@ -1041,27 +1035,27 @@ export default class API extends EventEmitter {
           marketInfo.pricePrecisionDecimals
         )
       } else {
-        hardQuoteQuantity = +(
+        hardQuoteQuantity = (
           (baseQuantity - marketInfo.baseFee) *
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / hardBaseQuantity).toFixed(
+        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 0.999).toFixed(
+        softPrice = (hardPrice * 0.999).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       }
 
-      softBaseQuantity = +baseQuantity.toFixed(marketInfo.baseAsset.decimals)
-      softQuoteQuantity = +(baseQuantity * softPrice).toFixed(
+      softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals)
+      softQuoteQuantity = (baseQuantity * softPrice).toFixed(
         marketInfo.quoteAsset.decimals
       )
     } else if (quoteQuantity) {
       if (quoteQuantity < marketInfo.quoteFee)
         throw new Error('Amount is inadequate to pay fee')
 
-      hardQuoteQuantity = +quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
+      hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
 
       if (side === 'b') {
         const asks: any[] = liquidity
@@ -1069,14 +1063,14 @@ export default class API extends EventEmitter {
           .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
         ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
 
-        hardBaseQuantity = +(
+        hardBaseQuantity = (
           (quoteQuantity - marketInfo.quoteFee) /
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / hardBaseQuantity).toFixed(
+        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 1.0005).toFixed(
+        softPrice = (hardPrice * 1.0005).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       } else {
@@ -1089,16 +1083,16 @@ export default class API extends EventEmitter {
           quoteQuantity / ladderPrice +
           marketInfo.baseFee
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / Number(hardBaseQuantity)).toFixed(
+        hardPrice = (hardQuoteQuantity / Number(hardBaseQuantity)).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 0.9995).toFixed(
+        softPrice = (hardPrice * 0.9995).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       }
 
-      softQuoteQuantity = +quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
-      softBaseQuantity = +(quoteQuantity / softPrice).toFixed(
+      softQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
+      softBaseQuantity = (quoteQuantity / softPrice).toFixed(
         marketInfo.baseAsset.decimals
       )
     }
@@ -1274,7 +1268,7 @@ export default class API extends EventEmitter {
           if (marketmaker) {
             const redisKey = `passivews:${chainid}:${marketmaker.ws_uuid}`
             const passivews = await this.redis.get(redisKey)
-            if(!passivews) {
+            if (!passivews) {
               this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
                 EX: remainingTime,
               })
@@ -1306,7 +1300,7 @@ export default class API extends EventEmitter {
               this.broadcastMessage(chainid, order.market, {
                 op: 'orders',
                 args: [[orderreceipt]],
-              })              
+              })
             }
           }
         }

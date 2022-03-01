@@ -14,17 +14,17 @@ export const subscribemarket: ZZServiceHandler = async (
       .slice(0, 10)
     let lastprice
     try {
-      ;[,lastprice] = lastprices.find((l) => l[0] === market) as any
+      ;[, lastprice] = lastprices.find((l) => l[0] === market) as any
     } catch (e) {
       console.error(`No price found for ${market}`)
       lastprice = 0
     }
     const marketinfo = await api.getMarketInfo(market, chainid)
-    const baseVolume = await api.redis.get(`volume:${chainid}:${market}:base`)
-    const quoteVolume = await api.redis.get(`volume:${chainid}:${market}:quote`)
-    const yesterdayPrice = Number(await api.redis.get(
-      `dailyprice:${chainid}:${market}:${yesterday}`
-    ))
+    const baseVolume = await api.redis.HGET(`volume:${chainid}:base`, market)
+    const quoteVolume = await api.redis.HGET(`volume:${chainid}:quote`, market)
+    const yesterdayPrice = Number(
+      await api.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
+    )
     let priceChange
     if (yesterdayPrice) {
       priceChange = (lastprice - yesterdayPrice).toFixed(
