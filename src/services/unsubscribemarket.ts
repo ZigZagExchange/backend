@@ -5,6 +5,9 @@ export const unsubscribemarket: ZZServiceHandler = async (
   ws,
   [chainid, market]
 ) => {
-  if (ws.chainid !== chainid) ws.marketSubscriptions = []
-  ws.marketSubscriptions = ws.marketSubscriptions.filter((m) => m !== market)
+  if (ws.chainid !== chainid) {
+    ws.marketSubscriptions = []
+  } else {
+    ws.marketSubscriptions = ws.marketSubscriptions.filter((m) => m !== market)
+  }  
 }
