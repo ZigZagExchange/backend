@@ -839,20 +839,20 @@ export default class API extends EventEmitter {
     
     // send result to other mm's, remove set
     const otherMaker = await this.redis.ZRANGE(redisKey, 0, -1)
-    otherMaker.map(async (makerOfferString) => {
-      const makerOffer = JSON.parse(makerOfferString)
-      const value = JSON.parse(makerOffer.value)
-      const fillOrder = value.fillOrder
-      const maker_user_id = fillOrder.accountId.toString()
-      const makerConnId = `${chainid}:${value.wsUUID}`
-      const ws = this.MAKER_CONNECTIONS[makerConnId]
-      ws.send(
+    otherMaker.map(async (otherMakerOfferString) => {
+      const otherMakerOffer = JSON.parse(otherMakerOfferString)
+      const otherValue = JSON.parse(otherMakerOffer.value)
+      const otherFillOrder = otherValue.fillOrder
+      const otherMakerAccountId = otherFillOrder.accountId.toString()
+      const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
+      const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
+      otherWs.send(
         JSON.stringify(
           { 
             op: 'error',
             args: [
               'fillrequest',
-              maker_user_id,
+              otherMakerAccountId,
               "The Order was filled by better offer."
             ] 
           }
