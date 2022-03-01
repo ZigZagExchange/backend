@@ -754,11 +754,11 @@ export default class API extends EventEmitter {
     const selectresult = value.selectresult
     const fillOrder = value.fillOrder
     const ws = value.ws
-    const maker_user_id = fillOrder.accountId.toString()
+    const makerAccountId = fillOrder.accountId.toString()
     let fill
 
     try {
-      const redisKey = `bussymarketmaker:${chainid}:${maker_user_id}`
+      const redisKey = `bussymarketmaker:${chainid}:${makerAccountId}`
       const redisBusyMM = (await this.redis.get(redisKey)) as string
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
@@ -768,7 +768,7 @@ export default class API extends EventEmitter {
             op: 'error',
             args: [
               'fillrequest',
-              maker_user_id,
+              makerAccountId,
               // eslint-disable-next-line prefer-template
               'Your address did not respond to order (' +
                 processingOrderId +
@@ -795,7 +795,7 @@ export default class API extends EventEmitter {
         selectresult.market,
         orderId,
         selectresult.userid,
-        maker_user_id,
+        makerAccountId,
         fillPrice,
         selectresult.base_quantity,
         selectresult.side,
@@ -815,7 +815,7 @@ export default class API extends EventEmitter {
         'm',
         null,
         selectresult.userid,
-        maker_user_id,
+        makerAccountId,
         null,
         null,
       ]
