@@ -7,13 +7,15 @@ export const fillrequest: ZZServiceHandler = async (
   ws,
   [chainid, orderId, fillOrder]
 ) => {
+  const maker_user_id = fillOrder.accountId.toString()
   const blacklisted_accounts = BLACKLIST.split(',')
-  if (blacklisted_accounts.includes(fillOrder.accountId.toString())) {
+  if (blacklisted_accounts.includes(maker_user_id)) {
     ws.send(
       JSON.stringify({
         op: 'error',
         args: [
           'fillrequest',
+          maker_user_id,
           "You're running a bad version of the market maker. Please run git pull to update your code.",
         ],
       })
@@ -26,6 +28,6 @@ export const fillrequest: ZZServiceHandler = async (
     await api.matchorder(chainid, orderId, fillOrder, ws)    
   } catch (err: any) {
     console.log(err)
-    ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', err.message] }))
+    ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', maker_user_id, err.message] }))
   }
 }

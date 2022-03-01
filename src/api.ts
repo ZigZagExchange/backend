@@ -750,11 +750,11 @@ export default class API extends EventEmitter {
     }
 
     const fillPrice = redis_members.score
-    const value = JSON.parse(redis_members.value)    
+    const value = JSON.parse(redis_members.value)
     const selectresult = value.selectresult
     const fillOrder = value.fillOrder
-    const ws = value.ws   
-    const maker_user_id = fillOrder.accountId.toString() 
+    const ws = value.ws
+    const maker_user_id = fillOrder.accountId.toString()
     let fill
 
     try {
@@ -768,6 +768,7 @@ export default class API extends EventEmitter {
             op: 'error',
             args: [
               'fillrequest',
+              maker_user_id,
               // eslint-disable-next-line prefer-template
               'Your address did not respond to order (' +
                 processingOrderId +
@@ -833,8 +834,30 @@ export default class API extends EventEmitter {
         args: [chainid, orderId, selectresult.zktx, fillOrder],
       })
     )
-
+    
+    // send result to other mm's, remove set
+    const otherMaker = await this.redis.ZRANGE(redisKey, 0, -1)
+    otherMaker.map(async (makerOfferString) => {
+      const makerOffer = JSON.parse(makerOfferString)
+      const value = JSON.parse(makerOffer.value)
+      const fillOrder = value.fillOrder
+      const ws = value.ws
+      const maker_user_id = fillOrder.accountId.toString()
+      ws.send(
+        JSON.stringify(
+          { 
+            op: 'error',
+            args: [
+              'fillrequest',
+              maker_user_id,
+              "The Order was filled by better offer."
+            ] 
+          }
+        )
+      )
+    })
     this.redis.DEL(redisKey)
+
     this.redis.set(
       redisKey,
       JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
