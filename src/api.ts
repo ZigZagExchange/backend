@@ -710,7 +710,7 @@ export default class API extends EventEmitter {
       value: JSON.stringify({
         "selectresult": selectresult,
         "fillOrder": fillOrder,
-        "ws": ws
+        "wsUUID": ws.uuid
       })
     }
 
@@ -754,8 +754,9 @@ export default class API extends EventEmitter {
     const value = JSON.parse(redis_members.value)
     const selectresult = value.selectresult
     const fillOrder = value.fillOrder
-    const ws = value.ws
     const makerAccountId = fillOrder.accountId.toString()
+    const makerConnId = `${chainid}:${value.wsUUID}`
+    const ws = this.MAKER_CONNECTIONS[makerConnId]
     let fill
 
     try {
@@ -842,8 +843,9 @@ export default class API extends EventEmitter {
       const makerOffer = JSON.parse(makerOfferString)
       const value = JSON.parse(makerOffer.value)
       const fillOrder = value.fillOrder
-      const ws = value.ws
       const maker_user_id = fillOrder.accountId.toString()
+      const makerConnId = `${chainid}:${value.wsUUID}`
+      const ws = this.MAKER_CONNECTIONS[makerConnId]
       ws.send(
         JSON.stringify(
           { 
