@@ -935,9 +935,14 @@ export default class API extends EventEmitter {
         await this.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
       )
       const price = +redis_prices[market]
-      const priceChange = +(price - yesterdayPrice).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
+      let priceChange
+      if (yesterdayPrice) {
+        priceChange = +(price - yesterdayPrice).toFixed(
+          marketInfo.pricePrecisionDecimals
+        )
+      } else {
+        priceChange = 0
+      }
       const quoteVolume = redis_volumes[market] || 0
       lastprices.push([market, price, priceChange, quoteVolume])
     }
