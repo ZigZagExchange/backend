@@ -1289,9 +1289,9 @@ export default class API extends EventEmitter {
           mid.toFixed(marketInfo.pricePrecisionDecimals)
         )
       })
-
       // Broadcast last prices
-      const lastprices = await this.getLastPrices(chainid)
+      const lastprices = (await this.getLastPrices(chainid))
+        .map((l) => l.splice(0, 3))
       this.broadcastMessage(chainid, null, {
         op: 'lastprice',
         args: [lastprices],
@@ -1454,7 +1454,8 @@ export default class API extends EventEmitter {
   }
 
   getV1Markets = async (chainid: number) => {
-    const v1Prices = await this.getLastPrices(chainid)
+    const v1Prices = (await this.getLastPrices(chainid))
+      .map((l) => l.splice(0, 3))
     const v1markets = v1Prices.map((l) => l[0])
     return v1markets
   }
