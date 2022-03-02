@@ -1350,4 +1350,100 @@ export default class API extends EventEmitter {
     await this.redis.expire(redis_key, 1200)
     return volumes
   }
+  
+  getUsdPrice = async (
+    chainid: number,
+    tokenSymbol: string
+  ) => {
+    const redisKey = `usdprice:${chainid}:&{tokenSymbol}`
+    const cache = await this.redis.GET(redisKey)
+    if(cache) return +cache
+
+    const stablePrice = await this.getUsdStablePrice(
+      chainid,
+      tokenSymbol
+    )
+    if(stablePrice) {
+      this.redis.set(
+        redisKey,
+        stablePrice,
+        { 'EX': 30}
+      )
+      return stablePrice
+    }
+
+    const linkedPrice = await this.getUsdLinkedPrice(
+      chainid,
+      tokenSymbol
+    )
+    if(linkedPrice) {
+      this.redis.set(
+        redisKey,
+        linkedPrice,
+        { 'EX': 60}
+      )
+      return linkedPrice
+    }
+    
+    return null
+  }
+
+  getUsdStablePrice = async (
+    chainid: number,
+    tokenSymbol: string
+  ) => {
+    const redisKeyPrices = `lastprices:${chainid}`
+    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
+    const stabels = ["DAI", "FRAX", "USDC", "USDT", "UST"]
+
+    const prices: number[] = []
+    stabels.forEach(stabel => {
+      const possibleMarket = `${tokenSymbol}-${stabel}`
+      const price = redisPrices[possibleMarket]
+      if(price) prices.push(+price)
+    })
+
+    if(prices.length > 0) {
+      const sum = prices.reduce((pv, cv) => pv + cv, 0)
+      return (sum / prices.length)  
+    } else {
+      return null
+    }
+  }
+
+  getUsdLinkedPrice = async (
+    chainid: number,
+    tokenSymbol: string
+  ) => {
+    let price
+    const redisKeyPrices = `lastprices:${chainid}`
+    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
+    const markets = Object.keys(redisPrices)
+
+    const prices: number[] = []
+    const results: Promise<any>[] = markets.map(async (market) => {
+      const [baseAsset, quoteAsset] = market.split("-")
+      if(baseAsset === tokenSymbol) {
+        const quotePrice = await this.getUsdStablePrice(
+          chainid,
+          quoteAsset
+        )
+        if(quotePrice) prices.push(quotePrice)
+      } else if (quoteAsset === tokenSymbol) {
+        const basePrice = await this.getUsdStablePrice(
+          chainid,
+          baseAsset
+        )
+        if(basePrice) prices.push(1/basePrice)
+      }
+    })
+    await Promise.all(results)
+
+    if(prices.length > 0) {
+      const sum = prices.reduce((pv, cv) => pv + cv, 0)
+      return (sum / prices.length)  
+    } else {
+      return null
+    }
+  }
 }
