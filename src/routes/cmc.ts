@@ -4,7 +4,7 @@ import type { ZZHttpServer, ZZMarketSummary } from 'src/types'
 export default function cmcRoutes(app: ZZHttpServer) {
   app.get('/ticker', async (req, res) => {
     try {
-      const marketSummarys: any =  await app.api.getMarketSummarys()
+      const marketSummarys: any =  await app.api.getMarketSummarys(1000)
       res.json(marketSummarys)
 
     } catch (error: any) {
