@@ -542,6 +542,8 @@ Arguments: `[chainId,market]`
 
 Description: Unsubscribe from a market
 
+To unsubscibe from all markets, you can leave the args empty: `"args": []`
+
 ```json
 { "op": "unsubscribemarket", "args": [1000, "ETH-USDT"] }
 ```
