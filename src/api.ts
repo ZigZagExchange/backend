@@ -947,7 +947,7 @@ export default class API extends EventEmitter {
   }
   
   getMarketSummarys = async (
-    chainid: number = 1,
+    chainid: number,
     marketReq: string = ""
   ) => {
     const marketSummarys: any = {}
@@ -959,7 +959,9 @@ export default class API extends EventEmitter {
     const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
 
-    const markets = (marketReq !== "") ? [marketReq] : Object.keys(redisPrices)
+    const markets = (marketReq !== "") 
+      ? [marketReq]
+      : await this.redis.SMEMBERS(`activemarkets:${chainid}`)
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       const marketInfo = await this.getMarketInfo(market, chainid)
       if (!marketInfo || marketInfo.error) return
