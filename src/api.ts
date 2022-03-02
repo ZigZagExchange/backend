@@ -1016,14 +1016,15 @@ export default class API extends EventEmitter {
         )
       }
 
-      const quoteVolume = +(redisPricesQuote[market] || 0)
-      const baseVolume = +(redisVolumesBase[market] || 0)
+      const quoteVolume = redisPricesQuote[market] || 0
+      const baseVolume = redisVolumesBase[market] || 0
 
       const liquidity = await this.getLiquidity(
         chainid,
         market
       )
       const asks = liquidity.filter((l) => l[0] === 's')
+      console.log(`market: ${market}, asks: ${asks}`)
       const bids = liquidity.filter((l) => l[0] === 'b')
       const lowestAsk = +asks[0]
       const highestBid = +bids[bids.length - 1]
@@ -1042,7 +1043,6 @@ export default class API extends EventEmitter {
         "highestPrice_24h": highestPrice_24h,
         "lowestPrice_24h": lowestPrice_24h
       }
-      console.log(marketSummary)
       marketSummarys[market] = marketSummary
     })    
     await Promise.all(results)
