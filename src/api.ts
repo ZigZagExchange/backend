@@ -978,13 +978,14 @@ export default class API extends EventEmitter {
         marketInfo.pricePrecisionDecimals
       )
       console.log(`market: ${market}, lastPrice: ${lastPrice}, priceChange: ${priceChange}`)
-            
+        
+      let lowestPrice_24h, highestPrice_24h
       const values = [chainid, market, yesterday]
       const redisLowestPrice_24h = `lowestPrice:${chainid}:${market}`
-      let lowestPrice_24h = Number(
-        await this.redis.get(redisLowestPrice_24h)
-      )
-      if(!lowestPrice_24h) {
+      const cacheLowestPrice_24h = await this.redis.get(redisLowestPrice_24h)
+      if(cacheLowestPrice_24h) { 
+        lowestPrice_24h = Number(cacheLowestPrice_24h)
+      } else {
         const selectMin = await this.db.query(
           "SELECT MIN(price) AS min_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
           values
@@ -999,10 +1000,10 @@ export default class API extends EventEmitter {
       }
 
       const redisHighestPrice_24h = `highestPrice:${chainid}:${market}`
-      let highestPrice_24h = Number(
-        await this.redis.get(redisHighestPrice_24h)
-      )
-      if(!highestPrice_24h) {
+      const cacheHighestPrice_24h = await this.redis.get(redisHighestPrice_24h)
+      if(cacheHighestPrice_24h) {
+        highestPrice_24h = Number(cacheHighestPrice_24h)
+      } else {
         const selectMax = await this.db.query(
           "SELECT MAX(price) AS max_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
           values
@@ -1015,8 +1016,9 @@ export default class API extends EventEmitter {
           { EX: 275 }          
         )
       }
-
-      const quoteVolume = Number(redisPricesQuote[market] || 0)
+      const stringquoteVolume =redisPricesQuote[market] || 0
+      console.log(stringquoteVolume)
+      const quoteVolume = Number(stringquoteVolume)
       const baseVolume = Number(redisVolumesBase[market] || 0)
 
       const liquidity = await this.getLiquidity(
@@ -1024,10 +1026,9 @@ export default class API extends EventEmitter {
         market
       )
       const asks = liquidity.filter((l) => l[0] === 's')
-      console.log(`market: ${market}, asks: ${asks}`)
       const bids = liquidity.filter((l) => l[0] === 'b')
-      const lowestAsk = +asks[0]
-      const highestBid = +bids[bids.length - 1]
+      const lowestAsk = +asks[0][1]
+      const highestBid = +bids[bids.length - 1][1]
 
       const marketSummary: ZZMarketSummary = {
         "market": market,
