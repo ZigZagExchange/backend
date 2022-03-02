@@ -950,7 +950,6 @@ export default class API extends EventEmitter {
     chainid: number = 1,
     market: string = ""
   ) => {
-    console.log(`chainid: ${chainid}, market: ${market}`)
     const marketSummarys: any = {}
     const redisKeyPrices = `lastprices:${chainid}`
     const redisPrices = await this.redis.HGETALL(redisKeyPrices)
@@ -961,6 +960,7 @@ export default class API extends EventEmitter {
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
 
     const markets = (market !== "") ? [market] : Object.keys(redisPrices)
+    console.log(`chainid: ${chainid}, markets: ${markets}`)
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       const marketInfo = await this.getMarketInfo(market, chainid)
       if (!marketInfo || marketInfo.error) return
@@ -1026,6 +1026,7 @@ export default class API extends EventEmitter {
       )
       const asks = liquidity.filter((l) => l[0] === 's')
       const bids = liquidity.filter((l) => l[0] === 'b')
+      console.log(asks[0])
       const lowestAsk = +asks[0][1]
       const highestBid = +bids[bids.length - 1][1]
 
@@ -1043,6 +1044,7 @@ export default class API extends EventEmitter {
         "highestPrice_24h": highestPrice_24h,
         "lowestPrice_24h": lowestPrice_24h
       }
+      console.log(marketSummary)
       marketSummarys[market] = marketSummary
     })    
     await Promise.all(results)
