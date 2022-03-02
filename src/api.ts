@@ -950,6 +950,7 @@ export default class API extends EventEmitter {
     chainid: number = 1,
     market: string = ""
   ) => {
+    console.log(`chainid: ${chainid}, market: ${market}`)
     const marketSummarys: any = {}
     const redisKeyPrices = `lastprices:${chainid}`
     const redisPrices = await this.redis.HGETALL(redisKeyPrices)
@@ -976,6 +977,7 @@ export default class API extends EventEmitter {
       const priceChangePercent = +(priceChange / lastPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
+      console.log(`market: ${market}, lastPrice: ${lastPrice}, priceChange: ${priceChange}`)
             
       const values = [chainid, market, yesterday]
       const redisLowestPrice_24h = `lowestPrice:${chainid}:${market}`
@@ -1026,7 +1028,6 @@ export default class API extends EventEmitter {
       const lowestAsk = +asks[0]
       const highestBid = +bids[bids.length - 1]
 
-
       const marketSummary: ZZMarketSummary = {
         "market": market,
         "baseSymbol": marketInfo.baseAsset.symbol,
@@ -1041,6 +1042,7 @@ export default class API extends EventEmitter {
         "highestPrice_24h": highestPrice_24h,
         "lowestPrice_24h": lowestPrice_24h
       }
+      console.log(marketSummary)
       marketSummarys[market] = marketSummary
     })    
     await Promise.all(results)
