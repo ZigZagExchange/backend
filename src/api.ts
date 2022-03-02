@@ -963,6 +963,13 @@ export default class API extends EventEmitter {
       ? [marketReq]
       : await this.redis.SMEMBERS(`activemarkets:${chainid}`)
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+      const redisKeyMarketSummary = `marketsummary:${chainid}:${market}`
+      const cacheMarketSummary = await this.redis.GET(redisKeyMarketSummary)
+      if(cacheMarketSummary) {
+        marketSummarys[market] = JSON.parse(cacheMarketSummary)
+        return
+      }
+
       const marketInfo = await this.getMarketInfo(market, chainid)
       if (!marketInfo || marketInfo.error) return
       const yesterday = new Date(Date.now() - 86400 * 1000)
@@ -979,7 +986,8 @@ export default class API extends EventEmitter {
       )
         
       // lowest price 24h
-      let lowestPrice_24h, highestPrice_24h
+      let lowestPrice_24h: number
+      let highestPrice_24h: number
       const values = [chainid, market, yesterday]
       const redisLowestPrice_24h = `lowestPrice:${chainid}:${market}`
       const cacheLowestPrice_24h = await this.redis.get(redisLowestPrice_24h)
@@ -1046,8 +1054,12 @@ export default class API extends EventEmitter {
         "highestPrice_24h": highestPrice_24h,
         "lowestPrice_24h": lowestPrice_24h
       }
-      console.log(marketSummary)
       marketSummarys[market] = marketSummary
+      this.redis.SET(
+        redisKeyMarketSummary,
+        JSON.stringify(marketSummary),
+        { 'EX': 15}
+      )
     })    
     await Promise.all(results)
     return marketSummarys
