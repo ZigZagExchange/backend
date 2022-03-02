@@ -1016,8 +1016,8 @@ export default class API extends EventEmitter {
         )
       }
 
-      const quoteVolume = redisPricesQuote[market] || 0
-      const baseVolume = redisVolumesBase[market] || 0
+      const quoteVolume = Number(redisPricesQuote[market] || 0)
+      const baseVolume = Number(redisVolumesBase[market] || 0)
 
       const liquidity = await this.getLiquidity(
         chainid,
