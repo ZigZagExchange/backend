@@ -948,7 +948,7 @@ export default class API extends EventEmitter {
   
   getMarketSummarys = async (
     chainid: number = 1,
-    market: string = ""
+    marketReq: string = ""
   ) => {
     const marketSummarys: any = {}
     const redisKeyPrices = `lastprices:${chainid}`
@@ -959,8 +959,7 @@ export default class API extends EventEmitter {
     const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
 
-    const markets = (market !== "") ? [market] : Object.keys(redisPrices)
-    console.log(`chainid: ${chainid}, markets: ${markets}`)
+    const markets = (marketReq !== "") ? [marketReq] : Object.keys(redisPrices)
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       const marketInfo = await this.getMarketInfo(market, chainid)
       if (!marketInfo || marketInfo.error) return
@@ -976,8 +975,8 @@ export default class API extends EventEmitter {
       const priceChangePercent = +(priceChange / lastPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
-      console.log(`market: ${market}, lastPrice: ${lastPrice}, priceChange: ${priceChange}`)
         
+      // lowest price 24h
       let lowestPrice_24h, highestPrice_24h
       const values = [chainid, market, yesterday]
       const redisLowestPrice_24h = `lowestPrice:${chainid}:${market}`
@@ -998,6 +997,7 @@ export default class API extends EventEmitter {
         )
       }
 
+      // highest price 24h
       const redisHighestPrice_24h = `highestPrice:${chainid}:${market}`
       const cacheHighestPrice_24h = await this.redis.get(redisHighestPrice_24h)
       if(cacheHighestPrice_24h) {
@@ -1015,18 +1015,18 @@ export default class API extends EventEmitter {
           { EX: 275 }          
         )
       }
-      const stringquoteVolume =redisPricesQuote[market] || 0
-      console.log(stringquoteVolume)
-      const quoteVolume = Number(stringquoteVolume)
+
+      // get volume
+      const quoteVolume = Number(redisPricesQuote[market] || 0)
       const baseVolume = Number(redisVolumesBase[market] || 0)
 
+      // get best ask/bid
       const liquidity = await this.getLiquidity(
         chainid,
         market
       )
       const asks = liquidity.filter((l) => l[0] === 's')
       const bids = liquidity.filter((l) => l[0] === 'b')
-      console.log(asks)
       const lowestAsk = +asks[0]?.[1]
       const highestBid = +bids[bids.length - 1]?.[1]
 
@@ -1044,7 +1044,6 @@ export default class API extends EventEmitter {
         "highestPrice_24h": highestPrice_24h,
         "lowestPrice_24h": lowestPrice_24h
       }
-      console.log(marketSummary)
       marketSummarys[market] = marketSummary
     })    
     await Promise.all(results)
