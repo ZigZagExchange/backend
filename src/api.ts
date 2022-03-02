@@ -17,6 +17,7 @@ import type {
   ZZMarket,
   ZZHttpServer,
   ZZSocketServer,
+  ZZMarketSummary
 } from 'src/types'
 
 export default class API extends EventEmitter {
@@ -944,6 +945,108 @@ export default class API extends EventEmitter {
 
     return lastprices
   }
+  
+  getMarketSummarys = async (
+    chainid: number = 1,
+    market: string = ""
+  ) => {
+    const marketSummarys: any = {}
+    const redisKeyPrices = `lastprices:${chainid}`
+    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
+
+    const redisKeyVolumesQuote = `volume:${chainid}:quote`
+    const redisKeyVolumesBase = `volume:${chainid}:base`    
+    const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
+    const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
+
+    const markets = (market !== "") ? [market] : Object.keys(redisPrices)
+    const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+      const marketInfo = await this.getMarketInfo(market, chainid)
+      if (!marketInfo || marketInfo.error) return
+      const yesterday = new Date(Date.now() - 86400 * 1000)
+        .toISOString()
+        .slice(0, 10)
+      const yesterdayPrice = Number(
+        await this.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
+      )
+      const lastPrice = +redisPrices[market]
+      const priceChange = +(lastPrice - yesterdayPrice).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+      const priceChangePercent = +(priceChange / lastPrice).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+            
+      const values = [chainid, market, yesterday]
+      const redisLowestPrice_24h = `lowestPrice:${chainid}:${market}`
+      let lowestPrice_24h = Number(
+        await this.redis.get(redisLowestPrice_24h)
+      )
+      if(!lowestPrice_24h) {
+        const selectMin = await this.db.query(
+          "SELECT MIN(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 order_status = 'f' RETURNING price",
+          values
+        )
+        lowestPrice_24h = (selectMin.rows[0]) ? Number(selectMin.rows[0]) : 0
+        lowestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
+        await this.redis.set(
+          redisLowestPrice_24h,
+          lowestPrice_24h,
+          { EX: 275 }          
+        )
+      }
+
+      const redisHighestPrice_24h = `highestPrice:${chainid}:${market}`
+      let highestPrice_24h = Number(
+        await this.redis.get(redisHighestPrice_24h)
+      )
+      if(!highestPrice_24h) {
+        const selectMax = await this.db.query(
+          "SELECT MAX(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 order_status = 'f' RETURNING price",
+          values
+        )
+        highestPrice_24h = (selectMax.rows[0]) ? Number(selectMax.rows[0]) : 0
+        highestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
+        await this.redis.set(
+          redisHighestPrice_24h,
+          highestPrice_24h,
+          { EX: 275 }          
+        )
+      }
+
+      const quoteVolume = +(redisPricesQuote[market] || 0)
+      const baseVolume = +(redisVolumesBase[market] || 0)
+
+      const liquidity = await this.getLiquidity(
+        chainid,
+        market
+      )
+      const asks = liquidity.filter((l) => l[0] === 's')
+      const bids = liquidity.filter((l) => l[0] === 'b')
+      const lowestAsk = +asks[0]
+      const highestBid = +bids[bids.length - 1]
+
+
+      const marketSummary: ZZMarketSummary = {
+        "market": market,
+        "baseSymbol": marketInfo.baseAsset.symbol,
+        "quoteSymbol": marketInfo.quoteAsset.symbol,
+        "lastPrice": lastPrice,
+        "lowestAsk": lowestAsk,
+        "highestBid": highestBid,
+        "baseVolume": baseVolume,
+        "quoteVolume": quoteVolume,
+        "priceChange": priceChange,
+        "priceChangePercent": priceChangePercent,
+        "highestPrice_24h": highestPrice_24h,
+        "lowestPrice_24h": lowestPrice_24h
+      }
+      marketSummarys[market] = marketSummary
+    })    
+    await Promise.all(results)
+    return marketSummarys
+  }
+
 
   // Ladder has to be a sorted 2-D array contaning price and quantity
   // Example: [ [3500,1], [3501,2] ]
