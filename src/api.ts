@@ -984,7 +984,7 @@ export default class API extends EventEmitter {
       )
       if(!lowestPrice_24h) {
         const selectMin = await this.db.query(
-          "SELECT MIN(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 AND order_status = 'f' RETURNING price",
+          "SELECT MIN(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 AND order_status = 'f'",
           values
         )
         lowestPrice_24h = (selectMin.rows[0]) ? Number(selectMin.rows[0]) : 0
@@ -1002,7 +1002,7 @@ export default class API extends EventEmitter {
       )
       if(!highestPrice_24h) {
         const selectMax = await this.db.query(
-          "SELECT MAX(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 AND order_status = 'f' RETURNING price",
+          "SELECT MAX(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 AND order_status = 'f'",
           values
         )
         highestPrice_24h = (selectMax.rows[0]) ? Number(selectMax.rows[0]) : 0
