@@ -841,7 +841,7 @@ export default class API extends EventEmitter {
   updateVolumes = async () => {
     const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()
     const query = {
-      text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+      text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
       values: [one_day_ago],
     }
     const select = await this.db.query(query)
