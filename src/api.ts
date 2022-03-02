@@ -1015,8 +1015,9 @@ export default class API extends EventEmitter {
           { EX: 275 }          
         )
       }
-
-      const quoteVolume = Number(redisPricesQuote[market] || 0)
+      const stringquoteVolume =redisPricesQuote[market] || 0
+      console.log(stringquoteVolume)
+      const quoteVolume = Number(stringquoteVolume)
       const baseVolume = Number(redisVolumesBase[market] || 0)
 
       const liquidity = await this.getLiquidity(
@@ -1024,7 +1025,6 @@ export default class API extends EventEmitter {
         market
       )
       const asks = liquidity.filter((l) => l[0] === 's')
-      console.log(`market: ${market}, asks: ${asks}`)
       const bids = liquidity.filter((l) => l[0] === 'b')
       const lowestAsk = +asks[0][1]
       const highestBid = +bids[bids.length - 1][1]
