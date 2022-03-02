@@ -841,7 +841,7 @@ export default class API extends EventEmitter {
   updateVolumes = async () => {
     const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()
     const query = {
-      text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+      text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
       values: [one_day_ago],
     }
     const select = await this.db.query(query)
@@ -986,10 +986,10 @@ export default class API extends EventEmitter {
       )
       if(!lowestPrice_24h) {
         const selectMin = await this.db.query(
-          "SELECT MIN(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 AND order_status = 'f'",
+          "SELECT MIN(price) AS min_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
           values
         )
-        lowestPrice_24h = (selectMin.rows[0]) ? Number(selectMin.rows[0]) : 0
+        lowestPrice_24h = (selectMin.rows[0]) ? Number(selectMin.rows[0].min_price) : 0
         lowestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
         await this.redis.set(
           redisLowestPrice_24h,
@@ -1004,10 +1004,10 @@ export default class API extends EventEmitter {
       )
       if(!highestPrice_24h) {
         const selectMax = await this.db.query(
-          "SELECT MAX(price) FROM offers WHERE chainid=$1 AND market=$2 AND update_timestamp >= $3 AND order_status = 'f'",
+          "SELECT MAX(price) AS max_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
           values
         )
-        highestPrice_24h = (selectMax.rows[0]) ? Number(selectMax.rows[0]) : 0
+        highestPrice_24h = (selectMax.rows[0]) ? Number(selectMax.rows[0].max_price) : 0
         highestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
         await this.redis.set(
           redisHighestPrice_24h,
