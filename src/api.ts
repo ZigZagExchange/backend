@@ -961,6 +961,7 @@ export default class API extends EventEmitter {
 
     const markets = (marketReq !== "") ? [marketReq] : Object.keys(redisPrices)
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+      console.log(`chainid: ${chainid}, market: ${market}`)
       const marketInfo = await this.getMarketInfo(market, chainid)
       if (!marketInfo || marketInfo.error) return
       const yesterday = new Date(Date.now() - 86400 * 1000)
@@ -1044,6 +1045,7 @@ export default class API extends EventEmitter {
         "highestPrice_24h": highestPrice_24h,
         "lowestPrice_24h": lowestPrice_24h
       }
+      console.log(`chainid: ${chainid}, market: ${market}, marketSummary: ${marketSummary}`)
       marketSummarys[market] = marketSummary
     })    
     await Promise.all(results)
