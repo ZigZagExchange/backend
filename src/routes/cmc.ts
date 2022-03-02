@@ -1,5 +1,5 @@
 import API from 'src/api'
-import type { ZZHttpServer, ZZMarketSummary } from 'src/types'
+import type { ZZHttpServer } from 'src/types'
 
 export default function cmcRoutes(app: ZZHttpServer) {
   app.get('/all', async (req, res) => {
@@ -25,6 +25,34 @@ export default function cmcRoutes(app: ZZHttpServer) {
         }
       })
       res.json(lastPrices)
+    } catch (error: any) {
+      console.log(error.message)
+      res.send({ op: 'error', message: 'Failed to fetch market prices' })
+    }
+  })
+
+  app.get('/orderbook/:market_pair', async (req, res) => {
+    try {
+      const market = (req.params.market_pair).replace('_','-')      
+      const timestamp = Date.now()      
+      const liquidity = await app.api.getLiquidity(
+        1000,
+        market
+      )
+      const bids = liquidity
+        .filter((l) => l[0] === 'b')
+        .map((l) => [l[1],l[2]])
+        .reverse()
+
+      const asks = liquidity
+        .filter((l) => l[0] === 's')
+        .map((l) => [l[1],l[2]])
+
+      res.json({
+        "timestamp": timestamp,
+        "bids": bids,
+        "asks": asks
+      })
     } catch (error: any) {
       console.log(error.message)
       res.send({ op: 'error', message: 'Failed to fetch market prices' })
