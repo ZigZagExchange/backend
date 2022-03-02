@@ -8,7 +8,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
       res.json(marketSummarys)
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: 'Failed to fetch market prices' })
+      res.send({ op: 'error', message: 'Failed to fetch markets' })
     }
   })
 
@@ -27,14 +27,14 @@ export default function cmcRoutes(app: ZZHttpServer) {
       res.json(lastPrices)
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: 'Failed to fetch market prices' })
+      res.send({ op: 'error', message: 'Failed to fetch ticker prices' })
     }
   })
 
   app.get('/orderbook/:market_pair', async (req, res) => {
-    try {
-      const market = (req.params.market_pair).replace('_','-')      
-      const timestamp = Date.now()      
+    const market = (req.params.market_pair).replace('_','-') 
+    try {           
+      const timestamp = Date.now()
       const liquidity = await app.api.getLiquidity(
         1000,
         market
@@ -55,7 +55,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
       })
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: 'Failed to fetch market prices' })
+      res.send({ op: 'error', message: `Failed to fetch orderbook for ${market}` })
     }
   })
 }
