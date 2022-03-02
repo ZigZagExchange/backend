@@ -919,12 +919,14 @@ export default class API extends EventEmitter {
   getLastPrices = async (chainid: number) => {
     const lastprices = []
     const redis_key_prices = `lastprices:${chainid}`
-    const redis_key_volumes = `volume:${chainid}:quote`
+    const redisKeyVolumesQuote = `volume:${chainid}:quote`
+    const redisKeyVolumesBase = `volume:${chainid}:base` 
     const redis_prices = await this.redis.HGETALL(redis_key_prices)
-    const redis_volumes = await this.redis.HGETALL(redis_key_volumes)
+    const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
+    const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
+    const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
 
     // eslint-disable-next-line no-restricted-syntax
-    const markets = Object.keys(redis_prices)
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]
       const marketInfo = await this.getMarketInfo(market, chainid)
@@ -939,8 +941,9 @@ export default class API extends EventEmitter {
       const priceChange = +(price - yesterdayPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
-      const quoteVolume = redis_volumes[market] || 0
-      lastprices.push([market, price, priceChange, quoteVolume])
+      const quoteVolume = redisPricesQuote[market] || 0
+      const baseVolume = redisVolumesBase[market] || 0
+      lastprices.push([market, price, priceChange, quoteVolume, baseVolume])
     }
 
     return lastprices
