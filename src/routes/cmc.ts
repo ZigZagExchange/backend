@@ -7,7 +7,8 @@ export default function cmcRoutes(app: ZZHttpServer) {
       const marketSummarys: any =  await app.api.getMarketSummarys()
       res.json(marketSummarys)
 
-    } catch (error) {
+    } catch (error: any) {
+      console.log(error.message)
       res.send({ op: 'error', message: 'Failed to fetch market prices' })
     }
   })
