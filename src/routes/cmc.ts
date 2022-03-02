@@ -58,4 +58,34 @@ export default function cmcRoutes(app: ZZHttpServer) {
       res.send({ op: 'error', message: `Failed to fetch orderbook for ${market}` })
     }
   })
+
+  app.get('/trades/:market_pair', async (req, res) => {
+    const market = (req.params.market_pair).replace('_','-') 
+    try {
+      const fills = await app.api.getfills(
+        1000,
+        market
+      )
+
+      const response: any[] = []
+      fills.forEach(fill => {
+        const date = new Date(fill.insert_timestamp)
+        response.push(
+          {
+            "trade_id": fill.id,
+            "price": fill.price,
+            "base_volume": fill.amount,
+            "quote_volume": (fill.amount * fill.price),
+            "timestamp": date.getTime(),
+            "type": (fill.side === 's') ? 'sell' : 'buy',
+          }
+        )
+      })
+
+      res.send(response)
+    } catch (error: any) {
+      console.log(error.message)
+      res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
+    }
+  })
 }
