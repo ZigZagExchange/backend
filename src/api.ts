@@ -1026,8 +1026,8 @@ export default class API extends EventEmitter {
       const asks = liquidity.filter((l) => l[0] === 's')
       console.log(`market: ${market}, asks: ${asks}`)
       const bids = liquidity.filter((l) => l[0] === 'b')
-      const lowestAsk = +asks[0]
-      const highestBid = +bids[bids.length - 1]
+      const lowestAsk = +asks[0][1]
+      const highestBid = +bids[bids.length - 1][1]
 
       const marketSummary: ZZMarketSummary = {
         "market": market,
