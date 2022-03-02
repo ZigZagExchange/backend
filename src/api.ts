@@ -966,9 +966,8 @@ export default class API extends EventEmitter {
       if (!marketInfo || marketInfo.error) return
       const yesterday = new Date(Date.now() - 86400 * 1000)
         .toISOString()
-        .slice(0, 10)
       const yesterdayPrice = Number(
-        await this.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
+        await this.redis.get(`dailyprice:${chainid}:${market}:${yesterday.slice(0, 10)}`)
       )
       const lastPrice = +redisPrices[market]
       const priceChange = +(lastPrice - yesterdayPrice).toFixed(
