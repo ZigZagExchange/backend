@@ -7,7 +7,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
       ? Number(process.env.DEFAULT_CHAIN_ID)
       : 1
 
-  app.get('/all', async (req, res) => {
+  app.get('/v1/markets', async (req, res) => {
     try {
       const marketSummarys: any =  await app.api.getMarketSummarys(defaultChainId)
       res.json(marketSummarys)
@@ -17,7 +17,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/ticker', async (req, res) => {
+  app.get('/v1/ticker', async (req, res) => {
     try {
       const ticker: any = {}
       const lastPrices: any =  await app.api.getLastPrices(defaultChainId)
@@ -37,7 +37,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/orderbook/:market_pair', async (req, res) => {
+  app.get('/v1/orderbook/:market_pair', async (req, res) => {
     const market = (req.params.market_pair).replace('_','-')    
     const depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
@@ -156,7 +156,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/trades/:market_pair', async (req, res) => {
+  app.get('/v1/trades/:market_pair', async (req, res) => {
     const market = (req.params.market_pair).replace('_','-') 
     try {
       const fills = await app.api.getfills(
