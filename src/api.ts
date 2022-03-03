@@ -830,7 +830,7 @@ export default class API extends EventEmitter {
 
   getfills = async (chainid: number, market: ZZMarket) => {
     const query = {
-      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 5",
+      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 5",
       values: [market, chainid],
       rowMode: 'array',
     }
@@ -919,12 +919,14 @@ export default class API extends EventEmitter {
   getLastPrices = async (chainid: number) => {
     const lastprices = []
     const redis_key_prices = `lastprices:${chainid}`
-    const redis_key_volumes = `volume:${chainid}:quote`
+    const redisKeyVolumesQuote = `volume:${chainid}:quote`
+    const redisKeyVolumesBase = `volume:${chainid}:base` 
     const redis_prices = await this.redis.HGETALL(redis_key_prices)
-    const redis_volumes = await this.redis.HGETALL(redis_key_volumes)
+    const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
+    const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
+    const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
 
     // eslint-disable-next-line no-restricted-syntax
-    const markets = Object.keys(redis_prices)
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]
       const marketInfo = await this.getMarketInfo(market, chainid)
@@ -939,8 +941,9 @@ export default class API extends EventEmitter {
       const priceChange = +(price - yesterdayPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
-      const quoteVolume = redis_volumes[market] || 0
-      lastprices.push([market, price, priceChange, quoteVolume])
+      const quoteVolume = redisPricesQuote[market] || 0
+      const baseVolume = redisVolumesBase[market] || 0
+      lastprices.push([market, price, priceChange, quoteVolume, baseVolume])
     }
 
     return lastprices
@@ -1286,9 +1289,9 @@ export default class API extends EventEmitter {
           mid.toFixed(marketInfo.pricePrecisionDecimals)
         )
       })
-
       // Broadcast last prices
-      const lastprices = await this.getLastPrices(chainid)
+      const lastprices = (await this.getLastPrices(chainid))
+        .map((l) => l.splice(0, 3))
       this.broadcastMessage(chainid, null, {
         op: 'lastprice',
         args: [lastprices],
@@ -1451,7 +1454,8 @@ export default class API extends EventEmitter {
   }
 
   getV1Markets = async (chainid: number) => {
-    const v1Prices = await this.getLastPrices(chainid)
+    const v1Prices = (await this.getLastPrices(chainid))
+      .map((l) => l.splice(0, 3))
     const v1markets = v1Prices.map((l) => l[0])
     return v1markets
   }
