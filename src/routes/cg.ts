@@ -75,6 +75,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
                 market
             )
 
+            if(liquidity.length === 0) {
+                res.send({ op: 'error', message: `Can not find liquidity for ${market}` })
+            }
+
             // sort for bids and asks
             let bids: number [][] = liquidity
                 .filter((l) => l[0] === 'b')
@@ -130,6 +134,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
             defaultChainId,
             market
           )
+          if(fills.length === 0) {
+            res.send({ op: 'error', message: `Can not find trades for ${market}` })
+          }
 
           const max = (limit) ? Math.min(limit, fills.length) : fills.length
           const response: any[] = []
