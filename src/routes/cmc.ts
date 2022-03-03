@@ -70,6 +70,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
       if(liquidity.length === 0) {
         res.send({ op: 'error', message: `Can not find liquidity for ${market}` })
+        return
       }
 
       // sort for bids and asks
@@ -198,6 +199,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
       if(fills.length === 0) {
         res.send({ op: 'error', message: `Can not find trades for ${market}` })
+        return
       }
 
       const response: any[] = []
