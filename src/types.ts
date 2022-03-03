@@ -56,7 +56,7 @@ export type ZZMarketSummary = {
   baseVolume: number,
   quoteVolume: number,
   priceChange: number,
-  priceChangePercent: number,
+  priceChangePercent_24h: number,
   highestPrice_24h: number,
   lowestPrice_24h: number
 }
