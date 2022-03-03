@@ -104,7 +104,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         bids.map(b => {
           const stepCount = Math.ceil(Math.abs(b[0] - midPrice) % step)
           const stepValue = (midPrice - (stepCount * step))
-          .toFixed(marketInfo.pricePrecisionDecimal)
+            .toFixed(marketInfo.pricePrecisionDecimal)
           if(stepBidValues[stepValue]) {
             stepBidValues[stepValue] = stepBidValues[stepValue] + b[1]
           } else {
