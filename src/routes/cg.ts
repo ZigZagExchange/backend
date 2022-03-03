@@ -61,7 +61,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
         let market: string;
         if(tickerId) {
-            market = tickerId.replace('_','-')
+            market = tickerId.replace('_','-').toUpperCase()
         } else {
             res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id'" })
             return
@@ -119,7 +119,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
         let market: string;
         if(tickerId) {
-            market = tickerId.replace('_','-')
+            market = tickerId.replace('_','-').toUpperCase()
         } else {
             res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id'" })
             return
