@@ -83,6 +83,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
         })
       } else if (level == 2) {
         // CMC => 'Level 2 – Arranged by best bids and asks.'
+        const marketInfo = await app.api.getMarketInfo(
+          market,
+          defaultChainId
+        )
         // get mid price
         const redis_key_prices = `lastprices:${defaultChainId}`
         const midPrice = Number(
@@ -99,7 +103,8 @@ export default function cmcRoutes(app: ZZHttpServer) {
         let stepBidValues: any = {}
         bids.map(b => {
           const stepCount = Math.ceil(Math.abs(b[0] - midPrice) % step)
-          const stepValue = midPrice - (stepCount * step)
+          const stepValue = (midPrice - (stepCount * step))
+          .toFixed(marketInfo.pricePrecisionDecimal)
           if(stepBidValues[stepValue]) {
             stepBidValues[stepValue] = stepBidValues[stepValue] + b[1]
           } else {
@@ -116,7 +121,8 @@ export default function cmcRoutes(app: ZZHttpServer) {
         let stepAskValues: any = {}
         asks.map(a => {
           const stepCount = Math.ceil(Math.abs(a[0] - midPrice) % step)
-          const stepValue = midPrice + (stepCount * step)
+          const stepValue = (midPrice + (stepCount * step))
+            .toFixed(marketInfo.pricePrecisionDecimal)
           if(stepAskValues[stepValue]) {
             stepAskValues[stepValue] = stepAskValues[stepValue] + a[1]
           } else {
