@@ -9,8 +9,26 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
   app.get('/v1/markets', async (req, res) => {
     try {
+      const markets: any = {}
       const marketSummarys: any =  await app.api.getMarketSummarys(defaultChainId)
-      res.json(marketSummarys)
+      
+      Object.keys(marketSummarys).forEach((market: string) => {
+        const entry: any = {
+          "trading_pairs": marketSummarys.market.market,
+          "base_currency": marketSummarys.market.baseSymbol,
+          "quote_currency": marketSummarys.market.quoteSymbol,
+          "last_price": marketSummarys.market.lastPrice,
+          "lowest_ask": marketSummarys.market.lowestAsk,
+          "highest_bid": marketSummarys.market.highestBid,
+          "base_volume": marketSummarys.market.baseVolume,
+          "quote_volume": marketSummarys.market.quoteVolume,
+          "price_change_percent_24h": marketSummarys.market.priceChangePercent_24h,
+          "highest_price_24h": marketSummarys.market.highestPrice_24h,
+          "lowest_price_24h": marketSummarys.market.lowestPrice_24h
+        }
+        markets[market] = entry
+      })
+      res.json(markets)
     } catch (error: any) {
       console.log(error.message)
       res.send({ op: 'error', message: 'Failed to fetch markets' })
@@ -24,8 +42,8 @@ export default function cmcRoutes(app: ZZHttpServer) {
       lastPrices.forEach((price: string[]) => {
         const entry: any = {
           "last_price": price[1],
-          "quote_volume": price[3],
           "base_volume": price[4],
+          "quote_volume": price[3],          
           "isFrozen": 0
         }
         ticker[price[0]] = entry
@@ -39,7 +57,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
   app.get('/v1/orderbook/:market_pair', async (req, res) => {
     const market = (req.params.market_pair).replace('_','-')    
-    const depth: number = (req.query.depth) ? Number(req.query.depth) : 0
+    let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
     try {
       // get data
@@ -66,6 +84,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
       // if depth is set, only used every n entrys
       if(depth > 1) {
+        depth = Math.floor(depth * 0.5)
         bids = bids.filter((entry, i) => {
           return (i % depth === 0)
         })

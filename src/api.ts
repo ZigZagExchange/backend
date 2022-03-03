@@ -984,7 +984,7 @@ export default class API extends EventEmitter {
       const priceChange = +(lastPrice - yesterdayPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
-      const priceChangePercent = +(priceChange / lastPrice).toFixed(
+      const priceChangePercent_24h = +(priceChange / lastPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
         
@@ -1053,7 +1053,7 @@ export default class API extends EventEmitter {
         "baseVolume": baseVolume,
         "quoteVolume": quoteVolume,
         "priceChange": priceChange,
-        "priceChangePercent": priceChangePercent,
+        "priceChangePercent_24h": priceChangePercent_24h,
         "highestPrice_24h": highestPrice_24h,
         "lowestPrice_24h": lowestPrice_24h
       }
