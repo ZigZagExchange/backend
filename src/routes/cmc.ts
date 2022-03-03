@@ -28,7 +28,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
           "base_volume": price[4],
           "isFrozen": 0
         }
-        ticker[price[0]] = entry
+        ticker[price[0]] = JSON.parse(entry)
       })
       res.json(lastPrices)
     } catch (error: any) {
@@ -72,9 +72,11 @@ export default function cmcRoutes(app: ZZHttpServer) {
         defaultChainId,
         market
       )
+      console.log(fills)
 
       const response: any[] = []
       fills.forEach(fill => {
+        console.log(fill)
         const date = new Date(fill.insert_timestamp)
         const entry: any = {
           "trade_id": fill.id,
@@ -84,7 +86,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
           "timestamp": date.getTime(),
           "type": (fill.side === 's') ? 'sell' : 'buy'
         }
-        response.push(entry)
+        response.push(JSON.parse(entry))
       })
 
       res.send(response)
