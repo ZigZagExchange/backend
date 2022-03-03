@@ -13,18 +13,19 @@ export default function cmcRoutes(app: ZZHttpServer) {
       const marketSummarys: any =  await app.api.getMarketSummarys(defaultChainId)
       
       Object.keys(marketSummarys).forEach((market: string) => {
+        const marketSummary = marketSummarys[market]
         const entry: any = {
-          "trading_pairs": marketSummarys.market.market,
-          "base_currency": marketSummarys.market.baseSymbol,
-          "quote_currency": marketSummarys.market.quoteSymbol,
-          "last_price": marketSummarys.market.lastPrice,
-          "lowest_ask": marketSummarys.market.lowestAsk,
-          "highest_bid": marketSummarys.market.highestBid,
-          "base_volume": marketSummarys.market.baseVolume,
-          "quote_volume": marketSummarys.market.quoteVolume,
-          "price_change_percent_24h": marketSummarys.market.priceChangePercent_24h,
-          "highest_price_24h": marketSummarys.market.highestPrice_24h,
-          "lowest_price_24h": marketSummarys.market.lowestPrice_24h
+          "trading_pairs": marketSummary.market,
+          "base_currency": marketSummary.baseSymbol,
+          "quote_currency": marketSummary.quoteSymbol,
+          "last_price": marketSummary.lastPrice,
+          "lowest_ask": marketSummary.lowestAsk,
+          "highest_bid": marketSummary.highestBid,
+          "base_volume": marketSummary.baseVolume,
+          "quote_volume": marketSummary.quoteVolume,
+          "price_change_percent_24h": marketSummary.priceChangePercent_24h,
+          "highest_price_24h": marketSummary.highestPrice_24h,
+          "lowest_price_24h": marketSummary.lowestPrice_24h
         }
         markets[market] = entry
       })
