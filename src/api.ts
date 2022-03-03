@@ -830,7 +830,7 @@ export default class API extends EventEmitter {
 
   getfills = async (chainid: number, market: ZZMarket) => {
     const query = {
-      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 5",
+      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 25",
       values: [market, chainid],
       rowMode: 'array',
     }
