@@ -1455,7 +1455,6 @@ export default class API extends EventEmitter {
 
   getV1Markets = async (chainid: number) => {
     const v1Prices = (await this.getLastPrices(chainid))
-      .map((l) => l.splice(0, 3))
     const v1markets = v1Prices.map((l) => l[0])
     return v1markets
   }
