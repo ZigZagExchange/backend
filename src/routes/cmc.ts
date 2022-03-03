@@ -2,9 +2,14 @@ import API from 'src/api'
 import type { ZZHttpServer } from 'src/types'
 
 export default function cmcRoutes(app: ZZHttpServer) {
+
+  const defaultChainId = process.env.DEFAULT_CHAIN_ID
+      ? Number(process.env.DEFAULT_CHAIN_ID)
+      : 1
+
   app.get('/all', async (req, res) => {
     try {
-      const marketSummarys: any =  await app.api.getMarketSummarys(1000)
+      const marketSummarys: any =  await app.api.getMarketSummarys(defaultChainId)
       res.json(marketSummarys)
     } catch (error: any) {
       console.log(error.message)
@@ -15,7 +20,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
   app.get('/ticker', async (req, res) => {
     try {
       const ticker: any = {}
-      const lastPrices: any =  await app.api.getLastPrices(1000)
+      const lastPrices: any =  await app.api.getLastPrices(defaultChainId)
       lastPrices.forEach((price: string[]) => {
         ticker[price[0]] = {
           "last_price": price[1],
@@ -36,7 +41,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     try {           
       const timestamp = Date.now()
       const liquidity = await app.api.getLiquidity(
-        1000,
+        defaultChainId,
         market
       )
       const bids = liquidity
@@ -63,7 +68,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const market = (req.params.market_pair).replace('_','-') 
     try {
       const fills = await app.api.getfills(
-        1000,
+        defaultChainId,
         market
       )
 
