@@ -30,7 +30,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         }
         ticker[price[0]] = entry
       })
-      res.json(lastPrices)
+      res.json(ticker)
     } catch (error: any) {
       console.log(error.message)
       res.send({ op: 'error', message: 'Failed to fetch ticker prices' })
