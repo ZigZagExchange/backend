@@ -104,7 +104,6 @@ export default function cmcRoutes(app: ZZHttpServer) {
         bids.map(b => {
           const stepCount = Math.ceil(Math.abs(b[0] - midPrice) % step)
           const stepValue = (midPrice - (stepCount * step))
-            .toPrecision(marketInfo.pricePrecisionDecimal)
           if(stepBidValues[stepValue]) {
             stepBidValues[stepValue] = stepBidValues[stepValue] + b[1]
           } else {
@@ -114,7 +113,12 @@ export default function cmcRoutes(app: ZZHttpServer) {
         // create new bids array
         const bidSteps = Object.keys(stepBidValues)
         bidSteps.forEach(bid => {
-          returnBids.push([bid, stepBidValues[bid]])
+          returnBids.push(
+            [
+              (+bid).toFixed(marketInfo.pricePrecisionDecimal),,
+              stepBidValues[bid]
+            ]
+          )
         })
 
         // group asks by steps
@@ -122,7 +126,6 @@ export default function cmcRoutes(app: ZZHttpServer) {
         asks.map(a => {
           const stepCount = Math.ceil(Math.abs(a[0] - midPrice) % step)
           const stepValue = (midPrice + (stepCount * step))
-            .toPrecision(marketInfo.pricePrecisionDecimal)
           if(stepAskValues[stepValue]) {
             stepAskValues[stepValue] = stepAskValues[stepValue] + a[1]
           } else {
@@ -132,7 +135,12 @@ export default function cmcRoutes(app: ZZHttpServer) {
         // create new asks array
         const askSteps = Object.keys(stepAskValues)
         askSteps.forEach(ask => {
-          returnAsks.push([ask, stepAskValues[ask]])
+          returnAsks.push(
+            [
+              (+ask).toFixed(marketInfo.pricePrecisionDecimal),
+              stepAskValues[ask]
+            ]
+          )
         })
 
         res.json({
