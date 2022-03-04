@@ -761,7 +761,149 @@ export default class API extends EventEmitter {
     })
   }
 
-  getLiquidity = async (chainid: number, market: ZZMarket) => {
+  /**
+  * Returns the liqidity for a given market.
+  * @param {number} chainid The reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+  * @param {ZZMarket} market The reqested market
+  * @param {number} depth Depth of returned Liqidity (depth/2 buckets per return)
+  * @param {number} level Level of returned Liqidity (1->best ask/bid, 2->0.05% steps, 3->all)
+  * @return {number} The resulting liqidity -> {"timestamp": _, "bids": _, "asks": _}
+  */
+  getLiquidityPerSide = async (
+    chainid: number,
+    market: ZZMarket,
+    depth: number = 0,
+    level: number = 2
+  ) => {
+    const timestamp = Date.now()
+    const liquidity = await this.getLiquidity(
+      chainid, 
+      market
+    )
+    if(liquidity.length === 0) {
+      return {
+        "timestamp": timestamp,
+        "bids": [],
+        "asks": []
+      }
+    }
+
+    // sort for bids and asks
+    let bids: number [][] = liquidity
+      .filter((l) => l[0] === 'b')
+      .map((l) => [
+        Number(l[1]),
+        Number(l[2])
+      ])
+      .reverse()
+    let asks: number [][] = liquidity
+      .filter((l) => l[0] === 's')
+      .map((l) => [
+        Number(l[1]),
+        Number(l[2])
+      ])
+
+    // if depth is set, only used every n entrys
+    if(depth > 1) {
+      depth = Math.floor(depth * 0.5)
+      bids = bids.filter((entry, i) => {
+        return (i % depth === 0)
+      })
+      asks = asks.filter((entry, i) => {
+        return (i % depth === 0)
+      })
+    }
+
+    if (level == 1) {
+      // Level 1 – Only best bid and ask.
+      return {
+        "timestamp": timestamp,
+        "bids": [bids[0]],
+        "asks": [asks[0]]
+      }
+    } else if (level == 2) {
+      // Level 2 – Arranged by best bids and asks.
+      const marketInfo = await this.getMarketInfo(
+        market,
+        chainid
+      )
+      // get mid price
+      const redis_key_prices = `lastprices:${chainid}`
+      const midPrice = Number(
+        await this.redis.HGET(
+          redis_key_prices,
+          market
+        )
+      )
+      const returnBids: number [][] = []
+      const returnAsks: number [][] = []
+      const step = midPrice * 0.0005
+
+      // group bids by steps
+      let stepBidValues: any = {}
+      bids.map(b => {
+        const stepCount = Math.ceil(Math.abs(b[0] - midPrice) % step)
+        const stepValue = (midPrice - (stepCount * step))
+        if(stepBidValues[stepValue]) {
+          stepBidValues[stepValue] = stepBidValues[stepValue] + b[1]
+        } else {
+          stepBidValues[stepValue] = b[1]
+        }
+      })
+      // create new bids array
+      const bidSteps = Object.keys(stepBidValues)
+      bidSteps.forEach(bid => {
+        returnBids.push(
+          [
+            (+bid).toFixed(marketInfo.pricePrecisionDecimal),,
+            stepBidValues[bid]
+          ]
+        )
+      })
+
+      // group asks by steps
+      let stepAskValues: any = {}
+      asks.map(a => {
+        const stepCount = Math.ceil(Math.abs(a[0] - midPrice) % step)
+        const stepValue = (midPrice + (stepCount * step))
+        if(stepAskValues[stepValue]) {
+          stepAskValues[stepValue] = stepAskValues[stepValue] + a[1]
+        } else {
+          stepAskValues[stepValue] = a[1]
+        }
+      })
+      // create new asks array
+      const askSteps = Object.keys(stepAskValues)
+      askSteps.forEach(ask => {
+        returnAsks.push(
+          [
+            (+ask).toFixed(marketInfo.pricePrecisionDecimal),
+            stepAskValues[ask]
+          ]
+        )
+      })
+
+      return {
+        "timestamp": timestamp,
+        "bids": returnBids,
+        "asks": returnAsks
+      }
+    } else if (level == 3) {
+      // Level 3 – Complete order book, no aggregation.
+      return {
+        "timestamp": timestamp,
+        "bids": bids,
+        "asks": asks
+      }
+    } else {
+      throw new Error (`level': ${level} is not supported for getLiquidityPerSide. Use 1, 2 or 3`)
+    }
+  }
+
+  getLiquidity = async (
+    chainid: number,
+    market: ZZMarket
+  ) => {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
     let liquidity = await this.redis.ZRANGEBYSCORE(
       redis_key_liquidity,
@@ -1034,14 +1176,14 @@ export default class API extends EventEmitter {
       const baseVolume = Number(redisVolumesBase[market] || 0)
 
       // get best ask/bid
-      const liquidity = await this.getLiquidity(
+      const liquidity = await this.getLiquidityPerSide(
         chainid,
-        market
+        market,
+        0,
+        1
       )
-      const asks = liquidity.filter((l) => l[0] === 's')
-      const bids = liquidity.filter((l) => l[0] === 'b')
-      const lowestAsk = +asks[0]?.[1]
-      const highestBid = +bids[bids.length - 1]?.[1]
+      const lowestAsk: number = liquidity.asks[0]?.[0]
+      const highestBid: number = liquidity.bids[0]?.[0]
 
       const marketSummary: ZZMarketSummary = {
         "market": market,
@@ -1113,8 +1255,14 @@ export default class API extends EventEmitter {
       throw new Error('Quantity must be positive')
 
     const marketInfo = await this.getMarketInfo(market, chainid)
-    const liquidity = await this.getLiquidity(chainid, market)
-    if (liquidity.length === 0) throw new Error('No liquidity for pair')
+    const liquidity = await this.getLiquidityPerSide(
+      chainid,
+      market,
+      0,
+      3
+    )
+    const asks = liquidity.asks
+    const bids = liquidity.bids
 
     let softQuoteQuantity: any
     let hardQuoteQuantity: any
@@ -1133,15 +1281,10 @@ export default class API extends EventEmitter {
       }
 
       if (side === 'b') {
-        const asks = liquidity
-          .filter((l: string) => l[0] === 's')
-          .map((l: string) => l.slice(1, 3)) as any[]
+        if (asks.length === 0) throw new Error('No liquidity for pair')
         ladderPrice = API.getQuoteFromLadder(asks, baseQuantity)
       } else {
-        const bids = liquidity
-          .filter((l: string) => l[0] === 'b')
-          .map((l: string) => l.slice(1, 3))
-          .reverse() as any[]
+        if (bids.length === 0) throw new Error('No liquidity for pair')
         ladderPrice = API.getQuoteFromLadder(bids, baseQuantity)
       }
 
@@ -1182,10 +1325,10 @@ export default class API extends EventEmitter {
       hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
 
       if (side === 'b') {
-        const asks: any[] = liquidity
-          .filter((l: any) => l[0] === 's')
+        if (asks.length === 0) throw new Error('No liquidity for pair')
+        const quoteAsks: any[] = asks
           .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
-        ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
+        ladderPrice = API.getQuoteFromLadder(quoteAsks, quoteQuantity)
 
         hardBaseQuantity = (
           (quoteQuantity - marketInfo.quoteFee) /
@@ -1198,10 +1341,10 @@ export default class API extends EventEmitter {
           marketInfo.pricePrecisionDecimals
         )
       } else {
-        const bids = liquidity
-          .filter((l: any) => l[0] === 'b')
+        if (bids.length === 0) throw new Error('No liquidity for pair')
+        const quoteBids = bids
           .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
-        ladderPrice = API.getQuoteFromLadder(bids, quoteQuantity)
+        ladderPrice = API.getQuoteFromLadder(quoteBids, quoteQuantity)
 
         hardBaseQuantity = (
           quoteQuantity / ladderPrice +
@@ -1252,8 +1395,15 @@ export default class API extends EventEmitter {
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
       if (!markets || markets.length === 0) return
       const results: Promise<any>[] = markets.map(async (market_id) => {
-        const liquidity = await this.getLiquidity(chainid, market_id)
-        if (liquidity.length === 0) {
+        const liquidity = await this.getLiquidityPerSide(
+          chainid,
+          market_id,
+          5,
+          3
+        )
+        const asks = liquidity.asks
+        const bids = liquidity.bids
+        if (asks.length === 0 && bids.length === 0) {
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
           return
@@ -1264,30 +1414,29 @@ export default class API extends EventEmitter {
         })
 
         // Update last price while you're at it
-        const asks = liquidity.filter((l) => l[0] === 's')
-        const bids = liquidity.filter((l) => l[0] === 'b')
-        if (asks.length === 0 || bids.length === 0) return
-        let askPrice: number = 0
-        let askVolume: number = 0
-        let bidPrice: number = 0
-        let bidVolume: number = 0
-        for (let i in asks) {
-          const ask: any = asks[i]
-          askPrice = askPrice + ask[1] * ask[2]
-          askVolume = askVolume + ask[2]
+        if (asks.length === 0 || bids.length === 0) {
+          let askPrice: number = 0
+          let askVolume: number = 0
+          let bidPrice: number = 0
+          let bidVolume: number = 0
+          for (let i in asks) {
+            const ask: any = asks[i]
+            askPrice = askPrice + ask[1] * ask[2]
+            askVolume = askVolume + ask[2]
+          }
+          for (let i in bids) {
+            const bid: any = bids[i]
+            bidPrice = bidPrice + bid[1] * bid[2]
+            bidVolume = bidVolume + bid[2]
+          }
+          const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
+          const marketInfo = await this.getMarketInfo(market_id, chainid)
+          this.redis.HSET(
+            `lastprices:${chainid}`,
+            market_id,
+            mid.toFixed(marketInfo.pricePrecisionDecimals)
+          )
         }
-        for (let i in bids) {
-          const bid: any = bids[i]
-          bidPrice = bidPrice + bid[1] * bid[2]
-          bidVolume = bidVolume + bid[2]
-        }
-        const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
-        const marketInfo = await this.getMarketInfo(market_id, chainid)
-        this.redis.HSET(
-          `lastprices:${chainid}`,
-          market_id,
-          mid.toFixed(marketInfo.pricePrecisionDecimals)
-        )
       })
       // Broadcast last prices
       const lastprices = (await this.getLastPrices(chainid))

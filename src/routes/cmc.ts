@@ -60,132 +60,21 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const market = (req.params.market_pair).replace('_','-').toUpperCase()
     let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
+    if(![1,2,3].includes(level)) 
+      res.send({ op: 'error', message: `Level: ${level} is not a valid level. Use 1, 2 or 3.` })
+      
     try {
       // get data
-      const timestamp = Date.now()
-      const liquidity = await app.api.getLiquidity(
+      const liquidity = await app.api.getLiquidityPerSide(
         defaultChainId,
-        market
+        market,
+        depth,
+        level
       )
-
-      if(liquidity.length === 0) {
-        res.send({ op: 'error', message: `Can not find liquidity for ${market}` })
-        return
-      }
-
-      // sort for bids and asks
-      let bids: number [][] = liquidity
-        .filter((l) => l[0] === 'b')
-        .map((l) => [
-          Number(l[1]),
-          Number(l[2])
-        ])
-        .reverse()
-      let asks: number [][] = liquidity
-        .filter((l) => l[0] === 's')
-        .map((l) => [
-          Number(l[1]),
-          Number(l[2])
-        ])
-
-      // if depth is set, only used every n entrys
-      if(depth > 1) {
-        depth = Math.floor(depth * 0.5)
-        bids = bids.filter((entry, i) => {
-          return (i % depth === 0)
-        })
-        asks = asks.filter((entry, i) => {
-          return (i % depth === 0)
-        })
-      }
-        
-      if (level == 1) {
-        // CMC => 'Level 1 – Only the best bid and ask.'
-        res.json({
-          "timestamp": timestamp,
-          "bids": bids[0],
-          "asks": asks[0]
-        })
-      } else if (level == 2) {
-        // CMC => 'Level 2 – Arranged by best bids and asks.'
-        const marketInfo = await app.api.getMarketInfo(
-          market,
-          defaultChainId
-        )
-        // get mid price
-        const redis_key_prices = `lastprices:${defaultChainId}`
-        const midPrice = Number(
-          await app.api.redis.HGET(
-            redis_key_prices,
-            market
-          )
-        )
-        const returnBids: number [][] = []
-        const returnAsks: number [][] = []
-        const step = midPrice * 0.0005
-
-        // group bids by steps
-        let stepBidValues: any = {}
-        bids.map(b => {
-          const stepCount = Math.ceil(Math.abs(b[0] - midPrice) % step)
-          const stepValue = (midPrice - (stepCount * step))
-          if(stepBidValues[stepValue]) {
-            stepBidValues[stepValue] = stepBidValues[stepValue] + b[1]
-          } else {
-            stepBidValues[stepValue] = b[1]
-          }
-        })
-        // create new bids array
-        const bidSteps = Object.keys(stepBidValues)
-        bidSteps.forEach(bid => {
-          returnBids.push(
-            [
-              (+bid).toFixed(marketInfo.pricePrecisionDecimal),,
-              stepBidValues[bid]
-            ]
-          )
-        })
-
-        // group asks by steps
-        let stepAskValues: any = {}
-        asks.map(a => {
-          const stepCount = Math.ceil(Math.abs(a[0] - midPrice) % step)
-          const stepValue = (midPrice + (stepCount * step))
-          if(stepAskValues[stepValue]) {
-            stepAskValues[stepValue] = stepAskValues[stepValue] + a[1]
-          } else {
-            stepAskValues[stepValue] = a[1]
-          }
-        })
-        // create new asks array
-        const askSteps = Object.keys(stepAskValues)
-        askSteps.forEach(ask => {
-          returnAsks.push(
-            [
-              (+ask).toFixed(marketInfo.pricePrecisionDecimal),
-              stepAskValues[ask]
-            ]
-          )
-        })
-
-        res.json({
-          "timestamp": timestamp,
-          "bids": returnBids,
-          "asks": returnAsks
-        })
-      } else if (level == 3) {
-        // CMC => 'Level 3 – Complete order book, no aggregation.'
-        res.json({
-          "timestamp": timestamp,
-          "bids": bids,
-          "asks": asks
-        })
-      } else {
-        res.send({ op: 'error', message: `'level': ${level} is not supported for orderbook. Use 1, 2 or 3` })
-      }
+      res.json(liquidity)
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: `Failed to fetch orderbook for ${market}` })
+      res.send({ op: 'error', message: `Failed to fetch orderbook for ${market}, ${error.message}` })
     }
   })
 
@@ -211,8 +100,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
           "base_volume": fill[5],
           "quote_volume": (fill[5] * fill[4]),
           "timestamp": date.getTime(),
-          "type": (fill[3] === 's') ? 'sell' : 'buy',
-          "txHash": fill[7]
+          "type": (fill[3] === 's') ? 'sell' : 'buy'
         }
         response.push(entry)
       })
