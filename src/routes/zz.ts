@@ -8,12 +8,29 @@ export default function cmcRoutes(app: ZZHttpServer) {
       : 1
 
   app.get('/api/v1/markets', async (req, res) => {
-    const market: string = req.query.market as string
+    let market
+    if (req.query.market) {
+      market = (req.query.market as string)
+        .replace('_','-')
+        .replace('/','-')
+        .toUpperCase()
+    } else {
+      market = ""
+    }
+
     try {
       const marketSummarys: any =  await app.api.getMarketSummarys(
         defaultChainId,
         market
       )
+      if(!marketSummarys) {
+        if(market === "") {
+          res.send({ op: 'error', message: `Can't find any markets.` })
+        } else {
+          res.send({ op: 'error', message: `Can't find a summary for ${market}.` })
+        }        
+        return
+      }
       res.json(marketSummarys)
     } catch (error: any) {
       console.log(error.message)
@@ -22,9 +39,27 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/ticker', async (req, res) => {
+    let market
+    if (req.query.market) {
+      market = (req.query.market as string)
+        .replace('_','-')
+        .replace('/','-')
+        .toUpperCase()
+    } else {
+      market = ""
+    }
+
     try {
       const ticker: any = {}
       const lastPrices: any =  await app.api.getLastPrices(defaultChainId)
+      if(lastPrices.length === 0) {
+        if(market === "") {
+          res.send({ op: 'error', message: `Can't find any lastPrices for any markets.` })
+        } else {
+          res.send({ op: 'error', message: `Can't find a lastPrice for ${market}.` })
+        }        
+        return
+      }
       lastPrices.forEach((price: string[]) => {
         const entry: any = {
           "lastPrice": price[1],
@@ -42,7 +77,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/orderbook/:market_pair', async (req, res) => {
-    const market = (req.params.market_pair).replace('_','-').toUpperCase()
+    const market = (req.params.market_pair)
+      .replace('_','-')
+      .replace('/','-')
+      .toUpperCase()
     let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
     if(![1,2,3].includes(level)) {
@@ -66,7 +104,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/trades/:market_pair', async (req, res) => {
-    const market = (req.params.market_pair).replace('_','-').toUpperCase()
+    const market = (req.params.market_pair)
+      .replace('_','-')
+      .replace('/','-')
+      .toUpperCase()
     const type: string = req.query.type as string
     const limit = (req.query.limit) ? Number(req.query.limit) : 0
     const orderId = (req.query.order_id) ? Number(req.query.order_id) : 0
