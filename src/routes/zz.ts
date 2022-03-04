@@ -8,7 +8,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
       : 1
 
   app.get('/api/v1/markets', async (req, res) => {
-    const market: string = req.query.market as string
+    const market = (req.query.market as string)
+      .replace('_','-')
+      .replace('/','-')
+      .toUpperCase()
     try {
       const marketSummarys: any =  await app.api.getMarketSummarys(
         defaultChainId,
@@ -42,7 +45,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/orderbook/:market_pair', async (req, res) => {
-    const market = (req.params.market_pair).replace('_','-').toUpperCase()
+    const market = (req.params.market_pair)
+      .replace('_','-')
+      .replace('/','-')
+      .toUpperCase()
     let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
     if(![1,2,3].includes(level)) {
@@ -66,7 +72,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/trades/:market_pair', async (req, res) => {
-    const market = (req.params.market_pair).replace('_','-').toUpperCase()
+    const market = (req.params.market_pair)
+      .replace('_','-')
+      .replace('/','-')
+      .toUpperCase()
     const type: string = req.query.type as string
     const limit = (req.query.limit) ? Number(req.query.limit) : 0
     const orderId = (req.query.order_id) ? Number(req.query.order_id) : 0
