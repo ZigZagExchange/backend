@@ -96,8 +96,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
             return
         }
         
-        if(!['s', 'b', 'sell', 'buy'].includes(type))
+        if(type && !['s', 'b', 'sell', 'buy'].includes(type)) {
             res.send({ op: 'error', message: `Type: ${type} is not a valid type. Use 's', 'b', 'sell', 'buy'` })
+            return
+        }
 
         try {
           const fills = await app.api.getfills(
