@@ -1018,11 +1018,13 @@ export default class API extends EventEmitter {
     }
 
     if(startTime) {
-      text = text + ` AND insert_timestamp >= ${startTime}`
+      const date =  new Date(startTime).toISOString()
+      text = text + ` AND insert_timestamp >= '${date}'`
     }
 
     if(endTime) {
-      text = text + ` AND insert_timestamp <= ${endTime}`
+      const date =  new Date(endTime).toISOString()
+      text = text + ` AND insert_timestamp <= '${date}'`
     } 
 
     limit = (limit) ? Math.min(25, Number(limit)) : 25
