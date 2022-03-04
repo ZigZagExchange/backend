@@ -211,8 +211,14 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
     let feeToken
-    feeAmount = marketInfo.baseFee
-    feeToken = marketInfo.baseAsset.symbol
+    try {
+      feeAmount = marketInfo.baseFee
+      feeToken = marketInfo.baseAsset.symbol
+    } catch (e) {
+      console.error('Error while updateOrderFillStatus offers.')
+      console.error(e)
+      return false
+    }
 
     if (newstatus === 'r') {
       feeAmount = 0
