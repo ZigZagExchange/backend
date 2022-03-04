@@ -855,7 +855,7 @@ export default class API extends EventEmitter {
       bidSteps.forEach(bid => {
         returnBids.push(
           [
-            (+bid).toFixed(marketInfo.pricePrecisionDecimal),,
+            (+bid).toFixed(marketInfo.pricePrecisionDecimal),
             stepBidValues[bid]
           ]
         )
