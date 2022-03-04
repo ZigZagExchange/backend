@@ -68,12 +68,13 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
         try {
             // get data
-            const liquidity = await app.api.getLiquidityPerSide(
+            const liquidity: any = await app.api.getLiquidityPerSide(
                 defaultChainId,
                 market,
                 depth,
                 3
             )
+            liquidity["ticker_id"] = market.replace('-','_')
             res.json(liquidity)
         } catch (error: any) {
             console.log(error.message)
