@@ -242,7 +242,7 @@ export default class API extends EventEmitter {
       const today = new Date().toISOString().slice(0, 10)
       const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`
       this.redis.HSET(`lastprices:${chainid}`, `${market}`, `${fillPrice}`)
-      this.redis.SET(`${redis_key_today_price}`, `${fillPrice}`, { EX: 10080 })
+      this.redis.SET(`${redis_key_today_price}`, `${fillPrice}`, { EX: 604800 })
     }
     return {
       success,
