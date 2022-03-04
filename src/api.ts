@@ -773,7 +773,7 @@ export default class API extends EventEmitter {
     chainid: number,
     market: ZZMarket,
     depth: number = 0,
-    level: number = 2
+    level: number = 3
   ) => {
     const timestamp = Date.now()
     const liquidity = await this.getLiquidity(
@@ -1257,9 +1257,7 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainid)
     const liquidity = await this.getLiquidityPerSide(
       chainid,
-      market,
-      0,
-      3
+      market
     )
     const asks = liquidity.asks
     const bids = liquidity.bids
@@ -1397,9 +1395,7 @@ export default class API extends EventEmitter {
       const results: Promise<any>[] = markets.map(async (market_id) => {
         const liquidity = await this.getLiquidityPerSide(
           chainid,
-          market_id,
-          5,
-          3
+          market_id
         )
         const asks = liquidity.asks
         const bids = liquidity.bids
