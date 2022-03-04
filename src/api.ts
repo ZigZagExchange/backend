@@ -1255,12 +1255,8 @@ export default class API extends EventEmitter {
       throw new Error('Quantity must be positive')
 
     const marketInfo = await this.getMarketInfo(market, chainid)
-    const liquidity = await this.getLiquidityPerSide(
-      chainid,
-      market
-    )
-    const asks = liquidity.asks
-    const bids = liquidity.bids
+    const liquidity = await this.getLiquidity(chainid, market)
+    if (liquidity.length === 0) throw new Error('No liquidity for pair')
 
     let softQuoteQuantity: any
     let hardQuoteQuantity: any
@@ -1279,10 +1275,15 @@ export default class API extends EventEmitter {
       }
 
       if (side === 'b') {
-        if (asks.length === 0) throw new Error('No liquidity for pair')
+        const asks = liquidity
+          .filter((l: string) => l[0] === 's')
+          .map((l: string) => l.slice(1, 3)) as any[]
         ladderPrice = API.getQuoteFromLadder(asks, baseQuantity)
       } else {
-        if (bids.length === 0) throw new Error('No liquidity for pair')
+        const bids = liquidity
+          .filter((l: string) => l[0] === 'b')
+          .map((l: string) => l.slice(1, 3))
+          .reverse() as any[]
         ladderPrice = API.getQuoteFromLadder(bids, baseQuantity)
       }
 
@@ -1323,10 +1324,10 @@ export default class API extends EventEmitter {
       hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
 
       if (side === 'b') {
-        if (asks.length === 0) throw new Error('No liquidity for pair')
-        const quoteAsks: any[] = asks
+        const asks: any[] = liquidity
+          .filter((l: any) => l[0] === 's')
           .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
-        ladderPrice = API.getQuoteFromLadder(quoteAsks, quoteQuantity)
+        ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
 
         hardBaseQuantity = (
           (quoteQuantity - marketInfo.quoteFee) /
@@ -1339,10 +1340,10 @@ export default class API extends EventEmitter {
           marketInfo.pricePrecisionDecimals
         )
       } else {
-        if (bids.length === 0) throw new Error('No liquidity for pair')
-        const quoteBids = bids
+        const bids = liquidity
+          .filter((l: any) => l[0] === 'b')
           .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
-        ladderPrice = API.getQuoteFromLadder(quoteBids, quoteQuantity)
+        ladderPrice = API.getQuoteFromLadder(bids, quoteQuantity)
 
         hardBaseQuantity = (
           quoteQuantity / ladderPrice +
@@ -1393,13 +1394,8 @@ export default class API extends EventEmitter {
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
       if (!markets || markets.length === 0) return
       const results: Promise<any>[] = markets.map(async (market_id) => {
-        const liquidity = await this.getLiquidityPerSide(
-          chainid,
-          market_id
-        )
-        const asks = liquidity.asks
-        const bids = liquidity.bids
-        if (asks.length === 0 && bids.length === 0) {
+        const liquidity = await this.getLiquidity(chainid, market_id)
+        if (liquidity.length === 0) {
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
           return
@@ -1410,29 +1406,30 @@ export default class API extends EventEmitter {
         })
 
         // Update last price while you're at it
-        if (asks.length === 0 || bids.length === 0) {
-          let askPrice: number = 0
-          let askVolume: number = 0
-          let bidPrice: number = 0
-          let bidVolume: number = 0
-          for (let i in asks) {
-            const ask: any = asks[i]
-            askPrice = askPrice + ask[1] * ask[2]
-            askVolume = askVolume + ask[2]
-          }
-          for (let i in bids) {
-            const bid: any = bids[i]
-            bidPrice = bidPrice + bid[1] * bid[2]
-            bidVolume = bidVolume + bid[2]
-          }
-          const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
-          const marketInfo = await this.getMarketInfo(market_id, chainid)
-          this.redis.HSET(
-            `lastprices:${chainid}`,
-            market_id,
-            mid.toFixed(marketInfo.pricePrecisionDecimals)
-          )
+        const asks = liquidity.filter((l) => l[0] === 's')
+        const bids = liquidity.filter((l) => l[0] === 'b')
+        if (asks.length === 0 || bids.length === 0) return
+        let askPrice: number = 0
+        let askVolume: number = 0
+        let bidPrice: number = 0
+        let bidVolume: number = 0
+        for (let i in asks) {
+          const ask: any = asks[i]
+          askPrice = askPrice + ask[1] * ask[2]
+          askVolume = askVolume + ask[2]
         }
+        for (let i in bids) {
+          const bid: any = bids[i]
+          bidPrice = bidPrice + bid[1] * bid[2]
+          bidVolume = bidVolume + bid[2]
+        }
+        const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
+        const marketInfo = await this.getMarketInfo(market_id, chainid)
+        this.redis.HSET(
+          `lastprices:${chainid}`,
+          market_id,
+          mid.toFixed(marketInfo.pricePrecisionDecimals)
+        )
       })
       // Broadcast last prices
       const lastprices = (await this.getLastPrices(chainid))
