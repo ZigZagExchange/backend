@@ -99,12 +99,13 @@ export default function cmcRoutes(app: ZZHttpServer) {
         const date = new Date(fill[12])
         const entry: any = {
           "chainId": fill[0],
-          "market": fill[1],
+          "orderId": fill[1],
+          "market": fill[2],
           "price": fill[4],
           "baseVolume": fill[5],
           "quoteVolume": (fill[5] * fill[4]),
           "timestamp": date.getTime(),
-          "type": (fill[3] === 's') ? 'sell' : 'buy',
+          "side": (fill[3] === 's') ? 'sell' : 'buy',
           "txHash": fill[7],
           "feeAmount": fill[10],
           "feeToken": fill[11]
