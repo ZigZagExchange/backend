@@ -805,13 +805,28 @@ export default class API extends EventEmitter {
 
     // if depth is set, only used every n entrys
     if(depth > 1) {
-      depth = Math.floor(depth * 0.5)
-      bids = bids.filter((entry, i) => {
-        return (i % depth === 0)
-      })
-      asks = asks.filter((entry, i) => {
-        return (i % depth === 0)
-      })
+      depth = depth * 0.5
+      const newBids: number[][] = []
+      const newAsks: number[][] = []
+
+      for(let i=0; i<bids.length;i++) {
+        let index = Math.floor(i / depth)
+        if(newBids[index]) {
+          newBids[index][1] = newBids[index][1] + bids[i][1]
+        } else {
+          newBids[index] = bids[i]
+        }
+      }
+      for(let i=0; i<asks.length;i++) {
+        let index = Math.floor(i / depth)
+        if(newAsks[index]) {
+          newAsks[index][1] = newAsks[index][1] + asks[i][1]
+        } else {
+          newAsks[index] = asks[i]
+        }
+      }
+      asks = newAsks
+      bids = newBids
     }
 
     if (level == 1) {
