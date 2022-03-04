@@ -58,7 +58,6 @@ export default function cmcRoutes(app: ZZHttpServer) {
     app.get('/api/coingecko/v1/orderbook', async (req, res) => {
         const tickerId: string = req.query.ticker_id as string
         let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
-
         let market: string;
         if(tickerId) {
             market = tickerId.replace('_','-').toUpperCase()
@@ -69,52 +68,16 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
         try {
             // get data
-            const timestamp = Date.now()
-            const liquidity = await app.api.getLiquidity(
+            const liquidity = await app.api.getLiquidityPerSide(
                 defaultChainId,
-                market
+                market,
+                depth,
+                3
             )
-
-            if(liquidity.length === 0) {
-                res.send({ op: 'error', message: `Can not find liquidity for ${market}` })
-                return
-            }
-
-            // sort for bids and asks
-            let bids: number [][] = liquidity
-                .filter((l) => l[0] === 'b')
-                .map((l) => [
-                Number(l[1]),
-                Number(l[2])
-                ])
-                .reverse()
-            let asks: number [][] = liquidity
-                .filter((l) => l[0] === 's')
-                .map((l) => [
-                Number(l[1]),
-                Number(l[2])
-                ])
-
-            // if depth is set, only used every n entrys
-            if(depth > 1) {
-                depth = Math.floor(depth * 0.5)
-                bids = bids.filter((entry, i) => {
-                return (i % depth === 0)
-                })
-                asks = asks.filter((entry, i) => {
-                return (i % depth === 0)
-                })
-            }
-
-            res.json({
-                "ticker_id": market.replace("-","_"),
-                "timestamp": timestamp,
-                "bids": bids,
-                "asks": asks
-            })
+            res.json(liquidity)
         } catch (error: any) {
             console.log(error.message)
-            res.send({ op: 'error', message: `Failed to fetch orderbook for ${market}` })
+            res.send({ op: 'error', message: `Failed to fetch orderbook for ${market}, ${error.message}` })
         }
     })
 
@@ -161,5 +124,5 @@ export default function cmcRoutes(app: ZZHttpServer) {
           console.log(error.message)
           res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
         }
-      })
+    })
 }
