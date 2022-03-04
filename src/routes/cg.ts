@@ -112,10 +112,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
               "trade_id": fill[1],
               "price": fill[4],
               "base_volume": fill[5],
-              "quote_volume": (fill[5] * fill[4]),
+              "target_volume": (fill[5] * fill[4]),
               "trade_timestamp": date.getTime(),
-              "type": (fill[3] === 's') ? 'sell' : 'buy',
-              "txHash": fill[7]
+              "type": (fill[3] === 's') ? 'sell' : 'buy'
             }
             response.push(entry)
           }    
