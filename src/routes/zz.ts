@@ -39,9 +39,27 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/ticker', async (req, res) => {
+    let market
+    if (req.query.market) {
+      market = (req.query.market as string)
+        .replace('_','-')
+        .replace('/','-')
+        .toUpperCase()
+    } else {
+      market = ""
+    }
+
     try {
       const ticker: any = {}
       const lastPrices: any =  await app.api.getLastPrices(defaultChainId)
+      if(lastPrices.length === 0) {
+        if(market === "") {
+          res.send({ op: 'error', message: `Can't find any lastPrices for any markets.` })
+        } else {
+          res.send({ op: 'error', message: `Can't find a lastPrice for ${market}.` })
+        }        
+        return
+      }
       lastPrices.forEach((price: string[]) => {
         const entry: any = {
           "lastPrice": price[1],
