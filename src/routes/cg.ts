@@ -107,7 +107,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
             }
 
             res.json({
-                "ticker_id": tickerId,
+                "ticker_id": market.replace("-","_"),
                 "timestamp": timestamp,
                 "bids": bids,
                 "asks": asks
