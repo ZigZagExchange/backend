@@ -60,6 +60,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const market = (req.params.market_pair).replace('_','-').toUpperCase()
     let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
+    if(![1,2,3].includes(level)) 
+      res.send({ op: 'error', message: `Level: ${level} is not a valid level. Use 1, 2 or 3.` })
+      
     try {
       // get data
       const liquidity = await app.api.getLiquidityPerSide(

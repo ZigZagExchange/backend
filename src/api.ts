@@ -775,12 +775,17 @@ export default class API extends EventEmitter {
     depth: number = 0,
     level: number = 2
   ) => {
+    const timestamp = Date.now()
     const liquidity = await this.getLiquidity(
       chainid, 
       market
     )
     if(liquidity.length === 0) {
-      throw new Error(`Can not find liquidity for ${market}`)
+      return {
+        "timestamp": timestamp,
+        "bids": [],
+        "asks": []
+      }
     }
 
     // sort for bids and asks
@@ -809,7 +814,6 @@ export default class API extends EventEmitter {
       })
     }
 
-    const timestamp = Date.now()
     if (level == 1) {
       // Level 1 – Only best bid and ask.
       return {
@@ -1178,8 +1182,8 @@ export default class API extends EventEmitter {
         0,
         1
       )
-      const lowestAsk: number = liquidity.asks[0][0]
-      const highestBid: number = liquidity.bids[0][0]
+      const lowestAsk: number = liquidity.asks[0]?.[0]
+      const highestBid: number = liquidity.bids[0]?.[0]
 
       const marketSummary: ZZMarketSummary = {
         "market": market,
@@ -1410,27 +1414,29 @@ export default class API extends EventEmitter {
         })
 
         // Update last price while you're at it
-        let askPrice: number = 0
-        let askVolume: number = 0
-        let bidPrice: number = 0
-        let bidVolume: number = 0
-        for (let i in asks) {
-          const ask: any = asks[i]
-          askPrice = askPrice + ask[1] * ask[2]
-          askVolume = askVolume + ask[2]
+        if (asks.length === 0 || bids.length === 0) {
+          let askPrice: number = 0
+          let askVolume: number = 0
+          let bidPrice: number = 0
+          let bidVolume: number = 0
+          for (let i in asks) {
+            const ask: any = asks[i]
+            askPrice = askPrice + ask[1] * ask[2]
+            askVolume = askVolume + ask[2]
+          }
+          for (let i in bids) {
+            const bid: any = bids[i]
+            bidPrice = bidPrice + bid[1] * bid[2]
+            bidVolume = bidVolume + bid[2]
+          }
+          const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
+          const marketInfo = await this.getMarketInfo(market_id, chainid)
+          this.redis.HSET(
+            `lastprices:${chainid}`,
+            market_id,
+            mid.toFixed(marketInfo.pricePrecisionDecimals)
+          )
         }
-        for (let i in bids) {
-          const bid: any = bids[i]
-          bidPrice = bidPrice + bid[1] * bid[2]
-          bidVolume = bidVolume + bid[2]
-        }
-        const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
-        const marketInfo = await this.getMarketInfo(market_id, chainid)
-        this.redis.HSET(
-          `lastprices:${chainid}`,
-          market_id,
-          mid.toFixed(marketInfo.pricePrecisionDecimals)
-        )
       })
       // Broadcast last prices
       const lastprices = (await this.getLastPrices(chainid))
