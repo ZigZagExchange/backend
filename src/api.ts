@@ -970,9 +970,68 @@ export default class API extends EventEmitter {
     return select.rows
   }
 
-  getfills = async (chainid: number, market: ZZMarket) => {
+  /**
+  * Returns fills for a given market.
+  * @param {number} chainid reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+  * @param {ZZMarket} market reqested market
+  * @param {number} limit number of trades returnd (MAX 25)
+  * @param {number} orderId orderId to start at
+  * @param {number} type side of returned fills 's', 'b', 'buy' or 'sell'
+  * @param {number} startTime time for first fill
+  * @param {number} endTime time for last fill
+  * @return {number} array of fills [[chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp],...]
+  */
+  getfills = async (
+    chainid: number,
+    market: ZZMarket,
+    limit?: number,
+    orderId?: number,
+    type?: string,
+    startTime?: number,
+    endTime?: number    
+  ) => {
+    let text: string = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f'"
+    
+    if(orderId) {
+      text = text + ` AND id <= '${orderId}'`
+    }
+
+    if(type) {
+      let side
+      switch (type) {
+        case 's':
+          side = 's'
+          break
+        case 'b':
+          side = 'b'
+          break
+        case 'sell':
+          side = 's'
+          break
+        case 'buy':
+          side = 'b'
+          break
+        default:
+          throw new Error ("Only type 's', 'b', 'sell' or 'buy' is allowed.")
+      }
+      text = text + ` AND side = '${type}'`
+    }
+
+    if(startTime) {
+      const time = new Date(Number(startTime)).toISOString()
+      text = text + ` AND insert_timestamp >= '${time}'`
+    }
+
+    if(endTime) {
+      const time = new Date(Number(endTime)).toISOString()
+      text = text + ` AND insert_timestamp <= '${time}'`
+    } 
+
+    limit = (limit) ? Math.min(25, Number(limit)) : 25
+    text = text + ` ORDER BY id DESC LIMIT ${limit}`
+    
     const query = {
-      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 25",
+      text: text,
       values: [market, chainid],
       rowMode: 'array',
     }

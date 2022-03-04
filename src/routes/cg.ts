@@ -83,7 +83,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
     app.get('/api/coingecko/v1/historical_trades', async (req, res) => {
         const tickerId: string = req.query.ticker_id as string
-        const limit = (req.query.limit) ? Number(req.query.limit) : null
+        const type: string = req.query.type as string
+        const limit = (req.query.limit) ? Number(req.query.limit) : 0
+        const startTime = (req.query.start_time) ? Number(req.query.start_time) : 0
+        const endTime = (req.query.end_time) ? Number(req.query.end_time) : 0
 
         let market: string;
         if(tickerId) {
@@ -96,16 +99,20 @@ export default function cmcRoutes(app: ZZHttpServer) {
         try {
           const fills = await app.api.getfills(
             defaultChainId,
-            market
+            market,
+            limit,
+            0,
+            type,
+            startTime,
+            endTime
           )
           if(fills.length === 0) {
             res.send({ op: 'error', message: `Can not find trades for ${market}` })
             return
           }
 
-          const max = (limit) ? Math.min(limit, fills.length) : fills.length
           const response: any[] = []
-          for(let i=0; i<max; i++) {
+          for(let i=0; i<fills.length; i++) {
             const fill = fills[i]
             const date = new Date(fill[12])
             const entry: any = {
