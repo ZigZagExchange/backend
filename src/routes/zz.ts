@@ -8,15 +8,29 @@ export default function cmcRoutes(app: ZZHttpServer) {
       : 1
 
   app.get('/api/v1/markets', async (req, res) => {
-    const market = (req.query.market as string)
-      .replace('_','-')
-      .replace('/','-')
-      .toUpperCase()
+    let market
+    if (req.query.market) {
+      market = (req.query.market as string)
+        .replace('_','-')
+        .replace('/','-')
+        .toUpperCase()
+    } else {
+      market = ""
+    }
+
     try {
       const marketSummarys: any =  await app.api.getMarketSummarys(
         defaultChainId,
         market
       )
+      if(!marketSummarys) {
+        if(market === "") {
+          res.send({ op: 'error', message: `Can't find any markets.` })
+        } else {
+          res.send({ op: 'error', message: `Can't find a summary for ${market}.` })
+        }        
+        return
+      }
       res.json(marketSummarys)
     } catch (error: any) {
       console.log(error.message)
