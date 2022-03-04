@@ -95,6 +95,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
             res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id'" })
             return
         }
+        
+        if(!['s', 'b', 'sell', 'buy'].includes(type))
+            res.send({ op: 'error', message: `Type: ${type} is not a valid type. Use 's', 'b', 'sell', 'buy'` })
 
         try {
           const fills = await app.api.getfills(

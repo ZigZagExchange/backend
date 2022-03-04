@@ -1018,23 +1018,28 @@ export default class API extends EventEmitter {
     }
 
     if(startTime) {
-      text = text + ` AND insert_timestamp >= '${startTime}'`
+      text = text + ` AND insert_timestamp >= ${startTime}`
     }
 
     if(endTime) {
-      text = text + ` AND insert_timestamp <= '${endTime}'`
+      text = text + ` AND insert_timestamp <= ${endTime}`
     } 
 
     limit = (limit) ? Math.min(25, Number(limit)) : 25
     text = text + ` ORDER BY id DESC LIMIT ${limit}`
     
-    const query = {
-      text: text,
-      values: [market, chainid],
-      rowMode: 'array',
+    try {
+      const query = {
+        text: text,
+        values: [market, chainid],
+        rowMode: 'array',
+      }
+      const select = await this.db.query(query)
+      return select.rows
+    } catch (e: any) {
+      console.log(`Error in getFills: ${text}, Error: ${e.message}`)
+      return []
     }
-    const select = await this.db.query(query)
-    return select.rows
   }
 
   updateVolumes = async () => {
