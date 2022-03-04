@@ -62,18 +62,19 @@ export default function cmcRoutes(app: ZZHttpServer) {
         if(tickerId) {
             market = tickerId.replace('_','-').toUpperCase()
         } else {
-            res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id'" })
+            res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id=___'" })
             return
         }
 
         try {
             // get data
-            const liquidity = await app.api.getLiquidityPerSide(
+            const liquidity: any = await app.api.getLiquidityPerSide(
                 defaultChainId,
                 market,
                 depth,
                 3
             )
+            liquidity["ticker_id"] = market.replace('-','_')
             res.json(liquidity)
         } catch (error: any) {
             console.log(error.message)
@@ -92,7 +93,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         if(tickerId) {
             market = tickerId.replace('_','-').toUpperCase()
         } else {
-            res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id'" })
+            res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id=___'" })
             return
         }
         
