@@ -57,7 +57,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/coinmarketcap/v1/orderbook/:market_pair', async (req, res) => {
-    const market = (req.params.market_pair).replace('_','-')
+    const market = (req.params.market_pair).replace('_','-').toUpperCase()
     let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
     try {
@@ -76,12 +76,17 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/coinmarketcap/v1/trades/:market_pair', async (req, res) => {
-    const market = (req.params.market_pair).replace('_','-') 
+    const market = (req.params.market_pair).replace('_','-').toUpperCase()
     try {
       const fills = await app.api.getfills(
         defaultChainId,
         market
       )
+
+      if(fills.length === 0) {
+        res.send({ op: 'error', message: `Can not find trades for ${market}` })
+        return
+      }
 
       const response: any[] = []
       fills.forEach(fill => {
