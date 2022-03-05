@@ -316,7 +316,7 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
 
 Arguments: `[fills]`
 
-Description: Latest fills for a market. order = [chainId,id,market,side,price,baseQuantity,fillstatus,txhash,takeruserid,makeruserid,feeamount,feetoken]
+Description: Latest fills for a market. order = [chainId,id,market,side,price,baseQuantity,fillstatus,txhash,takeruserid,makeruserid,feeamount,feetoken,timestamp]
 
 ```json
 {
@@ -335,7 +335,8 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
         "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
         "0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",
         0.48,
-        "USDC"
+        "USDC",
+        1646476058552
       ],
       [
         1001,
@@ -349,7 +350,8 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
         "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
         "0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",
         0.000072,
-        "ETH"
+        "ETH",
+        1646476027148
       ],
       [
         1001,
@@ -363,7 +365,8 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
         "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
         "0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",
         0.203,
-        "DAI"
+        "DAI",
+        1646475999960
       ]
     ]
   ]
@@ -427,7 +430,7 @@ Only "f" and "r" status updates are permitted, and only for matched orders.
 
 ###### Operation: **fillstatus**
 
-Description: An update about the fill status of an active order. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken]`. See [Order Status](#order-statuses) for status flags.
+Description: An update about the fill status of an active order. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken,timestamp]`. See [Order Status](#order-statuses) for status flags.
 
 ```json
 {
@@ -441,7 +444,8 @@ Description: An update about the fill status of an active order. fillstatus = `[
         "51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",
         null,
         0.000072,
-        "ETH"
+        "ETH",
+        1646476058552
       ]
     ]
   ]
