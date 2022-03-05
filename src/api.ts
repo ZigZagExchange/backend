@@ -68,7 +68,7 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
-      setInterval(this.fetchAskBid_24h, 300000),
+      setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
@@ -77,8 +77,8 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
-    // update fetchAskBid_24h once
-    setTimeout(this.fetchAskBid_24h, 10000)
+    // update updatePriceHighLow once
+    setTimeout(this.updatePriceHighLow, 10000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
@@ -1162,7 +1162,20 @@ export default class API extends EventEmitter {
     return lastprices
   }
 
-  getMarketSummarys = async (chainid: number, marketReq: string = '') => {
+  getMarketSummarys = async (
+    chainid: number,
+    marketReq: string = ''
+  ) => {
+    let markets
+    if(marketReq === '') {
+      const cache = await this.redis.GET(`marketSummary:${chainid}`)
+      if(cache) {
+        return JSON.parse(cache)
+      }
+      markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    } else {
+      markets = [marketReq]
+    }
     const marketSummarys: any = {}
     const redisKeyPrices = `lastprices:${chainid}`
     const redisPrices = await this.redis.HGETALL(redisKeyPrices)
@@ -1177,10 +1190,6 @@ export default class API extends EventEmitter {
     const redisPricesLow = await this.redis.HGETALL(redisKeyLow)
     const redisPricesHigh = await this.redis.HGETALL(redisKeyHigh)
 
-    const markets =
-      marketReq !== ''
-        ? [marketReq]
-        : await this.redis.SMEMBERS(`activemarkets:${chainid}`)
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       const redisKeyMarketSummary = `marketsummary:${chainid}:${market}`
       const cacheMarketSummary = await this.redis.GET(redisKeyMarketSummary)
@@ -1238,10 +1247,15 @@ export default class API extends EventEmitter {
       })
     })
     await Promise.all(results)
+    this.redis.SET(
+      `marketSummary:${chainid}`,
+      JSON.stringify(marketSummarys),
+      { 'EX': 10 }
+    )
     return marketSummarys
   }
 
-  fetchAskBid_24h = async () => {
+  updatePriceHighLow = async () => {
     const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()    
     const select = await this.db.query(
       "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
