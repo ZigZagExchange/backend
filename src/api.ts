@@ -77,6 +77,9 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
+    // update fetchAskBid_24h once
+    setTimeout(this.fetchAskBid_24h, 10000)
+
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
       const redisPatternBussy = `bussymarketmaker:${chainid}:*`
