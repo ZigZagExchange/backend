@@ -68,13 +68,17 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
-      setInterval(this.clearDeadConnections, 60000),
+      setInterval(this.fetchAskBid_24h, 300000),
       setInterval(this.updateVolumes, 120000),
+      setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
       setInterval(this.updateMarketInfo, 10000),
       setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
+
+    // update fetchAskBid_24h once
+    setTimeout(this.fetchAskBid_24h, 10000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
@@ -196,7 +200,7 @@ export default class API extends EventEmitter {
     try {
       const valuesOffers = [newstatus, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
+        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
         valuesOffers
       )
       if (update.rows.length > 0) {
@@ -212,6 +216,7 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
     let feeToken
+    let timestamp
     try {
       feeAmount = marketInfo.baseFee
       feeToken = marketInfo.baseAsset.symbol
@@ -228,7 +233,7 @@ export default class API extends EventEmitter {
     try {
       const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainid]
       const update2 = await this.db.query(
-        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
+        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
         valuesFills
       )
       if (update2.rows.length > 0) {
@@ -236,6 +241,7 @@ export default class API extends EventEmitter {
         fillPrice = update2.rows[0].price
         base_quantity = update2.rows[0].amount
         maker_user_id = update2.rows[0].maker_user_id
+        timestamp = update2.rows[0].insert_timestamp
       }
       quote_quantity = base_quantity * fillPrice
     } catch (e) {
@@ -259,6 +265,7 @@ export default class API extends EventEmitter {
       maker_user_id,
       feeAmount,
       feeToken,
+      timestamp
     }
   }
 
@@ -276,7 +283,7 @@ export default class API extends EventEmitter {
     let values = [newstatus, txhash, chainid, orderid]
     try {
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
+        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m'",
         values
       )
     } catch (e) {
@@ -587,7 +594,7 @@ export default class API extends EventEmitter {
   //       [relayResult.transaction_hash, fillId]
   //     )
   //     const orderupdate = await this.db.query(
-  //       "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END) WHERE id IN ($1, $2) RETURNING id, order_status",
+  //       "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
   //       [makerOfferId, takerOfferId]
   //     )
   //     const chainid = parseInt(buyer[0])
@@ -612,7 +619,7 @@ export default class API extends EventEmitter {
   //     console.error(e)
   //     console.error('Starknet tx failed')
   //     const orderupdate = await this.db.query(
-  //       "UPDATE offers SET order_status='r' WHERE id IN ($1, $2) RETURNING id, order_status",
+  //       "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
   //       [makerOfferId, takerOfferId]
   //     )
   //     const chainid = parseInt(buyer[0])
@@ -638,7 +645,7 @@ export default class API extends EventEmitter {
     const ids = select.rows.map((s) => s.id)
 
     await this.db.query(
-      "UPDATE offers SET order_status='c',zktx=NULL WHERE userid=$1 AND order_status='o'",
+      "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o'",
       values
     )
 
@@ -665,7 +672,7 @@ export default class API extends EventEmitter {
 
     const updatevalues = [orderId]
     const update = await this.db.query(
-      "UPDATE offers SET order_status='c', zktx=NULL WHERE id=$1 RETURNING market",
+      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
       updatevalues
     )
     let market
@@ -713,7 +720,7 @@ export default class API extends EventEmitter {
     )
 
     const update1 = await this.db.query(
-      "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
+      "UPDATE offers SET order_status='m', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
       values
     )
     if (update1.rows.length === 0)
@@ -768,12 +775,12 @@ export default class API extends EventEmitter {
   }
 
   /**
-   * Returns the liqidity for a given market.
+   * Returns the liquidity for a given market.
    * @param {number} chainid The reqested chain (1->zkSync, 1000->zkSync_rinkeby)
    * @param {ZZMarket} market The reqested market
-   * @param {number} depth Depth of returned Liqidity (depth/2 buckets per return)
-   * @param {number} level Level of returned Liqidity (1->best ask/bid, 2->0.05% steps, 3->all)
-   * @return {number} The resulting liqidity -> {"timestamp": _, "bids": _, "asks": _}
+   * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
+   * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
+   * @return {number} The resulting liquidity -> {"timestamp": _, "bids": _, "asks": _}
    */
   getLiquidityPerSide = async (
     chainid: number,
@@ -1080,7 +1087,7 @@ export default class API extends EventEmitter {
   updatePendingOrders = async () => {
     const one_min_ago = new Date(Date.now() - 60 * 1000).toISOString()
     const query = {
-      text: "UPDATE offers SET order_status='c' WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
@@ -1104,7 +1111,7 @@ export default class API extends EventEmitter {
     await this.db.query(fillsQuery)
 
     const expiredQuery = {
-      text: "UPDATE offers SET order_status='e', zktx=NULL WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
+      text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
       values: [],
     }
     const updateExpires = await this.db.query(expiredQuery)
@@ -1162,8 +1169,13 @@ export default class API extends EventEmitter {
 
     const redisKeyVolumesQuote = `volume:${chainid}:quote`
     const redisKeyVolumesBase = `volume:${chainid}:base`
-    const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
+    const redisVolumesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
+
+    const redisKeyLow = `price:${chainid}:low`
+    const redisKeyHigh = `price:${chainid}:high`
+    const redisPricesLow = await this.redis.HGETALL(redisKeyLow)
+    const redisPricesHigh = await this.redis.HGETALL(redisKeyHigh)
 
     const markets =
       marketReq !== ''
@@ -1193,47 +1205,12 @@ export default class API extends EventEmitter {
         marketInfo.pricePrecisionDecimals
       )
 
-      // lowest price 24h
-      let lowestPrice_24h: number
-      let highestPrice_24h: number
-      const values = [chainid, market, yesterday]
-      const redisLowestPrice_24h = `lowestPrice:${chainid}:${market}`
-      const cacheLowestPrice_24h = await this.redis.get(redisLowestPrice_24h)
-      if (cacheLowestPrice_24h) {
-        lowestPrice_24h = Number(cacheLowestPrice_24h)
-      } else {
-        const selectMin = await this.db.query(
-          "SELECT MIN(price) AS min_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
-          values
-        )
-        lowestPrice_24h = selectMin.rows[0]
-          ? Number(selectMin.rows[0].min_price)
-          : 0
-        lowestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
-        await this.redis.set(redisLowestPrice_24h, lowestPrice_24h, { EX: 275 })
-      }
-
-      // highest price 24h
-      const redisHighestPrice_24h = `highestPrice:${chainid}:${market}`
-      const cacheHighestPrice_24h = await this.redis.get(redisHighestPrice_24h)
-      if (cacheHighestPrice_24h) {
-        highestPrice_24h = Number(cacheHighestPrice_24h)
-      } else {
-        const selectMax = await this.db.query(
-          "SELECT MAX(price) AS max_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
-          values
-        )
-        highestPrice_24h = selectMax.rows[0]
-          ? Number(selectMax.rows[0].max_price)
-          : 0
-        highestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
-        await this.redis.set(redisHighestPrice_24h, highestPrice_24h, {
-          EX: 275,
-        })
-      }
+      // get low/high price
+      const lowestPrice_24h = Number(redisPricesLow[market])
+      const highestPrice_24h = Number(redisPricesHigh[market])
 
       // get volume
-      const quoteVolume = Number(redisPricesQuote[market] || 0)
+      const quoteVolume = Number(redisVolumesQuote[market] || 0)
       const baseVolume = Number(redisVolumesBase[market] || 0)
 
       // get best ask/bid
@@ -1262,6 +1239,35 @@ export default class API extends EventEmitter {
     })
     await Promise.all(results)
     return marketSummarys
+  }
+
+  fetchAskBid_24h = async () => {
+    const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()    
+    const select = await this.db.query(
+      "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
+      [one_day_ago]
+    )
+    select.rows.forEach(async (row) => {
+      const redisKeyLow = `price:${row.chainid}:low`
+      const redisKeyHigh = `price:${row.chainid}:high`
+      this.redis.HSET(redisKeyLow, row.market, row.min_price)
+      this.redis.HSET(redisKeyHigh, row.market, row.max_price)
+    })
+
+    // delete inactive markets
+    this.VALID_CHAINS.forEach(async (chainid) => { 
+      const markets  = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+      const priceKeysLow = await this.redis.HKEYS(`price:${chainid}:low`)
+      const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
+      delKeysLow.forEach(async (key) => {
+        this.redis.HDEL(`price:${chainid}:low`, key)
+      })
+      const priceKeysHigh = await this.redis.HKEYS(`price:${chainid}:high`)
+      const delKeysHigh = priceKeysHigh.filter((k) => !markets.includes(k))
+      delKeysHigh.forEach(async (key) => {
+        this.redis.HDEL(`price:${chainid}:high`, key)
+      })
+    })
   }
 
   // Ladder has to be a sorted 2-D array contaning price and quantity
@@ -1595,7 +1601,7 @@ export default class API extends EventEmitter {
 
               const orderId = marketmaker.orderId as string
               const orderQuery = await this.db.query(
-                "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
+                "UPDATE offers SET order_status='o', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
                 [orderId, chainid]
               )
               if (orderQuery.rows.length == 0) {
