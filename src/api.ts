@@ -1163,6 +1163,16 @@ export default class API extends EventEmitter {
   }
 
   getMarketSummarys = async (chainid: number, marketReq: string = '') => {
+    let markets
+    if(marketReq === '') {
+      const cache = await this.redis.GET(`marketSummary:${chainid}`)
+      if(cache) {
+        return JSON.parse(cache)
+      }
+      markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    } else {
+      markets = [marketReq]
+    }
     const marketSummarys: any = {}
     const redisKeyPrices = `lastprices:${chainid}`
     const redisPrices = await this.redis.HGETALL(redisKeyPrices)
@@ -1177,10 +1187,6 @@ export default class API extends EventEmitter {
     const redisPricesLow = await this.redis.HGETALL(redisKeyLow)
     const redisPricesHigh = await this.redis.HGETALL(redisKeyHigh)
 
-    const markets =
-      marketReq !== ''
-        ? [marketReq]
-        : await this.redis.SMEMBERS(`activemarkets:${chainid}`)
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       const redisKeyMarketSummary = `marketsummary:${chainid}:${market}`
       const cacheMarketSummary = await this.redis.GET(redisKeyMarketSummary)
@@ -1238,6 +1244,11 @@ export default class API extends EventEmitter {
       })
     })
     await Promise.all(results)
+    this.redis.SET(
+      `marketSummary:${chainid}`,
+      JSON.stringify(marketSummarys),
+      { 'EX': 10 }
+    )
     return marketSummarys
   }
 
