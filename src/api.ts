@@ -213,6 +213,7 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
     let feeToken
+    let timestamp
     try {
       feeAmount = marketInfo.baseFee
       feeToken = marketInfo.baseAsset.symbol
@@ -229,7 +230,7 @@ export default class API extends EventEmitter {
     try {
       const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainid]
       const update2 = await this.db.query(
-        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
+        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
         valuesFills
       )
       if (update2.rows.length > 0) {
@@ -237,6 +238,7 @@ export default class API extends EventEmitter {
         fillPrice = update2.rows[0].price
         base_quantity = update2.rows[0].amount
         maker_user_id = update2.rows[0].maker_user_id
+        timestamp = update2.rows[0].insert_timestamp
       }
       quote_quantity = base_quantity * fillPrice
     } catch (e) {
@@ -260,6 +262,7 @@ export default class API extends EventEmitter {
       maker_user_id,
       feeAmount,
       feeToken,
+      timestamp
     }
   }
 
