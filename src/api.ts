@@ -768,12 +768,12 @@ export default class API extends EventEmitter {
   }
 
   /**
-   * Returns the liqidity for a given market.
+   * Returns the liquidity for a given market.
    * @param {number} chainid The reqested chain (1->zkSync, 1000->zkSync_rinkeby)
    * @param {ZZMarket} market The reqested market
-   * @param {number} depth Depth of returned Liqidity (depth/2 buckets per return)
-   * @param {number} level Level of returned Liqidity (1->best ask/bid, 2->0.05% steps, 3->all)
-   * @return {number} The resulting liqidity -> {"timestamp": _, "bids": _, "asks": _}
+   * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
+   * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
+   * @return {number} The resulting liquidity -> {"timestamp": _, "bids": _, "asks": _}
    */
   getLiquidityPerSide = async (
     chainid: number,
