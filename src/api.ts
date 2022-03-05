@@ -1166,6 +1166,11 @@ export default class API extends EventEmitter {
     const redisVolumesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
 
+    const redisKeyLow = `price:${chainid}:low`
+    const redisKeyHigh = `price:${chainid}:high`
+    const redisPricesLow = await this.redis.HGETALL(redisKeyLow)
+    const redisPricesHigh = await this.redis.HGETALL(redisKeyHigh)
+
     const markets =
       marketReq !== ''
         ? [marketReq]
@@ -1194,44 +1199,9 @@ export default class API extends EventEmitter {
         marketInfo.pricePrecisionDecimals
       )
 
-      // lowest price 24h
-      let lowestPrice_24h: number
-      let highestPrice_24h: number
-      const values = [chainid, market, yesterday]
-      const redisLowestPrice_24h = `lowestPrice:${chainid}:${market}`
-      const cacheLowestPrice_24h = await this.redis.get(redisLowestPrice_24h)
-      if (cacheLowestPrice_24h) {
-        lowestPrice_24h = Number(cacheLowestPrice_24h)
-      } else {
-        const selectMin = await this.db.query(
-          "SELECT MIN(price) AS min_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
-          values
-        )
-        lowestPrice_24h = selectMin.rows[0]
-          ? Number(selectMin.rows[0].min_price)
-          : 0
-        lowestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
-        await this.redis.set(redisLowestPrice_24h, lowestPrice_24h, { EX: 275 })
-      }
-
-      // highest price 24h
-      const redisHighestPrice_24h = `highestPrice:${chainid}:${market}`
-      const cacheHighestPrice_24h = await this.redis.get(redisHighestPrice_24h)
-      if (cacheHighestPrice_24h) {
-        highestPrice_24h = Number(cacheHighestPrice_24h)
-      } else {
-        const selectMax = await this.db.query(
-          "SELECT MAX(price) AS max_price FROM fills WHERE chainid=$1 AND market=$2 AND insert_timestamp >= $3 AND fill_status = 'f'",
-          values
-        )
-        highestPrice_24h = selectMax.rows[0]
-          ? Number(selectMax.rows[0].max_price)
-          : 0
-        highestPrice_24h.toFixed(marketInfo.pricePrecisionDecimals)
-        await this.redis.set(redisHighestPrice_24h, highestPrice_24h, {
-          EX: 275,
-        })
-      }
+      // get low/high price
+      const lowestPrice_24h = Number(redisPricesLow[market])
+      const highestPrice_24h = Number(redisPricesHigh[market])
 
       // get volume
       const quoteVolume = Number(redisVolumesQuote[market] || 0)
