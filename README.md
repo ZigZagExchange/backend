@@ -542,6 +542,8 @@ Arguments: `[chainId,market]`
 
 Description: Unsubscribe from a market
 
+To unsubscibe from all markets, you can leave the args empty: `"args": []`
+
 ```json
 { "op": "unsubscribemarket", "args": [1000, "ETH-USDT"] }
 ```
@@ -818,4 +820,146 @@ Description: Error message from a requested operation
 
 ```json
 { "op": "error", "args": ["fillrequest", "Order 234 is not open"] }
+```
+
+
+## zigzag endpoints
+
+###### /api/v1/markets
+
+Example: `/api/v1/markets`or `/api/v1/markets?market=eth-ust`
+
+Arguments: `?market=ETH-UST` (optional, like: /api/v1/markets?market=eth-ust)
+
+Description: Returns a JSON containing all markets. If an argument is set, it will only return that summary.
+
+```
+{
+  "USDC-USDT":
+    {
+      "market":"USDC-USDT",
+      "baseSymbol":"USDC",
+      "quoteSymbol":"USDT",
+      "lastPrice":0.99985,
+      "lowestAsk":1.00024994,
+      "highestBid":0.99945006,
+      "baseVolume":1801.15,
+      "quoteVolume":1800.88,
+      "priceChange":-0.002004,
+      "priceChangePercent_24h":-0.002004,
+      "highestPrice_24h":1.001854,
+      "lowestPrice_24h":0.99805
+    },
+  "DAI-USDT": 
+  ....
+}  
+
+```
+
+###### /api/v1/ticker
+
+Example: `/api/v1/ticker`or `/api/v1/ticker?market=eth-ust`
+
+Arguments: `?market=ETH-UST` (optional, like: /api/v1/ticker?market=eth-ust)
+
+Description: Returns a JSON containing all price information. If an argument is set, it will only return this price information.
+
+
+```
+{
+  "USDC-USDT":
+    {
+      "lastPrice":0.99985,
+      "priceChange":-0.002004,
+      "baseVolume":"2614.65",
+      "quoteVolume":"2614.26"
+    },
+  "DAI-USDT":
+  ...
+}
+
+```
+
+###### /api/v1/orderbook/:market
+
+Example: `/api/v1/orderbook/eth-ust?depth=5&level=3`
+
+Arguments: `:market` 
+           `?depth` (optional)
+           `?level` (optional)
+
+Description: Returns a JSON containing all orderbook informations for that market. The volume is in the corresponding base asset.
+
+             With `depth` you can set how many orders you want to aggregate. If you set 50, that returns 25 per ask/bid.
+
+             With `level` you can set the returned level:
+                1 -> best bid and ask
+                2 -> bids and asks aggregated by 0.05% steps
+                3 -> full order book with every bid and ask
+
+```
+{
+  "timestamp": 1646402828755,
+  "bids": [
+    [3000, 1],
+    [2999, 2],
+    ...
+  ],
+  "asks": [
+    [3010, 1],
+    [3011, 2],
+    ...
+  ]
+}
+
+```
+
+###### /api/v1/trades/:market
+
+Example: `/api/v1/trades/eth-ust?type=s&order_id=4518`
+
+Arguments: `:market`
+           `?type` (optional)
+           `?limit` (optional)
+           `?order_id` (optional)
+           `?start_time` (optional in UNIX)
+           `?end_time` (optional in UNIX)
+
+Description: Returns a JSON containing the last trades for that market in depending order.
+
+             With `type` you can choose to only return buy or ask side. You can set 's', 'b', 'sell' or 'buy'.
+
+             With `limit` you can set the maximum number of trades returned. MAX 25 for now.
+
+             With `order_id` you can set the first order you want to get returned. This can be used to loop over all trades.
+                Use the last orderId returned from the last request and send that as first `order_id`.
+
+             With `start_time` you can set the first retuned trade. Set using UNIX time.
+
+             With `end_time` you can set the last retuned trade. Set using UNIX time
+
+.
+
+
+```
+[
+  {
+    "chainId":1000,
+    "orderId":4162,
+    "market":"ETH-USDC",
+    "price":2914.15,
+    "baseVolume":0.09966024999,
+    "quoteVolume":290.42491750835853,
+    "timestamp":1646307989024,
+    "side":"sell",
+    "txHash":"3e870f76771a37e9da5d0d3d82c3d0a83699e359254c0c2fb4c0aee8fe64a01f",
+    "feeAmount":0.00003025,
+    "feeToken":"ETH"
+  },
+  {
+    "chainId":1000,
+    ....
+  }
+]
+
 ```

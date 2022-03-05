@@ -4,6 +4,8 @@ import { createServer } from 'http'
 import type { WebSocket, WebSocketServer } from 'ws'
 import type { ZZHttpServer } from 'src/types'
 import cmcRoutes from 'src/routes/cmc'
+import cgRoutes from 'src/routes/cg'
+import zzRoutes from 'src/routes/zz'
 
 export const createHttpServer = (
   socketServer: WebSocketServer
@@ -53,6 +55,8 @@ export const createHttpServer = (
   })
 
   cmcRoutes(expressApp)
+  cgRoutes(expressApp)
+  zzRoutes(expressApp)
 
   expressApp.listen = (...args: any) => server.listen(...args)
 

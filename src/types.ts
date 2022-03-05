@@ -45,3 +45,18 @@ export type WSMessage = {
   op: string
   args: any[]
 }
+
+export type ZZMarketSummary = {
+  market: string,
+  baseSymbol: string,
+  quoteSymbol: string,
+  lastPrice: number,
+  lowestAsk: number,
+  highestBid: number,
+  baseVolume: number,
+  quoteVolume: number,
+  priceChange: number,
+  priceChangePercent_24h: number,
+  highestPrice_24h: number,
+  lowestPrice_24h: number
+}
