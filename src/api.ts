@@ -197,7 +197,7 @@ export default class API extends EventEmitter {
     try {
       const valuesOffers = [newstatus, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
+        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
         valuesOffers
       )
       if (update.rows.length > 0) {
@@ -280,7 +280,7 @@ export default class API extends EventEmitter {
     let values = [newstatus, txhash, chainid, orderid]
     try {
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
+        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m'",
         values
       )
     } catch (e) {
@@ -591,7 +591,7 @@ export default class API extends EventEmitter {
   //       [relayResult.transaction_hash, fillId]
   //     )
   //     const orderupdate = await this.db.query(
-  //       "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END) WHERE id IN ($1, $2) RETURNING id, order_status",
+  //       "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
   //       [makerOfferId, takerOfferId]
   //     )
   //     const chainid = parseInt(buyer[0])
@@ -616,7 +616,7 @@ export default class API extends EventEmitter {
   //     console.error(e)
   //     console.error('Starknet tx failed')
   //     const orderupdate = await this.db.query(
-  //       "UPDATE offers SET order_status='r' WHERE id IN ($1, $2) RETURNING id, order_status",
+  //       "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
   //       [makerOfferId, takerOfferId]
   //     )
   //     const chainid = parseInt(buyer[0])
@@ -642,7 +642,7 @@ export default class API extends EventEmitter {
     const ids = select.rows.map((s) => s.id)
 
     await this.db.query(
-      "UPDATE offers SET order_status='c',zktx=NULL WHERE userid=$1 AND order_status='o'",
+      "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o'",
       values
     )
 
@@ -669,7 +669,7 @@ export default class API extends EventEmitter {
 
     const updatevalues = [orderId]
     const update = await this.db.query(
-      "UPDATE offers SET order_status='c', zktx=NULL WHERE id=$1 RETURNING market",
+      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
       updatevalues
     )
     let market
@@ -717,7 +717,7 @@ export default class API extends EventEmitter {
     )
 
     const update1 = await this.db.query(
-      "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
+      "UPDATE offers SET order_status='m', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
       values
     )
     if (update1.rows.length === 0)
@@ -1084,7 +1084,7 @@ export default class API extends EventEmitter {
   updatePendingOrders = async () => {
     const one_min_ago = new Date(Date.now() - 60 * 1000).toISOString()
     const query = {
-      text: "UPDATE offers SET order_status='c' WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
@@ -1108,7 +1108,7 @@ export default class API extends EventEmitter {
     await this.db.query(fillsQuery)
 
     const expiredQuery = {
-      text: "UPDATE offers SET order_status='e', zktx=NULL WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
+      text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
       values: [],
     }
     const updateExpires = await this.db.query(expiredQuery)
@@ -1598,7 +1598,7 @@ export default class API extends EventEmitter {
 
               const orderId = marketmaker.orderId as string
               const orderQuery = await this.db.query(
-                "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
+                "UPDATE offers SET order_status='o', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
                 [orderId, chainid]
               )
               if (orderQuery.rows.length == 0) {
