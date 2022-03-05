@@ -68,7 +68,7 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
-      setInterval(this.fetchAskBid_24h, 300000),
+      setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
@@ -77,8 +77,8 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
-    // update fetchAskBid_24h once
-    setTimeout(this.fetchAskBid_24h, 10000)
+    // update updatePriceHighLow once
+    setTimeout(this.updatePriceHighLow, 10000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
