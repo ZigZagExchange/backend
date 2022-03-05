@@ -68,8 +68,9 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
-      setInterval(this.clearDeadConnections, 60000),
+      setInterval(this.fetchAskBid_24h, 300000),
       setInterval(this.updateVolumes, 120000),
+      setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
       setInterval(this.updateMarketInfo, 10000),
       setInterval(this.updatePassiveMM, 10000),
@@ -1262,6 +1263,35 @@ export default class API extends EventEmitter {
     })
     await Promise.all(results)
     return marketSummarys
+  }
+
+  fetchAskBid_24h = async () => {
+    const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()    
+    const select = await this.db.query(
+      "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
+      [one_day_ago]
+    )
+    select.rows.forEach(async (row) => {
+      const redisKeyLow = `price:${row.chainid}:low`
+      const redisKeyHigh = `price:${row.chainid}:high`
+      this.redis.HSET(redisKeyLow, row.market, row.min_price)
+      this.redis.HSET(redisKeyHigh, row.market, row.max_price)
+    })
+
+    // delete inactive markets
+    this.VALID_CHAINS.forEach(async (chainid) => { 
+      const markets  = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+      const priceKeysLow = await this.redis.HKEYS(`price:${chainid}:low`)
+      const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
+      delKeysLow.forEach(async (key) => {
+        this.redis.HDEL(`price:${chainid}:low`, key)
+      })
+      const priceKeysHigh = await this.redis.HKEYS(`price:${chainid}:high`)
+      const delKeysHigh = priceKeysHigh.filter((k) => !markets.includes(k))
+      delKeysHigh.forEach(async (key) => {
+        this.redis.HDEL(`price:${chainid}:high`, key)
+      })
+    })
   }
 
   // Ladder has to be a sorted 2-D array contaning price and quantity
