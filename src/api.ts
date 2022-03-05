@@ -1238,11 +1238,13 @@ export default class API extends EventEmitter {
       marketSummarys[market] = marketSummary
     })
     await Promise.all(results)
-    this.redis.SET(
-      redisKeyMarketSummary,
-      JSON.stringify(marketSummarys),
-      { 'EX': 10 }
-    )
+    if(marketReq === '') {
+      this.redis.SET(
+        redisKeyMarketSummary,
+        JSON.stringify(marketSummarys),
+        { 'EX': 10 }
+      )
+    }
     return marketSummarys
   }
 
