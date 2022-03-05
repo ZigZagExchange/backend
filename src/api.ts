@@ -1162,7 +1162,7 @@ export default class API extends EventEmitter {
 
     const redisKeyVolumesQuote = `volume:${chainid}:quote`
     const redisKeyVolumesBase = `volume:${chainid}:base`
-    const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
+    const redisVolumesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
 
     const markets =
@@ -1233,7 +1233,7 @@ export default class API extends EventEmitter {
       }
 
       // get volume
-      const quoteVolume = Number(redisPricesQuote[market] || 0)
+      const quoteVolume = Number(redisVolumesQuote[market] || 0)
       const baseVolume = Number(redisVolumesBase[market] || 0)
 
       // get best ask/bid
