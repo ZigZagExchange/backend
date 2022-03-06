@@ -1605,13 +1605,15 @@ export default class API extends EventEmitter {
               this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
                 EX: remainingTime,
               })
-
               const orderId = marketmaker.orderId as string
+
               const orderQuery = await this.db.query(
-                "UPDATE offers SET order_status='o', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
+                "UPDATE offers SET order_status='o', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 AND order_status IN ('m', 'b', 'o') RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
                 [orderId, chainid]
               )
-              if (orderQuery.rows.length == 0) {
+              if (orderQuery.rows.length === 0) {
+                // remove timeout, no order stuck at m, b or o
+                this.redis.DEL(key)
                 return
               }
 
