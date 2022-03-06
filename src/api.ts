@@ -1082,14 +1082,16 @@ export default class API extends EventEmitter {
       }
     })
 
-    // remove not active markets
+    // remove zero markets
     this.VALID_CHAINS.forEach(async (chainId) => {
-      const activeMarkets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      const nonZeroMarkets = select.rows.filter(row => row.chainid===chainId)
+        .map(row => row.market)
+
       const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
       const quoteVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:quote`)
 
-      const keysToDelBase = baseVolumeMarkets.filter(m => !activeMarkets.includes(m))
-      const keysToDelQuote = quoteVolumeMarkets.filter(m => !activeMarkets.includes(m))
+      const keysToDelBase = baseVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
+      const keysToDelQuote = quoteVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
 
       this.redis.HDEL(`volume:${chainId}:base`, keysToDelBase)
       this.redis.HDEL(`volume:${chainId}:quote`, keysToDelQuote)
