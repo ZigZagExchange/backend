@@ -73,7 +73,7 @@ export default class API extends EventEmitter {
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
       setInterval(this.updateMarketInfo, 10000),
-      setInterval(this.updatePassiveMM, 10000),
+      //setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
@@ -265,7 +265,7 @@ export default class API extends EventEmitter {
       maker_user_id,
       feeAmount,
       feeToken,
-      timestamp
+      timestamp,
     }
   }
 
@@ -1162,15 +1162,12 @@ export default class API extends EventEmitter {
     return lastprices
   }
 
-  getMarketSummarys = async (
-    chainid: number,
-    marketReq: string = ''
-  ) => {
+  getMarketSummarys = async (chainid: number, marketReq: string = '') => {
     const redisKeyMarketSummary = `marketsummary:${chainid}`
     let markets
-    if(marketReq === '') {
+    if (marketReq === '') {
       const cache = await this.redis.GET(redisKeyMarketSummary)
-      if(cache) {
+      if (cache) {
         return JSON.parse(cache)
       }
       markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
@@ -1238,18 +1235,16 @@ export default class API extends EventEmitter {
       marketSummarys[market] = marketSummary
     })
     await Promise.all(results)
-    if(marketReq === '') {
-      this.redis.SET(
-        redisKeyMarketSummary,
-        JSON.stringify(marketSummarys),
-        { 'EX': 10 }
-      )
+    if (marketReq === '') {
+      this.redis.SET(redisKeyMarketSummary, JSON.stringify(marketSummarys), {
+        EX: 10,
+      })
     }
     return marketSummarys
   }
 
   updatePriceHighLow = async () => {
-    const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()    
+    const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()
     const select = await this.db.query(
       "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
       [one_day_ago]
@@ -1262,8 +1257,8 @@ export default class API extends EventEmitter {
     })
 
     // delete inactive markets
-    this.VALID_CHAINS.forEach(async (chainid) => { 
-      const markets  = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    this.VALID_CHAINS.forEach(async (chainid) => {
+      const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
       const priceKeysLow = await this.redis.HKEYS(`price:${chainid}:low`)
       const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
       delKeysLow.forEach(async (key) => {
@@ -1604,37 +1599,6 @@ export default class API extends EventEmitter {
             if (!passivews) {
               this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
                 EX: remainingTime,
-              })
-              const orderId = marketmaker.orderId as string
-
-              const orderQuery = await this.db.query(
-                "UPDATE offers SET order_status='o', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 AND order_status IN ('m', 'b', 'o') RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
-                [orderId, chainid]
-              )
-              if (orderQuery.rows.length === 0) {
-                // remove timeout, no order stuck at m, b or o
-                this.redis.DEL(key)
-                return
-              }
-
-              const order = orderQuery.rows[0]
-              const orderreceipt = [
-                chainid,
-                orderId,
-                order.market,
-                order.side,
-                order.price,
-                order.base_quantity,
-                order.quote_quantity,
-                order.expires,
-                order.userid,
-                order.order_status,
-                null,
-                order.base_quantity,
-              ]
-              this.broadcastMessage(chainid, order.market, {
-                op: 'orders',
-                args: [[orderreceipt]],
               })
             }
           }
