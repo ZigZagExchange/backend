@@ -1081,6 +1081,19 @@ export default class API extends EventEmitter {
         console.log('Could not update volumes')
       }
     })
+
+    // remove not active markets
+    this.VALID_CHAINS.forEach(async (chainId) => {
+      const activeMarkets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
+      const quoteVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:quote`)
+
+      const keysToDelBase = baseVolumeMarkets.filter(m => !activeMarkets.includes(m))
+      const keysToDelQuote = quoteVolumeMarkets.filter(m => !activeMarkets.includes(m))
+
+      this.redis.HDEL(`volume:${chainId}:base`, keysToDelBase)
+      this.redis.HDEL(`volume:${chainId}:quote`, keysToDelQuote)
+    })    
     return true
   }
 
