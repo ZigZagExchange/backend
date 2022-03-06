@@ -985,6 +985,8 @@ export default class API extends EventEmitter {
    * @param {number} type side of returned fills 's', 'b', 'buy' or 'sell'
    * @param {number} startTime time for first fill
    * @param {number} endTime time for last fill
+   * @param {number} accountId accountId to search for (maker or taker)
+   * @param {string} direction used to set ASC or DESC ('older' or 'newer')
    * @return {number} array of fills [[chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp],...]
    */
   getfills = async (

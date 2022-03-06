@@ -114,7 +114,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const orderId = (req.query.order_id) ? Number(req.query.order_id) : 0
     const startTime = (req.query.start_time) ? Number(req.query.start_time) : 0
     const endTime = (req.query.end_time) ? Number(req.query.end_time) : 0
-    const accountId = (req.query.accountId) ? Number(req.query.accountId) : 0
+    const accountId = (req.query.account_id) ? Number(req.query.account_id) : 0
     
 
     if(type && !['s', 'b', 'sell', 'buy'].includes(type)) {
