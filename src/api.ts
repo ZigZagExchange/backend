@@ -1053,7 +1053,7 @@ export default class API extends EventEmitter {
       }
     }
     limit = limit ? Math.min(25, Number(limit)) : 25
-    text = text + ` ORDER BY id DESC LIMIT ${limit}`
+    text = text + ` ORDER BY id ${sqlDirection} LIMIT ${limit}`
 
     try {
       const query = {
