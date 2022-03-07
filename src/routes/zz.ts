@@ -104,9 +104,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/trades/', async (req, res) => {
-    const market = (req.query.market as string)
-      .replace('_','-')
-      .toUpperCase()
+    let market = (req.query.market as string)
+    if(market) {
+      market = market.replace('_','-').toUpperCase()
+    }      
     const type: string = req.query.type as string
     const direction = req.query.direction as string
     const limit = (req.query.limit) ? Number(req.query.limit) : 0
