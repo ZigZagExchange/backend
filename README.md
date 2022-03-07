@@ -918,11 +918,11 @@ Description: Returns a JSON containing all orderbook informations for that marke
 
 ```
 
-###### /api/v1/trades/:market
+###### /api/v1/trades/
 
-Example: `/api/v1/trades/eth-ust?type=s&order_id=4518`
+Example: `/api/v1/trades?market=eth-ust&type=s&order_id=4518`
 
-Arguments: `:market`
+Arguments: `?market` (optional)
            `?type` (optional)
            `?limit` (optional)
            `?order_id` (optional)
@@ -931,7 +931,9 @@ Arguments: `:market`
            `?account_id` (optional)
            `?direction` (optional - 'older' or 'newer')
 
-Description: Returns a JSON containing the last trades for that market in depending order.
+Description: Returns a JSON containing the last trades in decending order.
+
+             With `market` you can choose to only return trades for one market. Use 'eth-ust' or 'eth_ust'
 
              With `type` you can choose to only return buy or ask side. You can set 's', 'b', 'sell' or 'buy'.
 

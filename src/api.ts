@@ -1000,8 +1000,12 @@ export default class API extends EventEmitter {
     accountId?: number,
     direction?: string
   ) => {
-    let text: string = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f'"
+    let text: string = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f'"
     
+    if(market) {
+      text = text + ` AND market = '${market}'`
+    }
+
     let sqlDirection: string = "DESC"
     if(direction) {
       if(direction === "older") {
@@ -1062,7 +1066,7 @@ export default class API extends EventEmitter {
     try {
       const query = {
         text: text,
-        values: [market, chainid],
+        values: [chainid],
         rowMode: 'array',
       }
       const select = await this.db.query(query)
