@@ -1082,20 +1082,29 @@ export default class API extends EventEmitter {
       }
     })
 
-    // remove zero markets
-    this.VALID_CHAINS.forEach(async (chainId) => {
-      const nonZeroMarkets = select.rows.filter(row => row.chainid===chainId)
-        .map(row => row.market)
+    try {
+      // remove zero volumes
+      this.VALID_CHAINS.forEach(async (chainId) => {
+        const nonZeroMarkets = select.rows.filter(row => row.chainid===chainId)
+          .map(row => row.market)
 
-      const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
-      const quoteVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:quote`)
+        const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
+        const quoteVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:quote`)
 
-      const keysToDelBase = baseVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
-      const keysToDelQuote = quoteVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
+        const keysToDelBase = baseVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
+        const keysToDelQuote = quoteVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
 
-      this.redis.HDEL(`volume:${chainId}:base`, keysToDelBase)
-      this.redis.HDEL(`volume:${chainId}:quote`, keysToDelQuote)
-    })    
+        keysToDelBase.forEach(key => {
+          this.redis.HDEL(`volume:${chainId}:base`, key)
+        })
+        keysToDelQuote.forEach(key => {
+          this.redis.HDEL(`volume:${chainId}:quote`, key)
+        })
+      })    
+    } catch (err) {
+      console.error(err)
+      console.log('Could not remove zero volumes')
+    }
     return true
   }
 
