@@ -702,22 +702,29 @@ export default class API extends EventEmitter {
 
     // Determine fill price
     const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
-    let baseQuantity
-    let quoteQuantity
-
+    let baseQuantity: number
+    let quoteQuantity: number
+    let priceWithoutFee: string
+    
     if (selectresult.side === 's') {
       baseQuantity = selectresult.base_quantity
-      quoteQuantity =
-        Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
-    }
-    if (selectresult.side === 'b') {
-      baseQuantity =
-        Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
+      quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
+
+      const baseQuantityWithoutFee = baseQuantity - marketInfo.baseFee
+      priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+    } else if (selectresult.side === 'b') {
+      baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
       quoteQuantity = selectresult.quote_quantity
+
+      const quoteQuantityWithoutFee = quoteQuantity - marketInfo.quoteFee
+      priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+    } else {
+      throw new Error('Side ' + selectresult.side + ' is not valid!')
     }
-    const fillPrice = (quoteQuantity / baseQuantity).toFixed(
-      marketInfo.pricePrecisionDecimals
-    )
 
     const update1 = await this.db.query(
       "UPDATE offers SET order_status='m', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
@@ -734,7 +741,7 @@ export default class API extends EventEmitter {
       orderId,
       selectresult.userid,
       maker_user_id,
-      fillPrice,
+      priceWithoutFee,
       selectresult.base_quantity,
       selectresult.side,
     ]
@@ -748,7 +755,7 @@ export default class API extends EventEmitter {
       fill_id,
       selectresult.market,
       selectresult.side,
-      fillPrice,
+      priceWithoutFee,
       selectresult.base_quantity,
       'm',
       null,
