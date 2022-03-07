@@ -1000,11 +1000,25 @@ export default class API extends EventEmitter {
     accountId?: number,
     direction?: string
   ) => {
-    let text: string =
-      "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f'"
+    let text: string = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f'"
+    
+    let sqlDirection: string = "DESC"
+    if(direction) {
+      if(direction === "older") {
+        sqlDirection = "DESC"
+      } else if(direction === "newer") {
+        sqlDirection = "ASC"
+      } else {
+        throw new Error("Only direction 'older' or 'newer' is allowed.")
+      }
+    }
 
     if (orderId) {
-      text = text + ` AND id <= '${orderId}'`
+      if(sqlDirection == "DESC") {
+        text = text + ` AND id <= '${orderId}'`
+      } else {
+        text = text + ` AND id >= '${orderId}'`
+      }      
     }
 
     if (type) {
@@ -1039,19 +1053,9 @@ export default class API extends EventEmitter {
     }
 
     if (accountId) {
-      text = text + ` AND (maker_user_id=${accountId} OR taker_user_id=${accountId})`
+      text = text + ` AND (maker_user_id='${accountId}' OR taker_user_id='${accountId}')`
     }
 
-    let sqlDirection: string = "DESC"
-    if(direction) {
-      if(direction === "older") {
-        sqlDirection = "DESC"
-      } else if(direction === "newer") {
-        sqlDirection = "ASC"
-      } else {
-        throw new Error("Only direction 'older' or 'newer' is allowed.")
-      }
-    }
     limit = limit ? Math.min(25, Number(limit)) : 25
     text = text + ` ORDER BY id ${sqlDirection} LIMIT ${limit}`
 
