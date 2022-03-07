@@ -103,10 +103,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/trades/:market_pair', async (req, res) => {
-    const market = (req.params.market_pair)
+  app.get('/api/v1/trades/', async (req, res) => {
+    const market = (req.query.market as string)
       .replace('_','-')
-      .replace('/','-')
       .toUpperCase()
     const type: string = req.query.type as string
     const direction = req.query.direction as string
