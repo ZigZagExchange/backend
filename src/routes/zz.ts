@@ -109,10 +109,13 @@ export default function cmcRoutes(app: ZZHttpServer) {
       .replace('/','-')
       .toUpperCase()
     const type: string = req.query.type as string
+    const direction = req.query.direction as string
     const limit = (req.query.limit) ? Number(req.query.limit) : 0
     const orderId = (req.query.order_id) ? Number(req.query.order_id) : 0
     const startTime = (req.query.start_time) ? Number(req.query.start_time) : 0
     const endTime = (req.query.end_time) ? Number(req.query.end_time) : 0
+    const accountId = (req.query.account_id) ? Number(req.query.account_id) : 0
+    
 
     if(type && !['s', 'b', 'sell', 'buy'].includes(type)) {
       res.send({ op: 'error', message: `Type: ${type} is not a valid type. Use 's', 'b', 'sell', 'buy'` })
@@ -127,7 +130,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
         orderId,
         type,
         startTime,
-        endTime
+        endTime,
+        accountId,
+        direction
       )
 
       if(fills.length === 0) {

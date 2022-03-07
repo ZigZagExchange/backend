@@ -928,6 +928,8 @@ Arguments: `:market`
            `?order_id` (optional)
            `?start_time` (optional in UNIX)
            `?end_time` (optional in UNIX)
+           `?account_id` (optional)
+           `?direction` (optional - 'older' or 'newer')
 
 Description: Returns a JSON containing the last trades for that market in depending order.
 
@@ -940,7 +942,11 @@ Description: Returns a JSON containing the last trades for that market in depend
 
              With `start_time` you can set the first retuned trade. Set using UNIX time.
 
-             With `end_time` you can set the last retuned trade. Set using UNIX time
+             With `end_time` you can set the last retuned trade. Set using UNIX time.
+
+             With `account_id` you can get trades corresponding to a given account ID.
+
+             With `direction` you set the direction, best used together with a account_id (eg. get all new trades starting from x)
 
 .
 
