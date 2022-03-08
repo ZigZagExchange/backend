@@ -217,18 +217,17 @@ export default class API extends EventEmitter {
     let feeAmount
     let feeToken
     let timestamp
-    try {
+    if (marketInfo) {
       if(side === 's') {
         feeAmount = marketInfo.baseFee
         feeToken =  marketInfo.baseAsset.symbol
       } else {
         feeAmount = marketInfo.quoteFee
         feeToken =  marketInfo.quoteAsset.symbol
-      }      
-    } catch (e) {
-      console.error('Error while updating feeAmount & feeToken.')
-      console.error(e)
-      return false
+      }
+    } else {
+      feeAmount = 0.5
+      feeToken = "USDC"
     }
 
     if (newstatus === 'r') {
