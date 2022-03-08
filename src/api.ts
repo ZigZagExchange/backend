@@ -217,13 +217,17 @@ export default class API extends EventEmitter {
     let feeAmount
     let feeToken
     let timestamp
-    try {
-      feeAmount = marketInfo.baseFee
-      feeToken = marketInfo.baseAsset.symbol
-    } catch (e) {
-      console.error('Error while updateOrderFillStatus offers.')
-      console.error(e)
-      return false
+    if (marketInfo) {
+      if(side === 's') {
+        feeAmount = marketInfo.baseFee
+        feeToken =  marketInfo.baseAsset.symbol
+      } else {
+        feeAmount = marketInfo.quoteFee
+        feeToken =  marketInfo.quoteAsset.symbol
+      }
+    } else {
+      feeAmount = 0.5
+      feeToken = "USDC"
     }
 
     if (newstatus === 'r') {
