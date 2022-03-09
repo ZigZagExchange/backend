@@ -135,73 +135,172 @@ export default class API extends EventEmitter {
     this.started = false
   }
 
-  fetchMarketInfoFromMarkets = async (
-    markets: string[],
-    chainid: number
-  ): Promise<ZZMarketInfo | null> => {
-    const controller = new AbortController()
-    setTimeout(() => controller.abort(), 30000)
-    const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets.join(
-      ','
-    )}&chainid=${chainid}`
-    const marketInfoList = (await fetch(url, {
-      signal: controller.signal,
-    }).then((r: any) => r.json())) as ZZMarketInfo
-    if (!marketInfoList) throw new Error(`No marketinfo found.`)
-    for (let i = 0; i < marketInfoList.length; i++) {
-      const marketInfo = marketInfoList[i]
-      if (!marketInfo) return null
-      const oldMarketInfo = await this.redis.get(
-        `marketinfo:${chainid}:${marketInfo.alias}`
-      )
-      if (oldMarketInfo !== JSON.stringify(marketInfo)) {
-        const market_id = marketInfo.alias
-        const redis_key = `marketinfo:${chainid}:${market_id}`
-        this.redis.set(redis_key, JSON.stringify(marketInfo), { EX: 1800 })
-
-        const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
-        this.broadcastMessage(chainid, market_id, marketInfoMsg)
-      }
+  /**
+   * Get market info from Arweave
+   * @param marketArweaveId Arweave Id is more than 20 char long
+   * @param chainId 
+   * @returns 
+   */
+  getMarketInfoFromArweave = async (
+    chainId: number = 1,
+    marketArweaveId: string
+  ) => {
+    if(![1, 1000].includes(chainId)) {
+      throw new Error("getMarketInfoFromArweave: Only 1 and 1000 are valid.")
     }
+    let marketInfo: ZZMarketInfo = {}
+    if(marketArweaveId.length < 20) {
+      return marketInfo
+    }
+    try {
+      marketInfo = await fetch("https://arweave.net/" + marketArweaveId)
+        .then((r: any) => r.json())
+
+      let [
+        baseAsset,
+        quoteAsset
+      ] = await Promise.all ([
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.baseAssetId),
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.quoteAssetId)
+      ])
+
+      let [
+        baseAssetName,
+        quoteAssetName
+      ] = await  Promise.all ([
+        this.getTokenName(
+          marketInfo.baseAsset.address,
+          marketInfo.chainId,
+          marketInfo.baseAsset.symbol
+        ),
+        this.getTokenName(
+          marketInfo.quoteAsset.address,
+          marketInfo.chainId,
+          marketInfo.quoteAsset.symbol
+        )
+      ])
+
+      marketInfo.baseAsset = baseAsset
+      marketInfo.quoteAsset = quoteAsset
+      marketInfo.baseAsset.name = baseAssetName
+      marketInfo.quoteAsset.name = quoteAssetName
+
+      this.redis.HSET(
+        `tokeninfo:${chainId}`,
+        marketInfo.baseAsset.symbol,
+        JSON.stringify(marketInfo.baseAsset)
+      )
+      this.redis.HSET(
+        `tokeninfo:${chainId}`,
+        marketInfo.quoteAsset.symbol,
+        JSON.stringify(marketInfo.quoteAsset)
+      )
+
+      marketInfo.id = marketArweaveId
+      marketInfo.alias = marketInfo.baseAsset.symbol + "-" + marketInfo.quoteAsset.symbol
+
+      // get last fee
+      const baseFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.baseAsset.symbol)
+      const quoteFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.quoteAsset.symbol)
+      marketInfo.baseFee = baseFee
+      marketInfo.quoteFee = quoteFee
+
+      const redisKey: string = `marketinfo:${chainId}`
+      this.redis.HSET(
+        redisKey,
+        marketArweaveId,
+        JSON.stringify(marketInfo)
+      )
+
+      this.redis.HSET(
+        redisKey,
+        marketInfo.alias,
+        JSON.stringify(marketInfo)
+      )
+    } catch (err: any) {
+      console.error("Can't update marketinfo from Arweave for " + marketArweaveId)
+    }
+    return marketInfo
+  }
+
+  /**
+   * Get the full token name from L1 ERC20 contract
+   * @param contractAddress 
+   * @param chainId 
+   * @param tokenSymbol 
+   * @returns full token name
+   */
+  getTokenName = async (
+    chainId: number,
+    contractAddress: string,
+    tokenSymbol: string
+  ) => {
+    if (tokenSymbol === "ETH") {
+      return "Ethereum"
+    }
+    const network = (chainId === 1) ? "mainnet" : "rinkeby"
+    let name
+    try {
+      const contract = new ethers.Contract(
+        contractAddress,
+        this.ERC20_ABI,
+        this.ETHERS_PROVIDER[network]
+      );
+       name = await contract.name();
+    } catch (e) {
+      console.error(e);
+      name = tokenSymbol;
+    }
+    return name
+  }
+
 
     return marketInfoList
   }
 
+  /**
+   * get marketInfo for a given marketAlias or marketId
+   * @param market marketAlias or marketId
+   * @param chainId 
+   * @returns marketInfo as ZZMarketInfo
+   */
   getMarketInfo = async (
     market: ZZMarket,
-    chainid: number
+    chainId: number
   ): Promise<ZZMarketInfo> => {
-    const redis_key = `marketinfo:${chainid}:${market}`
-    let marketinfo = await this.redis.get(redis_key)
-    try {
-      if (marketinfo) {
-        return JSON.parse(marketinfo) as ZZMarketInfo
-      }
+    const redis_key = `marketinfo:${chainId}`
+    let cache = await this.redis.HGET(
+      redis_key,
+      market
+    )
 
-      marketinfo = await this.fetchMarketInfoFromMarkets(
-        [market],
-        chainid
-      ).then((r: any) => r[0])
-    } catch (err) {
-      console.log(err)
+    if (cache) {
+      return JSON.parse(cache) as ZZMarketInfo
     }
 
-    return marketinfo as any as ZZMarketInfo
+    return this.getMarketInfoFromArweave(
+      chainId,
+      market
+    )
   }
 
+  /**
+   * Used to update tokenInfo's and Arweave settings
+   */
   updateMarketInfo = async () => {
     console.time('updating market info')
-    const chainIds = [1, 1000]
-    for (let i = 0; i < chainIds.length; i++) {
-      try {
-        const chainid = chainIds[i]
-        const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
-        if (!markets || markets.length == 0) continue
-        await this.fetchMarketInfoFromMarkets(markets, chainid)
-      } catch (e) {
-        console.error(e)
-      }
-    }
+    this.VALID_CHAINS.forEach(async (chainId: number) => {
+      const marketKeys = await this.redis.SMEMBERS(`marketinfo:${chainId}`)
+      marketKeys.forEach((marketKey: ZZMarket) => {
+        // update from Arweave with ArweaveId
+        if(marketKey.length >= 20) {
+          this.getMarketInfoFromArweave(
+            chainId,
+            marketKey
+          )
+        }        
+      })
+    })
     console.timeEnd('updating market info')
   }
 
