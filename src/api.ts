@@ -737,7 +737,11 @@ export default class API extends EventEmitter {
     const redis_members: any = {
       score: fillPrice,
       value: JSON.stringify({
-        "selectresult": selectresult,
+        "zktx": selectresult.zktx,
+        "market": selectresult.market,
+        "baseQuantity": selectresult.base_quantity,
+        "quoteQuantity": selectresult.quote_quantity,
+        "userId": selectresult.userid,
         "fillOrder": fillOrder,
         "wsUUID": ws.uuid
       })
@@ -783,7 +787,6 @@ export default class API extends EventEmitter {
 
     const fillPrice = redis_members.score
     const value = JSON.parse(redis_members.value)
-    const selectresult = JSON.parse(value.selectresult)
     const fillOrder = value.fillOrder
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
@@ -815,18 +818,18 @@ export default class API extends EventEmitter {
         throw new Error('fillrequest - market maker is timed out.') 
       }
       
-      const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
+      const marketInfo = await this.getMarketInfo(value.market, chainid)
       let priceWithoutFee: string
       if(marketInfo) {
         if(side === 's') {
           const quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
-          const baseQuantityWithoutFee = selectresult.base_quantity - marketInfo.baseFee
+          const baseQuantityWithoutFee = value.baseQuantity - marketInfo.baseFee
           priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
             marketInfo.pricePrecisionDecimals
           )
         } else {
           const baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
-          const quoteQuantityWithoutFee = selectresult.quote_quantity - marketInfo.quoteFee
+          const quoteQuantityWithoutFee = value.quoteQuantity - marketInfo.quoteFee
           priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
             marketInfo.pricePrecisionDecimals
           )
@@ -846,13 +849,13 @@ export default class API extends EventEmitter {
       
       values = [
         chainid,
-        selectresult.market,
+        value.market,
         orderId,
-        selectresult.userid,
+        value.userId,
         makerAccountId,
         priceWithoutFee,
-        selectresult.base_quantity,
-        selectresult.side,
+        value.baseQuantity,
+        side,
       ]
       const update2 = await this.db.query(
         "INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id",
@@ -862,13 +865,13 @@ export default class API extends EventEmitter {
       fill = [
         chainid,
         fill_id,
-        selectresult.market,
-        selectresult.side,
+        value.market,
+        side,
         priceWithoutFee,
-        selectresult.base_quantity,
+        value.baseQuantity,
         'm',
         null,
-        selectresult.userid,
+        value.userId,
         makerAccountId,
         null,
         null,
@@ -886,7 +889,7 @@ export default class API extends EventEmitter {
     ws.send(
       JSON.stringify({
         op: 'userordermatch',
-        args: [chainid, orderId, selectresult.zktx, fillOrder],
+        args: [chainid, orderId, value.zktx, fillOrder],
       })
     )
     
@@ -920,12 +923,12 @@ export default class API extends EventEmitter {
       { EX: this.MARKET_MAKER_TIMEOUT }
     )
 
-    this.broadcastMessage(chainid, selectresult.market, {
+    this.broadcastMessage(chainid, value.market, {
       op: 'orderstatus',
       args: [[[chainid, orderId, 'm']]],
     })
 
-    this.broadcastMessage(chainid, selectresult.market, {
+    this.broadcastMessage(chainid, value.market, {
       op: 'fills',
       args: [[fill]],
     })
