@@ -786,8 +786,8 @@ export default class API extends EventEmitter {
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
     const ws = this.MAKER_CONNECTIONS[makerConnId]
-    let fill
 
+    let fill
     try {
       const redisKey = `bussymarketmaker:${chainid}:${makerAccountId}`
       const redisBusyMM = (await this.redis.get(redisKey)) as string
@@ -812,22 +812,24 @@ export default class API extends EventEmitter {
         throw new Error('fillrequest - market maker is timed out.') 
       }
       
-      let priceWithoutFee: number
-      if(side === 's') {
-        baseQuantity = selectresult.base_quantity
-        quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
-        const baseQuantityWithoutFee = baseQuantity - marketInfo.baseFee
-        priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
+      const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
+      let priceWithoutFee: string
+      if(marketInfo) {
+        if(side === 's') {
+          const quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
+          const baseQuantityWithoutFee = selectresult.base_quantity - marketInfo.baseFee
+          priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
+            marketInfo.pricePrecisionDecimals
+          )
+        } else {
+          const baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
+          const quoteQuantityWithoutFee = selectresult.quote_quantity - marketInfo.quoteFee
+          priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
+            marketInfo.pricePrecisionDecimals
+          )
+        }
       } else {
-        baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
-        quoteQuantity = selectresult.quote_quantity
-
-        const quoteQuantityWithoutFee = quoteQuantity - marketInfo.quoteFee
-        priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
+        priceWithoutFee = fillPrice.toString()
       }
 
       let values = [orderId, chainid]
@@ -882,6 +884,7 @@ export default class API extends EventEmitter {
         op: 'userordermatch',
         args: [chainid, orderId, selectresult.zktx, fillOrder],
       })
+    )
     
     // send result to other mm's, remove set
     const otherMaker = await this.redis.ZRANGE(redisKey, 0, -1)
