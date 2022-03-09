@@ -699,9 +699,20 @@ export default class API extends EventEmitter {
       "SELECT userid, price, base_quantity, quote_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'",
       values
     )
-    if (select.rows.length === 0)
-      // eslint-disable-next-line prefer-template
-      throw new Error(`Order ${orderId} is not open`)
+    if (select.rows.length === 0) {
+      ws.send(
+        JSON.stringify(
+          { 
+            op: 'error',
+            args: [
+              'fillrequest',
+              fillOrder.accountId.toString(),
+              `Order ${orderId} is not open`] 
+          }
+        )
+      )
+      return false
+    }
 
     const selectresult = select.rows[0]
     
@@ -709,24 +720,13 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
     let baseQuantity: number
     let quoteQuantity: number
-    let priceWithoutFee: string
     
     if (selectresult.side === 's') {
       baseQuantity = selectresult.base_quantity
       quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
-
-      const baseQuantityWithoutFee = baseQuantity - marketInfo.baseFee
-      priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
     } else if (selectresult.side === 'b') {
       baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
       quoteQuantity = selectresult.quote_quantity
-
-      const quoteQuantityWithoutFee = quoteQuantity - marketInfo.quoteFee
-      priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
     } else {
       throw new Error('Side ' + selectresult.side + ' is not valid!')
     }
@@ -787,6 +787,7 @@ export default class API extends EventEmitter {
 
     const fillPrice = redis_members.score
     const value = JSON.parse(redis_members.value)
+    console.log(value)
     const fillOrder = value.fillOrder
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
