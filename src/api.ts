@@ -75,11 +75,12 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
+      setInterval(this.updateMarketInfo, 21600000),
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateMarketInfo, 10000),
+      setInterval(this.updateFees, 60000),
       //setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -254,8 +255,92 @@ export default class API extends EventEmitter {
     return name
   }
 
+  /**
+   * Update the fee for each token on regular basis
+   */
+  updateFees = async () => {
+    this.VALID_CHAINS.forEach(async (chainId: number) => {
+      const tokenSymbols = await this.redis.SMEMBERS(`tokeninfo:${chainId}`)
+      const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
+      const results: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
+        let tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
+        let fee
+        if(tokenInfo.enabledForFees) {
+          try {
+            const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
+                "Swap",
+                '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
+                tokenSymbol
+            )
+            fee = Number(
+              this.SYNC_PROVIDER[chainId].tokenSet
+                .formatToken(
+                  tokenSymbol,
+                  feeReturn.totalFee
+                )
+            )
+          } catch (e: any) {
+              console.log("Can't get fee for " + tokenSymbol + ", error: " + e.message)
+          }
+        }
 
-    return marketInfoList
+        if(!fee) {
+          try {
+            const usdPrice: number = await this.getUsdPrice(chainId, tokenSymbol)
+            const usdReference: number = Number(
+              await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
+            )
+            if (usdReference && usdPrice) {
+              fee = (usdReference / usdPrice)
+            }            
+          } catch (e) {
+              console.log("Can't get fee per reference for " + tokenSymbol + ", error: "+e)
+          }
+        }
+
+        if(fee) {
+          this.redis.HSET(
+            `tokenfee:${chainId}`,
+            tokenSymbol,
+            fee
+          )
+        }
+      })
+      await Promise.all(results)
+
+      // check if fee's have changed (only on alias markets)
+      const markets = (await this.redis.SMEMBERS(`activemarkets:${chainId}`))
+        .filter((m) => m.length < 20)
+      const fees = await this.redis.HGETALL(`tokenfee:${chainId}`)
+      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
+      markets.forEach(async (market: ZZMarket) => {
+        const marketInfo = JSON.parse(marketInfos[market])
+        let updated: boolean = false
+        if(marketInfo.baseFee != fees[marketInfo.baseAsset.symbol]) {
+          marketInfo.baseFee = fees[marketInfo.baseAsset.symbol]
+          updated = true
+        }
+        if(marketInfo.quoteFee != fees[marketInfo.quoteAsset.symbol]) {
+          marketInfo.quoteFee = fees[marketInfo.quoteAsset.symbol]
+          updated = true
+        }
+        if(updated) {
+          this.redis.HSET(
+            `marketinfo:${chainId}`,
+            market,
+            JSON.stringify(marketInfo)
+          )
+          // update Arweave id as well
+          this.redis.HSET(
+            `marketinfo:${chainId}`,
+            marketInfo.id,
+            JSON.stringify(marketInfo)
+          )
+          const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
+          this.broadcastMessage(chainId, market, marketInfoMsg)
+        }
+      })
+    })
   }
 
   /**
