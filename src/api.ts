@@ -700,8 +700,18 @@ export default class API extends EventEmitter {
       values
     )
     if (select.rows.length === 0)
-      // eslint-disable-next-line prefer-template
-      throw new Error(`Order ${orderId} is not open`)
+      ws.send(
+        JSON.stringify(
+          { 
+            op: 'error',
+            args: [
+              'fillrequest',
+              fillOrder.accountId.toString(),
+              `Order ${orderId} is not open`] 
+          }
+        )
+      )
+      return false
 
     const selectresult = select.rows[0]
     
