@@ -750,11 +750,10 @@ export default class API extends EventEmitter {
     const redisKey = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
     this.redis.ZADD(redisKey, redis_members)
-    console.log(`ADDING: orderId: ${orderId}, side: ${selectresult.side}, price: ${fillPrice}`)
     if(existingMembers === 0) {
       setTimeout(
         this.senduserordermatch,
-        500,
+        200,
         chainid,
         orderId,
         selectresult.side)
@@ -766,7 +765,6 @@ export default class API extends EventEmitter {
     orderId: string,
     side: string
   ) => {
-    console.log(`MATCHING: orderId: ${orderId}, side: ${side}`)
     const redisKey = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
     if(existingMembers === 0) {
@@ -791,7 +789,6 @@ export default class API extends EventEmitter {
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
     const ws = this.MAKER_CONNECTIONS[makerConnId]
-    console.log(`SELECTED: orderId: ${orderId}, side: ${side}, price: ${fillPrice}`)
 
     let fill
     try {
@@ -885,7 +882,6 @@ export default class API extends EventEmitter {
       )
     }   
     
-    console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
     ws.send(
       JSON.stringify({
         op: 'userordermatch',
@@ -899,7 +895,6 @@ export default class API extends EventEmitter {
       const otherValue = JSON.parse(otherMaker)
       const otherFillOrder = otherValue.fillOrder
       const otherMakerAccountId = otherFillOrder.accountId.toString()
-      console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
       const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
       const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
       otherWs.send(
