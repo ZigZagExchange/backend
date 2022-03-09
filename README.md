@@ -30,7 +30,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured.
 
-The current list of operations available over HTTP POST are: `submitorder2`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq` and `marketsreq`.
+The current list of operations available over HTTP POST are: `submitorder3`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq` and `marketsreq`.
 
 # Sending orders on zksync
 
@@ -38,7 +38,7 @@ The Zksync limit order system is pretty complicated, so we've simplified it down
 
 There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the $1 flat fee.
 
-Using the price from the `quote` response, you can send a limit order with `submitorder2`. An order sent at the `quote` price will fill like a market order.
+Using the price from the `quote` response, you can send a limit order with `submitorder3`. An order sent at the `quote` price will fill like a market order.
 
 ## Structure
 
@@ -94,7 +94,7 @@ Description: Associate userId with connection. Note that userId is a **string**,
 
 ---
 
-###### Operation: **submitorder2**
+###### Operation: **submitorder3**
 
 Arguments: `[chainId, market, zkOrder]`
 
@@ -112,7 +112,7 @@ Zksync
 
 ```json
 {
-  "op": "submitorder2",
+  "op": "submitorder3",
   "args": [
     1000,
     "ETH-DAI",
@@ -143,7 +143,7 @@ Starknet
 
 ```json
 {
-  "op": "submitorder2",
+  "op": "submitorder3",
   "args": [
     1001,
     "ETH-USDT",
@@ -316,7 +316,7 @@ Description: Current open orders for a market. order = [chainId,id,market,side,p
 
 Arguments: `[fills]`
 
-Description: Latest fills for a market. order = [chainId,id,market,side,price,baseQuantity,fillstatus,txhash,takeruserid,makeruserid,feeamount,feetoken]
+Description: Latest fills for a market. order = [chainId,id,market,side,price,baseQuantity,fillstatus,txhash,takeruserid,makeruserid,feeamount,feetoken,timestamp]
 
 ```json
 {
@@ -335,7 +335,8 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
         "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
         "0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",
         0.48,
-        "USDC"
+        "USDC",
+        1646476058552
       ],
       [
         1001,
@@ -349,7 +350,8 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
         "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
         "0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",
         0.000072,
-        "ETH"
+        "ETH",
+        1646476027148
       ],
       [
         1001,
@@ -363,7 +365,8 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
         "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
         "0xa74303fe0bc93dac0e702c96b854914dc7fe2c8e04db6903fcee2dec38a4ba",
         0.203,
-        "DAI"
+        "DAI",
+        1646475999960
       ]
     ]
   ]
@@ -427,7 +430,7 @@ Only "f" and "r" status updates are permitted, and only for matched orders.
 
 ###### Operation: **fillstatus**
 
-Description: An update about the fill status of an active order. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken]`. See [Order Status](#order-statuses) for status flags.
+Description: An update about the fill status of an active order. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken,timestamp]`. See [Order Status](#order-statuses) for status flags.
 
 ```json
 {
@@ -441,7 +444,8 @@ Description: An update about the fill status of an active order. fillstatus = `[
         "51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",
         null,
         0.000072,
-        "ETH"
+        "ETH",
+        1646476058552
       ]
     ]
   ]
@@ -492,7 +496,7 @@ Available over REST.
 
 Arguments: `[priceUpdates]`
 
-Description: A group of market price updates. priceUpdate = [market,price,change]
+Description: A group of market price updates. priceUpdate = [market,price,change,quoteVolume]
 
 ```json
 {
@@ -542,6 +546,8 @@ Arguments: `[chainId,market]`
 
 Description: Unsubscribe from a market
 
+To unsubscibe from all markets, you can leave the args empty: `"args": []`
+
 ```json
 { "op": "unsubscribemarket", "args": [1000, "ETH-USDT"] }
 ```
@@ -552,7 +558,7 @@ Description: Unsubscribe from a market
 
 Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
-Description: ack message for a submitorder2 message
+Description: ack message for a submitorder3 message
 
 ```json
 {
@@ -633,7 +639,7 @@ This operation is also available over HTTP POST and returns a `quote` message.
 
 Arguments: `[chainid, market, side, baseQuantity, price, quoteQuantity]`
 
-Description: Response to requestquote. Returns a fully filled quote with baseQuantity, price, and quoteQuantity. The price can then be used with submitorder2 to ensure a fill.
+Description: Response to requestquote. Returns a fully filled quote with baseQuantity, price, and quoteQuantity. The price can then be used with submitorder3 to ensure a fill.
 
 ```json
 { "op": "quote", "args": [1, "ETH-USDT", "b", 0.032, "4900", "156.8"] }
@@ -818,4 +824,148 @@ Description: Error message from a requested operation
 
 ```json
 { "op": "error", "args": ["fillrequest", "Order 234 is not open"] }
+```
+
+
+## zigzag endpoints
+
+###### /api/v1/markets
+
+Example: `/api/v1/markets`or `/api/v1/markets?market=eth-ust`
+
+Arguments: `?market=ETH-UST` (optional, like: /api/v1/markets?market=eth-ust)
+
+Description: Returns a JSON containing all markets. If an argument is set, it will only return that summary.
+
+```
+{
+  "USDC-USDT":
+    {
+      "market":"USDC-USDT",
+      "baseSymbol":"USDC",
+      "quoteSymbol":"USDT",
+      "lastPrice":0.99985,
+      "lowestAsk":1.00024994,
+      "highestBid":0.99945006,
+      "baseVolume":1801.15,
+      "quoteVolume":1800.88,
+      "priceChange":-0.002004,
+      "priceChangePercent_24h":-0.002004,
+      "highestPrice_24h":1.001854,
+      "lowestPrice_24h":0.99805
+    },
+  "DAI-USDT": 
+  ....
+}  
+
+```
+
+###### /api/v1/ticker
+
+Example: `/api/v1/ticker`or `/api/v1/ticker?market=eth-ust`
+
+Arguments: `?market=ETH-UST` (optional, like: /api/v1/ticker?market=eth-ust)
+
+Description: Returns a JSON containing all price information. If an argument is set, it will only return this price information.
+
+
+```
+{
+  "USDC-USDT":
+    {
+      "lastPrice":0.99985,
+      "priceChange":-0.002004,
+      "baseVolume":"2614.65",
+      "quoteVolume":"2614.26"
+    },
+  "DAI-USDT":
+  ...
+}
+
+```
+
+###### /api/v1/orderbook/:market
+
+Example: `/api/v1/orderbook/eth-ust?depth=5&level=3`
+
+Arguments: 
+* `:market` 
+* `?depth` (optional)
+* `?level` (optional)
+
+Description:
+Returns a JSON containing all orderbook informations for that market. The volume is in the corresponding base asset.
+* With `depth` you can set how many orders you want to aggregate. If you set 50, that returns 25 per ask/bid.
+* With `level` you can set the returned level:
+  * 1 -> best bid and ask
+  * 2 -> bids and asks aggregated by 0.05% steps
+  * 3 -> full order book with every bid and ask
+
+```
+{
+  "timestamp": 1646402828755,
+  "bids": [
+    [3000, 1],
+    [2999, 2],
+    ...
+  ],
+  "asks": [
+    [3010, 1],
+    [3011, 2],
+    ...
+  ]
+}
+
+```
+
+###### /api/v1/trades/
+
+Example: `/api/v1/trades?market=eth-ust&type=s&order_id=4518`
+
+Arguments: 
+* `?market` (optional)
+* `?type` (optional)
+* `?limit` (optional)
+* `?order_id` (optional)
+* `?start_time` (optional in UNIX)
+* `?end_time` (optional in UNIX)
+* `?account_id` (optional)
+* `?direction` (optional - 'older' or 'newer')
+
+Description:
+Returns a JSON containing the last trades in decending order.
+* With `market` you can choose to only return trades for one market. Use 'eth-ust' or 'eth_ust'
+* With `type` you can choose to only return buy or ask side. You can set 's', 'b', 'sell' or 'buy'.
+* With `limit` you can set the maximum number of trades returned. MAX 25 for now.
+* With `order_id` you can set the first order you want to get returned. This can be used to loop over all trades.
+                Use the last orderId returned from the last request and send that as first `order_id`.
+* With `start_time` you can set the first retuned trade. Set using UNIX time.
+* With `end_time` you can set the last retuned trade. Set using UNIX time.
+* With `account_id` you can get trades corresponding to a given account ID.
+* With `direction` you set the direction, best used together with a account_id (eg. get all new trades starting from x)
+
+.
+
+
+```
+[
+  {
+    "chainId":1000,
+    "orderId":4162,
+    "market":"ETH-USDC",
+    "price":2914.15,
+    "baseVolume":0.09966024999,
+    "quoteVolume":290.42491750835853,
+    "timestamp":1646307989024,
+    "side":"sell",
+    "txHash":"3e870f76771a37e9da5d0d3d82c3d0a83699e359254c0c2fb4c0aee8fe64a01f",
+    "feeAmount":0.00003025,
+    "feeToken":"ETH"
+  },
+  {
+    "chainId":1000,
+    ....
+  }
+]
+
 ```

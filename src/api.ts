@@ -17,6 +17,7 @@ import type {
   ZZMarket,
   ZZHttpServer,
   ZZSocketServer,
+  ZZMarketSummary,
 } from 'src/types'
 
 export default class API extends EventEmitter {
@@ -68,13 +69,17 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
-      setInterval(this.clearDeadConnections, 60000),
+      setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
+      setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
       setInterval(this.updateMarketInfo, 10000),
-      setInterval(this.updatePassiveMM, 10000),
+      //setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
+
+    // update updatePriceHighLow once
+    setTimeout(this.updatePriceHighLow, 10000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
@@ -196,7 +201,7 @@ export default class API extends EventEmitter {
     try {
       const valuesOffers = [newstatus, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1 WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
+        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
         valuesOffers
       )
       if (update.rows.length > 0) {
@@ -212,8 +217,19 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
     let feeToken
-    feeAmount = marketInfo.baseFee
-    feeToken = marketInfo.baseAsset.symbol
+    let timestamp
+    if (marketInfo) {
+      if(side === 's') {
+        feeAmount = marketInfo.baseFee
+        feeToken =  marketInfo.baseAsset.symbol
+      } else {
+        feeAmount = marketInfo.quoteFee
+        feeToken =  marketInfo.quoteAsset.symbol
+      }
+    } else {
+      feeAmount = 0.5
+      feeToken = "USDC"
+    }
 
     if (newstatus === 'r') {
       feeAmount = 0
@@ -222,7 +238,7 @@ export default class API extends EventEmitter {
     try {
       const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainid]
       const update2 = await this.db.query(
-        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id",
+        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
         valuesFills
       )
       if (update2.rows.length > 0) {
@@ -230,6 +246,7 @@ export default class API extends EventEmitter {
         fillPrice = update2.rows[0].price
         base_quantity = update2.rows[0].amount
         maker_user_id = update2.rows[0].maker_user_id
+        timestamp = update2.rows[0].insert_timestamp
       }
       quote_quantity = base_quantity * fillPrice
     } catch (e) {
@@ -243,7 +260,7 @@ export default class API extends EventEmitter {
       const today = new Date().toISOString().slice(0, 10)
       const redis_key_today_price = `dailyprice:${chainid}:${market}:${today}`
       this.redis.HSET(`lastprices:${chainid}`, `${market}`, `${fillPrice}`)
-      this.redis.SET(`${redis_key_today_price}`, `${fillPrice}`, { EX: 10080 })
+      this.redis.SET(`${redis_key_today_price}`, `${fillPrice}`, { EX: 604800 })
     }
     return {
       success,
@@ -253,6 +270,7 @@ export default class API extends EventEmitter {
       maker_user_id,
       feeAmount,
       feeToken,
+      timestamp,
     }
   }
 
@@ -270,7 +288,7 @@ export default class API extends EventEmitter {
     let values = [newstatus, txhash, chainid, orderid]
     try {
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, txhash=$2 WHERE chainid=$3 AND id=$4 AND order_status='m'",
+        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m'",
         values
       )
     } catch (e) {
@@ -408,13 +426,13 @@ export default class API extends EventEmitter {
     try {
       const userconnkey = `${chainid}:${userid}`
       this.USER_CONNECTIONS[userconnkey].send(
-        JSON.stringify({ op: 'userorderack', args: [orderreceipt] })
+        JSON.stringify({ op: 'userorderack', args: orderreceipt })
       )
     } catch (e) {
       // user connection doesn't exist. just pass along
     }
 
-    return { op: 'userorderack', args: [orderreceipt] }
+    return { op: 'userorderack', args: orderreceipt }
   }
 
   // async processorderstarknet(chainid: number, market: string, zktx: AnyObject) {
@@ -581,7 +599,7 @@ export default class API extends EventEmitter {
   //       [relayResult.transaction_hash, fillId]
   //     )
   //     const orderupdate = await this.db.query(
-  //       "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END) WHERE id IN ($1, $2) RETURNING id, order_status",
+  //       "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
   //       [makerOfferId, takerOfferId]
   //     )
   //     const chainid = parseInt(buyer[0])
@@ -606,7 +624,7 @@ export default class API extends EventEmitter {
   //     console.error(e)
   //     console.error('Starknet tx failed')
   //     const orderupdate = await this.db.query(
-  //       "UPDATE offers SET order_status='r' WHERE id IN ($1, $2) RETURNING id, order_status",
+  //       "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
   //       [makerOfferId, takerOfferId]
   //     )
   //     const chainid = parseInt(buyer[0])
@@ -632,7 +650,7 @@ export default class API extends EventEmitter {
     const ids = select.rows.map((s) => s.id)
 
     await this.db.query(
-      "UPDATE offers SET order_status='c',zktx=NULL WHERE userid=$1 AND order_status='o'",
+      "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o'",
       values
     )
 
@@ -659,7 +677,7 @@ export default class API extends EventEmitter {
 
     const updatevalues = [orderId]
     const update = await this.db.query(
-      "UPDATE offers SET order_status='c', zktx=NULL WHERE id=$1 RETURNING market",
+      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
       updatevalues
     )
     let market
@@ -689,19 +707,30 @@ export default class API extends EventEmitter {
     
     // Determine fill price
     const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
-    let baseQuantity
-    let quoteQuantity
-
+    let baseQuantity: number
+    let quoteQuantity: number
+    let priceWithoutFee: string
+    
     if (selectresult.side === 's') {
       baseQuantity = selectresult.base_quantity
-      quoteQuantity =
-        Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
-    }
-    if (selectresult.side === 'b') {
-      baseQuantity =
-        Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
+      quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
+
+      const baseQuantityWithoutFee = baseQuantity - marketInfo.baseFee
+      priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+    } else if (selectresult.side === 'b') {
+      baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
       quoteQuantity = selectresult.quote_quantity
+
+      const quoteQuantityWithoutFee = quoteQuantity - marketInfo.quoteFee
+      priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+    } else {
+      throw new Error('Side ' + selectresult.side + ' is not valid!')
     }
+
     const fillPrice = (quoteQuantity / baseQuantity).toFixed(
       marketInfo.pricePrecisionDecimals
     )
@@ -782,6 +811,24 @@ export default class API extends EventEmitter {
         )
         throw new Error('fillrequest - market maker is timed out.') 
       }
+      
+      let priceWithoutFee: number
+      if(side === 's') {
+        baseQuantity = selectresult.base_quantity
+        quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
+        const baseQuantityWithoutFee = baseQuantity - marketInfo.baseFee
+        priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
+          marketInfo.pricePrecisionDecimals
+        )
+      } else {
+        baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
+        quoteQuantity = selectresult.quote_quantity
+
+        const quoteQuantityWithoutFee = quoteQuantity - marketInfo.quoteFee
+        priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
+          marketInfo.pricePrecisionDecimals
+        )
+      }
 
       let values = [orderId, chainid]
       const update1 = await this.db.query(
@@ -798,7 +845,7 @@ export default class API extends EventEmitter {
         orderId,
         selectresult.userid,
         makerAccountId,
-        fillPrice,
+        priceWithoutFee,
         selectresult.base_quantity,
         selectresult.side,
       ]
@@ -812,7 +859,7 @@ export default class API extends EventEmitter {
         fill_id,
         selectresult.market,
         selectresult.side,
-        fillPrice,
+        priceWithoutFee,
         selectresult.base_quantity,
         'm',
         null,
@@ -835,7 +882,6 @@ export default class API extends EventEmitter {
         op: 'userordermatch',
         args: [chainid, orderId, selectresult.zktx, fillOrder],
       })
-    )
     
     // send result to other mm's, remove set
     const otherMaker = await this.redis.ZRANGE(redisKey, 0, -1)
@@ -889,6 +935,141 @@ export default class API extends EventEmitter {
       if (market && !ws.marketSubscriptions.includes(market)) return
       ws.send(JSON.stringify(msg))
     })
+  }
+
+  /**
+   * Returns the liquidity for a given market.
+   * @param {number} chainid The reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+   * @param {ZZMarket} market The reqested market
+   * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
+   * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
+   * @return {number} The resulting liquidity -> {"timestamp": _, "bids": _, "asks": _}
+   */
+  getLiquidityPerSide = async (
+    chainid: number,
+    market: ZZMarket,
+    depth: number = 0,
+    level: number = 3
+  ) => {
+    const timestamp = Date.now()
+    const liquidity = await this.getLiquidity(chainid, market)
+    if (liquidity.length === 0) {
+      return {
+        timestamp: timestamp,
+        bids: [],
+        asks: [],
+      }
+    }
+
+    // sort for bids and asks
+    let bids: number[][] = liquidity
+      .filter((l) => l[0] === 'b')
+      .map((l) => [Number(l[1]), Number(l[2])])
+      .reverse()
+    let asks: number[][] = liquidity
+      .filter((l) => l[0] === 's')
+      .map((l) => [Number(l[1]), Number(l[2])])
+
+    // if depth is set, only used every n entrys
+    if (depth > 1) {
+      depth = depth * 0.5
+      const newBids: number[][] = []
+      const newAsks: number[][] = []
+
+      for (let i = 0; i < bids.length; i++) {
+        let index = Math.floor(i / depth)
+        if (newBids[index]) {
+          newBids[index][1] = newBids[index][1] + bids[i][1]
+        } else {
+          newBids[index] = bids[i]
+        }
+      }
+      for (let i = 0; i < asks.length; i++) {
+        let index = Math.floor(i / depth)
+        if (newAsks[index]) {
+          newAsks[index][1] = newAsks[index][1] + asks[i][1]
+        } else {
+          newAsks[index] = asks[i]
+        }
+      }
+      asks = newAsks
+      bids = newBids
+    }
+
+    if (level == 1) {
+      // Level 1 – Only best bid and ask.
+      return {
+        timestamp: timestamp,
+        bids: [bids[0]],
+        asks: [asks[0]],
+      }
+    } else if (level == 2) {
+      // Level 2 – Arranged by best bids and asks.
+      const marketInfo = await this.getMarketInfo(market, chainid)
+      // get mid price
+      const redis_key_prices = `lastprices:${chainid}`
+      const midPrice = Number(await this.redis.HGET(redis_key_prices, market))
+      const returnBids: number[][] = []
+      const returnAsks: number[][] = []
+      const step = midPrice * 0.0005
+
+      // group bids by steps
+      let stepBidValues: any = {}
+      bids.map((b) => {
+        const stepCount = Math.ceil(Math.abs(b[0] - midPrice) % step)
+        const stepValue = midPrice - stepCount * step
+        if (stepBidValues[stepValue]) {
+          stepBidValues[stepValue] = stepBidValues[stepValue] + b[1]
+        } else {
+          stepBidValues[stepValue] = b[1]
+        }
+      })
+      // create new bids array
+      const bidSteps = Object.keys(stepBidValues)
+      bidSteps.forEach((bid) => {
+        returnBids.push([
+          (+bid).toFixed(marketInfo.pricePrecisionDecimal),
+          stepBidValues[bid],
+        ])
+      })
+
+      // group asks by steps
+      let stepAskValues: any = {}
+      asks.map((a) => {
+        const stepCount = Math.ceil(Math.abs(a[0] - midPrice) % step)
+        const stepValue = midPrice + stepCount * step
+        if (stepAskValues[stepValue]) {
+          stepAskValues[stepValue] = stepAskValues[stepValue] + a[1]
+        } else {
+          stepAskValues[stepValue] = a[1]
+        }
+      })
+      // create new asks array
+      const askSteps = Object.keys(stepAskValues)
+      askSteps.forEach((ask) => {
+        returnAsks.push([
+          (+ask).toFixed(marketInfo.pricePrecisionDecimal),
+          stepAskValues[ask],
+        ])
+      })
+
+      return {
+        timestamp: timestamp,
+        bids: returnBids,
+        asks: returnAsks,
+      }
+    } else if (level == 3) {
+      // Level 3 – Complete order book, no aggregation.
+      return {
+        timestamp: timestamp,
+        bids: bids,
+        asks: asks,
+      }
+    } else {
+      throw new Error(
+        `level': ${level} is not supported for getLiquidityPerSide. Use 1, 2 or 3`
+      )
+    }
   }
 
   getLiquidity = async (chainid: number, market: ZZMarket) => {
@@ -958,20 +1139,111 @@ export default class API extends EventEmitter {
     return select.rows
   }
 
-  getfills = async (chainid: number, market: ZZMarket) => {
-    const query = {
-      text: "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f' ORDER BY id DESC LIMIT 5",
-      values: [market, chainid],
-      rowMode: 'array',
+  /**
+   * Returns fills for a given market.
+   * @param {number} chainid reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+   * @param {ZZMarket} market reqested market
+   * @param {number} limit number of trades returnd (MAX 25)
+   * @param {number} orderId orderId to start at
+   * @param {number} type side of returned fills 's', 'b', 'buy' or 'sell'
+   * @param {number} startTime time for first fill
+   * @param {number} endTime time for last fill
+   * @param {number} accountId accountId to search for (maker or taker)
+   * @param {string} direction used to set ASC or DESC ('older' or 'newer')
+   * @return {number} array of fills [[chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp],...]
+   */
+  getfills = async (
+    chainid: number,
+    market: ZZMarket,
+    limit?: number,
+    orderId?: number,
+    type?: string,
+    startTime?: number,
+    endTime?: number,
+    accountId?: number,
+    direction?: string
+  ) => {
+    let text: string = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f'"
+    
+    if(market) {
+      text = text + ` AND market = '${market}'`
     }
-    const select = await this.db.query(query)
-    return select.rows
+
+    let sqlDirection: string = "DESC"
+    if(direction) {
+      if(direction === "older") {
+        sqlDirection = "DESC"
+      } else if(direction === "newer") {
+        sqlDirection = "ASC"
+      } else {
+        throw new Error("Only direction 'older' or 'newer' is allowed.")
+      }
+    }
+
+    if (orderId) {
+      if(sqlDirection == "DESC") {
+        text = text + ` AND id <= '${orderId}'`
+      } else {
+        text = text + ` AND id >= '${orderId}'`
+      }      
+    }
+
+    if (type) {
+      let side
+      switch (type) {
+        case 's':
+          side = 's'
+          break
+        case 'b':
+          side = 'b'
+          break
+        case 'sell':
+          side = 's'
+          break
+        case 'buy':
+          side = 'b'
+          break
+        default:
+          throw new Error("Only type 's', 'b', 'sell' or 'buy' is allowed.")
+      }
+      text = text + ` AND side = '${type}'`
+    }
+
+    if (startTime) {
+      const date = new Date(startTime).toISOString()
+      text = text + ` AND insert_timestamp >= '${date}'`
+    }
+
+    if (endTime) {
+      const date = new Date(endTime).toISOString()
+      text = text + ` AND insert_timestamp <= '${date}'`
+    }
+
+    if (accountId) {
+      text = text + ` AND (maker_user_id='${accountId}' OR taker_user_id='${accountId}')`
+    }
+
+    limit = limit ? Math.min(25, Number(limit)) : 25
+    text = text + ` ORDER BY id ${sqlDirection} LIMIT ${limit}`
+
+    try {
+      const query = {
+        text: text,
+        values: [chainid],
+        rowMode: 'array',
+      }
+      const select = await this.db.query(query)
+      return select.rows
+    } catch (e: any) {
+      console.log(`Error in getFills: ${text}, Error: ${e.message}`)
+      return []
+    }
   }
 
   updateVolumes = async () => {
     const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()
     const query = {
-      text: "SELECT chainid, market, SUM(base_quantity) AS base_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+      text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
       values: [one_day_ago],
     }
     const select = await this.db.query(query)
@@ -989,34 +1261,46 @@ export default class API extends EventEmitter {
         if (baseVolume.includes('e')) {
           baseVolume = row.base_volume.toFixed(0)
         }
-        const redis_key_base = `volume:${row.chainid}:${row.market}:base`
-        const redis_key_quote = `volume:${row.chainid}:${row.market}:quote`
-        const redis_key_volume_sort = `volume:${row.chainid}:sorted`
-        const redistx = []
-        redistx.push(this.redis.set(redis_key_base, baseVolume))
-        redistx.push(this.redis.set(redis_key_quote, quoteVolume))
-        if (quoteVolume && row.market) {
-          redistx.push(
-            this.redis.ZADD(redis_key_volume_sort as string, {
-              score: Number(quoteVolume),
-              value: row.market,
-            })
-          )
-
-          await Promise.all(redistx)
-        }
+        const redis_key_base = `volume:${row.chainid}:base`
+        const redis_key_quote = `volume:${row.chainid}:quote`
+        this.redis.HSET(redis_key_base, row.market, baseVolume)
+        this.redis.HSET(redis_key_quote, row.market, quoteVolume)
       } catch (err) {
         console.error(err)
         console.log('Could not update volumes')
       }
     })
+
+    try {
+      // remove zero volumes
+      this.VALID_CHAINS.forEach(async (chainId) => {
+        const nonZeroMarkets = select.rows.filter(row => row.chainid===chainId)
+          .map(row => row.market)
+
+        const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
+        const quoteVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:quote`)
+
+        const keysToDelBase = baseVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
+        const keysToDelQuote = quoteVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
+
+        keysToDelBase.forEach(key => {
+          this.redis.HDEL(`volume:${chainId}:base`, key)
+        })
+        keysToDelQuote.forEach(key => {
+          this.redis.HDEL(`volume:${chainId}:quote`, key)
+        })
+      })    
+    } catch (err) {
+      console.error(err)
+      console.log('Could not remove zero volumes')
+    }
     return true
   }
 
   updatePendingOrders = async () => {
     const one_min_ago = new Date(Date.now() - 60 * 1000).toISOString()
     const query = {
-      text: "UPDATE offers SET order_status='c' WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
@@ -1040,7 +1324,7 @@ export default class API extends EventEmitter {
     await this.db.query(fillsQuery)
 
     const expiredQuery = {
-      text: "UPDATE offers SET order_status='e', zktx=NULL WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
+      text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
       values: [],
     }
     const updateExpires = await this.db.query(expiredQuery)
@@ -1061,10 +1345,14 @@ export default class API extends EventEmitter {
   getLastPrices = async (chainid: number) => {
     const lastprices = []
     const redis_key_prices = `lastprices:${chainid}`
-    const redis_values = await this.redis.HGETALL(redis_key_prices)
+    const redisKeyVolumesQuote = `volume:${chainid}:quote`
+    const redisKeyVolumesBase = `volume:${chainid}:base`
+    const redis_prices = await this.redis.HGETALL(redis_key_prices)
+    const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
+    const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
+    const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
 
     // eslint-disable-next-line no-restricted-syntax
-    const markets = Object.keys(redis_values)
     for (let i = 0; i < markets.length; i++) {
       const market = markets[i]
       const marketInfo = await this.getMarketInfo(market, chainid)
@@ -1075,14 +1363,126 @@ export default class API extends EventEmitter {
       const yesterdayPrice = Number(
         await this.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
       )
-      const price = +redis_values[market]
+      const price = +redis_prices[market]
       const priceChange = +(price - yesterdayPrice).toFixed(
         marketInfo.pricePrecisionDecimals
       )
-      lastprices.push([market, price, priceChange])
+      const quoteVolume = redisPricesQuote[market] || 0
+      const baseVolume = redisVolumesBase[market] || 0
+      lastprices.push([market, price, priceChange, quoteVolume, baseVolume])
     }
 
     return lastprices
+  }
+
+  getMarketSummarys = async (chainid: number, marketReq: string = '') => {
+    const redisKeyMarketSummary = `marketsummary:${chainid}`
+    let markets
+    if (marketReq === '') {
+      const cache = await this.redis.GET(redisKeyMarketSummary)
+      if (cache) {
+        return JSON.parse(cache)
+      }
+      markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    } else {
+      markets = [marketReq]
+    }
+    const marketSummarys: any = {}
+    const redisKeyPrices = `lastprices:${chainid}`
+    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
+
+    const redisKeyVolumesQuote = `volume:${chainid}:quote`
+    const redisKeyVolumesBase = `volume:${chainid}:base`
+    const redisVolumesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
+    const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
+
+    const redisKeyLow = `price:${chainid}:low`
+    const redisKeyHigh = `price:${chainid}:high`
+    const redisPricesLow = await this.redis.HGETALL(redisKeyLow)
+    const redisPricesHigh = await this.redis.HGETALL(redisKeyHigh)
+
+    const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+      const marketInfo = await this.getMarketInfo(market, chainid)
+      if (!marketInfo || marketInfo.error) return
+      const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
+      const yesterdayPrice = Number(
+        await this.redis.get(
+          `dailyprice:${chainid}:${market}:${yesterday.slice(0, 10)}`
+        )
+      )
+      const lastPrice = +redisPrices[market]
+      const priceChange = +(lastPrice - yesterdayPrice).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+      const priceChangePercent_24h = +(priceChange / lastPrice).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+
+      // get low/high price
+      const lowestPrice_24h = Number(redisPricesLow[market])
+      const highestPrice_24h = Number(redisPricesHigh[market])
+
+      // get volume
+      const quoteVolume = Number(redisVolumesQuote[market] || 0)
+      const baseVolume = Number(redisVolumesBase[market] || 0)
+
+      // get best ask/bid
+      const liquidity = await this.getLiquidityPerSide(chainid, market, 0, 1)
+      const lowestAsk: number = liquidity.asks[0]?.[0]
+      const highestBid: number = liquidity.bids[0]?.[0]
+
+      const marketSummary: ZZMarketSummary = {
+        market: market,
+        baseSymbol: marketInfo.baseAsset.symbol,
+        quoteSymbol: marketInfo.quoteAsset.symbol,
+        lastPrice: lastPrice,
+        lowestAsk: lowestAsk,
+        highestBid: highestBid,
+        baseVolume: baseVolume,
+        quoteVolume: quoteVolume,
+        priceChange: priceChange,
+        priceChangePercent_24h: priceChangePercent_24h,
+        highestPrice_24h: highestPrice_24h,
+        lowestPrice_24h: lowestPrice_24h,
+      }
+      marketSummarys[market] = marketSummary
+    })
+    await Promise.all(results)
+    if (marketReq === '') {
+      this.redis.SET(redisKeyMarketSummary, JSON.stringify(marketSummarys), {
+        EX: 10,
+      })
+    }
+    return marketSummarys
+  }
+
+  updatePriceHighLow = async () => {
+    const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()
+    const select = await this.db.query(
+      "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
+      [one_day_ago]
+    )
+    select.rows.forEach(async (row) => {
+      const redisKeyLow = `price:${row.chainid}:low`
+      const redisKeyHigh = `price:${row.chainid}:high`
+      this.redis.HSET(redisKeyLow, row.market, row.min_price)
+      this.redis.HSET(redisKeyHigh, row.market, row.max_price)
+    })
+
+    // delete inactive markets
+    this.VALID_CHAINS.forEach(async (chainid) => {
+      const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+      const priceKeysLow = await this.redis.HKEYS(`price:${chainid}:low`)
+      const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
+      delKeysLow.forEach(async (key) => {
+        this.redis.HDEL(`price:${chainid}:low`, key)
+      })
+      const priceKeysHigh = await this.redis.HKEYS(`price:${chainid}:high`)
+      const delKeysHigh = priceKeysHigh.filter((k) => !markets.includes(k))
+      delKeysHigh.forEach(async (key) => {
+        this.redis.HDEL(`price:${chainid}:high`, key)
+      })
+    })
   }
 
   // Ladder has to be a sorted 2-D array contaning price and quantity
@@ -1120,6 +1520,9 @@ export default class API extends EventEmitter {
     if (![1, 1000].includes(chainid))
       throw new Error('Quotes not supported for this chain')
     if (!['b', 's'].includes(side)) throw new Error('Invalid side')
+
+    if (baseQuantity) baseQuantity = Number(baseQuantity)
+    if (quoteQuantity) quoteQuantity = Number(quoteQuantity)
     if (baseQuantity && baseQuantity <= 0)
       throw new Error('Quantity must be positive')
     if (quoteQuantity && quoteQuantity <= 0)
@@ -1129,13 +1532,13 @@ export default class API extends EventEmitter {
     const liquidity = await this.getLiquidity(chainid, market)
     if (liquidity.length === 0) throw new Error('No liquidity for pair')
 
-    let softQuoteQuantity: number | undefined
-    let hardQuoteQuantity: number | undefined
-    let softBaseQuantity: number | undefined
-    let hardBaseQuantity: number | undefined
-    let softPrice: number | undefined
-    let hardPrice: number | undefined
-    let ladderPrice: number | undefined
+    let softQuoteQuantity: any
+    let hardQuoteQuantity: any
+    let softBaseQuantity: any
+    let hardBaseQuantity: any
+    let softPrice: any
+    let hardPrice: any
+    let ladderPrice: any
 
     if (baseQuantity) {
       if (baseQuantity < marketInfo.baseFee)
@@ -1172,27 +1575,27 @@ export default class API extends EventEmitter {
           marketInfo.pricePrecisionDecimals
         )
       } else {
-        hardQuoteQuantity = +(
+        hardQuoteQuantity = (
           (baseQuantity - marketInfo.baseFee) *
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / hardBaseQuantity).toFixed(
+        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 0.999).toFixed(
+        softPrice = (hardPrice * 0.999).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       }
 
-      softBaseQuantity = +baseQuantity.toFixed(marketInfo.baseAsset.decimals)
-      softQuoteQuantity = +(baseQuantity * softPrice).toFixed(
+      softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals)
+      softQuoteQuantity = (baseQuantity * softPrice).toFixed(
         marketInfo.quoteAsset.decimals
       )
     } else if (quoteQuantity) {
       if (quoteQuantity < marketInfo.quoteFee)
         throw new Error('Amount is inadequate to pay fee')
 
-      hardQuoteQuantity = +quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
+      hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
 
       if (side === 'b') {
         const asks: any[] = liquidity
@@ -1200,14 +1603,14 @@ export default class API extends EventEmitter {
           .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
         ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
 
-        hardBaseQuantity = +(
+        hardBaseQuantity = (
           (quoteQuantity - marketInfo.quoteFee) /
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / hardBaseQuantity).toFixed(
+        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 1.0005).toFixed(
+        softPrice = (hardPrice * 1.0005).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       } else {
@@ -1220,16 +1623,16 @@ export default class API extends EventEmitter {
           quoteQuantity / ladderPrice +
           marketInfo.baseFee
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / Number(hardBaseQuantity)).toFixed(
+        hardPrice = (hardQuoteQuantity / Number(hardBaseQuantity)).toFixed(
           marketInfo.pricePrecisionDecimals
         )
-        softPrice = +(hardPrice * 0.9995).toFixed(
+        softPrice = (hardPrice * 0.9995).toFixed(
           marketInfo.pricePrecisionDecimals
         )
       }
 
-      softQuoteQuantity = +quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
-      softBaseQuantity = +(quoteQuantity / softPrice).toFixed(
+      softQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
+      softBaseQuantity = (quoteQuantity / softPrice).toFixed(
         marketInfo.baseAsset.decimals
       )
     }
@@ -1302,9 +1705,10 @@ export default class API extends EventEmitter {
           mid.toFixed(marketInfo.pricePrecisionDecimals)
         )
       })
-
       // Broadcast last prices
-      const lastprices = await this.getLastPrices(chainid)
+      const lastprices = (await this.getLastPrices(chainid)).map((l) =>
+        l.splice(0, 3)
+      )
       this.broadcastMessage(chainid, null, {
         op: 'lastprice',
         args: [lastprices],
@@ -1405,39 +1809,10 @@ export default class API extends EventEmitter {
           if (marketmaker) {
             const redisKey = `passivews:${chainid}:${marketmaker.ws_uuid}`
             const passivews = await this.redis.get(redisKey)
-            if(!passivews) {
+            if (!passivews) {
               this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
                 EX: remainingTime,
               })
-
-              const orderId = marketmaker.orderId as string
-              const orderQuery = await this.db.query(
-                "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING market, side, price, base_quantity, quote_quantity, expires, userid, order_status",
-                [orderId, chainid]
-              )
-              if (orderQuery.rows.length == 0) {
-                return
-              }
-
-              const order = orderQuery.rows[0]
-              const orderreceipt = [
-                chainid,
-                orderId,
-                order.market,
-                order.side,
-                order.price,
-                order.base_quantity,
-                order.quote_quantity,
-                order.expires,
-                order.userid,
-                order.order_status,
-                null,
-                order.base_quantity,
-              ]
-              this.broadcastMessage(chainid, order.market, {
-                op: 'orders',
-                args: [[orderreceipt]],
-              })              
             }
           }
         }
@@ -1486,5 +1861,72 @@ export default class API extends EventEmitter {
     await this.redis.set(redis_key, JSON.stringify(volumes))
     await this.redis.expire(redis_key, 1200)
     return volumes
+  }
+
+  getUsdPrice = async (chainid: number, tokenSymbol: string) => {
+    const redisKey = `usdprice:${chainid}:&{tokenSymbol}`
+    const cache = await this.redis.GET(redisKey)
+    if (cache) return +cache
+
+    const stablePrice = await this.getUsdStablePrice(chainid, tokenSymbol)
+    if (stablePrice) {
+      this.redis.set(redisKey, stablePrice, { EX: 30 })
+      return stablePrice
+    }
+
+    const linkedPrice = await this.getUsdLinkedPrice(chainid, tokenSymbol)
+    if (linkedPrice) {
+      this.redis.set(redisKey, linkedPrice, { EX: 60 })
+      return linkedPrice
+    }
+
+    return null
+  }
+
+  getUsdStablePrice = async (chainid: number, tokenSymbol: string) => {
+    const redisKeyPrices = `lastprices:${chainid}`
+    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
+    const stabels = ['DAI', 'FRAX', 'USDC', 'USDT', 'UST']
+
+    const prices: number[] = []
+    stabels.forEach((stabel) => {
+      const possibleMarket = `${tokenSymbol}-${stabel}`
+      const price = redisPrices[possibleMarket]
+      if (price) prices.push(+price)
+    })
+
+    if (prices.length > 0) {
+      const sum = prices.reduce((pv, cv) => pv + cv, 0)
+      return sum / prices.length
+    } else {
+      return null
+    }
+  }
+
+  getUsdLinkedPrice = async (chainid: number, tokenSymbol: string) => {
+    let price
+    const redisKeyPrices = `lastprices:${chainid}`
+    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
+    const markets = Object.keys(redisPrices)
+
+    const prices: number[] = []
+    const results: Promise<any>[] = markets.map(async (market) => {
+      const [baseAsset, quoteAsset] = market.split('-')
+      if (baseAsset === tokenSymbol) {
+        const quotePrice = await this.getUsdStablePrice(chainid, quoteAsset)
+        if (quotePrice) prices.push(quotePrice)
+      } else if (quoteAsset === tokenSymbol) {
+        const basePrice = await this.getUsdStablePrice(chainid, baseAsset)
+        if (basePrice) prices.push(1 / basePrice)
+      }
+    })
+    await Promise.all(results)
+
+    if (prices.length > 0) {
+      const sum = prices.reduce((pv, cv) => pv + cv, 0)
+      return sum / prices.length
+    } else {
+      return null
+    }
   }
 }
