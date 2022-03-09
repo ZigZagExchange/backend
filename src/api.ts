@@ -217,13 +217,17 @@ export default class API extends EventEmitter {
     let feeAmount
     let feeToken
     let timestamp
-    try {
-      feeAmount = marketInfo.baseFee
-      feeToken = marketInfo.baseAsset.symbol
-    } catch (e) {
-      console.error('Error while updateOrderFillStatus offers.')
-      console.error(e)
-      return false
+    if (marketInfo) {
+      if(side === 's') {
+        feeAmount = marketInfo.baseFee
+        feeToken =  marketInfo.baseAsset.symbol
+      } else {
+        feeAmount = marketInfo.quoteFee
+        feeToken =  marketInfo.quoteAsset.symbol
+      }
+    } else {
+      feeAmount = 0.5
+      feeToken = "USDC"
     }
 
     if (newstatus === 'r') {
@@ -702,22 +706,29 @@ export default class API extends EventEmitter {
 
     // Determine fill price
     const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
-    let baseQuantity
-    let quoteQuantity
-
+    let baseQuantity: number
+    let quoteQuantity: number
+    let priceWithoutFee: string
+    
     if (selectresult.side === 's') {
       baseQuantity = selectresult.base_quantity
-      quoteQuantity =
-        Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
-    }
-    if (selectresult.side === 'b') {
-      baseQuantity =
-        Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
+      quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
+
+      const baseQuantityWithoutFee = baseQuantity - marketInfo.baseFee
+      priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+    } else if (selectresult.side === 'b') {
+      baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
       quoteQuantity = selectresult.quote_quantity
+
+      const quoteQuantityWithoutFee = quoteQuantity - marketInfo.quoteFee
+      priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
+        marketInfo.pricePrecisionDecimals
+      )
+    } else {
+      throw new Error('Side ' + selectresult.side + ' is not valid!')
     }
-    const fillPrice = (quoteQuantity / baseQuantity).toFixed(
-      marketInfo.pricePrecisionDecimals
-    )
 
     const update1 = await this.db.query(
       "UPDATE offers SET order_status='m', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
@@ -734,7 +745,7 @@ export default class API extends EventEmitter {
       orderId,
       selectresult.userid,
       maker_user_id,
-      fillPrice,
+      priceWithoutFee,
       selectresult.base_quantity,
       selectresult.side,
     ]
@@ -748,7 +759,7 @@ export default class API extends EventEmitter {
       fill_id,
       selectresult.market,
       selectresult.side,
-      fillPrice,
+      priceWithoutFee,
       selectresult.base_quantity,
       'm',
       null,
@@ -985,6 +996,8 @@ export default class API extends EventEmitter {
    * @param {number} type side of returned fills 's', 'b', 'buy' or 'sell'
    * @param {number} startTime time for first fill
    * @param {number} endTime time for last fill
+   * @param {number} accountId accountId to search for (maker or taker)
+   * @param {string} direction used to set ASC or DESC ('older' or 'newer')
    * @return {number} array of fills [[chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp],...]
    */
   getfills = async (
@@ -994,13 +1007,33 @@ export default class API extends EventEmitter {
     orderId?: number,
     type?: string,
     startTime?: number,
-    endTime?: number
+    endTime?: number,
+    accountId?: number,
+    direction?: string
   ) => {
-    let text: string =
-      "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE market=$1 AND chainid=$2 AND fill_status='f'"
+    let text: string = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f'"
+    
+    if(market) {
+      text = text + ` AND market = '${market}'`
+    }
+
+    let sqlDirection: string = "DESC"
+    if(direction) {
+      if(direction === "older") {
+        sqlDirection = "DESC"
+      } else if(direction === "newer") {
+        sqlDirection = "ASC"
+      } else {
+        throw new Error("Only direction 'older' or 'newer' is allowed.")
+      }
+    }
 
     if (orderId) {
-      text = text + ` AND id <= '${orderId}'`
+      if(sqlDirection == "DESC") {
+        text = text + ` AND id <= '${orderId}'`
+      } else {
+        text = text + ` AND id >= '${orderId}'`
+      }      
     }
 
     if (type) {
@@ -1034,13 +1067,17 @@ export default class API extends EventEmitter {
       text = text + ` AND insert_timestamp <= '${date}'`
     }
 
+    if (accountId) {
+      text = text + ` AND (maker_user_id='${accountId}' OR taker_user_id='${accountId}')`
+    }
+
     limit = limit ? Math.min(25, Number(limit)) : 25
-    text = text + ` ORDER BY id DESC LIMIT ${limit}`
+    text = text + ` ORDER BY id ${sqlDirection} LIMIT ${limit}`
 
     try {
       const query = {
         text: text,
-        values: [market, chainid],
+        values: [chainid],
         rowMode: 'array',
       }
       const select = await this.db.query(query)
@@ -1081,6 +1118,30 @@ export default class API extends EventEmitter {
         console.log('Could not update volumes')
       }
     })
+
+    try {
+      // remove zero volumes
+      this.VALID_CHAINS.forEach(async (chainId) => {
+        const nonZeroMarkets = select.rows.filter(row => row.chainid===chainId)
+          .map(row => row.market)
+
+        const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
+        const quoteVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:quote`)
+
+        const keysToDelBase = baseVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
+        const keysToDelQuote = quoteVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
+
+        keysToDelBase.forEach(key => {
+          this.redis.HDEL(`volume:${chainId}:base`, key)
+        })
+        keysToDelQuote.forEach(key => {
+          this.redis.HDEL(`volume:${chainId}:quote`, key)
+        })
+      })    
+    } catch (err) {
+      console.error(err)
+      console.log('Could not remove zero volumes')
+    }
     return true
   }
 

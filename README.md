@@ -918,18 +918,22 @@ Description: Returns a JSON containing all orderbook informations for that marke
 
 ```
 
-###### /api/v1/trades/:market
+###### /api/v1/trades/
 
-Example: `/api/v1/trades/eth-ust?type=s&order_id=4518`
+Example: `/api/v1/trades?market=eth-ust&type=s&order_id=4518`
 
-Arguments: `:market`
+Arguments: `?market` (optional)
            `?type` (optional)
            `?limit` (optional)
            `?order_id` (optional)
            `?start_time` (optional in UNIX)
            `?end_time` (optional in UNIX)
+           `?account_id` (optional)
+           `?direction` (optional - 'older' or 'newer')
 
-Description: Returns a JSON containing the last trades for that market in depending order.
+Description: Returns a JSON containing the last trades in decending order.
+
+             With `market` you can choose to only return trades for one market. Use 'eth-ust' or 'eth_ust'
 
              With `type` you can choose to only return buy or ask side. You can set 's', 'b', 'sell' or 'buy'.
 
@@ -940,7 +944,11 @@ Description: Returns a JSON containing the last trades for that market in depend
 
              With `start_time` you can set the first retuned trade. Set using UNIX time.
 
-             With `end_time` you can set the last retuned trade. Set using UNIX time
+             With `end_time` you can set the last retuned trade. Set using UNIX time.
+
+             With `account_id` you can get trades corresponding to a given account ID.
+
+             With `direction` you set the direction, best used together with a account_id (eg. get all new trades starting from x)
 
 .
 
