@@ -265,7 +265,7 @@ export default class API extends EventEmitter {
       const results: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
         let tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
         let fee
-        if(tokenInfo.enabledForFees) {
+        if(tokenInfo?.enabledForFees) {
           try {
             const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
                 "Swap",
@@ -2098,10 +2098,10 @@ export default class API extends EventEmitter {
     }
 
     const baseUrl = (chainid === 1) 
-      ? "https://api.zksync.io/api/v0.2/"
-      : "https://rinkeby-api.zksync.io/api/v0.2/"
+      ? "https://api.zksync.io/api/v0.2"
+      : "https://rinkeby-api.zksync.io/api/v0.2"
 
-    const fetchedPrice = await fetch(baseUrl[chainid] + `tokens/${tokenSymbol}/priceIn/usd`)
+    const fetchedPrice = await fetch(`${baseUrl[chainid]}/tokens/${tokenSymbol}/priceIn/usd`)
       .then((r: any) => r.json());
 
     if (fetchedPrice) {
