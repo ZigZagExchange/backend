@@ -882,7 +882,7 @@ export default class API extends EventEmitter {
       )
     }   
     
-    console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString}`)
+    console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
     ws.send(
       JSON.stringify({
         op: 'userordermatch',
@@ -893,7 +893,7 @@ export default class API extends EventEmitter {
     // send result to other mm's, remove set
     const otherMakerList: any[] = await this.redis.ZRANGE(redisKey, 0, -1)
     otherMakerList.map(async (otherMaker: any) => {
-      const otherValue = JSON.parse(otherMaker.value)
+      const otherValue = JSON.parse(otherMaker)
       const otherFillOrder = otherValue.fillOrder
       const otherMakerAccountId = otherFillOrder.accountId.toString()
       console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
