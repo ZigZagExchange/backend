@@ -750,6 +750,7 @@ export default class API extends EventEmitter {
     const redisKey = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
     this.redis.ZADD(redisKey, redis_members)
+    this.redis.EXPIRE(redisKey, 10)
     console.log(`ADDING: orderId: ${orderId}, side: ${selectresult.side}, price: ${fillPrice}`)
     if(existingMembers === 0) {
       setTimeout(
@@ -770,7 +771,6 @@ export default class API extends EventEmitter {
     const redisKey = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
     if(existingMembers === 0) {
-      this.redis.DEL(redisKey)
       return
     }
 
@@ -781,7 +781,6 @@ export default class API extends EventEmitter {
       redis_members = await this.redis.ZPOPMAX(redisKey)
     }
     if (!redis_members) {
-      this.redis.DEL(redisKey)
       return
     }
 
@@ -915,7 +914,6 @@ export default class API extends EventEmitter {
         )
       )
     })
-    this.redis.DEL(redisKey)
 
     this.redis.set(
       redisKey,
