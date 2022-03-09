@@ -719,24 +719,13 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
     let baseQuantity: number
     let quoteQuantity: number
-    let priceWithoutFee: string
     
     if (selectresult.side === 's') {
       baseQuantity = selectresult.base_quantity
       quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
-
-      const baseQuantityWithoutFee = baseQuantity - marketInfo.baseFee
-      priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
     } else if (selectresult.side === 'b') {
       baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
       quoteQuantity = selectresult.quote_quantity
-
-      const quoteQuantityWithoutFee = quoteQuantity - marketInfo.quoteFee
-      priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
     } else {
       throw new Error('Side ' + selectresult.side + ' is not valid!')
     }
