@@ -891,10 +891,9 @@ export default class API extends EventEmitter {
     )
     
     // send result to other mm's, remove set
-    const otherMaker = await this.redis.ZRANGE(redisKey, 0, -1)
-    otherMaker.map(async (otherMakerOfferString) => {
-      const otherMakerOffer = JSON.parse(otherMakerOfferString)
-      const otherValue = JSON.parse(otherMakerOffer.value)
+    const otherMakerList: any[] = await this.redis.ZRANGE(redisKey, 0, -1)
+    otherMakerList.map(async (otherMaker: any) => {
+      const otherValue = JSON.parse(otherMaker.value)
       const otherFillOrder = otherValue.fillOrder
       const otherMakerAccountId = otherFillOrder.accountId.toString()
       console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
