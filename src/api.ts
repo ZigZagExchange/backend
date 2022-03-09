@@ -1888,6 +1888,18 @@ export default class API extends EventEmitter {
       return linkedPrice
     }
 
+    const baseUrl = (chainid === 1) 
+      ? "https://api.zksync.io/api/v0.2/"
+      : "https://rinkeby-api.zksync.io/api/v0.2/"
+
+    const fetchedPrice = await fetch(baseUrl[chainid] + `tokens/${tokenSymbol}/priceIn/usd`)
+      .then((r: any) => r.json());
+
+    if (fetchedPrice) {
+      this.redis.set(redisKey, fetchedPrice, { EX: 300 })
+      return fetchedPrice
+    }
+
     return null
   }
 
