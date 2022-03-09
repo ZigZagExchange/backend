@@ -1,5 +1,5 @@
 import API from 'src/api'
-import type { ZZHttpServer } from 'src/types'
+import type { ZZHttpServer, ZZMarket, ZZMarketInfo } from 'src/types'
 
 export default function cmcRoutes(app: ZZHttpServer) {
 
@@ -165,4 +165,29 @@ export default function cmcRoutes(app: ZZHttpServer) {
       res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
     }
   })
+
+  // needed to be backward compatible with markets server.js 
+  app.get("/markets", async function (req, res) {
+    res.redirect("/api/v1/marketinfos")
+  });
+
+  app.get("/api/v1/marketinfos", async function (req, res) {
+    const chainId = req.query.chainid;
+    const markets = (req.query.id as string).split(",");
+    const marketInfos: ZZMarketInfo = {};
+    markets.forEach(async (market: ZZMarket) => {
+      try {
+        marketInfos[market] = await app.api.getMarketInfo(
+          market,
+          Number(chainId)
+        )
+      } catch (err: any) {
+        marketInfos[market] = { 
+          'error': err.message,
+          'market': market 
+        }            
+      }
+    })
+    res.json(marketInfos)
+  });
 }
