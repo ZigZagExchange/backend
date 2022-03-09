@@ -699,7 +699,7 @@ export default class API extends EventEmitter {
       "SELECT userid, price, base_quantity, quote_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'",
       values
     )
-    if (select.rows.length === 0)
+    if (select.rows.length === 0) {
       ws.send(
         JSON.stringify(
           { 
@@ -712,6 +712,7 @@ export default class API extends EventEmitter {
         )
       )
       return false
+    }
 
     const selectresult = select.rows[0]
     
