@@ -783,7 +783,7 @@ export default class API extends EventEmitter {
 
     const fillPrice = redis_members.score
     const value = JSON.parse(redis_members.value)
-    const selectresult = value.selectresult
+    const selectresult = JSON.parse(value.selectresult)
     const fillOrder = value.fillOrder
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
