@@ -754,7 +754,7 @@ export default class API extends EventEmitter {
     if(existingMembers === 0) {
       setTimeout(
         this.senduserordermatch,
-        200,
+        500,
         chainid,
         orderId,
         selectresult.side)
@@ -787,7 +787,6 @@ export default class API extends EventEmitter {
 
     const fillPrice = redis_members.score
     const value = JSON.parse(redis_members.value)
-    console.log(value)
     const fillOrder = value.fillOrder
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
