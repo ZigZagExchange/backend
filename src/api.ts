@@ -737,7 +737,8 @@ export default class API extends EventEmitter {
     const redis_members: any = {
       score: fillPrice,
       value: JSON.stringify({
-        "selectresult": selectresult,
+        "zktx": selectresult.zktx,
+        "market": selectresult.market,
         "fillOrder": fillOrder,
         "wsUUID": ws.uuid
       })
@@ -783,7 +784,6 @@ export default class API extends EventEmitter {
 
     const fillPrice = redis_members.score
     const value = JSON.parse(redis_members.value)
-    const selectresult = JSON.parse(value.selectresult)
     const fillOrder = value.fillOrder
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
@@ -886,7 +886,7 @@ export default class API extends EventEmitter {
     ws.send(
       JSON.stringify({
         op: 'userordermatch',
-        args: [chainid, orderId, selectresult.zktx, fillOrder],
+        args: [chainid, orderId, value.zktx, fillOrder],
       })
     )
     
@@ -920,12 +920,12 @@ export default class API extends EventEmitter {
       { EX: this.MARKET_MAKER_TIMEOUT }
     )
 
-    this.broadcastMessage(chainid, selectresult.market, {
+    this.broadcastMessage(chainid, value.market, {
       op: 'orderstatus',
       args: [[[chainid, orderId, 'm']]],
     })
 
-    this.broadcastMessage(chainid, selectresult.market, {
+    this.broadcastMessage(chainid, value.market, {
       op: 'fills',
       args: [[fill]],
     })
