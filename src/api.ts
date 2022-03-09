@@ -737,7 +737,7 @@ export default class API extends EventEmitter {
     const redis_members: any = {
       score: fillPrice,
       value: JSON.stringify({
-        "zktx": selectresult.zktx,
+        "zktx": JSON.parse(selectresult.zktx),
         "market": selectresult.market,
         "baseQuantity": selectresult.base_quantity,
         "quoteQuantity": selectresult.quote_quantity,
