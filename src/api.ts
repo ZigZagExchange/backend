@@ -3,6 +3,9 @@ import fetch from 'isomorphic-fetch'
 import { EventEmitter } from 'events'
 import { zksyncOrderSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
+import fs from 'fs';
+import * as zksync from 'zksync';
+import ethers from 'ethers';
 import type { Pool, QueryResult } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
@@ -24,9 +27,12 @@ export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
+  SYNC_PROVIDER: AnyObject = {}
+  ETHERS_PROVIDER: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
+  ERC20_ABI: any
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -94,6 +100,25 @@ export default class API extends EventEmitter {
         this.redis.del(key)
       })
     })
+
+    this.ERC20_ABI = JSON.parse(
+      fs.readFileSync(
+        'abi/ERC20.abi',
+        'utf8'
+      )
+    )
+
+    this.SYNC_PROVIDER[1] = await zksync.getDefaultRestProvider("mainnet")
+    this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
+
+    this.ETHERS_PROVIDER["mainnet"] = new ethers.providers.InfuraProvider(
+      "mainnet",
+      process.env.INFURA_PROJECT_ID,
+    )
+    this.ETHERS_PROVIDER["rinkeby"] = new ethers.providers.InfuraProvider(
+      "rinkeby",
+      process.env.INFURA_PROJECT_ID,
+    )
 
     this.started = true
 
