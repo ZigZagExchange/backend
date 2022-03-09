@@ -22,6 +22,7 @@ import type {
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
+  MAKER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
@@ -690,7 +691,8 @@ export default class API extends EventEmitter {
   matchorder = async (
     chainid: number,
     orderId: string,
-    fillOrder: ZZFillOrder
+    fillOrder: ZZFillOrder,
+    ws: WSocket
   ) => {
     let values = [orderId, chainid]
     const select = await this.db.query(
@@ -699,11 +701,10 @@ export default class API extends EventEmitter {
     )
     if (select.rows.length === 0)
       // eslint-disable-next-line prefer-template
-      throw new Error('Order ' + orderId + ' is not open')
+      throw new Error(`Order ${orderId} is not open`)
 
     const selectresult = select.rows[0]
-    const zktx = JSON.parse(selectresult.zktx)
-
+    
     // Determine fill price
     const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
     let baseQuantity: number
@@ -730,46 +731,205 @@ export default class API extends EventEmitter {
       throw new Error('Side ' + selectresult.side + ' is not valid!')
     }
 
-    const update1 = await this.db.query(
-      "UPDATE offers SET order_status='m', update_timestamp=NOW() WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
-      values
+    const fillPrice = (quoteQuantity / baseQuantity).toFixed(
+      marketInfo.pricePrecisionDecimals
     )
-    if (update1.rows.length === 0)
-      // eslint-disable-next-line prefer-template
-      throw new Error('Order ' + orderId + ' is not open')
+    const redis_members: any = {
+      score: fillPrice,
+      value: JSON.stringify({
+        "selectresult": selectresult,
+        "fillOrder": fillOrder,
+        "wsUUID": ws.uuid
+      })
+    }
 
-    const maker_user_id = fillOrder.accountId.toString()
-    values = [
-      chainid,
-      selectresult.market,
-      orderId,
-      selectresult.userid,
-      maker_user_id,
-      priceWithoutFee,
-      selectresult.base_quantity,
-      selectresult.side,
-    ]
-    const update2 = await this.db.query(
-      "INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id",
-      values
+    const redisKey = `matchingorders:${chainid}:${orderId}`
+    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    this.redis.ZADD(redisKey, redis_members)
+    console.log(`ADDING: orderId: ${orderId}, side: ${selectresult.side}, price: ${fillPrice}`)
+    if(existingMembers === 0) {
+      setTimeout(
+        this.senduserordermatch,
+        200,
+        chainid,
+        orderId,
+        selectresult.side)
+    }    
+  }
+
+  senduserordermatch = async (
+    chainid: number,
+    orderId: string,
+    side: string
+  ) => {
+    console.log(`MATCHING: orderId: ${orderId}, side: ${side}`)
+    const redisKey = `matchingorders:${chainid}:${orderId}`
+    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    if(existingMembers === 0) {
+      this.redis.DEL(redisKey)
+      return
+    }
+
+    let redis_members;
+    if(side === 'b') {
+      redis_members = await this.redis.ZPOPMIN(redisKey)
+    } else {
+      redis_members = await this.redis.ZPOPMAX(redisKey)
+    }
+    if (!redis_members) {
+      this.redis.DEL(redisKey)
+      return
+    }
+
+    const fillPrice = redis_members.score
+    const value = JSON.parse(redis_members.value)
+    const selectresult = value.selectresult
+    const fillOrder = value.fillOrder
+    const makerAccountId = fillOrder.accountId.toString()
+    const makerConnId = `${chainid}:${value.wsUUID}`
+    const ws = this.MAKER_CONNECTIONS[makerConnId]
+    console.log(`SELECTED: orderId: ${orderId}, side: ${side}, price: ${fillPrice}`)
+
+    let fill
+    try {
+      const redisKey = `bussymarketmaker:${chainid}:${makerAccountId}`
+      const redisBusyMM = (await this.redis.get(redisKey)) as string
+      if (redisBusyMM) {
+        const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
+        const remainingTime = await this.redis.ttl(redisKey)
+        ws.send(
+          JSON.stringify({
+            op: 'error',
+            args: [
+              'fillrequest',
+              makerAccountId,
+              // eslint-disable-next-line prefer-template
+              'Your address did not respond to order (' +
+                processingOrderId +
+                ') yet. Remaining timeout: ' +
+                remainingTime +
+                '.',
+            ],
+          })
+        )
+        throw new Error('fillrequest - market maker is timed out.') 
+      }
+      
+      const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
+      let priceWithoutFee: string
+      if(marketInfo) {
+        if(side === 's') {
+          const quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
+          const baseQuantityWithoutFee = selectresult.base_quantity - marketInfo.baseFee
+          priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
+            marketInfo.pricePrecisionDecimals
+          )
+        } else {
+          const baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
+          const quoteQuantityWithoutFee = selectresult.quote_quantity - marketInfo.quoteFee
+          priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
+            marketInfo.pricePrecisionDecimals
+          )
+        }
+      } else {
+        priceWithoutFee = fillPrice.toString()
+      }
+
+      let values = [orderId, chainid]
+      const update1 = await this.db.query(
+        "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
+        values
+      )
+      if (update1.rows.length === 0)
+        // this *should* not happen, so no need to send to ws
+        throw new Error(`Order ${orderId} is not open`)  
+      
+      values = [
+        chainid,
+        selectresult.market,
+        orderId,
+        selectresult.userid,
+        makerAccountId,
+        priceWithoutFee,
+        selectresult.base_quantity,
+        selectresult.side,
+      ]
+      const update2 = await this.db.query(
+        "INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id",
+        values
+      )
+      const fill_id = update2.rows[0].id
+      fill = [
+        chainid,
+        fill_id,
+        selectresult.market,
+        selectresult.side,
+        priceWithoutFee,
+        selectresult.base_quantity,
+        'm',
+        null,
+        selectresult.userid,
+        makerAccountId,
+        null,
+        null,
+      ]
+    } catch (e: any) {
+      // try next best one
+      this.senduserordermatch(
+        chainid, 
+        orderId, 
+        side
+      )
+    }   
+    
+    console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString}`)
+    ws.send(
+      JSON.stringify({
+        op: 'userordermatch',
+        args: [chainid, orderId, selectresult.zktx, fillOrder],
+      })
     )
-    const fill_id = update2.rows[0].id
-    const fill = [
-      chainid,
-      fill_id,
-      selectresult.market,
-      selectresult.side,
-      priceWithoutFee,
-      selectresult.base_quantity,
-      'm',
-      null,
-      selectresult.userid,
-      maker_user_id,
-      null,
-      null,
-    ]
+    
+    // send result to other mm's, remove set
+    const otherMaker = await this.redis.ZRANGE(redisKey, 0, -1)
+    otherMaker.map(async (otherMakerOfferString) => {
+      const otherMakerOffer = JSON.parse(otherMakerOfferString)
+      const otherValue = JSON.parse(otherMakerOffer.value)
+      const otherFillOrder = otherValue.fillOrder
+      const otherMakerAccountId = otherFillOrder.accountId.toString()
+      console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
+      const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
+      const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
+      otherWs.send(
+        JSON.stringify(
+          { 
+            op: 'error',
+            args: [
+              'fillrequest',
+              otherMakerAccountId,
+              "The Order was filled by better offer."
+            ] 
+          }
+        )
+      )
+    })
+    this.redis.DEL(redisKey)
 
-    return { zktx, fill }
+    this.redis.set(
+      redisKey,
+      JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
+      { EX: this.MARKET_MAKER_TIMEOUT }
+    )
+
+    this.broadcastMessage(chainid, selectresult.market, {
+      op: 'orderstatus',
+      args: [[[chainid, orderId, 'm']]],
+    })
+
+    this.broadcastMessage(chainid, selectresult.market, {
+      op: 'fills',
+      args: [[fill]],
+    })
   }
 
   broadcastMessage = async (
