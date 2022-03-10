@@ -5,9 +5,10 @@ export const indicateliq2: ZZServiceHandler = async (
   ws,
   [chainid, market, liquidity]
 ) => {
-  const client_id = ws.uuid
+  const makerConnId = `${chainid}:${ws.uuid}`
+  api.MAKER_CONNECTIONS[makerConnId] = ws
   try {
-    await api.updateLiquidity(chainid, market, liquidity, client_id)
+    await api.updateLiquidity(chainid, market, liquidity, makerConnId)
   } catch (e: any) {
     ws.send(JSON.stringify({ op: 'error', args: ['indicateliq2', e.message] }))
   }

@@ -888,18 +888,18 @@ Description: Returns a JSON containing all price information. If an argument is 
 
 Example: `/api/v1/orderbook/eth-ust?depth=5&level=3`
 
-Arguments: `:market` 
-           `?depth` (optional)
-           `?level` (optional)
+Arguments: 
+* `:market` 
+* `?depth` (optional)
+* `?level` (optional)
 
-Description: Returns a JSON containing all orderbook informations for that market. The volume is in the corresponding base asset.
-
-             With `depth` you can set how many orders you want to aggregate. If you set 50, that returns 25 per ask/bid.
-
-             With `level` you can set the returned level:
-                1 -> best bid and ask
-                2 -> bids and asks aggregated by 0.05% steps
-                3 -> full order book with every bid and ask
+Description:
+Returns a JSON containing all orderbook informations for that market. The volume is in the corresponding base asset.
+* With `depth` you can set how many orders you want to aggregate. If you set 50, that returns 25 per ask/bid.
+* With `level` you can set the returned level:
+  * 1 -> best bid and ask
+  * 2 -> bids and asks aggregated by 0.05% steps
+  * 3 -> full order book with every bid and ask
 
 ```
 {
@@ -918,29 +918,31 @@ Description: Returns a JSON containing all orderbook informations for that marke
 
 ```
 
-###### /api/v1/trades/:market
+###### /api/v1/trades/
 
-Example: `/api/v1/trades/eth-ust?type=s&order_id=4518`
+Example: `/api/v1/trades?market=eth-ust&type=s&order_id=4518`
 
-Arguments: `:market`
-           `?type` (optional)
-           `?limit` (optional)
-           `?order_id` (optional)
-           `?start_time` (optional in UNIX)
-           `?end_time` (optional in UNIX)
+Arguments: 
+* `?market` (optional)
+* `?type` (optional)
+* `?limit` (optional)
+* `?order_id` (optional)
+* `?start_time` (optional in UNIX)
+* `?end_time` (optional in UNIX)
+* `?account_id` (optional)
+* `?direction` (optional - 'older' or 'newer')
 
-Description: Returns a JSON containing the last trades for that market in depending order.
-
-             With `type` you can choose to only return buy or ask side. You can set 's', 'b', 'sell' or 'buy'.
-
-             With `limit` you can set the maximum number of trades returned. MAX 25 for now.
-
-             With `order_id` you can set the first order you want to get returned. This can be used to loop over all trades.
+Description:
+Returns a JSON containing the last trades in decending order.
+* With `market` you can choose to only return trades for one market. Use 'eth-ust' or 'eth_ust'
+* With `type` you can choose to only return buy or ask side. You can set 's', 'b', 'sell' or 'buy'.
+* With `limit` you can set the maximum number of trades returned. MAX 25 for now.
+* With `order_id` you can set the first order you want to get returned. This can be used to loop over all trades.
                 Use the last orderId returned from the last request and send that as first `order_id`.
-
-             With `start_time` you can set the first retuned trade. Set using UNIX time.
-
-             With `end_time` you can set the last retuned trade. Set using UNIX time
+* With `start_time` you can set the first retuned trade. Set using UNIX time.
+* With `end_time` you can set the last retuned trade. Set using UNIX time.
+* With `account_id` you can get trades corresponding to a given account ID.
+* With `direction` you set the direction, best used together with a account_id (eg. get all new trades starting from x)
 
 .
 
