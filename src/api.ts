@@ -1214,7 +1214,7 @@ export default class API extends EventEmitter {
         default:
           throw new Error("Only type 's', 'b', 'sell' or 'buy' is allowed.")
       }
-      text = text + ` AND side = '${type}'`
+      text = text + ` AND side = '${side}'`
     }
 
     if (startTime) {
