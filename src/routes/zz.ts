@@ -1,4 +1,3 @@
-import API from 'src/api'
 import type { ZZHttpServer } from 'src/types'
 
 export default function cmcRoutes(app: ZZHttpServer) {
@@ -80,8 +79,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const market = (req.params.market_pair)
       .replace('_','-')
       .replace('/','-')
+      .replace(':','-')
       .toUpperCase()
-    let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
+    const depth: number = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
     if(![1,2,3].includes(level)) {
       res.send({ op: 'error', message: `Level: ${level} is not a valid level. Use 1, 2 or 3.` })
