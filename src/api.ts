@@ -6,7 +6,7 @@ import { WebSocket } from 'ws'
 import fs from 'fs'
 import * as zksync from 'zksync'
 import ethers from 'ethers'
-import type { Pool } from 'pg
+import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
 import type {
