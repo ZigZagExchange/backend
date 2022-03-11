@@ -1,10 +1,14 @@
 import type { ZZServiceHandler } from 'src/types'
 
-export const cancelorder: ZZServiceHandler = async (api, ws, [chainid, orderId]) => {
-  let cancelresult
+export const cancelorder: ZZServiceHandler = async (
+  api,
+  ws,
+  [chainId, orderId]
+) => {
 
+  let cancelresult
   try {
-    cancelresult = await api.cancelorder(chainid, orderId, ws)
+    cancelresult = await api.cancelorder(chainId, orderId, ws)
   } catch (e: any) {
     ws.send(
       JSON.stringify({ op: 'error', args: ['cancelorder', orderId, e.message] })
@@ -12,8 +16,8 @@ export const cancelorder: ZZServiceHandler = async (api, ws, [chainid, orderId])
     return
   }
 
-  await api.broadcastMessage(chainid, cancelresult.market, {
+  await api.broadcastMessage(chainId, cancelresult.market, {
     op: 'orderstatus',
-    args: [[[chainid, orderId, 'c']]],
+    args: [[[chainId, orderId, 'c']]],
   })
 }

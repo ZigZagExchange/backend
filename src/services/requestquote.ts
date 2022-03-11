@@ -3,13 +3,13 @@ import type { ZZServiceHandler } from 'src/types'
 export const requestquote: ZZServiceHandler = async (
   api,
   ws,
-  [chainid, market, side, baseQuantity = null, quoteQuantity = null]
+  [chainId, market, side, baseQuantity = null, quoteQuantity = null]
 ): Promise<any> => {
-  let quoteMessage
 
+  let quoteMessage
   try {
     const quote = await api.genquote(
-      chainid,
+      chainId,
       market,
       side,
       baseQuantity,
@@ -19,7 +19,7 @@ export const requestquote: ZZServiceHandler = async (
     quoteMessage = {
       op: 'quote',
       args: [
-        chainid,
+        chainId,
         market,
         side,
         quote.softBaseQuantity,

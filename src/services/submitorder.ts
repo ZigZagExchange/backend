@@ -1,7 +1,11 @@
 import type { ZZServiceHandler } from 'src/types'
 
-export const submitorder: ZZServiceHandler = async (api, ws, [chainid, zktx]) => {
-  if (chainid !== 1) {
+export const submitorder: ZZServiceHandler = async (
+  api,
+  ws,
+  [chainId, zktx]
+) => {
+  if (chainId !== 1) {
     const errorMsg = {
       op: 'error',
       args: [
@@ -13,7 +17,7 @@ export const submitorder: ZZServiceHandler = async (api, ws, [chainid, zktx]) =>
     return errorMsg
   }
 
-  const V1_MARKETS = await api.getV1Markets(chainid)
+  const V1_MARKETS = await api.getV1Markets(chainId)
   const tokenBuy = api.V1_TOKEN_IDS[zktx.tokenBuy]
   const tokenSell = api.V1_TOKEN_IDS[zktx.tokenSell]
   let market
@@ -29,7 +33,7 @@ export const submitorder: ZZServiceHandler = async (api, ws, [chainid, zktx]) =>
   }
   
   try {
-    const order = await api.processorderzksync(chainid, market, zktx)
+    const order = await api.processorderzksync(chainId, market, zktx)
     return order
   } catch (err: any) {
     console.error(err)

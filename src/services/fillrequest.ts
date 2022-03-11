@@ -5,7 +5,7 @@ const BLACKLIST = process.env.BLACKLIST || ''
 export const fillrequest: ZZServiceHandler = async (
   api,
   ws,
-  [chainid, orderId, fillOrder]
+  [chainId, orderId, fillOrder]
 ) => {
   const maker_user_id = fillOrder.accountId.toString()
   const blacklisted_accounts = BLACKLIST.split(',')
@@ -25,7 +25,7 @@ export const fillrequest: ZZServiceHandler = async (
   }
 
   try {
-    await api.matchorder(chainid, orderId, fillOrder, ws)    
+    await api.matchorder(chainId, orderId, fillOrder, ws)    
   } catch (err: any) {
     console.log(err)
     ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', maker_user_id, err.message] }))

@@ -3,7 +3,7 @@ import type { ZZServiceHandler } from 'src/types'
 export const cancelall: ZZServiceHandler = async (
   api,
   ws,
-  [chainid, userid]
+  [chainId, userid]
 ) => {
   const userconnkey = `${chainid}:${userid}`
   if (api.USER_CONNECTIONS[userconnkey] !== ws) {
@@ -16,11 +16,11 @@ export const cancelall: ZZServiceHandler = async (
   }
   const canceled_orders = await api.cancelallorders(userid)
   const orderupdates = canceled_orders.map((orderid: string) => [
-    chainid,
+    chainId,
     orderid,
     'c',
   ])
-  await api.broadcastMessage(chainid, null, {
+  await api.broadcastMessage(chainId, null, {
     op: 'orderstatus',
     args: [orderupdates],
   })
