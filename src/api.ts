@@ -1129,7 +1129,7 @@ export default class API extends EventEmitter {
   getuserfills = async (chainid: number, userid: string) => {
     chainid = Number(chainid)
     const query = {
-      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25',
+      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25',
       values: [chainid, userid],
       rowMode: 'array',
     }
