@@ -79,6 +79,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const market = (req.params.market_pair)
       .replace('_','-')
       .replace('/','-')
+      .replace(':','-')
       .toUpperCase()
     const depth = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
