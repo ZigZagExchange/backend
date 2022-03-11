@@ -3,13 +3,19 @@ import type { ZZServiceHandler } from 'src/types'
 export const requestquote: ZZServiceHandler = async (
   api,
   ws,
-  [chainid, market, side, baseQuantity = null, quoteQuantity = null]
+  [chainId, market, side, baseQuantity = null, quoteQuantity = null]
 ): Promise<any> => {
-  let quoteMessage
+  if(!api.VALID_CHAINS.includes(chainId)) {
+    const errorMsg = { op: 'error', message: `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}` }
+    ws.send(JSON.stringify(errorMsg))
+    console.log(`Error, ${chainId} is not a valid chain id.`)
+    return null
+  }  
 
+  let quoteMessage
   try {
     const quote = await api.genquote(
-      chainid,
+      chainId,
       market,
       side,
       baseQuantity,
@@ -19,7 +25,7 @@ export const requestquote: ZZServiceHandler = async (
     quoteMessage = {
       op: 'quote',
       args: [
-        chainid,
+        chainId,
         market,
         side,
         quote.softBaseQuantity,
