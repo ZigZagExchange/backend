@@ -1,4 +1,3 @@
-import API from 'src/api'
 import type { ZZHttpServer, ZZMarket, ZZMarketInfo } from 'src/types'
 
 export default function cmcRoutes(app: ZZHttpServer) {
@@ -81,7 +80,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
       .replace('_','-')
       .replace('/','-')
       .toUpperCase()
-    let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
+    const depth = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
     if(![1,2,3].includes(level)) {
       res.send({ op: 'error', message: `Level: ${level} is not a valid level. Use 1, 2 or 3.` })
@@ -167,14 +166,14 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   // needed to be backward compatible with markets server.js 
-  app.get("/markets", async function (req, res) {
+  app.get("/markets", async (_req, res) => {
     res.redirect("/api/v1/marketinfos")
-  });
+  })
 
-  app.get("/api/v1/marketinfos", async function (req, res) {
-    const chainId = req.query.chainid;
-    const markets = (req.query.id as string).split(",");
-    const marketInfos: ZZMarketInfo = {};
+  app.get("/api/v1/marketinfos", async (req, res) => {
+    const chainId = req.query.chainid
+    const markets = (req.query.id as string).split(",")
+    const marketInfos: ZZMarketInfo = {}
     markets.forEach(async (market: ZZMarket) => {
       try {
         marketInfos[market] = await app.api.getMarketInfo(
@@ -189,5 +188,5 @@ export default function cmcRoutes(app: ZZHttpServer) {
       }
     })
     res.json(marketInfos)
-  });
+  })
 }

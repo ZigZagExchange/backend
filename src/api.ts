@@ -3,9 +3,9 @@ import fetch from 'isomorphic-fetch'
 import { EventEmitter } from 'events'
 import { zksyncOrderSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
-import fs from 'fs';
-import * as zksync from 'zksync';
-import ethers from 'ethers';
+import fs from 'fs'
+import * as zksync from 'zksync'
+import ethers from 'ethers'
 import type { Pool, QueryResult } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
@@ -33,6 +33,9 @@ export default class API extends EventEmitter {
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
   ERC20_ABI: any
+  DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
+    ? Number(process.env.DEFAULT_CHAIN_ID)
+    : 1
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -112,11 +115,11 @@ export default class API extends EventEmitter {
     this.SYNC_PROVIDER[1] = await zksync.getDefaultRestProvider("mainnet")
     this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
 
-    this.ETHERS_PROVIDER["mainnet"] = new ethers.providers.InfuraProvider(
+    this.ETHERS_PROVIDER.mainnet = new ethers.providers.InfuraProvider(
       "mainnet",
       process.env.INFURA_PROJECT_ID,
     )
-    this.ETHERS_PROVIDER["rinkeby"] = new ethers.providers.InfuraProvider(
+    this.ETHERS_PROVIDER.rinkeby = new ethers.providers.InfuraProvider(
       "rinkeby",
       process.env.INFURA_PROJECT_ID,
     )
@@ -143,8 +146,8 @@ export default class API extends EventEmitter {
    * @returns 
    */
   getMarketInfoFromArweave = async (
-    chainId: number = 1,
-    marketArweaveId: string
+    marketArweaveId: string,
+    chainId = this.DEFAULT_CHAIN
   ) => {
     if(![1, 1000].includes(chainId)) {
       throw new Error("getMarketInfoFromArweave: Only 1 and 1000 are valid.")
@@ -154,10 +157,10 @@ export default class API extends EventEmitter {
       return marketInfo
     }
     try {
-      marketInfo = await fetch("https://arweave.net/" + marketArweaveId)
+      marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
         .then((r: any) => r.json())
 
-      let [
+        const [
         baseAsset,
         quoteAsset
       ] = await Promise.all ([
@@ -165,7 +168,7 @@ export default class API extends EventEmitter {
         this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.quoteAssetId)
       ])
 
-      let [
+      const [
         baseAssetName,
         quoteAssetName
       ] = await  Promise.all ([
@@ -198,15 +201,16 @@ export default class API extends EventEmitter {
       )
 
       marketInfo.id = marketArweaveId
-      marketInfo.alias = marketInfo.baseAsset.symbol + "-" + marketInfo.quoteAsset.symbol
+      marketInfo.alias = `${marketInfo.baseAsset.symbol}-${marketInfo.quoteAsset.symbol}`
 
-      // get last fee
+      // get last fee      
       const baseFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.baseAsset.symbol)
       const quoteFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.quoteAsset.symbol)
-      marketInfo.baseFee = baseFee
-      marketInfo.quoteFee = quoteFee
+      if(baseFee) marketInfo.baseFee = baseFee
+      if(quoteFee) marketInfo.quoteFee = quoteFee
+      
 
-      const redisKey: string = `marketinfo:${chainId}`
+      const redisKey = `marketinfo:${chainId}`
       this.redis.HSET(
         redisKey,
         marketArweaveId,
@@ -219,7 +223,7 @@ export default class API extends EventEmitter {
         JSON.stringify(marketInfo)
       )
     } catch (err: any) {
-      console.error("Can't update marketinfo from Arweave for " + marketArweaveId)
+      console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}`)
     }
     return marketInfo
   }
@@ -246,11 +250,11 @@ export default class API extends EventEmitter {
         contractAddress,
         this.ERC20_ABI,
         this.ETHERS_PROVIDER[network]
-      );
-       name = await contract.name();
+      )
+       name = await contract.name()
     } catch (e) {
-      console.error(e);
-      name = tokenSymbol;
+      console.error(e)
+      name = tokenSymbol
     }
     return name
   }
@@ -263,7 +267,7 @@ export default class API extends EventEmitter {
       const tokenSymbols = await this.redis.SMEMBERS(`tokeninfo:${chainId}`)
       const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
       const results: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
-        let tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
+        const tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
         let fee
         if(tokenInfo?.enabledForFees) {
           try {
@@ -280,21 +284,21 @@ export default class API extends EventEmitter {
                 )
             )
           } catch (e: any) {
-              console.log("Can't get fee for " + tokenSymbol + ", error: " + e.message)
+              console.log(`Can't get fee for ${tokenSymbol}, error: ${  e.message}`)
           }
         }
 
         if(!fee) {
           try {
             const usdPrice: number = await this.getUsdPrice(chainId, tokenSymbol)
-            const usdReference: number = Number(
+            const usdReference = Number(
               await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
             )
             if (usdReference && usdPrice) {
               fee = (usdReference / usdPrice)
             }            
           } catch (e) {
-              console.log("Can't get fee per reference for " + tokenSymbol + ", error: "+e)
+              console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
           }
         }
 
@@ -315,12 +319,12 @@ export default class API extends EventEmitter {
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       markets.forEach(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
-        let updated: boolean = false
-        if(marketInfo.baseFee != fees[marketInfo.baseAsset.symbol]) {
+        let updated = false
+        if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
           marketInfo.baseFee = fees[marketInfo.baseAsset.symbol]
           updated = true
         }
-        if(marketInfo.quoteFee != fees[marketInfo.quoteAsset.symbol]) {
+        if(marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
           marketInfo.quoteFee = fees[marketInfo.quoteAsset.symbol]
           updated = true
         }
@@ -354,7 +358,7 @@ export default class API extends EventEmitter {
     chainId: number
   ): Promise<ZZMarketInfo> => {
     const redis_key = `marketinfo:${chainId}`
-    let cache = await this.redis.HGET(
+    const cache = await this.redis.HGET(
       redis_key,
       market
     )
@@ -364,8 +368,8 @@ export default class API extends EventEmitter {
     }
 
     return this.getMarketInfoFromArweave(
-      chainId,
-      market
+      market,
+      chainId
     )
   }
 
@@ -380,8 +384,8 @@ export default class API extends EventEmitter {
         // update from Arweave with ArweaveId
         if(marketKey.length >= 20) {
           this.getMarketInfoFromArweave(
-            chainId,
-            marketKey
+            marketKey,
+            chainId
           )
         }        
       })
