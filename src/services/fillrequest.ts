@@ -7,6 +7,13 @@ export const fillrequest: ZZServiceHandler = async (
   ws,
   [chainId, orderId, fillOrder]
 ) => {
+  if(!api.VALID_CHAINS.includes(chainId)) {
+    const errorMsg = { op: 'error', message: `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}` }
+    ws.send(JSON.stringify(errorMsg))
+    console.log(`Error, ${chainId} is not a valid chain id.`)
+    return
+  }
+  
   const maker_user_id = fillOrder.accountId.toString()
   const blacklisted_accounts = BLACKLIST.split(',')
   if (blacklisted_accounts.includes(maker_user_id)) {

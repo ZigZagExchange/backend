@@ -5,7 +5,14 @@ export const cancelall: ZZServiceHandler = async (
   ws,
   [chainId, userid]
 ) => {
-  const userconnkey = `${chainid}:${userid}`
+  if(!api.VALID_CHAINS.includes(chainId)) {
+    const errorMsg = { op: 'error', message: `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}` }
+    ws.send(JSON.stringify(errorMsg))
+    console.log(`Error, ${chainId} is not a valid chain id.`)
+    return
+  }
+
+  const userconnkey = `${chainId}:${userid}`
   if (api.USER_CONNECTIONS[userconnkey] !== ws) {
     ws.send(
       JSON.stringify({
