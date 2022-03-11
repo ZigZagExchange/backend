@@ -38,7 +38,7 @@ export const subscribemarket: ZZServiceHandler = async (
     const marketinfo = await api.getMarketInfo(market, chainid)
     if(marketinfo) {
       const marketInfoMsg = { op: 'marketinfo', args: [marketinfo] }
-    ws.send(JSON.stringify(marketInfoMsg))
+      ws.send(JSON.stringify(marketInfoMsg))
     } else {
       const errorMsg = { op: 'error', message: `Can not find market ${market}` }
       ws.send(JSON.stringify(errorMsg))
