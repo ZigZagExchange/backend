@@ -3,9 +3,16 @@ import type { ZZServiceHandler } from 'src/types'
 export const cancelall: ZZServiceHandler = async (
   api,
   ws,
-  [chainid, userid]
+  [chainId, userid]
 ) => {
-  const userconnkey = `${chainid}:${userid}`
+  if(!api.VALID_CHAINS.includes(chainId)) {
+    const errorMsg = { op: 'error', message: `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}` }
+    ws.send(JSON.stringify(errorMsg))
+    console.log(`Error, ${chainId} is not a valid chain id.`)
+    return
+  }
+
+  const userconnkey = `${chainId}:${userid}`
   if (api.USER_CONNECTIONS[userconnkey] !== ws) {
     ws.send(
       JSON.stringify({
@@ -16,11 +23,11 @@ export const cancelall: ZZServiceHandler = async (
   }
   const canceled_orders = await api.cancelallorders(userid)
   const orderupdates = canceled_orders.map((orderid: string) => [
-    chainid,
+    chainId,
     orderid,
     'c',
   ])
-  await api.broadcastMessage(chainid, null, {
+  await api.broadcastMessage(chainId, null, {
     op: 'orderstatus',
     args: [orderupdates],
   })
