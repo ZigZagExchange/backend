@@ -746,7 +746,7 @@ export default class API extends EventEmitter {
 
     const redisKey = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
-    this.redis.ZADD(redisKey, redis_members)    
+    this.redis.ZADD(redisKey, redis_members)
     this.redis.EXPIRE(redisKey, 10)
     if(existingMembers === 0) {
       setTimeout(
