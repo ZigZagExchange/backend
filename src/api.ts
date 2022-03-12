@@ -217,15 +217,20 @@ export default class API extends EventEmitter {
     let feeAmount
     let feeToken
     let timestamp
-    if (marketInfo) {
-      if(side === 's') {
-        feeAmount = marketInfo.baseFee
-        feeToken =  marketInfo.baseAsset.symbol
+    try {
+      if (marketInfo) {
+        if(side === 's') {
+          feeAmount = marketInfo.baseFee
+          feeToken =  marketInfo.baseAsset.symbol
+        } else {
+          feeAmount = marketInfo.quoteFee
+          feeToken =  marketInfo.quoteAsset.symbol
+        }
       } else {
-        feeAmount = marketInfo.quoteFee
-        feeToken =  marketInfo.quoteAsset.symbol
+        feeAmount = 0.5
+        feeToken = "USDC"
       }
-    } else {
+    } catch (err: any) {
       feeAmount = 0.5
       feeToken = "USDC"
     }
