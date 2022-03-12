@@ -765,17 +765,17 @@ export default class API extends EventEmitter {
     side: string
   ) => {
     console.log(`MATCHING: orderId: ${orderId}, side: ${side}`)
-    const redisKey = `matchingorders:${chainid}:${orderId}`
-    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    const redisKeyOrders = `matchingorders:${chainid}:${orderId}`
+    const existingMembers = await this.redis.ZCOUNT(redisKeyOrders, -Infinity, Infinity)
     if(existingMembers === 0) {
       return
     }
 
     let redis_members
     if(side === 'b') {
-      redis_members = await this.redis.ZPOPMIN(redisKey)
+      redis_members = await this.redis.ZPOPMIN(redisKeyOrders)
     } else {
-      redis_members = await this.redis.ZPOPMAX(redisKey)
+      redis_members = await this.redis.ZPOPMAX(redisKeyOrders)
     }
     if (!redis_members) {
       return
@@ -790,8 +790,8 @@ export default class API extends EventEmitter {
     console.log(`SELECTED: orderId: ${orderId}, side: ${side}, price: ${fillPrice}`)
 
     let fill
-    try {
-      const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
+    const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
+    try {      
       const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
@@ -890,7 +890,7 @@ export default class API extends EventEmitter {
     )
     
     // send result to other mm's, remove set
-    const otherMakerList: any[] = await this.redis.ZRANGE(redisKey, 0, -1)
+    const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyOrders, 0, -1)
     otherMakerList.map(async (otherMaker: any) => {
       const otherValue = JSON.parse(otherMaker)
       const otherFillOrder = otherValue.fillOrder
@@ -913,7 +913,7 @@ export default class API extends EventEmitter {
     })
 
     this.redis.set(
-      redisKey,
+      redisKeyBussy,
       JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
       { EX: this.MARKET_MAKER_TIMEOUT }
     )
