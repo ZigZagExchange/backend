@@ -1686,6 +1686,14 @@ export default class API extends EventEmitter {
         if (liquidity.length === 0) {
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
+          try {
+            await this.db.query(
+              "UPDATE offers SET order_status='c',zktx=NULL,update_timestamp=NOW() WHERE market=$1 AND order_status='o'",
+              [market_id]
+            )
+          } catch(err: any) {
+            console.log(`Error while cancling offers for not active pair: ${market_id}, ${err.message}`)
+          }
           return
         }
         this.broadcastMessage(chainid, market_id, {
