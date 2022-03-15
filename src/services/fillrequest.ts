@@ -5,8 +5,15 @@ const BLACKLIST = process.env.BLACKLIST || ''
 export const fillrequest: ZZServiceHandler = async (
   api,
   ws,
-  [chainid, orderId, fillOrder]
+  [chainId, orderId, fillOrder]
 ) => {
+  if(!api.VALID_CHAINS.includes(chainId)) {
+    const errorMsg = { op: 'error', message: `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}` }
+    ws.send(JSON.stringify(errorMsg))
+    console.log(`Error, ${chainId} is not a valid chain id.`)
+    return
+  }
+  
   const maker_user_id = fillOrder.accountId.toString()
   const blacklisted_accounts = BLACKLIST.split(',')
   if (blacklisted_accounts.includes(maker_user_id)) {
@@ -25,7 +32,7 @@ export const fillrequest: ZZServiceHandler = async (
   }
 
   try {
-    await api.matchorder(chainid, orderId, fillOrder, ws)    
+    await api.matchorder(chainId, orderId, fillOrder, ws)    
   } catch (err: any) {
     console.log(err)
     ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', maker_user_id, err.message] }))
