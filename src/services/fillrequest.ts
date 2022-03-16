@@ -5,15 +5,24 @@ const BLACKLIST = process.env.BLACKLIST || ''
 export const fillrequest: ZZServiceHandler = async (
   api,
   ws,
-  [chainid, orderId, fillOrder]
+  [chainId, orderId, fillOrder]
 ) => {
+  if(!api.VALID_CHAINS.includes(chainId)) {
+    const errorMsg = { op: 'error', message: `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}` }
+    ws.send(JSON.stringify(errorMsg))
+    console.log(`Error, ${chainId} is not a valid chain id.`)
+    return
+  }
+  
+  const maker_user_id = fillOrder.accountId.toString()
   const blacklisted_accounts = BLACKLIST.split(',')
-  if (blacklisted_accounts.includes(fillOrder.accountId.toString())) {
+  if (blacklisted_accounts.includes(maker_user_id)) {
     ws.send(
       JSON.stringify({
         op: 'error',
         args: [
           'fillrequest',
+          maker_user_id,
           "You're running a bad version of the market maker. Please run git pull to update your code.",
         ],
       })
@@ -22,55 +31,10 @@ export const fillrequest: ZZServiceHandler = async (
     return
   }
 
-  const redisKey = `bussymarketmaker:${chainid}:${fillOrder.accountId.toString()}`
-  const redisBusyMM = (await api.redis.get(redisKey)) as string
-  if (redisBusyMM) {
-    const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
-    const remainingTime = await api.redis.ttl(redisKey)
-    ws.send(
-      JSON.stringify({
-        op: 'error',
-        args: [
-          'fillrequest',
-          // eslint-disable-next-line prefer-template
-          'Your address did not respond to order (' +
-            processingOrderId +
-            ') yet. Remaining timeout: ' +
-            remainingTime +
-            '.',
-        ],
-      })
-    )
-    console.log('fillrequest - return timed out market maker.')
-    return
-  }
-
   try {
-    const matchOrderResult = await api.matchorder(chainid, orderId, fillOrder)
-    const market = matchOrderResult.fill[2]
-    ws.send(
-      JSON.stringify({
-        op: 'userordermatch',
-        args: [chainid, orderId, matchOrderResult.zktx, fillOrder],
-      })
-    )
-    await api.redis.set(
-      redisKey,
-      JSON.stringify({ orderId, ws_uuid: ws.uuid }),
-      { EX: api.MARKET_MAKER_TIMEOUT }
-    )
-
-    api.broadcastMessage(chainid, market, {
-      op: 'orderstatus',
-      args: [[[chainid, orderId, 'm']]],
-    })
-
-    api.broadcastMessage(chainid, market, {
-      op: 'fills',
-      args: [[matchOrderResult.fill]],
-    })
+    await api.matchorder(chainId, orderId, fillOrder, ws)    
   } catch (err: any) {
-    console.error(err)
-    ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', err.message] }))
+    console.log(err)
+    ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', maker_user_id, err.message] }))
   }
 }
