@@ -891,7 +891,8 @@ export default class API extends EventEmitter {
         JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
-    } catch (e: any) {
+    } catch (err: any) {
+      console.log(`Failed to match order because ${err.message}, sending next best`)
       // try next best one
       this.senduserordermatch(
         chainid, 
