@@ -22,6 +22,11 @@ export const cancelorder: ZZServiceHandler = async (
     return
   }
 
+  // return the new status to the sender, regardless of market
+  ws.send(
+    JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
+  )
+
   await api.broadcastMessage(chainId, cancelresult.market, {
     op: 'orderstatus',
     args: [[[chainId, orderId, 'c']]],
