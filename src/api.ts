@@ -877,6 +877,20 @@ export default class API extends EventEmitter {
         null,
         null,
       ]
+
+      console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
+      ws.send(
+        JSON.stringify({
+          op: 'userordermatch',
+          args: [chainid, orderId, value.zktx, fillOrder],
+        })
+      )
+
+      this.redis.set(
+        redisKeyBussy,
+        JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
+        { EX: this.MARKET_MAKER_TIMEOUT }
+      )
     } catch (e: any) {
       // try next best one
       this.senduserordermatch(
@@ -884,54 +898,46 @@ export default class API extends EventEmitter {
         orderId, 
         side
       )
-    }   
+      return
+    }
     
-    console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
-    ws.send(
-      JSON.stringify({
-        op: 'userordermatch',
-        args: [chainid, orderId, value.zktx, fillOrder],
-      })
-    )
-    
-    // send result to other mm's, remove set
-    const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyOrders, 0, -1)
-    otherMakerList.map(async (otherMaker: any) => {
-      const otherValue = JSON.parse(otherMaker)
-      const otherFillOrder = otherValue.fillOrder
-      const otherMakerAccountId = otherFillOrder.accountId.toString()
-      console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
-      const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
-      const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-      otherWs.send(
-        JSON.stringify(
-          { 
-            op: 'error',
-            args: [
-              'fillrequest',
-              otherMakerAccountId,
-              "The Order was filled by better offer."
-            ] 
-          }
+    try {
+      // send result to other mm's, remove set
+      const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyOrders, 0, -1)
+      otherMakerList.map(async (otherMaker: any) => {
+        const otherValue = JSON.parse(otherMaker)
+        const otherFillOrder = otherValue.fillOrder
+        const otherMakerAccountId = otherFillOrder.accountId.toString()
+        console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
+        const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
+        const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
+        otherWs.send(
+          JSON.stringify(
+            { 
+              op: 'error',
+              args: [
+                'fillrequest',
+                otherMakerAccountId,
+                "The Order was filled by better offer."
+              ] 
+            }
+          )
         )
-      )
-    })
+      })
+    } catch (err: any) {
+      console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
+    }
 
-    this.redis.set(
-      redisKeyBussy,
-      JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
-      { EX: this.MARKET_MAKER_TIMEOUT }
-    )
+      this.broadcastMessage(chainid, value.market, {
+        op: 'orderstatus',
+        args: [[[chainid, orderId, 'm']]],
+      })
 
-    this.broadcastMessage(chainid, value.market, {
-      op: 'orderstatus',
-      args: [[[chainid, orderId, 'm']]],
-    })
+      this.broadcastMessage(chainid, value.market, {
+        op: 'fills',
+        args: [[fill]],
+      })
 
-    this.broadcastMessage(chainid, value.market, {
-      op: 'fills',
-      args: [[fill]],
-    })
   }
 
   broadcastMessage = async (
