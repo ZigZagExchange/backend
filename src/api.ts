@@ -304,13 +304,26 @@ export default class API extends EventEmitter {
     const values = [newstatus, txhash, chainid, orderid]
     try {
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m'",
+        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m' RETURNING userid",
         values
       )
     } catch (e) {
       console.error('Error while updateMatchedOrder offers.')
       console.error(e)
       return false
+    }
+
+    // update user
+    if (update.rows.length > 0) {
+      try {
+        const userConnKey = `${chainid}:${(update.rows[0]).userId}`
+        const userWs = this.USER_CONNECTIONS[userConnKey]
+        userWs.send(
+          JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, 'm']]], })
+        )
+      } catch (err: any) {
+        console.log(`updateMatchedOrder: Failed to send update over userWs`)
+      }
     }
 
     try {
