@@ -194,24 +194,38 @@ export default class API extends EventEmitter {
     let update
     let fillId
     let market
+    let userId
     let fillPrice
     let side
     let maker_user_id
     try {
       const valuesOffers = [newstatus, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
+        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market, userid",
         valuesOffers
       )
       if (update.rows.length > 0) {
         side = update.rows[0].side
         market = update.rows[0].market
+        userId = update.rows[0].userid
       }
     } catch (e) {
       console.error('Error while updateOrderFillStatus offers.')
       console.error(e)
       return false
     }
+
+    try {
+      // update user
+      const userConnKey = `${chainid}:${userId}`
+      const userWs = this.USER_CONNECTIONS[userConnKey]
+      userWs.send(
+        JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], })
+      )
+    } catch (err: any) {
+      console.log(`updateOrderFillStatus: Failed to send update over userWs`)
+    }
+    
 
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
@@ -662,7 +676,7 @@ export default class API extends EventEmitter {
   cancelorder = async (chainid: number, orderId: string, ws?: WSocket) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
-      'SELECT userid FROM offers WHERE id=$1 AND chainid=$2',
+      'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
       values
     )
 
@@ -670,8 +684,22 @@ export default class API extends EventEmitter {
       throw new Error('Order not found')
     }
 
-    const { userid } = select.rows[0]
-    const userconnkey = `${chainid}:${userid}`
+    const { orderFromOffers } = select.rows[0]
+    const userconnkey = `${chainid}:${orderFromOffers.userid}`
+
+    if (orderFromOffers.order_status !== 'o') {   
+      // somehow user was not updated, do that now   
+      if (ws) {
+        try {
+          ws.send(
+            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, orderFromOffers.order_status]]], })
+          )
+        } catch (err: any) {
+          throw new Error('Order is no longer open')
+        }
+      }
+      throw new Error('Order is no longer open')
+    }
 
     if (this.USER_CONNECTIONS[userconnkey] !== ws) {
       throw new Error('Unauthorized')
@@ -885,6 +913,17 @@ export default class API extends EventEmitter {
           args: [chainid, orderId, value.zktx, fillOrder],
         })
       )
+
+      // update user
+      try {
+        const userConnKey = `${chainid}:${value.userId}`
+        const userWs = this.USER_CONNECTIONS[userConnKey]
+        userWs.send(
+          JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
+        )
+      } catch (err: any) {
+        console.log(`matchorder: Failed to send update over userWs`)
+      }
 
       this.redis.set(
         redisKeyBussy,
