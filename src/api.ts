@@ -1766,6 +1766,7 @@ export default class API extends EventEmitter {
       (l: any[]) =>
         ['b', 's'].includes(l[0]) &&
         !Number.isNaN(parseFloat(l[1])) &&
+        parseFloat(l[1]) > 0 &&
         !Number.isNaN(parseFloat(l[2])) &&
         parseFloat(l[2]) > marketInfo.baseFee
     )
