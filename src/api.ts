@@ -928,16 +928,15 @@ export default class API extends EventEmitter {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
 
-      this.broadcastMessage(chainid, value.market, {
-        op: 'orderstatus',
-        args: [[[chainid, orderId, 'm']]],
-      })
+    this.broadcastMessage(chainid, value.market, {
+      op: 'orderstatus',
+      args: [[[chainid, orderId, 'm']]],
+    })
 
-      this.broadcastMessage(chainid, value.market, {
-        op: 'fills',
-        args: [[fill]],
-      })
-
+    this.broadcastMessage(chainid, value.market, {
+      op: 'fills',
+      args: [[fill]],
+    })
   }
 
   broadcastMessage = async (
