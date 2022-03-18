@@ -51,6 +51,9 @@ export default class API extends EventEmitter {
   }
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
+    if (msg.op === "ping") {
+        return false;
+    }
     if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
       return false
@@ -132,7 +135,7 @@ export default class API extends EventEmitter {
       if (oldMarketInfo !== JSON.stringify(marketInfo)) {
         const market_id = marketInfo.alias
         const redis_key = `marketinfo:${chainid}:${market_id}`
-        this.redis.set(redis_key, JSON.stringify(marketInfo), { EX: 1800 })
+        this.redis.set(redis_key, JSON.stringify(marketInfo));
 
         const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
         this.broadcastMessage(chainid, market_id, marketInfoMsg)
@@ -194,24 +197,33 @@ export default class API extends EventEmitter {
     let update
     let fillId
     let market
+    let userId
     let fillPrice
     let side
     let maker_user_id
     try {
       const valuesOffers = [newstatus, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
+        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market, userid",
         valuesOffers
       )
       if (update.rows.length > 0) {
         side = update.rows[0].side
         market = update.rows[0].market
+        userId = update.rows[0].userid
       }
     } catch (e) {
       console.error('Error while updateOrderFillStatus offers.')
       console.error(e)
       return false
     }
+
+    // update user
+    this.sendMessageToUser(
+      chainid,
+      userId,
+      { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
+    )    
 
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
@@ -290,13 +302,22 @@ export default class API extends EventEmitter {
     const values = [newstatus, txhash, chainid, orderid]
     try {
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m'",
+        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m' RETURNING userid",
         values
       )
     } catch (e) {
       console.error('Error while updateMatchedOrder offers.')
       console.error(e)
       return false
+    }
+
+    // update user
+    if (update.rows.length > 0) {
+      this.sendMessageToUser(
+        chainid,
+        update.rows[0].userid,
+        { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
+      )
     }
 
     try {
@@ -662,7 +683,7 @@ export default class API extends EventEmitter {
   cancelorder = async (chainid: number, orderId: string, ws?: WSocket) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
-      'SELECT userid FROM offers WHERE id=$1 AND chainid=$2',
+      'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
       values
     )
 
@@ -670,8 +691,21 @@ export default class API extends EventEmitter {
       throw new Error('Order not found')
     }
 
-    const { userid } = select.rows[0]
-    const userconnkey = `${chainid}:${userid}`
+    const userconnkey = `${chainid}:${select.rows[0].userid}`
+
+    if (select.rows[0].order_status !== 'o') {   
+      // somehow user was not updated, do that now   
+      if (ws) {
+        try {
+          ws.send(
+            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, select.rows[0].order_status]]], })
+          )
+        } catch (err: any) {
+          throw new Error('Order is no longer open')
+        }
+      }
+      throw new Error('Order is no longer open')
+    }
 
     if (this.USER_CONNECTIONS[userconnkey] !== ws) {
       throw new Error('Unauthorized')
@@ -882,6 +916,13 @@ export default class API extends EventEmitter {
         })
       )
 
+      // update user
+      this.sendMessageToUser(
+        chainid,
+        value.userId,
+        { op: 'orderstatus', args: [[[chainid, orderId, 'm']]], }
+      )
+
       this.redis.set(
         redisKeyBussy,
         JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
@@ -946,6 +987,18 @@ export default class API extends EventEmitter {
       if (market && !ws.marketSubscriptions.includes(market)) return
       ws.send(JSON.stringify(msg))
     })
+  }
+
+  sendMessageToUser = async (
+    chainId: number,
+    userId: number,
+    msg: WSMessage
+  ) => {
+    const userConnKey = `${chainId}:${userId}`
+    const userWs = this.USER_CONNECTIONS[userConnKey]
+    if (userWs) {
+      userWs.send(JSON.stringify(msg))
+    }
   }
 
   /**
