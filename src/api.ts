@@ -51,6 +51,9 @@ export default class API extends EventEmitter {
   }
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
+    if (msg.op === "ping") {
+        return false;
+    }
     if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
       return false
