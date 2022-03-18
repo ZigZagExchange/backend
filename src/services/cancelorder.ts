@@ -19,11 +19,9 @@ export const cancelorder: ZZServiceHandler = async (
     ws.send(
       JSON.stringify({ op: 'error', args: ['cancelorder', orderId, e.message] })
     )
-    console.log(e)
     return
   }
 
-  console.log("good")
   // return the new status to the sender, regardless of market
   ws.send(
     JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
