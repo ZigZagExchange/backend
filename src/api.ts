@@ -316,7 +316,7 @@ export default class API extends EventEmitter {
     // update user
     if (update.rows.length > 0) {
       try {
-        const userConnKey = `${chainid}:${(update.rows[0]).userId}`
+        const userConnKey = `${chainid}:${(update.rows[0]).userid}`
         const userWs = this.USER_CONNECTIONS[userConnKey]
         userWs.send(
           JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, 'm']]], })
