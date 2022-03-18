@@ -215,19 +215,12 @@ export default class API extends EventEmitter {
       return false
     }
 
-    try {
-      // update user
-      const userConnKey = `${chainid}:${userId}`
-      const userWs = this.USER_CONNECTIONS[userConnKey]
-      if (userWs) {
-        userWs.send(
-          JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], })
-        )
-      }
-    } catch (err: any) {
-      console.log(`updateOrderFillStatus: Failed to send update over userWs`)
-    }
-    
+    // update user
+    this.sendMessageToUser(
+      chainid,
+      userId,
+      { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
+    )    
 
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
@@ -317,17 +310,11 @@ export default class API extends EventEmitter {
 
     // update user
     if (update.rows.length > 0) {
-      try {
-        const userConnKey = `${chainid}:${(update.rows[0]).userid}`
-        const userWs = this.USER_CONNECTIONS[userConnKey]
-        if (userWs) {
-          userWs.send(
-            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, 'm']]], })
-          )
-        }
-      } catch (err: any) {
-        console.log(`updateMatchedOrder: Failed to send update over userWs`)
-      }
+      this.sendMessageToUser(
+        chainid,
+        update.rows[0].userid,
+        { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
+      )
     }
 
     try {
@@ -928,17 +915,11 @@ export default class API extends EventEmitter {
       )
 
       // update user
-      try {
-        const userConnKey = `${chainid}:${value.userId}`
-        const userWs = this.USER_CONNECTIONS[userConnKey]
-        if (userWs) {
-          userWs.send(
-            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
-          )
-        }
-      } catch (err: any) {
-        console.log(`matchorder: Failed to send update over userWs`)
-      }
+      this.sendMessageToUser(
+        chainid,
+        value.userId,
+        { op: 'orderstatus', args: [[[chainid, orderId, 'm']]], }
+      )
 
       this.redis.set(
         redisKeyBussy,
@@ -1005,6 +986,18 @@ export default class API extends EventEmitter {
       if (market && !ws.marketSubscriptions.includes(market)) return
       ws.send(JSON.stringify(msg))
     })
+  }
+
+  sendMessageToUser = async (
+    chainId: number,
+    userId: number,
+    msg: WSMessage
+  ) => {
+    const userConnKey = `${chainId}:${userId}`
+    const userWs = this.USER_CONNECTIONS[userConnKey]
+    if (userWs) {
+      userWs.send(JSON.stringify(msg))
+    }
   }
 
   /**
