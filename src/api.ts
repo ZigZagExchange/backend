@@ -794,11 +794,10 @@ export default class API extends EventEmitter {
     const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
     this.redis.ZADD(redisKey, redis_members)
     this.redis.EXPIRE(redisKey, 10)
-    console.log(`ADDING: orderId: ${orderId}, side: ${selectresult.side}, price: ${fillPrice}`)
     if(existingMembers === 0) {
       setTimeout(
         this.senduserordermatch,
-        500,
+        250,
         chainid,
         orderId,
         selectresult.side)
@@ -810,18 +809,17 @@ export default class API extends EventEmitter {
     orderId: string,
     side: string
   ) => {
-    console.log(`MATCHING: orderId: ${orderId}, side: ${side}`)
-    const redisKeyOrders = `matchingorders:${chainid}:${orderId}`
-    const existingMembers = await this.redis.ZCOUNT(redisKeyOrders, -Infinity, Infinity)
+    const redisKeyMatchingOrder = `matchingorders:${chainid}:${orderId}`
+    const existingMembers = await this.redis.ZCOUNT(redisKeyMatchingOrder, -Infinity, Infinity)
     if(existingMembers === 0) {
       return
     }
 
     let redis_members
     if(side === 'b') {
-      redis_members = await this.redis.ZPOPMIN(redisKeyOrders)
+      redis_members = await this.redis.ZPOPMIN(redisKeyMatchingOrder)
     } else {
-      redis_members = await this.redis.ZPOPMAX(redisKeyOrders)
+      redis_members = await this.redis.ZPOPMAX(redisKeyMatchingOrder)
     }
     if (!redis_members) {
       return
@@ -833,7 +831,6 @@ export default class API extends EventEmitter {
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
     const ws = this.MAKER_CONNECTIONS[makerConnId]
-    console.log(`SELECTED: orderId: ${orderId}, side: ${side}, price: ${fillPrice}`)
 
     let fill
     const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
@@ -956,7 +953,7 @@ export default class API extends EventEmitter {
     
     try {
       // send result to other mm's, remove set
-      const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyOrders, 0, -1)
+      const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyMatchingOrder, 0, -1)
       otherMakerList.map(async (otherMaker: any) => {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
