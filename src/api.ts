@@ -1722,7 +1722,10 @@ export default class API extends EventEmitter {
   clearDeadConnections = () => {
     ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
-        ws.terminate()
+        const userconnkey = `${ws.chainid}:${ws.userid}`
+        delete this.USER_CONNECTIONS[userconnkey]
+        delete this.MAKER_CONNECTIONS[userconnkey]
+        ws.terminate()        
       } else {
         ws.isAlive = false
         ws.ping()
