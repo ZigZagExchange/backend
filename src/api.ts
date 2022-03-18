@@ -768,17 +768,17 @@ export default class API extends EventEmitter {
     orderId: string,
     side: string
   ) => {
-    const redisKey = `matchingorders:${chainid}:${orderId}`
-    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    const redisKeyMatchingOrder = `matchingorders:${chainid}:${orderId}`
+    const existingMembers = await this.redis.ZCOUNT(redisKeyMatchingOrder, -Infinity, Infinity)
     if(existingMembers === 0) {
       return
     }
 
     let redis_members
     if(side === 'b') {
-      redis_members = await this.redis.ZPOPMIN(redisKeyOrders)
+      redis_members = await this.redis.ZPOPMIN(redisKeyMatchingOrder)
     } else {
-      redis_members = await this.redis.ZPOPMAX(redisKeyOrders)
+      redis_members = await this.redis.ZPOPMAX(redisKeyMatchingOrder)
     }
     if (!redis_members) {
       return
@@ -900,7 +900,7 @@ export default class API extends EventEmitter {
     
     try {
       // send result to other mm's, remove set
-      const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyOrders, 0, -1)
+      const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyMatchingOrder, 0, -1)
       otherMakerList.map(async (otherMaker: any) => {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
