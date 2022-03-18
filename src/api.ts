@@ -219,9 +219,11 @@ export default class API extends EventEmitter {
       // update user
       const userConnKey = `${chainid}:${userId}`
       const userWs = this.USER_CONNECTIONS[userConnKey]
-      userWs.send(
-        JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], })
-      )
+      if (userWs) {
+        userWs.send(
+          JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], })
+        )
+      }
     } catch (err: any) {
       console.log(`updateOrderFillStatus: Failed to send update over userWs`)
     }
@@ -318,9 +320,11 @@ export default class API extends EventEmitter {
       try {
         const userConnKey = `${chainid}:${(update.rows[0]).userid}`
         const userWs = this.USER_CONNECTIONS[userConnKey]
-        userWs.send(
-          JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, 'm']]], })
-        )
+        if (userWs) {
+          userWs.send(
+            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderid, 'm']]], })
+          )
+        }
       } catch (err: any) {
         console.log(`updateMatchedOrder: Failed to send update over userWs`)
       }
@@ -927,9 +931,11 @@ export default class API extends EventEmitter {
       try {
         const userConnKey = `${chainid}:${value.userId}`
         const userWs = this.USER_CONNECTIONS[userConnKey]
-        userWs.send(
-          JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
-        )
+        if (userWs) {
+          userWs.send(
+            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
+          )
+        }
       } catch (err: any) {
         console.log(`matchorder: Failed to send update over userWs`)
       }
