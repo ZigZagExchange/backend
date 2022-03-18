@@ -19,7 +19,7 @@ export const cancelorder: ZZServiceHandler = async (
     ws.send(
       JSON.stringify({ op: 'error', args: ['cancelorder', orderId, e.message] })
     )
-    console.log(e.message)
+    console.log(e)
     return
   }
 

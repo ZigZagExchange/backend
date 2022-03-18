@@ -697,15 +697,14 @@ export default class API extends EventEmitter {
       throw new Error('Order not found')
     }
 
-    const { orderFromOffers } = select.rows[0]
-    const userconnkey = `${chainid}:${orderFromOffers.userid}`
+    const userconnkey = `${chainid}:${select.rows[0].userid}`
 
-    if (orderFromOffers.order_status !== 'o') {   
+    if (select.rows[0].order_status !== 'o') {   
       // somehow user was not updated, do that now   
       if (ws) {
         try {
           ws.send(
-            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, orderFromOffers.order_status]]], })
+            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, select.rows[0].order_status]]], })
           )
         } catch (err: any) {
           throw new Error('Order is no longer open')
