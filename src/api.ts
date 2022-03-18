@@ -756,7 +756,7 @@ export default class API extends EventEmitter {
     if(existingMembers === 0) {
       setTimeout(
         this.senduserordermatch,
-        200,
+        250,
         chainid,
         orderId,
         selectresult.side)
