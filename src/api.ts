@@ -875,7 +875,6 @@ export default class API extends EventEmitter {
         null,
       ]
 
-      console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
       ws.send(
         JSON.stringify({
           op: 'userordermatch',
@@ -888,7 +887,8 @@ export default class API extends EventEmitter {
         JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
-    } catch (e: any) {
+    } catch (err: any) {
+      console.log(`senduserordermatch: Error while sending match: ${err.message}`)
       // try next best one
       this.senduserordermatch(
         chainid, 
@@ -905,7 +905,6 @@ export default class API extends EventEmitter {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
         const otherMakerAccountId = otherFillOrder.accountId.toString()
-        console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
         const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
         const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
         otherWs.send(
