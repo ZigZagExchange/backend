@@ -927,14 +927,18 @@ export default class API extends EventEmitter {
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
-      console.log(`Failed to match order because ${err.message}, sending next best`)
-      // try next best one
-      this.senduserordermatch(
-        chainid, 
-        orderId, 
-        side
-      )
-      return
+      if (err.message.includes('is not open')) {
+        console.log(`Failed to match order because ${err.message}. Abort`)
+      } else {
+        console.log(`Failed to match order because ${err.message}, sending next best`)
+        // try next best one
+        this.senduserordermatch(
+          chainid, 
+          orderId, 
+          side
+        )
+      }    
+      return  
     }
     
     try {
