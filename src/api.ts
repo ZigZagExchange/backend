@@ -135,7 +135,7 @@ export default class API extends EventEmitter {
       if (oldMarketInfo !== JSON.stringify(marketInfo)) {
         const market_id = marketInfo.alias
         const redis_key = `marketinfo:${chainid}:${market_id}`
-        this.redis.set(redis_key, JSON.stringify(marketInfo));
+        this.redis.set(redis_key, JSON.stringify(marketInfo))
 
         const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
         this.broadcastMessage(chainid, market_id, marketInfoMsg)
@@ -930,14 +930,18 @@ export default class API extends EventEmitter {
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
-      console.log(`Failed to match order because ${err.message}, sending next best`)
-      // try next best one
-      this.senduserordermatch(
-        chainid, 
-        orderId, 
-        side
-      )
-      return
+      if (err.message.includes('is not open')) {
+        console.log(`Failed to match order because ${err.message}. Abort`)
+      } else {
+        console.log(`Failed to match order because ${err.message}, sending next best`)
+        // try next best one
+        this.senduserordermatch(
+          chainid, 
+          orderId, 
+          side
+        )
+      }    
+      return  
     }
     
     try {
