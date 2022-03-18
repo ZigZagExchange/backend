@@ -132,7 +132,7 @@ export default class API extends EventEmitter {
       if (oldMarketInfo !== JSON.stringify(marketInfo)) {
         const market_id = marketInfo.alias
         const redis_key = `marketinfo:${chainid}:${market_id}`
-        this.redis.set(redis_key, JSON.stringify(marketInfo));
+        this.redis.set(redis_key, JSON.stringify(marketInfo))
 
         const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
         this.broadcastMessage(chainid, market_id, marketInfoMsg)

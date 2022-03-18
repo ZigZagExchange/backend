@@ -6,7 +6,7 @@ export const subscribemarket: ZZServiceHandler = async (
   [chainId, market]
 ) => {
   if(!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = { op: 'error', message: `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}` }
+    const errorMsg = { op: 'error', args: ['subscribemarket', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
     ws.send(JSON.stringify(errorMsg))
     return
   }
