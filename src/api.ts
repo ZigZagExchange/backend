@@ -135,7 +135,7 @@ export default class API extends EventEmitter {
       if (oldMarketInfo !== JSON.stringify(marketInfo)) {
         const market_id = marketInfo.alias
         const redis_key = `marketinfo:${chainid}:${market_id}`
-        this.redis.set(redis_key, JSON.stringify(marketInfo));
+        this.redis.set(redis_key, JSON.stringify(marketInfo))
 
         const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
         this.broadcastMessage(chainid, market_id, marketInfoMsg)
@@ -784,10 +784,10 @@ export default class API extends EventEmitter {
     }
 
     const redisKey = `matchingorders:${chainid}:${orderId}`
-    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    const existingMembers = await this.redis.ZCOUNT(redisKey, 0, 99999999)
     this.redis.ZADD(redisKey, redis_members)
-    this.redis.EXPIRE(redisKey, 10)
     if(existingMembers === 0) {
+      this.redis.EXPIRE(redisKey, 10)
       setTimeout(
         this.senduserordermatch,
         250,
@@ -929,14 +929,18 @@ export default class API extends EventEmitter {
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
-      console.log(`Failed to match order because ${err.message}, sending next best`)
-      // try next best one
-      this.senduserordermatch(
-        chainid, 
-        orderId, 
-        side
-      )
-      return
+      if (err.message.includes('is not open')) {
+        console.log(`Failed to match order because ${err.message}. Abort`)
+      } else {
+        console.log(`Failed to match order because ${err.message}, sending next best`)
+        // try next best one
+        this.senduserordermatch(
+          chainid, 
+          orderId, 
+          side
+        )
+      }    
+      return  
     }
     
     try {
@@ -1721,7 +1725,10 @@ export default class API extends EventEmitter {
   clearDeadConnections = () => {
     ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
-        ws.terminate()
+        const userconnkey = `${ws.chainid}:${ws.userid}`
+        delete this.USER_CONNECTIONS[userconnkey]
+        delete this.MAKER_CONNECTIONS[userconnkey]
+        ws.terminate()        
       } else {
         ws.isAlive = false
         ws.ping()
