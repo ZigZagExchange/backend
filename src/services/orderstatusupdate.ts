@@ -1,8 +1,8 @@
-import type { AnyObject, ZZServiceHandler } from 'src/types'
+import type { AnyObject, ZZServiceHandler, WSocket } from 'src/types'
 
 export const orderstatusupdate: ZZServiceHandler = async (
   api,
-  ws,
+  ws: WSocket,
   [updates]
 ) => {
   const promises = Object.keys(updates).map(async (i) => {
@@ -10,6 +10,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
     const chainId = Number(update[0])
     const orderId = update[1]
     const newstatus = update[2]
+    const txhash = update[3]
     let success
     let fillId
     let market
@@ -19,7 +20,6 @@ export const orderstatusupdate: ZZServiceHandler = async (
     let timestamp
 
     if (newstatus === 'b') {
-      const txhash = update[3]
       const result = (await api.updateMatchedOrder(
         chainId,
         orderId,
@@ -30,8 +30,20 @@ export const orderstatusupdate: ZZServiceHandler = async (
       fillId = result.fillId
       market = result.market
     }
-    if (newstatus === 'r' || newstatus === 'f') {
-      const txhash = update[3]
+    if (newstatus === 'r') {
+      try {
+        await api.handelRejectedTrade(
+          chainId,
+          orderId,
+          txhash,
+          ws.uuid
+        )
+      } catch (err: any) {
+        console.log(`orderstatusupdate: handelRejectedTrade: ${err.message}`)
+      }
+    }
+
+    if (newstatus === 'r' || newstatus === 'f') {      
       const result = (await api.updateOrderFillStatus(
         chainId,
         orderId,

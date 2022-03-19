@@ -338,6 +338,138 @@ export default class API extends EventEmitter {
     return { success: update.rowCount > 0, fillId, market }
   }
 
+  /**
+   * Test if the rejections was valid (caused by the user)
+   * @param chainid 
+   * @param orderid 
+   * @returns true for valid rejections
+   */
+  handelRejectedTrade = async (
+    chainid: number,
+    orderid: number,
+    txhash: string,
+    ws_uuid: string
+  ) => {
+    if (chainid === 1001) return true
+
+    const redisKey = `timeoutmm:${chainid}:${ws_uuid}`
+    let baseUrl: string
+    if (chainid === 1) {
+      baseUrl = `https://api.zksync.io/api/v0.2/`
+    } else if(chainid === 1000) {
+      baseUrl = `https://rinkeby-api.zksync.io/api/v0.2/`
+    } else {
+      const msg = `Returned chainId is not valide: ${chainid}`
+      this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+      console.log(`handelRejectedTrade: ${msg}`)
+      return false
+    }
+
+    // get sql data
+    const select = await this.db.query(
+      "SELECT market, side, base_quantity, quote_quantity, maker_user_id FROM offers WHERE id=$1 AND chainid=$1",
+      [orderid, chainid]
+    )
+    if (select.rows.length === 0) {
+      const msg = `Returned chainId is not valide: ${chainid}`
+      this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+      console.log(`handelRejectedTrade: ${msg}`)
+      return false
+    }
+
+    // get tx data from zkSync
+    const result: any = (await fetch(`${baseUrl}transactions/${txhash}/data`)
+      .then((r: any) => r.json())) as AnyObject
+    // zkSync api error, auto-validate
+    if (!result.status) return true
+    
+    const selectresult: any = select.rows[0]
+    const {market} = selectresult
+    const [baseSymbol, quoteSymbol] = market.split('-')
+    const {side} = selectresult
+    const baseQuantity = selectresult.base_quantity
+    const quoteQuantity = selectresult.quote_quantity
+    const makerId = selectresult.maker_user_id
+    const orderA = result.result?.tx?.op?.[0]
+    const orderB = result.result?.tx?.op?.[1]
+    const makerOrder = (orderA?.accountId === makerId) ? orderA : orderB
+    if(
+      result.result.tx?.op?.type !== 'Swap' ||
+      !makerOrder
+    ) {
+      const msg = `Returned txHash is not valide: ${txhash}`
+      this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+      console.log(`handelRejectedTrade: ${msg}`)
+      return false
+    }
+
+    if(!['b', 's'].includes(side)) {
+      const msg = `side is not valide: ${side}`
+      this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+      console.log(`handelRejectedTrade: ${msg}`)
+      return false
+    }
+
+    const account_state = (await fetch(`${baseUrl}accounts/${makerId}`)
+      .then((r: any) => r.json())) as AnyObject
+    if (!result.status) return true
+    if(!result.result) {
+      const msg = `Account ID is not valide: ${makerId}.`
+      this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+      console.log(`handelRejectedTrade: ${msg}`)
+      return false
+    }
+    
+    const {failReason} = result.result
+    switch (failReason) {
+      case 'Error: zkSync transaction failed: Not enough balance': {
+        const mmBaseQuantity = account_state.committed.balances[baseSymbol]
+        const mmQuoteQuantity = account_state.committed.balances[quoteSymbol]
+        if (
+          (side === 'b' && mmBaseQuantity < baseQuantity)
+        ) {
+          const msg = `Account balance too low to fill order: ${mmBaseQuantity}, need ${baseQuantity}.`
+          this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+          console.log(`handelRejectedTrade: ${msg}`)
+          return false
+        } 
+        if (side === 's' && mmQuoteQuantity < quoteQuantity) {
+          const msg = `Account balance too low to fill order: ${mmQuoteQuantity}, need ${quoteQuantity}.`
+          this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+          console.log(`handelRejectedTrade: ${msg}`)
+          return false
+        }
+        break
+      }
+
+      case 'Error: zkSync transaction failed: Account is locked': {
+        const activated = account_state.committed.accountType
+        if (!activated) {
+          const msg = `Account is locked.`
+          this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+          console.log(`handelRejectedTrade: ${msg}`)
+          return false
+        }
+        break
+      }
+
+      case 'Error: zkSync transaction failed: Nonce mismatch': {
+        const accountNonce = account_state.committed.nonce
+        const orderNonce = makerOrder.nonce
+        if (accountNonce !== orderNonce) {
+          const msg = `Order with wrong account nonce.`
+          this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
+          console.log(`handelRejectedTrade: ${msg}`)
+          return false
+        }
+        break
+      }
+
+      default:
+        break
+    }
+    console.log(`handelRejectedTrade: Valide order rejection`)
+    return true
   }
 
   processorderzksync = async (
