@@ -52,7 +52,7 @@ export default class API extends EventEmitter {
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
     if (msg.op === "ping") {
-        return false;
+        return false
     }
     if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
@@ -218,13 +218,6 @@ export default class API extends EventEmitter {
       return false
     }
 
-    // update user
-    this.sendMessageToUser(
-      chainid,
-      userId,
-      { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
-    )    
-
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
     let feeToken
@@ -285,6 +278,7 @@ export default class API extends EventEmitter {
       feeAmount,
       feeToken,
       timestamp,
+      userId,
     }
   }
 
@@ -309,15 +303,6 @@ export default class API extends EventEmitter {
       console.error('Error while updateMatchedOrder offers.')
       console.error(e)
       return false
-    }
-
-    // update user
-    if (update.rows.length > 0) {
-      this.sendMessageToUser(
-        chainid,
-        update.rows[0].userid,
-        { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
-      )
     }
 
     try {
