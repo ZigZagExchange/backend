@@ -1807,18 +1807,6 @@ export default class API extends EventEmitter {
     const FIFTEEN_SECONDS = ((Date.now() / 1000) | 0) + 15
     const marketInfo = await this.getMarketInfo(market, chainid)
 
-    const redisKey = `passivews:${chainid}:${client_id}`
-    const waitingOrderId = await this.redis.get(redisKey)
-    if (waitingOrderId) {
-      const remainingTime = await this.redis.ttl(redisKey)
-      throw new Error(
-        // eslint-disable-next-line prefer-template
-        'Your address did not respond to order ' +
-          waitingOrderId +
-          ' yet. Remaining timeout: ' +
-          remainingTime +
-          '.'
-      )
     // validation
     liquidity = liquidity.filter(
       (l: any[]) =>
