@@ -1,10 +1,10 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { ZZServiceHandler, WSocket } from 'src/types'
 
 const BLACKLIST = process.env.BLACKLIST || ''
 
 export const fillrequest: ZZServiceHandler = async (
   api,
-  ws,
+  ws: WSocket,
   [chainId, orderId, fillOrder]
 ) => {
   if(!api.VALID_CHAINS.includes(chainId)) {
@@ -24,6 +24,25 @@ export const fillrequest: ZZServiceHandler = async (
           'fillrequest',
           maker_user_id,
           "You're running a bad version of the market maker. Please run git pull to update your code.",
+        ],
+      })
+    )
+    console.log('fillrequest - return blacklisted market maker.')
+    return
+  }
+
+  // check if timed out
+  const redisKey = `timeoutmm:${chainId}:${ws.uuid}`
+  const timeout_ws_message = await api.redis.GET(redisKey)
+  if (timeout_ws_message) {
+    const remainingTime = await api.redis.ttl(redisKey)
+    ws.send(
+      JSON.stringify({
+        op: 'error',
+        args: [
+          'fillrequest',
+          maker_user_id,
+          `${timeout_ws_message} Remaining timeout: ${remainingTime}`,
         ],
       })
     )
