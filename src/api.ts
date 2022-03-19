@@ -52,7 +52,7 @@ export default class API extends EventEmitter {
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
     if (msg.op === "ping") {
-        return false;
+        return false
     }
     if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
@@ -91,8 +91,8 @@ export default class API extends EventEmitter {
       keysBussy.forEach(async (key: string) => {
         this.redis.del(key)
       })
-      const redisPatternPassiv = `passivews:${chainid}:*`
-      const keysPassiv = await this.redis.keys(redisPatternPassiv)
+      const redisTimeout = `timeoutmm:${chainid}:*`
+      const keysPassiv = await this.redis.keys(redisTimeout)
       keysPassiv.forEach(async (key: string) => {
         this.redis.del(key)
       })
@@ -336,6 +336,8 @@ export default class API extends EventEmitter {
     }
 
     return { success: update.rowCount > 0, fillId, market }
+  }
+
   }
 
   processorderzksync = async (
@@ -1817,8 +1819,6 @@ export default class API extends EventEmitter {
           remainingTime +
           '.'
       )
-    }
-
     // validation
     liquidity = liquidity.filter(
       (l: any[]) =>
@@ -1883,10 +1883,10 @@ export default class API extends EventEmitter {
         ) {
           const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
           if (marketmaker) {
-            const redisKey = `passivews:${chainid}:${marketmaker.ws_uuid}`
-            const passivews = await this.redis.get(redisKey)
-            if (!passivews) {
-              this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
+            const redisKey = `timeoutmm:${chainid}:${marketmaker.ws_uuid}`
+            const timeoutmm = await this.redis.get(redisKey)
+            if (!timeoutmm) {
+              this.redis.set(redisKey, `The market maker did not respond to ${marketmaker.orderId} yet.`, {
                 EX: remainingTime,
               })
             }
