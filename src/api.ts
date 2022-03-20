@@ -60,6 +60,9 @@ export default class API extends EventEmitter {
   }
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
+    if (msg.op === "ping") {
+        return false
+    }
     if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
       return false
@@ -402,18 +405,20 @@ export default class API extends EventEmitter {
     let update
     let fillId
     let market
+    let userId
     let fillPrice
     let side
     let maker_user_id
     try {
       const valuesOffers = [newstatus, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market",
+        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market, userid",
         valuesOffers
       )
       if (update.rows.length > 0) {
         side = update.rows[0].side
         market = update.rows[0].market
+        userId = update.rows[0].userid
       }
     } catch (e) {
       console.error('Error while updateOrderFillStatus offers.')
@@ -425,15 +430,20 @@ export default class API extends EventEmitter {
     let feeAmount
     let feeToken
     let timestamp
-    if (marketInfo) {
-      if(side === 's') {
-        feeAmount = marketInfo.baseFee
-        feeToken =  marketInfo.baseAsset.symbol
+    try {
+      if (marketInfo) {
+        if(side === 's') {
+          feeAmount = marketInfo.baseFee
+          feeToken =  marketInfo.baseAsset.symbol
+        } else {
+          feeAmount = marketInfo.quoteFee
+          feeToken =  marketInfo.quoteAsset.symbol
+        }
       } else {
-        feeAmount = marketInfo.quoteFee
-        feeToken =  marketInfo.quoteAsset.symbol
+        feeAmount = 0.5
+        feeToken = "USDC"
       }
-    } else {
+    } catch (err: any) {
       feeAmount = 0.5
       feeToken = "USDC"
     }
@@ -476,6 +486,7 @@ export default class API extends EventEmitter {
       feeAmount,
       feeToken,
       timestamp,
+      userId,
     }
   }
 
@@ -493,7 +504,7 @@ export default class API extends EventEmitter {
     const values = [newstatus, txhash, chainid, orderid]
     try {
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m'",
+        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$3 AND id=$4 AND order_status='m' RETURNING userid",
         values
       )
     } catch (e) {
@@ -865,7 +876,7 @@ export default class API extends EventEmitter {
   cancelorder = async (chainid: number, orderId: string, ws?: WSocket) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
-      'SELECT userid FROM offers WHERE id=$1 AND chainid=$2',
+      'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
       values
     )
 
@@ -873,8 +884,21 @@ export default class API extends EventEmitter {
       throw new Error('Order not found')
     }
 
-    const { userid } = select.rows[0]
-    const userconnkey = `${chainid}:${userid}`
+    const userconnkey = `${chainid}:${select.rows[0].userid}`
+
+    if (select.rows[0].order_status !== 'o') {   
+      // somehow user was not updated, do that now   
+      if (ws) {
+        try {
+          ws.send(
+            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, select.rows[0].order_status]]], })
+          )
+        } catch (err: any) {
+          throw new Error('Order is no longer open')
+        }
+      }
+      throw new Error('Order is no longer open')
+    }
 
     if (this.USER_CONNECTIONS[userconnkey] !== ws) {
       throw new Error('Unauthorized')
@@ -953,14 +977,13 @@ export default class API extends EventEmitter {
     }
 
     const redisKey = `matchingorders:${chainid}:${orderId}`
-    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    const existingMembers = await this.redis.ZCOUNT(redisKey, 0, 99999999)
     this.redis.ZADD(redisKey, redis_members)
-    this.redis.EXPIRE(redisKey, 10)
-    console.log(`ADDING: orderId: ${orderId}, side: ${selectresult.side}, price: ${fillPrice}`)
     if(existingMembers === 0) {
+      this.redis.EXPIRE(redisKey, 10)
       setTimeout(
         this.senduserordermatch,
-        500,
+        250,
         chainid,
         orderId,
         selectresult.side)
@@ -972,18 +995,17 @@ export default class API extends EventEmitter {
     orderId: string,
     side: string
   ) => {
-    console.log(`MATCHING: orderId: ${orderId}, side: ${side}`)
-    const redisKey = `matchingorders:${chainid}:${orderId}`
-    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    const redisKeyMatchingOrder = `matchingorders:${chainid}:${orderId}`
+    const existingMembers = await this.redis.ZCOUNT(redisKeyMatchingOrder, -Infinity, Infinity)
     if(existingMembers === 0) {
       return
     }
 
     let redis_members
     if(side === 'b') {
-      redis_members = await this.redis.ZPOPMIN(redisKey)
+      redis_members = await this.redis.ZPOPMIN(redisKeyMatchingOrder)
     } else {
-      redis_members = await this.redis.ZPOPMAX(redisKey)
+      redis_members = await this.redis.ZPOPMAX(redisKeyMatchingOrder)
     }
     if (!redis_members) {
       return
@@ -995,11 +1017,10 @@ export default class API extends EventEmitter {
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
     const ws = this.MAKER_CONNECTIONS[makerConnId]
-    console.log(`SELECTED: orderId: ${orderId}, side: ${side}, price: ${fillPrice}`)
 
     let fill
-    try {
-      const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
+    const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
+    try {      
       const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
@@ -1080,51 +1101,68 @@ export default class API extends EventEmitter {
         null,
         null,
       ]
-    } catch (e: any) {
-      // try next best one
-      this.senduserordermatch(
-        chainid, 
-        orderId, 
-        side
-      )
-    }   
-    
-    console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
-    ws.send(
-      JSON.stringify({
-        op: 'userordermatch',
-        args: [chainid, orderId, value.zktx, fillOrder],
-      })
-    )
-    
-    // send result to other mm's, remove set
-    const otherMakerList: any[] = await this.redis.ZRANGE(redisKey, 0, -1)
-    otherMakerList.map(async (otherMaker: any) => {
-      const otherValue = JSON.parse(otherMaker)
-      const otherFillOrder = otherValue.fillOrder
-      const otherMakerAccountId = otherFillOrder.accountId.toString()
-      console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
-      const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
-      const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-      otherWs.send(
-        JSON.stringify(
-          { 
-            op: 'error',
-            args: [
-              'fillrequest',
-              otherMakerAccountId,
-              "The Order was filled by better offer."
-            ] 
-          }
-        )
-      )
-    })
 
-    this.redis.set(
-      redisKey,
-      JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
-      { EX: this.MARKET_MAKER_TIMEOUT }
-    )
+      console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
+      ws.send(
+        JSON.stringify({
+          op: 'userordermatch',
+          args: [chainid, orderId, value.zktx, fillOrder],
+        })
+      )
+
+      // update user
+      this.sendMessageToUser(
+        chainid,
+        value.userId,
+        { op: 'orderstatus', args: [[[chainid, orderId, 'm']]], }
+      )
+
+      this.redis.set(
+        redisKeyBussy,
+        JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
+        { EX: this.MARKET_MAKER_TIMEOUT }
+      )
+    } catch (err: any) {
+      if (err.message.includes('is not open')) {
+        console.log(`Failed to match order because ${err.message}. Abort`)
+      } else {
+        console.log(`Failed to match order because ${err.message}, sending next best`)
+        // try next best one
+        this.senduserordermatch(
+          chainid, 
+          orderId, 
+          side
+        )
+      }    
+      return  
+    }
+    
+    try {
+      // send result to other mm's, remove set
+      const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyMatchingOrder, 0, -1)
+      otherMakerList.map(async (otherMaker: any) => {
+        const otherValue = JSON.parse(otherMaker)
+        const otherFillOrder = otherValue.fillOrder
+        const otherMakerAccountId = otherFillOrder.accountId.toString()
+        console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
+        const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
+        const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
+        otherWs.send(
+          JSON.stringify(
+            { 
+              op: 'error',
+              args: [
+                'fillrequest',
+                otherMakerAccountId,
+                "The Order was filled by better offer."
+              ] 
+            }
+          )
+        )
+      })
+    } catch (err: any) {
+      console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
+    }
 
     this.broadcastMessage(chainid, value.market, {
       op: 'orderstatus',
@@ -1148,6 +1186,18 @@ export default class API extends EventEmitter {
       if (market && !ws.marketSubscriptions.includes(market)) return
       ws.send(JSON.stringify(msg))
     })
+  }
+
+  sendMessageToUser = async (
+    chainId: number,
+    userId: number,
+    msg: WSMessage
+  ) => {
+    const userConnKey = `${chainId}:${userId}`
+    const userWs = this.USER_CONNECTIONS[userConnKey]
+    if (userWs) {
+      userWs.send(JSON.stringify(msg))
+    }
   }
 
   /**
@@ -1337,7 +1387,7 @@ export default class API extends EventEmitter {
   getuserfills = async (chainid: number, userid: string) => {
     chainid = Number(chainid)
     const query = {
-      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25',
+      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25',
       values: [chainid, userid],
       rowMode: 'array',
     }
@@ -1870,7 +1920,10 @@ export default class API extends EventEmitter {
   clearDeadConnections = () => {
     ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
-        ws.terminate()
+        const userconnkey = `${ws.chainid}:${ws.userid}`
+        delete this.USER_CONNECTIONS[userconnkey]
+        delete this.MAKER_CONNECTIONS[userconnkey]
+        ws.terminate()        
       } else {
         ws.isAlive = false
         ws.ping()
@@ -1964,6 +2017,7 @@ export default class API extends EventEmitter {
       (l: any[]) =>
         ['b', 's'].includes(l[0]) &&
         !Number.isNaN(parseFloat(l[1])) &&
+        parseFloat(l[1]) > 0 &&
         !Number.isNaN(parseFloat(l[2])) &&
         parseFloat(l[2]) > marketInfo.baseFee
     )
