@@ -173,13 +173,13 @@ export default class API extends EventEmitter {
       ] = await Promise.all ([
         this.getTokenName(
           chainId,
-          marketInfo.baseAsset.address,
-          marketInfo.baseAsset.symbol
+          baseAsset.address,
+          baseAsset.symbol
         ),
         this.getTokenName(
           chainId,
-          marketInfo.quoteAsset.address,
-          marketInfo.quoteAsset.symbol
+          quoteAsset.address,
+          quoteAsset.symbol
         )
       ])
 
