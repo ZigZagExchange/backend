@@ -3,6 +3,9 @@ import fetch from 'isomorphic-fetch'
 import { EventEmitter } from 'events'
 import { zksyncOrderSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
+import fs from 'fs'
+import * as zksync from 'zksync'
+import ethers from 'ethers'
 import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
@@ -24,9 +27,15 @@ export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
+  SYNC_PROVIDER: AnyObject = {}
+  ETHERS_PROVIDER: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
+  ERC20_ABI: any
+  DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
+    ? Number(process.env.DEFAULT_CHAIN_ID)
+    : 1
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -72,11 +81,12 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
+      setInterval(this.updateMarketInfo, 21600000),
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateMarketInfo, 10000),
+      setInterval(this.updateFees, 10000),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -98,6 +108,21 @@ export default class API extends EventEmitter {
       })
     })
 
+    this.ERC20_ABI = JSON.parse(
+      fs.readFileSync(
+        'abi/ERC20.abi',
+        'utf8'
+      )
+    )
+
+    this.SYNC_PROVIDER[1] = await zksync.getDefaultRestProvider("mainnet")
+    this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
+
+    this.ETHERS_PROVIDER[1] =
+      new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID, )
+    this.ETHERS_PROVIDER[1000] =
+      new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID, )
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -113,74 +138,257 @@ export default class API extends EventEmitter {
     this.started = false
   }
 
-  fetchMarketInfoFromMarkets = async (
-    markets: string[],
-    chainid: number
-  ): Promise<ZZMarketInfo | null> => {
-    const controller = new AbortController()
-    setTimeout(() => controller.abort(), 30000)
-    const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets.join(
-      ','
-    )}&chainid=${chainid}`
-    const marketInfoList = (await fetch(url, {
-      signal: controller.signal,
-    }).then((r: any) => r.json())) as ZZMarketInfo
-    if (!marketInfoList) throw new Error(`No marketinfo found.`)
-    for (let i = 0; i < marketInfoList.length; i++) {
-      const marketInfo = marketInfoList[i]
-      if (!marketInfo) return null
-      const oldMarketInfo = await this.redis.get(
-        `marketinfo:${chainid}:${marketInfo.alias}`
-      )
-      if (oldMarketInfo !== JSON.stringify(marketInfo)) {
-        const market_id = marketInfo.alias
-        const redis_key = `marketinfo:${chainid}:${market_id}`
-        this.redis.set(redis_key, JSON.stringify(marketInfo))
-
-        const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
-        this.broadcastMessage(chainid, market_id, marketInfoMsg)
-      }
+  /**
+   * Get market info from Arweave
+   * @param marketArweaveId Arweave Id is more than 20 char long
+   * @param chainId 
+   * @returns 
+   */
+  getMarketInfoFromArweave = async (
+    marketArweaveId: string,
+    chainId = this.DEFAULT_CHAIN
+  ) => {
+    if(![1, 1000].includes(chainId)) {
+      throw new Error("getMarketInfoFromArweave: Only 1 and 1000 are valid.")
     }
+    let marketInfo: ZZMarketInfo = {}
+    if(marketArweaveId.length < 20) {
+      return marketInfo
+    }
+    try {
+      marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
+        .then((r: any) => r.json())
 
-    return marketInfoList
+      const [
+        baseAsset,
+        quoteAsset
+      ] = await Promise.all ([
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.baseAssetId),
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.quoteAssetId)
+      ])
+
+      const [
+        baseAssetName,
+        quoteAssetName
+      ] = await Promise.all ([
+        this.getTokenName(
+          chainId,
+          marketInfo.baseAsset.address,
+          marketInfo.baseAsset.symbol
+        ),
+        this.getTokenName(
+          chainId,
+          marketInfo.quoteAsset.address,
+          marketInfo.quoteAsset.symbol
+        )
+      ])
+
+      marketInfo.baseAsset = baseAsset
+      marketInfo.quoteAsset = quoteAsset
+      marketInfo.baseAsset.name = baseAssetName
+      marketInfo.quoteAsset.name = quoteAssetName
+
+      this.redis.HSET(
+        `tokeninfo:${chainId}`,
+        marketInfo.baseAsset.symbol,
+        JSON.stringify(marketInfo.baseAsset)
+      )
+      this.redis.HSET(
+        `tokeninfo:${chainId}`,
+        marketInfo.quoteAsset.symbol,
+        JSON.stringify(marketInfo.quoteAsset)
+      )
+
+      marketInfo.id = marketArweaveId
+      marketInfo.alias = `${marketInfo.baseAsset.symbol}-${marketInfo.quoteAsset.symbol}`
+
+      // get last fee      
+      const baseFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.baseAsset.symbol)
+      const quoteFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.quoteAsset.symbol)
+      if(baseFee) marketInfo.baseFee = baseFee
+      if(quoteFee) marketInfo.quoteFee = quoteFee
+      
+
+      const redisKey = `marketinfo:${chainId}`
+      this.redis.HSET(
+        redisKey,
+        marketArweaveId,
+        JSON.stringify(marketInfo)
+      )
+
+      this.redis.HSET(
+        redisKey,
+        marketInfo.alias,
+        JSON.stringify(marketInfo)
+      )
+    } catch (err: any) {
+      console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}`)
+    }
+    return marketInfo
   }
 
+  /**
+   * Get the full token name from L1 ERC20 contract
+   * @param contractAddress 
+   * @param tokenSymbol 
+   * @returns full token name
+   */
+  getTokenName = async (
+    chainId: number,
+    contractAddress: string,
+    tokenSymbol: string
+  ) => {
+    if (tokenSymbol === "ETH") {
+      return "Ethereum"
+    }
+    let name
+    try {
+      const contract = new ethers.Contract(
+        contractAddress,
+        this.ERC20_ABI,
+        this.ETHERS_PROVIDER[chainId]
+      )
+       name = await contract.name()
+    } catch (e) {
+      console.error(e)
+      name = tokenSymbol
+    }
+    return name
+  }
+
+  /**
+   * Update the fee for each token on regular basis
+   */
+  updateFees = async () => {
+    this.VALID_CHAINS.forEach(async (chainId: number) => {
+      const tokenSymbols = await this.redis.SMEMBERS(`tokeninfo:${chainId}`)
+      const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
+      const results: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
+        const tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
+        let fee
+        if(tokenInfo?.enabledForFees) {
+          try {
+            const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
+                "Swap",
+                '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
+                tokenSymbol
+            )
+            fee = Number(
+              this.SYNC_PROVIDER[chainId].tokenSet
+                .formatToken(
+                  tokenSymbol,
+                  feeReturn.totalFee
+                )
+            )
+          } catch (e: any) {
+              console.log(`Can't get fee for ${tokenSymbol}, error: ${  e.message}`)
+          }
+        }
+
+        if(!fee) {
+          try {
+            const usdPrice: number = await this.getUsdPrice(chainId, tokenSymbol)
+            const usdReference = Number(
+              await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
+            )
+            if (usdReference && usdPrice) {
+              fee = (usdReference / usdPrice)
+            }            
+          } catch (e) {
+              console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
+          }
+        }
+
+        if(fee) {
+          this.redis.HSET(
+            `tokenfee:${chainId}`,
+            tokenSymbol,
+            fee
+          )
+        }
+      })
+      await Promise.all(results)
+
+      // check if fee's have changed (only on alias markets)
+      const markets = (await this.redis.SMEMBERS(`activemarkets:${chainId}`))
+        .filter((m) => m.length < 20)
+      const fees = await this.redis.HGETALL(`tokenfee:${chainId}`)
+      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
+      markets.forEach(async (market: ZZMarket) => {
+        const marketInfo = JSON.parse(marketInfos[market])
+        let updated = false
+        if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
+          marketInfo.baseFee = (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
+            .toFixed(marketInfo.pricePrecisionDecimal)
+          updated = true
+        }
+        if(marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
+          marketInfo.quoteFee = (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
+            .toFixed(marketInfo.pricePrecisionDecimal)
+          updated = true
+        }
+        if(updated) {
+          this.redis.HSET(
+            `marketinfo:${chainId}`,
+            market,
+            JSON.stringify(marketInfo)
+          )
+          // update Arweave id as well
+          this.redis.HSET(
+            `marketinfo:${chainId}`,
+            marketInfo.id,
+            JSON.stringify(marketInfo)
+          )
+          const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
+          this.broadcastMessage(chainId, market, marketInfoMsg)
+        }
+      })
+    })
+  }
+
+  /**
+   * get marketInfo for a given marketAlias or marketId
+   * @param market marketAlias or marketId
+   * @param chainId 
+   * @returns marketInfo as ZZMarketInfo
+   */
   getMarketInfo = async (
     market: ZZMarket,
-    chainid: number
+    chainId: number
   ): Promise<ZZMarketInfo> => {
-    const redis_key = `marketinfo:${chainid}:${market}`
-    let marketinfo = await this.redis.get(redis_key)
-    try {
-      if (marketinfo) {
-        return JSON.parse(marketinfo) as ZZMarketInfo
-      }
+    const redis_key = `marketinfo:${chainId}`
+    const cache = await this.redis.HGET(
+      redis_key,
+      market
+    )
 
-      marketinfo = await this.fetchMarketInfoFromMarkets(
-        [market],
-        chainid
-      ).then((r: any) => r[0])
-    } catch (err) {
-      console.log(err)
+    if (cache) {
+      return JSON.parse(cache) as ZZMarketInfo
     }
 
-    return marketinfo as any as ZZMarketInfo
+    return this.getMarketInfoFromArweave(
+      market,
+      chainId
+    )
   }
 
+  /**
+   * Used to update tokenInfo's and Arweave settings
+   */
   updateMarketInfo = async () => {
     console.time('updating market info')
-    const chainIds = [1, 1000]
-    for (let i = 0; i < chainIds.length; i++) {
-      try {
-        const chainid = chainIds[i]
-        const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
-        // eslint-disable-next-line no-continue
-        if (!markets || markets.length === 0) continue
-        await this.fetchMarketInfoFromMarkets(markets, chainid)
-      } catch (e) {
-        console.error(e)
-      }
-    }
+    this.VALID_CHAINS.forEach(async (chainId: number) => {
+      const marketKeys = await this.redis.SMEMBERS(`marketinfo:${chainId}`)
+      marketKeys.forEach((marketKey: ZZMarket) => {
+        // update from Arweave with ArweaveId
+        if(marketKey.length >= 20) {
+          this.getMarketInfoFromArweave(
+            marketKey,
+            chainId
+          )
+        }        
+      })
+    })
     console.timeEnd('updating market info')
   }
 
@@ -1929,18 +2137,39 @@ export default class API extends EventEmitter {
     const cache = await this.redis.GET(redisKey)
     if (cache) return +cache
 
+    console.time(`getUSDprice: ${tokenSymbol}`)
     const stablePrice = await this.getUsdStablePrice(chainid, tokenSymbol)
     if (stablePrice) {
       this.redis.set(redisKey, stablePrice, { EX: 30 })
+      console.log(`stablePrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
       return stablePrice
     }
 
     const linkedPrice = await this.getUsdLinkedPrice(chainid, tokenSymbol)
     if (linkedPrice) {
       this.redis.set(redisKey, linkedPrice, { EX: 60 })
+      console.log(`linkedPrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
       return linkedPrice
     }
 
+    const baseUrl = (chainid === 1) 
+      ? "https://api.zksync.io/api/v0.2"
+      : "https://rinkeby-api.zksync.io/api/v0.2"
+
+    const fetchedPrice = await fetch(`${baseUrl[chainid]}/tokens/${tokenSymbol}/priceIn/usd`)
+      .then((r: any) => r.json())
+
+    if (fetchedPrice) {
+      this.redis.set(redisKey, fetchedPrice, { EX: 300 })
+      console.log(`fetchedPrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
+      return fetchedPrice
+    }
+
+    console.log(`no price ${tokenSymbol}`)
+    console.timeEnd(`getUSDprice: ${tokenSymbol}`)
     return null
   }
 
