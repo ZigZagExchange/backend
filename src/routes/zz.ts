@@ -182,13 +182,13 @@ export default function cmcRoutes(app: ZZHttpServer) {
       res.send({ op: 'error', message: `${chainId} is not a valid chain id. Use ${app.api.VALID_CHAINS}` })
       return
     }
-    const markets: ZZMarket[] = []
+    let markets: ZZMarket[] = []
     if(req.query.id) {
-      markets.concat((req.query.id as string).split(","))
+      markets = markets.concat((req.query.id as string).split(","))
     }
 
     if(req.query.market) {
-      markets.concat((req.query.market as string).split(","))
+      markets = markets.concat((req.query.market as string).split(","))
     }
 
     if(markets.length === 0) {
