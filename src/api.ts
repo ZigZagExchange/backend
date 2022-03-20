@@ -443,7 +443,7 @@ export default class API extends EventEmitter {
       }
 
       case 'Error: zkSync transaction failed: Account is locked': {
-        const activated = account_state.committed.accountType
+        const activated = account_state.committed?.accountType
         if (!activated) {
           const msg = `Account is locked.`
           this.redis.set(redisKey, msg, { EX: this.MARKET_MAKER_TIMEOUT })
