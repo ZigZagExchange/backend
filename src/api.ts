@@ -27,11 +27,11 @@ export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
-  SYNC_PROVIDER: AnyObject = {}
-  ETHERS_PROVIDER: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
+  SYNC_PROVIDER: any
+  ETHERS_PROVIDER: any
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
@@ -112,17 +112,13 @@ export default class API extends EventEmitter {
       )
     )
 
-    this.SYNC_PROVIDER[1] = await zksync.getDefaultRestProvider("mainnet")
-    this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
+    this.SYNC_PROVIDER = (this.DEFAULT_CHAIN === 1)
+      ? await zksync.getDefaultRestProvider("mainnet")
+      : await zksync.getDefaultRestProvider("rinkeby")
 
-    this.ETHERS_PROVIDER.mainnet = new ethers.providers.InfuraProvider(
-      "mainnet",
-      process.env.INFURA_PROJECT_ID,
-    )
-    this.ETHERS_PROVIDER.rinkeby = new ethers.providers.InfuraProvider(
-      "rinkeby",
-      process.env.INFURA_PROJECT_ID,
-    )
+    this.ETHERS_PROVIDER= (this.DEFAULT_CHAIN === 1)
+      ? new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID, )
+      : new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID, )
 
     this.started = true
 
@@ -164,8 +160,8 @@ export default class API extends EventEmitter {
         baseAsset,
         quoteAsset
       ] = await Promise.all ([
-        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.baseAssetId),
-        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.quoteAssetId)
+        this.SYNC_PROVIDER.tokenInfo(marketInfo.baseAssetId),
+        this.SYNC_PROVIDER.tokenInfo(marketInfo.quoteAssetId)
       ])
 
       const [
@@ -174,12 +170,10 @@ export default class API extends EventEmitter {
       ] = await  Promise.all ([
         this.getTokenName(
           marketInfo.baseAsset.address,
-          marketInfo.chainId,
           marketInfo.baseAsset.symbol
         ),
         this.getTokenName(
           marketInfo.quoteAsset.address,
-          marketInfo.chainId,
           marketInfo.quoteAsset.symbol
         )
       ])
@@ -231,25 +225,22 @@ export default class API extends EventEmitter {
   /**
    * Get the full token name from L1 ERC20 contract
    * @param contractAddress 
-   * @param chainId 
    * @param tokenSymbol 
    * @returns full token name
    */
   getTokenName = async (
-    chainId: number,
     contractAddress: string,
     tokenSymbol: string
   ) => {
     if (tokenSymbol === "ETH") {
       return "Ethereum"
     }
-    const network = (chainId === 1) ? "mainnet" : "rinkeby"
     let name
     try {
       const contract = new ethers.Contract(
         contractAddress,
         this.ERC20_ABI,
-        this.ETHERS_PROVIDER[network]
+        this.ETHERS_PROVIDER
       )
        name = await contract.name()
     } catch (e) {
@@ -271,13 +262,13 @@ export default class API extends EventEmitter {
         let fee
         if(tokenInfo?.enabledForFees) {
           try {
-            const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
+            const feeReturn = await this.SYNC_PROVIDER.getTransactionFee(
                 "Swap",
                 '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
                 tokenSymbol
             )
             fee = Number(
-              this.SYNC_PROVIDER[chainId].tokenSet
+              this.SYNC_PROVIDER.tokenSet
                 .formatToken(
                   tokenSymbol,
                   feeReturn.totalFee
