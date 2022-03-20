@@ -179,10 +179,12 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const marketInfos: ZZMarketInfo = {}
     markets.forEach(async (market: ZZMarket) => {
       try {
+        console.log(`get market info for ${market}`)
         marketInfos[market] = await app.api.getMarketInfo(
           market,
           Number(chainId)
         )
+        console.log(`get market info for ${marketInfos}`)
       } catch (err: any) {
         marketInfos[market] = { 
           'error': err.message,
@@ -190,6 +192,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         }            
       }
     })
+    console.log(`get market info for ${marketInfos}`)
     res.json(marketInfos)
   })
 }
