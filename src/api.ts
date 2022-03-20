@@ -141,16 +141,11 @@ export default class API extends EventEmitter {
   /**
    * Get market info from Arweave
    * @param marketArweaveId Arweave Id is more than 20 char long
-   * @param chainId 
    * @returns 
    */
   getMarketInfoFromArweave = async (
-    marketArweaveId: string,
-    chainId = this.DEFAULT_CHAIN
+    marketArweaveId: string
   ) => {
-    if(![1, 1000].includes(chainId)) {
-      throw new Error("getMarketInfoFromArweave: Only 1 and 1000 are valid.")
-    }
     let marketInfo = null
     if(marketArweaveId.length < 20) {
       return marketInfo
@@ -158,6 +153,8 @@ export default class API extends EventEmitter {
     try {
       marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
         .then((r: any) => r.json())
+
+      const chainId = marketInfo.zigzagChainId
 
       const [
         baseAsset,
@@ -261,8 +258,8 @@ export default class API extends EventEmitter {
    */
   updateFees = async () => {
     this.VALID_CHAINS.forEach(async (chainId: number) => {
-      const tokenSymbols = await this.redis.SMEMBERS(`tokeninfo:${chainId}`)
       const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
+      const tokenSymbols = Object.keys(tokenInfos)
       const results: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
         const tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
         let fee
@@ -367,8 +364,7 @@ export default class API extends EventEmitter {
     }
 
     return this.getMarketInfoFromArweave(
-      market,
-      chainId
+      market
     )
   }
 
@@ -384,8 +380,7 @@ export default class API extends EventEmitter {
         // update from Arweave with ArweaveId
         if(marketKey.length >= 20) {
           this.getMarketInfoFromArweave(
-            marketKey,
-            chainId
+            marketKey
           )
         }        
       })
