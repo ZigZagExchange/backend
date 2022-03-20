@@ -166,10 +166,12 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
+  /*
   // needed to be backward compatible with markets server.js 
   app.get("/markets", async (_req, res) => {
     res.redirect("/api/v1/marketinfos")
   })
+  */
 
   app.get("/api/v1/marketinfos", async (req, res) => {
     const chainId = req.query.chainid

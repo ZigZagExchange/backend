@@ -2087,15 +2087,20 @@ export default class API extends EventEmitter {
     const cache = await this.redis.GET(redisKey)
     if (cache) return +cache
 
+    console.time(`getUSDprice: ${tokenSymbol}`)
     const stablePrice = await this.getUsdStablePrice(chainid, tokenSymbol)
     if (stablePrice) {
       this.redis.set(redisKey, stablePrice, { EX: 30 })
+      console.log(`stablePrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
       return stablePrice
     }
 
     const linkedPrice = await this.getUsdLinkedPrice(chainid, tokenSymbol)
     if (linkedPrice) {
       this.redis.set(redisKey, linkedPrice, { EX: 60 })
+      console.log(`linkedPrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
       return linkedPrice
     }
 
@@ -2104,13 +2109,17 @@ export default class API extends EventEmitter {
       : "https://rinkeby-api.zksync.io/api/v0.2"
 
     const fetchedPrice = await fetch(`${baseUrl[chainid]}/tokens/${tokenSymbol}/priceIn/usd`)
-      .then((r: any) => r.json());
+      .then((r: any) => r.json())
 
     if (fetchedPrice) {
       this.redis.set(redisKey, fetchedPrice, { EX: 300 })
+      console.log(`fetchedPrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
       return fetchedPrice
     }
 
+    console.log(`no price ${tokenSymbol}`)
+    console.timeEnd(`getUSDprice: ${tokenSymbol}`)
     return null
   }
 
