@@ -27,11 +27,11 @@ export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
+  SYNC_PROVIDER: AnyObject = {}
+  ETHERS_PROVIDER: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
-  SYNC_PROVIDER: any
-  ETHERS_PROVIDER: any
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
@@ -83,7 +83,7 @@ export default class API extends EventEmitter {
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateMarketInfo, 10000),
+      setInterval(this.updateFees, 10000),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -112,13 +112,13 @@ export default class API extends EventEmitter {
       )
     )
 
-    this.SYNC_PROVIDER = (this.DEFAULT_CHAIN === 1)
-      ? await zksync.getDefaultRestProvider("mainnet")
-      : await zksync.getDefaultRestProvider("rinkeby")
+    this.SYNC_PROVIDER[1] = await zksync.getDefaultRestProvider("mainnet")
+    this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
 
-    this.ETHERS_PROVIDER= (this.DEFAULT_CHAIN === 1)
-      ? new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID, )
-      : new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID, )
+    this.ETHERS_PROVIDER[1] =
+      new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID, )
+    this.ETHERS_PROVIDER[1000] =
+      new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID, )
 
     this.started = true
 
@@ -156,23 +156,25 @@ export default class API extends EventEmitter {
       marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
         .then((r: any) => r.json())
 
-        const [
+      const [
         baseAsset,
         quoteAsset
       ] = await Promise.all ([
-        this.SYNC_PROVIDER.tokenInfo(marketInfo.baseAssetId),
-        this.SYNC_PROVIDER.tokenInfo(marketInfo.quoteAssetId)
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.baseAssetId),
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.quoteAssetId)
       ])
 
       const [
         baseAssetName,
         quoteAssetName
-      ] = await  Promise.all ([
+      ] = await Promise.all ([
         this.getTokenName(
+          chainId,
           marketInfo.baseAsset.address,
           marketInfo.baseAsset.symbol
         ),
         this.getTokenName(
+          chainId,
           marketInfo.quoteAsset.address,
           marketInfo.quoteAsset.symbol
         )
@@ -229,6 +231,7 @@ export default class API extends EventEmitter {
    * @returns full token name
    */
   getTokenName = async (
+    chainId: number,
     contractAddress: string,
     tokenSymbol: string
   ) => {
@@ -240,7 +243,7 @@ export default class API extends EventEmitter {
       const contract = new ethers.Contract(
         contractAddress,
         this.ERC20_ABI,
-        this.ETHERS_PROVIDER
+        this.ETHERS_PROVIDER[chainId]
       )
        name = await contract.name()
     } catch (e) {
@@ -262,13 +265,13 @@ export default class API extends EventEmitter {
         let fee
         if(tokenInfo?.enabledForFees) {
           try {
-            const feeReturn = await this.SYNC_PROVIDER.getTransactionFee(
+            const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
                 "Swap",
                 '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
                 tokenSymbol
             )
             fee = Number(
-              this.SYNC_PROVIDER.tokenSet
+              this.SYNC_PROVIDER[chainId].tokenSet
                 .formatToken(
                   tokenSymbol,
                   feeReturn.totalFee
@@ -312,11 +315,13 @@ export default class API extends EventEmitter {
         const marketInfo = JSON.parse(marketInfos[market])
         let updated = false
         if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
-          marketInfo.baseFee = fees[marketInfo.baseAsset.symbol]
+          marketInfo.baseFee = (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
+            .toFixed(marketInfo.pricePrecisionDecimal)
           updated = true
         }
         if(marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
-          marketInfo.quoteFee = fees[marketInfo.quoteAsset.symbol]
+          marketInfo.quoteFee = (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
+            .toFixed(marketInfo.pricePrecisionDecimal)
           updated = true
         }
         if(updated) {
