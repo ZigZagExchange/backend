@@ -202,8 +202,8 @@ export default class API extends EventEmitter {
       // get last fee      
       const baseFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.baseAsset.symbol)
       const quoteFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.quoteAsset.symbol)
-      if(baseFee) marketInfo.baseFee = baseFee
-      if(quoteFee) marketInfo.quoteFee = quoteFee
+      if(baseFee) marketInfo.baseFee = Number(baseFee)
+      if(quoteFee) marketInfo.quoteFee = Number(quoteFee)
       
 
       const redisKey = `marketinfo:${chainId}`
