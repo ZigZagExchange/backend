@@ -151,7 +151,7 @@ export default class API extends EventEmitter {
     if(![1, 1000].includes(chainId)) {
       throw new Error("getMarketInfoFromArweave: Only 1 and 1000 are valid.")
     }
-    let marketInfo: ZZMarketInfo = {}
+    let marketInfo = null
     if(marketArweaveId.length < 20) {
       return marketInfo
     }
