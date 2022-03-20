@@ -257,10 +257,11 @@ export default class API extends EventEmitter {
    * Update the fee for each token on regular basis
    */
   updateFees = async () => {
-    this.VALID_CHAINS.forEach(async (chainId: number) => {
+    console.time("Update fees")
+    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId: number) => {
       const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
       const tokenSymbols = Object.keys(tokenInfos)
-      const results: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
+      const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
         const tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
         let fee
         if(tokenInfo?.enabledForFees) {
@@ -304,14 +305,14 @@ export default class API extends EventEmitter {
           )
         }
       })
-      await Promise.all(results)
+      await Promise.all(results1)
 
       // check if fee's have changed (only on alias markets)
       const markets = (await this.redis.SMEMBERS(`activemarkets:${chainId}`))
         .filter((m) => m.length < 20)
       const fees = await this.redis.HGETALL(`tokenfee:${chainId}`)
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
-      markets.forEach(async (market: ZZMarket) => {
+      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
         let updated = false
         if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
@@ -340,7 +341,10 @@ export default class API extends EventEmitter {
           this.broadcastMessage(chainId, market, marketInfoMsg)
         }
       })
+      await Promise.all(results2)
     })
+    await Promise.all(results0) 
+    console.timeEnd("Update fees")
   }
 
   /**
