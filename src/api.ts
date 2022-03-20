@@ -378,7 +378,8 @@ export default class API extends EventEmitter {
   updateMarketInfo = async () => {
     console.time('updating market info')
     this.VALID_CHAINS.forEach(async (chainId: number) => {
-      const marketKeys = await this.redis.SMEMBERS(`marketinfo:${chainId}`)
+      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
+      const marketKeys = Object.keys(marketInfos)
       marketKeys.forEach((marketKey: ZZMarket) => {
         // update from Arweave with ArweaveId
         if(marketKey.length >= 20) {
