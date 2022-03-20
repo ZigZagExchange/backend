@@ -174,10 +174,30 @@ export default function cmcRoutes(app: ZZHttpServer) {
   */
 
   app.get("/api/v1/marketinfos", async (req, res) => {
-    const chainId = req.query.chainid
-    const markets = (req.query.id as string).split(",")
+    const chainId = (req.query.chain_id) 
+      ? Number(req.query.chain_id)
+      : defaultChainId
+
+    if(!app.api.VALID_CHAINS.includes(chainId)) {
+      res.send({ op: 'error', message: `${chainId} is not a valid chain id. Use ${app.api.VALID_CHAINS}` })
+      return
+    }
+    const markets: ZZMarket[] = []
+    if(req.query.id) {
+      markets.concat((req.query.id as string).split(","))
+    }
+
+    if(req.query.market) {
+      markets.concat((req.query.market as string).split(","))
+    }
+
+    if(markets.length === 0) {
+      res.send({ op: 'error', message: `Set a requested pair with '?market=___'` })
+      return
+    }
+
     const marketInfos: ZZMarketInfo = {}
-    markets.forEach(async (market: ZZMarket) => {
+    const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       try {
         console.log(`get market info for ${market}`)
         marketInfos[market] = await app.api.getMarketInfo(
@@ -192,6 +212,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         }            
       }
     })
+    await Promise.all(results)
     console.log(`get market info for ${marketInfos}`)
     res.json(marketInfos)
   })
