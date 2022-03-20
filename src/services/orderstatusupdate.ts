@@ -7,7 +7,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
 ) => {
   const promises = Object.keys(updates).map(async (i) => {
     const update = updates[i]
-    const chainid = Number(update[0])
+    const chainId = Number(update[0])
     const orderId = update[1]
     const newstatus = update[2]
     let success
@@ -17,11 +17,12 @@ export const orderstatusupdate: ZZServiceHandler = async (
     let feeAmount
     let feeToken
     let timestamp
+    let userId
 
     if (newstatus === 'b') {
       const txhash = update[3]
       const result = (await api.updateMatchedOrder(
-        chainid,
+        chainId,
         orderId,
         newstatus,
         txhash
@@ -33,7 +34,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
     if (newstatus === 'r' || newstatus === 'f') {
       const txhash = update[3]
       const result = (await api.updateOrderFillStatus(
-        chainid,
+        chainId,
         orderId,
         newstatus
       )) as AnyObject
@@ -44,8 +45,9 @@ export const orderstatusupdate: ZZServiceHandler = async (
       feeAmount = result.feeAmount
       feeToken = result.feeToken
       timestamp = result.timestamp
+      userId = result.userId
       const mmAccount = result.maker_user_id
-      const redisKey = `bussymarketmaker:${chainid}:${mmAccount}`
+      const redisKey = `bussymarketmaker:${chainId}:${mmAccount}`
       await api.redis.del(redisKey)
     }
     if (success) {
@@ -53,12 +55,17 @@ export const orderstatusupdate: ZZServiceHandler = async (
       fillUpdate[1] = fillId
       fillUpdate[5] = feeAmount
       fillUpdate[6] = feeToken
-      fillUpdate[7] = timestamp
-      api.broadcastMessage(chainid, market, {
+      fillUpdate[7] = timestamp      
+      // update user
+      api.sendMessageToUser(orderId, userId, { 
+        op: 'orderstatus',
+        args: [[update]], 
+      })    
+      api.broadcastMessage(chainId, market, {
         op: 'orderstatus',
         args: [[update]],
       })
-      api.broadcastMessage(chainid, market, {
+      api.broadcastMessage(chainId, market, {
         op: 'fillstatus',
         args: [[fillUpdate]],
       })
@@ -68,10 +75,10 @@ export const orderstatusupdate: ZZServiceHandler = async (
         .toISOString()
         .slice(0, 10)
       const yesterdayPrice = Number(
-        await api.redis.get(`dailyprice:${chainid}:${market}:${yesterday}`)
+        await api.redis.get(`dailyprice:${chainId}:${market}:${yesterday}`)
       )
       const priceChange = (lastprice - yesterdayPrice).toString()
-      api.broadcastMessage(chainid, null, {
+      api.broadcastMessage(chainId, null, {
         op: 'lastprice',
         args: [[[market, lastprice, priceChange]]],
       })
@@ -81,7 +88,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
       // if(userId && userNonce) {
       //    if(!NONCES[userId]) { NONCES[userId] = {}; };
       //    // nonce+1 to save the next expected nonce
-      //    NONCES[userId][chainid] = userNonce+1;
+      //    NONCES[userId][chainId] = userNonce+1;
       // }
     }
   })

@@ -1,4 +1,3 @@
-import API from 'src/api'
 import type { ZZHttpServer } from 'src/types'
 
 export default function cmcRoutes(app: ZZHttpServer) {
@@ -14,7 +13,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         markets.forEach(market => {
             const [base, target] = market.split('-')
             const entry: any = {
-                "ticker_id": (base + "_" + target),           
+                "ticker_id": (`${base}_${target}`),           
                 "base": base,
                 "target": target
             }
@@ -57,8 +56,8 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
     app.get('/api/coingecko/v1/orderbook', async (req, res) => {
         const tickerId: string = req.query.ticker_id as string
-        let depth: number = (req.query.depth) ? Number(req.query.depth) : 0
-        let market: string;
+        const depth: number = (req.query.depth) ? Number(req.query.depth) : 0
+        let market: string
         if(tickerId) {
             market = tickerId.replace('_','-').toUpperCase()
         } else {
@@ -74,7 +73,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
                 depth,
                 3
             )
-            liquidity["ticker_id"] = market.replace('-','_')
+            liquidity.ticker_id = market.replace('-','_')
             res.json(liquidity)
         } catch (error: any) {
             console.log(error.message)
@@ -89,7 +88,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         const startTime = (req.query.start_time) ? Number(req.query.start_time) : 0
         const endTime = (req.query.end_time) ? Number(req.query.end_time) : 0
 
-        let market: string;
+        let market: string
         if(tickerId) {
             market = tickerId.replace('_','-').toUpperCase()
         } else {
