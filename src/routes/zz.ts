@@ -169,8 +169,8 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
   
   // needed to be backward compatible with markets server.js 
-  app.get("/markets", async (_req, res) => {
-    res.redirect("/api/v1/marketinfos")
+  app.get("/markets", async (req, res) => {
+    res.redirect(`/api/v1/marketinfos?market=${req.query.id}&chain_id=${req.query.chainid}`)
   })  
 
   app.get("/api/v1/marketinfos", async (req, res) => {
@@ -183,15 +183,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
       return
     }
     let markets: ZZMarket[] = []
-    if(req.query.id) {
-      markets = markets.concat((req.query.id as string).split(","))
-    }
-
     if(req.query.market) {
       markets = markets.concat((req.query.market as string).split(","))
-    }
-
-    if(markets.length === 0) {
+    } else {
       res.send({ op: 'error', message: `Set a requested pair with '?market=___'` })
       return
     }
