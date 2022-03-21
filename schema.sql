@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS offers (
-    id                SERIAL PRIMARY KEY,
+    id                SERIAL         PRIMARY KEY,
     userid            TEXT,
     nonce             INTEGER,
     market            TEXT,
@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS offers_order_status_by_market_idx ON offers(chainid, 
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS txhash TEXT;
 
 CREATE TABLE IF NOT EXISTS fills (
-  id                 SERIAL PRIMARY KEY,
+  id                 SERIAL          PRIMARY KEY,
   insert_timestamp   TIMESTAMPTZ     NOT NULL DEFAULT now(),
   chainid            INTEGER         NOT NULL,
   market             TEXT            NOT NULL,
@@ -42,9 +42,9 @@ ALTER TABLE fills ADD COLUMN IF NOT EXISTS feeamount  NUMERIC(32, 16);
 ALTER TABLE fills ADD COLUMN IF NOT EXISTS feetoken TEXT;
 
 CREATE TABLE IF NOT EXISTS marketids (
-    marketid         PRIMARY KEY,
-    chainid          INTEGER         NOT NULL,
-    marketalias      TEXT            NOT NULL,
+  marketid           TEXT            PRIMARY KEY,
+  chainid            INTEGER         NOT NULL,
+  marketalias        TEXT            NOT NULL
 );
 
 -------------------------------------------------------------------

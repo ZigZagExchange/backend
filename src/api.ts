@@ -423,7 +423,7 @@ export default class API extends EventEmitter {
     try {
       this.VALID_CHAINS.forEach(async (chainId: number) => {      
         const select = await this.db.query(
-          'SELECT marketid FROM offers WHERE chainid = $1',
+          'SELECT marketid FROM marketids WHERE chainid = $1',
           [chainId]
         )
         let existingIds: string[] = []
@@ -437,14 +437,14 @@ export default class API extends EventEmitter {
           const marketId = marketInfo.id
           if(!existingIds.includes(marketId)) {
             await this.db.query(
-              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3)',
+              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT DO NOTHING',
               [marketId, chainId, market]
             )
           }
         })
       })
     } catch (err: any) {
-      console.log(`Failed to backup market keys to `)
+      console.log(`Failed to backup market keys to SQL`)
     }
   }
 
