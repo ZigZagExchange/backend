@@ -81,7 +81,6 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
-      setInterval(this.updateMarketInfo, 21600000),
       setInterval(this.backupMarkets, 21600000),
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
@@ -148,7 +147,10 @@ export default class API extends EventEmitter {
     marketArweaveId: string
   ) => {
     let marketInfo = null
-    if(marketArweaveId.length < 20) {
+    if (marketArweaveId.length < 20) {
+      marketArweaveId = await this.getMarketId(this.DEFAULT_CHAIN, marketArweaveId)
+    }
+    if (!marketArweaveId) {
       return marketInfo
     }
     try {
@@ -219,6 +221,18 @@ export default class API extends EventEmitter {
         marketInfo.alias,
         JSON.stringify(marketInfo)
       )
+
+      // update id in SQL
+      try {
+        this.db.query(
+          'UPDATE marketids SET marketid=$1 WHERE marketAlias = $2 AND chainid = $3',
+          [marketArweaveId, marketInfo.alias, marketInfo.chainId]
+        )
+      } catch (err: any) {
+        console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${marketArweaveId}`)
+      }
+      
+
     } catch (err: any) {
       console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}`)
     }
@@ -372,26 +386,6 @@ export default class API extends EventEmitter {
   }
 
   /**
-   * Used to update tokenInfo's and Arweave settings
-   */
-  updateMarketInfo = async () => {
-    console.time('updating market info')
-    this.VALID_CHAINS.forEach(async (chainId: number) => {
-      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
-      const marketKeys = Object.keys(marketInfos)
-      marketKeys.forEach((marketKey: ZZMarket) => {
-        // update from Arweave with ArweaveId
-        if(marketKey.length >= 20) {
-          this.getMarketInfoFromArweave(
-            marketKey
-          )
-        }        
-      })
-    })
-    console.timeEnd('updating market info')
-  }
-
-  /**
    * Gets the marketId for the given marketAlias
    * @param chainId 
    * @param marketAlias marketAlias string
@@ -405,7 +399,7 @@ export default class API extends EventEmitter {
     }
 
     const select = await this.db.query(
-      'SELECT marketid FROM offers WHERE marketAlias = $1 AND chainid = $2',
+      'SELECT marketid FROM marketids WHERE marketAlias = $1 AND chainid = $2',
       [marketAlias, chainId]
     )
     if (select.rows.length === 0) {

@@ -42,9 +42,9 @@ ALTER TABLE fills ADD COLUMN IF NOT EXISTS feeamount  NUMERIC(32, 16);
 ALTER TABLE fills ADD COLUMN IF NOT EXISTS feetoken TEXT;
 
 CREATE TABLE IF NOT EXISTS marketids (
-  marketid           TEXT            PRIMARY KEY,
+  marketalias        TEXT            PRIMARY KEY,
   chainid            INTEGER         NOT NULL,
-  marketalias        TEXT            NOT NULL
+  marketid           TEXT            NOT NULL
 );
 
 -------------------------------------------------------------------
