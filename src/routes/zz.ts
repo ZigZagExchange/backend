@@ -153,8 +153,8 @@ export default function cmcRoutes(app: ZZHttpServer) {
           "timestamp": date.getTime(),
           "side": (fill[3] === 's') ? 'sell' : 'buy',
           "txHash": fill[7],
-          "takerId": fill[8],
-          "makerId": fill[9],
+          "takerId": Number(fill[8]),
+          "makerId": Number(fill[9]),
           "feeAmount": fill[10],
           "feeToken": fill[11]
         }

@@ -317,17 +317,11 @@ export default class API extends EventEmitter {
         const marketInfo = JSON.parse(marketInfos[market])
         let updated = false
         if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
-          marketInfo.baseFee = Number (
-            (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
-              .toFixed(marketInfo.pricePrecisionDecimal)
-          )
+          marketInfo.baseFee = (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
           updated = true
         }
         if(marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
-          marketInfo.quoteFee = Number (
-            (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
-              .toFixed(marketInfo.pricePrecisionDecimal)
-          )
+          marketInfo.quoteFee = (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
           updated = true
         }
         if(updated) {
@@ -2264,10 +2258,12 @@ export default class API extends EventEmitter {
       const [baseAsset, quoteAsset] = market.split('-')
       if (baseAsset === tokenSymbol) {
         const quotePrice = await this.getUsdStablePrice(chainid, quoteAsset)
-        if (quotePrice) prices.push(quotePrice)
+        if (quotePrice) {
+          prices.push(quotePrice * Number(redisPrices[market]))
+        }
       } else if (quoteAsset === tokenSymbol) {
         const basePrice = await this.getUsdStablePrice(chainid, baseAsset)
-        if (basePrice) prices.push(1 / basePrice)
+        if (basePrice) prices.push(1 / basePrice * Number(redisPrices[market]))
       }
     })
     await Promise.all(results)
