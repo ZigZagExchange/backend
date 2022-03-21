@@ -316,13 +316,17 @@ export default class API extends EventEmitter {
         const marketInfo = JSON.parse(marketInfos[market])
         let updated = false
         if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
-          marketInfo.baseFee = (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
-            .toFixed(marketInfo.pricePrecisionDecimal)
+          marketInfo.baseFee = Number (
+            (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
+              .toFixed(marketInfo.pricePrecisionDecimal)
+          )
           updated = true
         }
         if(marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
-          marketInfo.quoteFee = (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
-            .toFixed(marketInfo.pricePrecisionDecimal)
+          marketInfo.quoteFee = Number (
+            (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
+              .toFixed(marketInfo.pricePrecisionDecimal)
+          )
           updated = true
         }
         if(updated) {
