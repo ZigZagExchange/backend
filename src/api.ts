@@ -946,29 +946,27 @@ export default class API extends EventEmitter {
     try {
       // send result to other mm's, remove set
       const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyMatchingOrder, 0, -1)
-      if(otherMakerList && otherMakerList.length > 0) {
-        otherMakerList.map(async (otherMaker: any) => {
-          const otherValue = JSON.parse(otherMaker)
-          const otherFillOrder = otherValue.fillOrder
-          const otherMakerAccountId = otherFillOrder.accountId.toString()
-          const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
-          const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-          if(otherWs) {
-            otherWs.send(
-              JSON.stringify(
-                { 
-                  op: 'error',
-                  args: [
-                    'fillrequest',
-                    otherMakerAccountId,
-                    "The Order was filled by better offer."
-                  ] 
-                }
-              )
+      otherMakerList.map(async (otherMaker: any) => {
+        const otherValue = JSON.parse(otherMaker)
+        const otherFillOrder = otherValue.fillOrder
+        const otherMakerAccountId = otherFillOrder.accountId.toString()
+        const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
+        const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
+        if(otherWs) {
+          otherWs.send(
+            JSON.stringify(
+              { 
+                op: 'error',
+                args: [
+                  'fillrequest',
+                  otherMakerAccountId,
+                  "The Order was filled by better offer."
+                ] 
+              }
             )
-          }
-        })
-      }
+          )
+        }
+      })
     } catch (err: any) {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
