@@ -959,6 +959,8 @@ Returns a JSON containing the last trades in decending order.
     "timestamp":1646307989024,
     "side":"sell",
     "txHash":"3e870f76771a37e9da5d0d3d82c3d0a83699e359254c0c2fb4c0aee8fe64a01f",
+    "takerId": 674945,
+    "makerId": 354861,
     "feeAmount":0.00003025,
     "feeToken":"ETH"
   },

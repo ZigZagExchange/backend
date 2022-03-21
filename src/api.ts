@@ -82,6 +82,7 @@ export default class API extends EventEmitter {
 
     this.watchers = [
       setInterval(this.updateMarketInfo, 21600000),
+      setInterval(this.backupMarkets, 21600000),
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
@@ -388,6 +389,61 @@ export default class API extends EventEmitter {
       })
     })
     console.timeEnd('updating market info')
+  }
+
+  /**
+   * Gets the marketId for the given marketAlias
+   * @param chainId 
+   * @param marketAlias marketAlias string
+   */
+  getMarketId = async (
+    chainId: number,
+    marketAlias: string
+  ): Promise<ZZMarket> => {
+    if (marketAlias.length >= 20) {
+      return ""
+    }
+
+    const select = await this.db.query(
+      'SELECT marketid FROM offers WHERE marketAlias = $1 AND chainid = $2',
+      [marketAlias, chainId]
+    )
+    if (select.rows.length === 0) {
+      return ""
+    }
+    return select.rows[0]
+  }
+
+  /**
+   * Backs up market-alias and market-ID keys
+   */
+  backupMarkets = async () => {
+    try {
+      this.VALID_CHAINS.forEach(async (chainId: number) => {      
+        const select = await this.db.query(
+          'SELECT marketid FROM marketids WHERE chainid = $1',
+          [chainId]
+        )
+        let existingIds: string[] = []
+        if (select.rows.length > 0) {
+          existingIds = select.rows
+        }
+        
+        const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+        markets.forEach(async (market: ZZMarket) => {        
+          const marketInfo = await this.getMarketInfo(market, chainId)
+          const marketId = marketInfo.id
+          if(!existingIds.includes(marketId)) {
+            await this.db.query(
+              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT DO NOTHING',
+              [marketId, chainId, market]
+            )
+          }
+        })
+      })
+    } catch (err: any) {
+      console.log(`Failed to backup market keys to SQL`)
+    }
   }
 
   updateOrderFillStatus = async (
@@ -1145,19 +1201,21 @@ export default class API extends EventEmitter {
         console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
         const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
         const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-        otherWs.send(
-          JSON.stringify(
-            { 
-              op: 'error',
-              args: [
-                'fillrequest',
-                otherMakerAccountId,
-                "The Order was filled by better offer."
-              ] 
-            }
+        if(otherWs) {
+          otherWs.send(
+            JSON.stringify(
+              { 
+                op: 'error',
+                args: [
+                  'fillrequest',
+                  otherMakerAccountId,
+                  "The Order was filled by better offer."
+                ] 
+              }
+            )
           )
-        )
-      })
+        }
+      }) 
     } catch (err: any) {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
