@@ -1147,19 +1147,21 @@ export default class API extends EventEmitter {
         console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
         const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
         const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-        otherWs.send(
-          JSON.stringify(
-            { 
-              op: 'error',
-              args: [
-                'fillrequest',
-                otherMakerAccountId,
-                "The Order was filled by better offer."
-              ] 
-            }
+        if(otherWs) {
+          otherWs.send(
+            JSON.stringify(
+              { 
+                op: 'error',
+                args: [
+                  'fillrequest',
+                  otherMakerAccountId,
+                  "The Order was filled by better offer."
+                ] 
+              }
+            )
           )
-        )
-      })
+        }
+      }) 
     } catch (err: any) {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
