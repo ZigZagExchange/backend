@@ -953,18 +953,20 @@ export default class API extends EventEmitter {
           const otherMakerAccountId = otherFillOrder.accountId.toString()
           const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
           const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-          otherWs.send(
-            JSON.stringify(
-              { 
-                op: 'error',
-                args: [
-                  'fillrequest',
-                  otherMakerAccountId,
-                  "The Order was filled by better offer."
-                ] 
-              }
+          if(otherWs) {
+            otherWs.send(
+              JSON.stringify(
+                { 
+                  op: 'error',
+                  args: [
+                    'fillrequest',
+                    otherMakerAccountId,
+                    "The Order was filled by better offer."
+                  ] 
+                }
+              )
             )
-          )
+          }
         })
       }
     } catch (err: any) {
