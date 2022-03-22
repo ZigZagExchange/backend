@@ -1651,7 +1651,10 @@ export default class API extends EventEmitter {
     return true
   }
 
-  getLastPrices = async (chainid: number) => {
+  getLastPrices = async (
+    chainid: number,
+    markets: ZZMarket[] = []
+  ) => {
     const lastprices: any[] = []
     const redis_key_prices = `lastprices:${chainid}`
     const redisKeyVolumesQuote = `volume:${chainid}:quote`
@@ -1659,7 +1662,9 @@ export default class API extends EventEmitter {
     const redis_prices = await this.redis.HGETALL(redis_key_prices)
     const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
-    const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    if (markets.length === 0) {
+      markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    }   
 
     // eslint-disable-next-line no-restricted-syntax
     const results: Promise<any>[] = markets.map(async (market_id) => {
