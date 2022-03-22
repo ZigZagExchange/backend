@@ -1,4 +1,4 @@
-import type { ZZHttpServer, ZZMarket, ZZMarketInfo } from 'src/types'
+import type { ZZHttpServer, ZZMarket, ZZMarketInfo, ZZMarketSummary } from 'src/types'
 
 export default function cmcRoutes(app: ZZHttpServer) {
 
@@ -7,9 +7,13 @@ export default function cmcRoutes(app: ZZHttpServer) {
       : 1
 
   app.get('/api/v1/markets', async (req, res) => {
-    let market
+    let market: string
+    let altMarket = ""
     if (req.query.market) {
       market = (req.query.market as string)
+        .replace('_','-')
+        .replace('/','-')
+      altMarket = (req.query.market as string)
         .replace('_','-')
         .replace('/','-')
         .toUpperCase()
@@ -18,10 +22,16 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
 
     try {
-      const marketSummarys: any =  await app.api.getMarketSummarys(
+      let marketSummarys: ZZMarketSummary =  await app.api.getMarketSummarys(
         defaultChainId,
         market
       )
+      if(!marketSummarys && altMarket) {
+        marketSummarys =  await app.api.getMarketSummarys(
+          defaultChainId,
+          altMarket
+        )
+      }
       if(!marketSummarys) {
         if(market === "") {
           res.send({ op: 'error', message: `Can't find any markets.` })
@@ -38,24 +48,23 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/ticker', async (req, res) => {
-    let market
+    const markets: ZZMarket[] = []
     if (req.query.market) {
-      market = (req.query.market as string)
+      const market = (req.query.market as string)
         .replace('_','-')
         .replace('/','-')
-        .toUpperCase()
-    } else {
-      market = ""
+      markets.push(market)
+      markets.push(market.toUpperCase())
     }
 
     try {
       const ticker: any = {}
-      const lastPrices: any =  await app.api.getLastPrices(defaultChainId)
+      const lastPrices: any =  await app.api.getLastPrices(defaultChainId, markets) 
       if(lastPrices.length === 0) {
-        if(market === "") {
+        if(markets.length === 0) {
           res.send({ op: 'error', message: `Can't find any lastPrices for any markets.` })
         } else {
-          res.send({ op: 'error', message: `Can't find a lastPrice for ${market}.` })
+          res.send({ op: 'error', message: `Can't find a lastPrice for ${req.query.market}.` })
         }        
         return
       }
@@ -80,6 +89,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
       .replace('_','-')
       .replace('/','-')
       .replace(':','-')
+    const altMarket = (req.params.market_pair)
+      .replace('_','-')
+      .replace('/','-')
+      .replace(':','-')
       .toUpperCase()
     const depth = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
@@ -90,12 +103,20 @@ export default function cmcRoutes(app: ZZHttpServer) {
       
     try {
       // get data
-      const liquidity = await app.api.getLiquidityPerSide(
+      let liquidity = await app.api.getLiquidityPerSide(
         defaultChainId,
         market,
         depth,
         level
       )
+      if (liquidity.asks.length === 0 && liquidity.bids.length === 0) {
+        liquidity = await app.api.getLiquidityPerSide(
+          defaultChainId,
+          altMarket,
+          depth,
+          level
+        )
+      }
       res.json(liquidity)
     } catch (error: any) {
       console.log(error.message)
@@ -105,8 +126,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
   app.get('/api/v1/trades/', async (req, res) => {
     let market = (req.query.market as string)
+    let altMarket = (req.query.market as string)
     if(market) {
-      market = market.replace('_','-').toUpperCase()
+      market = market.replace('_','-')
+      altMarket = market.replace('_','-').toUpperCase()
     }      
     const type: string = req.query.type as string
     const direction = req.query.direction as string
@@ -123,7 +146,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
 
     try {
-      const fills = await app.api.getfills(
+      let fills = await app.api.getfills(
         defaultChainId,
         market,
         limit,
@@ -134,6 +157,19 @@ export default function cmcRoutes(app: ZZHttpServer) {
         accountId,
         direction
       )
+      if (fills.length === 0) {
+        fills = await app.api.getfills(
+          defaultChainId,
+          altMarket,
+          limit,
+          orderId,
+          type,
+          startTime,
+          endTime,
+          accountId,
+          direction
+        )
+      }
 
       if(fills.length === 0) {
         res.send({ op: 'error', message: `Can not find fills for ${market}` })

@@ -58,8 +58,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
         const tickerId: string = req.query.ticker_id as string
         const depth: number = (req.query.depth) ? Number(req.query.depth) : 0
         let market: string
+        let altMarket: string
         if(tickerId) {
             market = tickerId.replace('_','-').toUpperCase()
+            altMarket = tickerId.replace('_','-')
         } else {
             res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id=___'" })
             return
@@ -67,12 +69,20 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
         try {
             // get data
-            const liquidity: any = await app.api.getLiquidityPerSide(
+            let liquidity: any = await app.api.getLiquidityPerSide(
                 defaultChainId,
                 market,
                 depth,
                 3
             )
+            if (liquidity.asks.length === 0 && liquidity.bids.length === 0) {
+                liquidity = await app.api.getLiquidityPerSide(
+                  defaultChainId,
+                  altMarket,
+                  depth,
+                  3
+                )
+              }
             liquidity.ticker_id = market.replace('-','_')
             res.json(liquidity)
         } catch (error: any) {
@@ -89,8 +99,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
         const endTime = (req.query.end_time) ? Number(req.query.end_time) : 0
 
         let market: string
+        let altMarket: string
         if(tickerId) {
             market = tickerId.replace('_','-').toUpperCase()
+            altMarket = tickerId.replace('_','-')
         } else {
             res.send({ op: 'error', message: "Please set a 'ticker_id' like '/orderbook?ticker_id=___'" })
             return
@@ -102,7 +114,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         }
 
         try {
-          const fills = await app.api.getfills(
+          let fills = await app.api.getfills(
             defaultChainId,
             market,
             limit,
@@ -111,6 +123,13 @@ export default function cmcRoutes(app: ZZHttpServer) {
             startTime,
             endTime
           )
+          if (fills.length === 0) {
+            fills = await app.api.getfills(
+              defaultChainId,
+              altMarket
+            )
+          }
+
           if(fills.length === 0) {
             res.send({ op: 'error', message: `Can not find trades for ${market}` })
             return
