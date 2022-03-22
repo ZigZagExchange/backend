@@ -1,27 +1,27 @@
 CREATE TABLE IF NOT EXISTS offers (
-    id SERIAL PRIMARY KEY,
-    userid TEXT,
-    nonce INTEGER,
-    market TEXT,
-    side CHAR(1),
-    price NUMERIC NOT NULL CHECK (price > 0),
-    base_quantity NUMERIC CHECK (base_quantity > 0),
-    quote_quantity NUMERIC CHECK (quote_quantity > 0),
-    order_type TEXT,
-    order_status TEXT,
-    expires BIGINT,
-    zktx TEXT,
-    chainid INTEGER NOT NULL,
-    insert_timestamp TIMESTAMPTZ,
-    update_timestamp TIMESTAMPTZ,
-    unfilled NUMERIC NOT NULL CHECK (unfilled <= base_quantity)
+    id                SERIAL         PRIMARY KEY,
+    userid            TEXT,
+    nonce             INTEGER,
+    market            TEXT,
+    side              CHAR(1),
+    price             NUMERIC        NOT NULL CHECK (price > 0),
+    base_quantity     NUMERIC        CHECK (base_quantity > 0),
+    quote_quantity    NUMERIC        CHECK (quote_quantity > 0),
+    order_type        TEXT,
+    order_status      TEXT,
+    expires           BIGINT,
+    zktx              TEXT,
+    chainid           INTEGER        NOT NULL,
+    insert_timestamp  TIMESTAMPTZ,
+    update_timestamp  TIMESTAMPTZ,
+    unfilled          NUMERIC        NOT NULL CHECK (unfilled <= base_quantity)
 );
 CREATE INDEX IF NOT EXISTS offers_order_status_by_market_idx ON offers(chainid, market, order_status);
 
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS txhash TEXT;
 
 CREATE TABLE IF NOT EXISTS fills (
-  id                 SERIAL PRIMARY KEY,
+  id                 SERIAL          PRIMARY KEY,
   insert_timestamp   TIMESTAMPTZ     NOT NULL DEFAULT now(),
   chainid            INTEGER         NOT NULL,
   market             TEXT            NOT NULL,
@@ -41,6 +41,11 @@ ALTER TABLE fills ADD COLUMN IF NOT EXISTS side TEXT;
 ALTER TABLE fills ADD COLUMN IF NOT EXISTS feeamount  NUMERIC(32, 16);
 ALTER TABLE fills ADD COLUMN IF NOT EXISTS feetoken TEXT;
 
+CREATE TABLE IF NOT EXISTS marketids (
+  marketalias        TEXT            PRIMARY KEY,
+  chainid            INTEGER         NOT NULL,
+  marketid           TEXT            NOT NULL
+);
 
 -------------------------------------------------------------------
 -- match_limit_order

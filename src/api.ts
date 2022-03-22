@@ -3,6 +3,9 @@ import fetch from 'isomorphic-fetch'
 import { EventEmitter } from 'events'
 import { zksyncOrderSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
+import fs from 'fs'
+import * as zksync from 'zksync'
+import { ethers } from 'ethers'
 import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
@@ -24,9 +27,15 @@ export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
+  SYNC_PROVIDER: AnyObject = {}
+  ETHERS_PROVIDER: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
+  ERC20_ABI: any
+  DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
+    ? Number(process.env.DEFAULT_CHAIN_ID)
+    : 1
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -52,7 +61,7 @@ export default class API extends EventEmitter {
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
     if (msg.op === "ping") {
-        return false;
+        return false
     }
     if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
@@ -72,11 +81,12 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
+      setInterval(this.backupMarkets, 21600000),
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateMarketInfo, 10000),
+      setInterval(this.updateFees, 10000),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -98,6 +108,21 @@ export default class API extends EventEmitter {
       })
     })
 
+    this.ERC20_ABI = JSON.parse(
+      fs.readFileSync(
+        'abi/ERC20.abi',
+        'utf8'
+      )
+    )
+
+    this.SYNC_PROVIDER[1] = await zksync.getDefaultRestProvider("mainnet")
+    this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
+
+    this.ETHERS_PROVIDER[1] =
+      new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID, )
+    this.ETHERS_PROVIDER[1000] =
+      new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID, )
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -113,75 +138,306 @@ export default class API extends EventEmitter {
     this.started = false
   }
 
-  fetchMarketInfoFromMarkets = async (
-    markets: string[],
-    chainid: number
-  ): Promise<ZZMarketInfo | null> => {
-    const controller = new AbortController()
-    setTimeout(() => controller.abort(), 30000)
-    const url = `https://zigzag-markets.herokuapp.com/markets?id=${markets.join(
-      ','
-    )}&chainid=${chainid}`
-    const marketInfoList = (await fetch(url, {
-      signal: controller.signal,
-    }).then((r: any) => r.json())) as ZZMarketInfo
-    if (!marketInfoList) throw new Error(`No marketinfo found.`)
-    for (let i = 0; i < marketInfoList.length; i++) {
-      const marketInfo = marketInfoList[i]
-      if (!marketInfo) return null
-      const oldMarketInfo = await this.redis.get(
-        `marketinfo:${chainid}:${marketInfo.alias}`
-      )
-      if (oldMarketInfo !== JSON.stringify(marketInfo)) {
-        const market_id = marketInfo.alias
-        const redis_key = `marketinfo:${chainid}:${market_id}`
-        this.redis.set(redis_key, JSON.stringify(marketInfo));
-
-        const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
-        this.broadcastMessage(chainid, market_id, marketInfoMsg)
-      }
+  /**
+   * Get market info from Arweave
+   * @param marketArweaveId Arweave Id is more than 20 char long
+   * @returns 
+   */
+  getMarketInfoFromArweave = async (
+    marketArweaveId: string
+  ) => {
+    let marketInfo = null
+    if (marketArweaveId.length < 20) {
+      marketArweaveId = await this.getMarketId(this.DEFAULT_CHAIN, marketArweaveId)
     }
+    if (!marketArweaveId) {
+      return marketInfo
+    }
+    try {
+      marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
+        .then((r: any) => r.json())
 
-    return marketInfoList
+      const chainId = marketInfo.zigzagChainId
+
+      const [
+        baseAsset,
+        quoteAsset
+      ] = await Promise.all ([
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.baseAssetId),
+        this.SYNC_PROVIDER[chainId].tokenInfo(marketInfo.quoteAssetId)
+      ])
+
+      const [
+        baseAssetName,
+        quoteAssetName
+      ] = await Promise.all ([
+        this.getTokenName(
+          chainId,
+          baseAsset.address,
+          baseAsset.symbol
+        ),
+        this.getTokenName(
+          chainId,
+          quoteAsset.address,
+          quoteAsset.symbol
+        )
+      ])
+
+      marketInfo.baseAsset = baseAsset
+      marketInfo.quoteAsset = quoteAsset
+      marketInfo.baseAsset.name = baseAssetName
+      marketInfo.quoteAsset.name = quoteAssetName
+
+      this.redis.HSET(
+        `tokeninfo:${chainId}`,
+        marketInfo.baseAsset.symbol,
+        JSON.stringify(marketInfo.baseAsset)
+      )
+      this.redis.HSET(
+        `tokeninfo:${chainId}`,
+        marketInfo.quoteAsset.symbol,
+        JSON.stringify(marketInfo.quoteAsset)
+      )
+
+      marketInfo.id = marketArweaveId
+      marketInfo.alias = `${marketInfo.baseAsset.symbol}-${marketInfo.quoteAsset.symbol}`
+
+      // get last fee      
+      const baseFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.baseAsset.symbol)
+      const quoteFee = await this.redis.HGET(`tokenfee:${chainId}`, marketInfo.quoteAsset.symbol)
+      if(baseFee) marketInfo.baseFee = Number(baseFee)
+      if(quoteFee) marketInfo.quoteFee = Number(quoteFee)
+      
+
+      const redisKey = `marketinfo:${chainId}`
+      this.redis.HSET(
+        redisKey,
+        marketArweaveId,
+        JSON.stringify(marketInfo)
+      )
+
+      this.redis.HSET(
+        redisKey,
+        marketInfo.alias,
+        JSON.stringify(marketInfo)
+      )
+
+      // update id in SQL
+      try {
+        this.db.query(
+          'UPDATE marketids SET marketid=$1 WHERE marketAlias = $2 AND chainid = $3',
+          [marketArweaveId, marketInfo.alias, marketInfo.chainId]
+        )
+      } catch (err: any) {
+        console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${marketArweaveId}`)
+      }
+      
+
+    } catch (err: any) {
+      console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}`)
+    }
+    return marketInfo
   }
 
+  /**
+   * Get the full token name from L1 ERC20 contract
+   * @param contractAddress 
+   * @param tokenSymbol 
+   * @returns full token name
+   */
+  getTokenName = async (
+    chainId: number,
+    contractAddress: string,
+    tokenSymbol: string
+  ) => {
+    if (tokenSymbol === "ETH") {
+      return "Ethereum"
+    }
+    let name
+    try {
+      const contract = new ethers.Contract(
+        contractAddress,
+        this.ERC20_ABI,
+        this.ETHERS_PROVIDER[chainId]
+      )
+       name = await contract.name()
+    } catch (e) {
+      console.error(e)
+      name = tokenSymbol
+    }
+    return name
+  }
+
+  /**
+   * Update the fee for each token on regular basis
+   */
+  updateFees = async () => {
+    console.time("Update fees")
+    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId: number) => {
+      const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
+      const tokenSymbols = Object.keys(tokenInfos)
+      const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
+        const tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
+        let fee
+        if(tokenInfo?.enabledForFees) {
+          try {
+            const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
+                "Swap",
+                '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
+                tokenSymbol
+            )
+            fee = Number(
+              this.SYNC_PROVIDER[chainId].tokenSet
+                .formatToken(
+                  tokenSymbol,
+                  feeReturn.totalFee
+                )
+            )
+          } catch (e: any) {
+              console.log(`Can't get fee for ${tokenSymbol}, error: ${  e.message}`)
+          }
+        }
+
+        if(!fee) {
+          try {
+            const usdPrice: number = await this.getUsdPrice(chainId, tokenSymbol)
+            const usdReference = Number(
+              await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
+            )
+            if (usdReference && usdPrice) {
+              fee = (usdReference / usdPrice)
+            }            
+          } catch (e) {
+              console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
+          }
+        }
+
+        if(fee) {
+          this.redis.HSET(
+            `tokenfee:${chainId}`,
+            tokenSymbol,
+            fee
+          )
+        }
+      })
+      await Promise.all(results1)
+
+      // check if fee's have changed (only on alias markets)
+      const markets = (await this.redis.SMEMBERS(`activemarkets:${chainId}`))
+        .filter((m) => m.length < 20)
+      const fees = await this.redis.HGETALL(`tokenfee:${chainId}`)
+      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
+      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        const marketInfo = JSON.parse(marketInfos[market])
+        let updated = false
+        if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
+          marketInfo.baseFee = (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
+          updated = true
+        }
+        if(marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
+          marketInfo.quoteFee = (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
+          updated = true
+        }
+        if(updated) {
+          this.redis.HSET(
+            `marketinfo:${chainId}`,
+            market,
+            JSON.stringify(marketInfo)
+          )
+          // update Arweave id as well
+          this.redis.HSET(
+            `marketinfo:${chainId}`,
+            marketInfo.id,
+            JSON.stringify(marketInfo)
+          )
+          const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
+          this.broadcastMessage(chainId, market, marketInfoMsg)
+        }
+      })
+      await Promise.all(results2)
+    })
+    await Promise.all(results0) 
+    console.timeEnd("Update fees")
+  }
+
+  /**
+   * get marketInfo for a given marketAlias or marketId
+   * @param market marketAlias or marketId
+   * @param chainId 
+   * @returns marketInfo as ZZMarketInfo
+   */
   getMarketInfo = async (
     market: ZZMarket,
-    chainid: number
+    chainId: number
   ): Promise<ZZMarketInfo> => {
-    const redis_key = `marketinfo:${chainid}:${market}`
-    let marketinfo = await this.redis.get(redis_key)
-    try {
-      if (marketinfo) {
-        return JSON.parse(marketinfo) as ZZMarketInfo
-      }
+    const redis_key = `marketinfo:${chainId}`
+    const cache = await this.redis.HGET(
+      redis_key,
+      market
+    )
 
-      marketinfo = await this.fetchMarketInfoFromMarkets(
-        [market],
-        chainid
-      ).then((r: any) => r[0])
-    } catch (err) {
-      console.log(err)
+    if (cache) {
+      return JSON.parse(cache) as ZZMarketInfo
     }
 
-    return marketinfo as any as ZZMarketInfo
+    return this.getMarketInfoFromArweave(
+      market
+    )
   }
 
-  updateMarketInfo = async () => {
-    console.time('updating market info')
-    const chainIds = [1, 1000]
-    for (let i = 0; i < chainIds.length; i++) {
-      try {
-        const chainid = chainIds[i]
-        const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
-        // eslint-disable-next-line no-continue
-        if (!markets || markets.length === 0) continue
-        await this.fetchMarketInfoFromMarkets(markets, chainid)
-      } catch (e) {
-        console.error(e)
-      }
+  /**
+   * Gets the marketId for the given marketAlias
+   * @param chainId 
+   * @param marketAlias marketAlias string
+   */
+  getMarketId = async (
+    chainId: number,
+    marketAlias: string
+  ): Promise<ZZMarket> => {
+    if (marketAlias.length >= 20) {
+      return ""
     }
-    console.timeEnd('updating market info')
+
+    const select = await this.db.query(
+      'SELECT marketid FROM marketids WHERE marketAlias = $1 AND chainid = $2',
+      [marketAlias, chainId]
+    )
+    if (select.rows.length === 0) {
+      return ""
+    }
+    return select.rows[0]
+  }
+
+  /**
+   * Backs up market-alias and market-ID keys
+   */
+  backupMarkets = async () => {
+    try {
+      this.VALID_CHAINS.forEach(async (chainId: number) => {      
+        const select = await this.db.query(
+          'SELECT marketid FROM marketids WHERE chainid = $1',
+          [chainId]
+        )
+        let existingIds: string[] = []
+        if (select.rows.length > 0) {
+          existingIds = select.rows
+        }
+        
+        const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+        markets.forEach(async (market: ZZMarket) => {        
+          const marketInfo = await this.getMarketInfo(market, chainId)
+          const marketId = marketInfo.id
+          if(!existingIds.includes(marketId)) {
+            await this.db.query(
+              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT DO NOTHING',
+              [marketId, chainId, market]
+            )
+          }
+        })
+      })
+    } catch (err: any) {
+      console.log(`Failed to backup market keys to SQL`)
+    }
   }
 
   updateOrderFillStatus = async (
@@ -217,13 +473,6 @@ export default class API extends EventEmitter {
       console.error(e)
       return false
     }
-
-    // update user
-    this.sendMessageToUser(
-      chainid,
-      userId,
-      { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
-    )    
 
     const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
@@ -285,6 +534,7 @@ export default class API extends EventEmitter {
       feeAmount,
       feeToken,
       timestamp,
+      userId,
     }
   }
 
@@ -309,15 +559,6 @@ export default class API extends EventEmitter {
       console.error('Error while updateMatchedOrder offers.')
       console.error(e)
       return false
-    }
-
-    // update user
-    if (update.rows.length > 0) {
-      this.sendMessageToUser(
-        chainid,
-        update.rows[0].userid,
-        { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
-      )
     }
 
     try {
@@ -784,10 +1025,10 @@ export default class API extends EventEmitter {
     }
 
     const redisKey = `matchingorders:${chainid}:${orderId}`
-    const existingMembers = await this.redis.ZCOUNT(redisKey, -Infinity, Infinity)
+    const existingMembers = await this.redis.ZCOUNT(redisKey, 0, 99999999)
     this.redis.ZADD(redisKey, redis_members)
-    this.redis.EXPIRE(redisKey, 10)
     if(existingMembers === 0) {
+      this.redis.EXPIRE(redisKey, 10)
       setTimeout(
         this.senduserordermatch,
         250,
@@ -930,14 +1171,18 @@ export default class API extends EventEmitter {
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
-      console.log(`Failed to match order because ${err.message}, sending next best`)
-      // try next best one
-      this.senduserordermatch(
-        chainid, 
-        orderId, 
-        side
-      )
-      return
+      if (err.message.includes('is not open')) {
+        console.log(`Failed to match order because ${err.message}. Abort`)
+      } else {
+        console.log(`Failed to match order because ${err.message}, sending next best`)
+        // try next best one
+        this.senduserordermatch(
+          chainid, 
+          orderId, 
+          side
+        )
+      }    
+      return  
     }
     
     try {
@@ -950,19 +1195,21 @@ export default class API extends EventEmitter {
         console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
         const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
         const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-        otherWs.send(
-          JSON.stringify(
-            { 
-              op: 'error',
-              args: [
-                'fillrequest',
-                otherMakerAccountId,
-                "The Order was filled by better offer."
-              ] 
-            }
+        if(otherWs) {
+          otherWs.send(
+            JSON.stringify(
+              { 
+                op: 'error',
+                args: [
+                  'fillrequest',
+                  otherMakerAccountId,
+                  "The Order was filled by better offer."
+                ] 
+              }
+            )
           )
-        )
-      })
+        }
+      }) 
     } catch (err: any) {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
@@ -1723,7 +1970,10 @@ export default class API extends EventEmitter {
   clearDeadConnections = () => {
     ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
-        ws.terminate()
+        const userconnkey = `${ws.chainid}:${ws.userid}`
+        delete this.USER_CONNECTIONS[userconnkey]
+        delete this.MAKER_CONNECTIONS[userconnkey]
+        ws.terminate()        
       } else {
         ws.isAlive = false
         ws.ping()
@@ -1937,18 +2187,39 @@ export default class API extends EventEmitter {
     const cache = await this.redis.GET(redisKey)
     if (cache) return +cache
 
+    console.time(`getUSDprice: ${tokenSymbol}`)
     const stablePrice = await this.getUsdStablePrice(chainid, tokenSymbol)
     if (stablePrice) {
       this.redis.set(redisKey, stablePrice, { EX: 30 })
+      console.log(`stablePrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
       return stablePrice
     }
 
     const linkedPrice = await this.getUsdLinkedPrice(chainid, tokenSymbol)
     if (linkedPrice) {
       this.redis.set(redisKey, linkedPrice, { EX: 60 })
+      console.log(`linkedPrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
       return linkedPrice
     }
 
+    const baseUrl = (chainid === 1) 
+      ? "https://api.zksync.io/api/v0.2"
+      : "https://rinkeby-api.zksync.io/api/v0.2"
+
+    const fetchedPrice = await fetch(`${baseUrl[chainid]}/tokens/${tokenSymbol}/priceIn/usd`)
+      .then((r: any) => r.json())
+
+    if (fetchedPrice) {
+      this.redis.set(redisKey, fetchedPrice, { EX: 300 })
+      console.log(`fetchedPrice ${tokenSymbol}`)
+      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
+      return fetchedPrice
+    }
+
+    console.log(`no price ${tokenSymbol}`)
+    console.timeEnd(`getUSDprice: ${tokenSymbol}`)
     return null
   }
 
@@ -1981,10 +2252,12 @@ export default class API extends EventEmitter {
       const [baseAsset, quoteAsset] = market.split('-')
       if (baseAsset === tokenSymbol) {
         const quotePrice = await this.getUsdStablePrice(chainid, quoteAsset)
-        if (quotePrice) prices.push(quotePrice)
+        if (quotePrice) {
+          prices.push(quotePrice * Number(redisPrices[market]))
+        }
       } else if (quoteAsset === tokenSymbol) {
         const basePrice = await this.getUsdStablePrice(chainid, baseAsset)
-        if (basePrice) prices.push(1 / basePrice)
+        if (basePrice) prices.push(1 / basePrice * Number(redisPrices[market]))
       }
     })
     await Promise.all(results)

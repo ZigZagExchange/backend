@@ -30,7 +30,7 @@
     "@types/ws": "^8.2.2",
     "better-sqlite3": "^7.4.3",
     "dotenv": "^10.0.0",
-    "ethers": "^5.5.3",
+    "ethers": "^5.5.4",
     "express": "^4.17.1",
     "install": "^0.13.0",
     "isomorphic-fetch": "^3.0.0",
