@@ -413,26 +413,15 @@ export default class API extends EventEmitter {
    */
   backupMarkets = async () => {
     try {
-      this.VALID_CHAINS.forEach(async (chainId: number) => {      
-        const select = await this.db.query(
-          'SELECT marketid FROM marketids WHERE chainid = $1',
-          [chainId]
-        )
-        let existingIds: string[] = []
-        if (select.rows.length > 0) {
-          existingIds = select.rows
-        }
-        
+      this.VALID_CHAINS.forEach(async (chainId: number) => {
         const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
         markets.forEach(async (market: ZZMarket) => {        
           const marketInfo = await this.getMarketInfo(market, chainId)
           const marketId = marketInfo.id
-          if(!existingIds.includes(marketId)) {
-            await this.db.query(
-              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT DO NOTHING',
-              [marketId, chainId, market]
-            )
-          }
+          await this.db.query(
+            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT DO UPDATE SET marketid=$4 ',
+            [marketId, chainId, market, marketId]
+          )
         })
       })
     } catch (err: any) {
