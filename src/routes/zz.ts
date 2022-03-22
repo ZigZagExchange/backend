@@ -3,41 +3,41 @@ import type { ZZHttpServer, ZZMarket, ZZMarketInfo, ZZMarketSummary } from 'src/
 export default function cmcRoutes(app: ZZHttpServer) {
 
   const defaultChainId = process.env.DEFAULT_CHAIN_ID
-      ? Number(process.env.DEFAULT_CHAIN_ID)
-      : 1
+    ? Number(process.env.DEFAULT_CHAIN_ID)
+    : 1
 
   app.get('/api/v1/markets', async (req, res) => {
     let market: string
     let altMarket = ""
     if (req.query.market) {
       market = (req.query.market as string)
-        .replace('_','-')
-        .replace('/','-')
+        .replace('_', '-')
+        .replace('/', '-')
       altMarket = (req.query.market as string)
-        .replace('_','-')
-        .replace('/','-')
+        .replace('_', '-')
+        .replace('/', '-')
         .toUpperCase()
     } else {
       market = ""
     }
 
     try {
-      let marketSummarys: ZZMarketSummary =  await app.api.getMarketSummarys(
+      let marketSummarys: ZZMarketSummary = await app.api.getMarketSummarys(
         defaultChainId,
         market
       )
-      if(!marketSummarys && altMarket) {
-        marketSummarys =  await app.api.getMarketSummarys(
+      if (!marketSummarys && altMarket) {
+        marketSummarys = await app.api.getMarketSummarys(
           defaultChainId,
           altMarket
         )
       }
-      if(!marketSummarys) {
-        if(market === "") {
+      if (!marketSummarys) {
+        if (market === "") {
           res.send({ op: 'error', message: `Can't find any markets.` })
         } else {
           res.send({ op: 'error', message: `Can't find a summary for ${market}.` })
-        }        
+        }
         return
       }
       res.json(marketSummarys)
@@ -51,21 +51,21 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const markets: ZZMarket[] = []
     if (req.query.market) {
       const market = (req.query.market as string)
-        .replace('_','-')
-        .replace('/','-')
+        .replace('_', '-')
+        .replace('/', '-')
       markets.push(market)
       markets.push(market.toUpperCase())
     }
 
     try {
       const ticker: any = {}
-      const lastPrices: any =  await app.api.getLastPrices(defaultChainId, markets) 
-      if(lastPrices.length === 0) {
-        if(markets.length === 0) {
+      const lastPrices: any = await app.api.getLastPrices(defaultChainId, markets)
+      if (lastPrices.length === 0) {
+        if (markets.length === 0) {
           res.send({ op: 'error', message: `Can't find any lastPrices for any markets.` })
         } else {
           res.send({ op: 'error', message: `Can't find a lastPrice for ${req.query.market}.` })
-        }        
+        }
         return
       }
       lastPrices.forEach((price: string[]) => {
@@ -86,21 +86,21 @@ export default function cmcRoutes(app: ZZHttpServer) {
 
   app.get('/api/v1/orderbook/:market_pair', async (req, res) => {
     const market = (req.params.market_pair)
-      .replace('_','-')
-      .replace('/','-')
-      .replace(':','-')
+      .replace('_', '-')
+      .replace('/', '-')
+      .replace(':', '-')
     const altMarket = (req.params.market_pair)
-      .replace('_','-')
-      .replace('/','-')
-      .replace(':','-')
+      .replace('_', '-')
+      .replace('/', '-')
+      .replace(':', '-')
       .toUpperCase()
     const depth = (req.query.depth) ? Number(req.query.depth) : 0
     const level: number = (req.query.level) ? Number(req.query.level) : 2
-    if(![1,2,3].includes(level)) {
+    if (![1, 2, 3].includes(level)) {
       res.send({ op: 'error', message: `Level: ${level} is not a valid level. Use 1, 2 or 3.` })
       return
     }
-      
+
     try {
       // get data
       let liquidity = await app.api.getLiquidityPerSide(
@@ -127,10 +127,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
   app.get('/api/v1/trades/', async (req, res) => {
     let market = (req.query.market as string)
     let altMarket = (req.query.market as string)
-    if(market) {
-      market = market.replace('_','-')
-      altMarket = market.replace('_','-').toUpperCase()
-    }      
+    if (market) {
+      market = market.replace('_', '-')
+      altMarket = market.replace('_', '-').toUpperCase()
+    }
     const type: string = req.query.type as string
     const direction = req.query.direction as string
     const limit = (req.query.limit) ? Number(req.query.limit) : 0
@@ -138,9 +138,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
     const startTime = (req.query.start_time) ? Number(req.query.start_time) : 0
     const endTime = (req.query.end_time) ? Number(req.query.end_time) : 0
     const accountId = (req.query.account_id) ? Number(req.query.account_id) : 0
-    
 
-    if(type && !['s', 'b', 'sell', 'buy'].includes(type)) {
+
+    if (type && !['s', 'b', 'sell', 'buy'].includes(type)) {
       res.send({ op: 'error', message: `Type: ${type} is not a valid type. Use 's', 'b', 'sell', 'buy'` })
       return
     }
@@ -171,7 +171,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
         )
       }
 
-      if(fills.length === 0) {
+      if (fills.length === 0) {
         res.send({ op: 'error', message: `Can not find fills for ${market}` })
         return
       }
@@ -203,23 +203,23 @@ export default function cmcRoutes(app: ZZHttpServer) {
       res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
     }
   })
-  
+
   // needed to be backward compatible with markets server.js 
   app.get("/markets", async (req, res) => {
     res.redirect(`/api/v1/marketinfos?market=${req.query.id}&chain_id=${req.query.chainid}`)
-  })  
+  })
 
   app.get("/api/v1/marketinfos", async (req, res) => {
-    const chainId = (req.query.chain_id) 
+    const chainId = (req.query.chain_id)
       ? Number(req.query.chain_id)
       : defaultChainId
 
-    if(!app.api.VALID_CHAINS.includes(chainId)) {
+    if (!app.api.VALID_CHAINS.includes(chainId)) {
       res.send({ op: 'error', message: `${chainId} is not a valid chain id. Use ${app.api.VALID_CHAINS}` })
       return
     }
     let markets: ZZMarket[] = []
-    if(req.query.market) {
+    if (req.query.market) {
       markets = markets.concat((req.query.market as string).split(","))
     } else {
       res.send({ op: 'error', message: `Set a requested pair with '?market=___'` })
@@ -233,13 +233,13 @@ export default function cmcRoutes(app: ZZHttpServer) {
           market,
           Number(chainId)
         )
-        if(!marketInfo) throw new Error ('Market not found')
+        if (!marketInfo) throw new Error('Market not found')
         marketInfos[market] = marketInfo
       } catch (err: any) {
-        marketInfos[market] = { 
+        marketInfos[market] = {
           'error': err.message,
-          'market': market 
-        }            
+          'market': market
+        }
       }
     })
     await Promise.all(results)
