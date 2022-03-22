@@ -1666,7 +1666,6 @@ export default class API extends EventEmitter {
       markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
     }   
 
-    // eslint-disable-next-line no-restricted-syntax
     const results: Promise<any>[] = markets.map(async (market_id) => {
       const marketInfo = await this.getMarketInfo(market_id, chainid)
       if (!marketInfo || marketInfo.error) {

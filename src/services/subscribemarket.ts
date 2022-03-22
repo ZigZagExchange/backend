@@ -1,11 +1,11 @@
-import type { ZZServiceHandler, ZZMarketSummary} from 'src/types'
+import type { ZZServiceHandler, ZZMarketSummary } from 'src/types'
 
 export const subscribemarket: ZZServiceHandler = async (
   api,
   ws,
   [chainId, market]
 ) => {
-  if(!api.VALID_CHAINS.includes(chainId)) {
+  if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['subscribemarket', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
     ws.send(JSON.stringify(errorMsg))
     return
@@ -16,7 +16,7 @@ export const subscribemarket: ZZServiceHandler = async (
       chainId,
       market
     ))[market]
-    if(marketSummary) {
+    if (marketSummary) {
       const marketSummaryMsg = {
         op: 'marketsummary',
         args: [
@@ -36,17 +36,17 @@ export const subscribemarket: ZZServiceHandler = async (
     }
 
     const marketinfo = await api.getMarketInfo(market, chainId)
-    if(marketinfo) {
+    if (marketinfo) {
       const marketInfoMsg = { op: 'marketinfo', args: [marketinfo] }
       ws.send(JSON.stringify(marketInfoMsg))
     } else {
       const errorMsg = { op: 'error', message: `Can not find market ${market}` }
       ws.send(JSON.stringify(errorMsg))
-    }    
+    }
   } catch (e) {
     console.error(e)
   }
-  
+
   const openorders = await api.getopenorders(chainId, market)
   ws.send(JSON.stringify({ op: 'orders', args: [openorders] }))
 
