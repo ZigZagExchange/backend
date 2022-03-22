@@ -36,7 +36,7 @@ The current list of operations available over HTTP POST are: `submitorder3`, `re
 
 The Zksync limit order system is pretty complicated, so we've simplified it down into an RFQ.
 
-There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the $1 flat fee.
+There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the variable fee.
 
 Using the price from the `quote` response, you can send a limit order with `submitorder3`. An order sent at the `quote` price will fill like a market order.
 
