@@ -154,9 +154,13 @@ export default class API extends EventEmitter {
       return marketInfo
     }
     try {
-      marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
-        .then((r: any) => r.json())
+      const controller = new AbortController()
+      setTimeout(() => controller.abort(), 5000)
 
+      marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`, {
+        signal: controller.signal, }).then((r: any) => r.json())
+
+      if (!marketInfo) throw new Error(`No marketinfo found.`)
       const chainId = marketInfo.zigzagChainId
 
       const [
@@ -234,7 +238,7 @@ export default class API extends EventEmitter {
       
 
     } catch (err: any) {
-      console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}`)
+      console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}. Error: ${err.message}`)
     }
     return marketInfo
   }
