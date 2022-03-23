@@ -41,6 +41,12 @@ ALTER TABLE fills ADD COLUMN IF NOT EXISTS side TEXT;
 ALTER TABLE fills ADD COLUMN IF NOT EXISTS feeamount  NUMERIC(32, 16);
 ALTER TABLE fills ADD COLUMN IF NOT EXISTS feetoken TEXT;
 
+CREATE TABLE IF NOT EXISTS marketids (
+  marketalias        TEXT            PRIMARY KEY,
+  chainid            INTEGER         NOT NULL,
+  marketid           TEXT            NOT NULL
+);
+
 -------------------------------------------------------------------
 -- match_limit_order
 --
