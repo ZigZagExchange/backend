@@ -173,8 +173,8 @@ export default class API extends EventEmitter {
         this.getTokenInfo(chainId, marketInfo.quoteAssetId)
       ])
 
-      if (!baseAsset) throw new Error (`AssetInfos for ${marketInfo.baseAssetId} is null`)
-      if (!quoteAsset) throw new Error (`AssetInfos for ${marketInfo.quoteAssetId} is null`)
+      if (!baseAsset) throw new Error(`AssetInfos for ${marketInfo.baseAssetId} is null`)
+      if (!quoteAsset) throw new Error(`AssetInfos for ${marketInfo.quoteAssetId} is null`)
 
       marketInfo.baseAsset = baseAsset
       marketInfo.quoteAsset = quoteAsset
@@ -2225,8 +2225,14 @@ export default class API extends EventEmitter {
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
-        marketInfo.baseAsset.usdPrice = updatedTokenPrice[marketInfo.baseAsset.symbol]
-        marketInfo.quoteAsset.usdPrice = updatedTokenPrice[marketInfo.quoteAsset.symbol]
+        marketInfo.baseAsset.usdPrice = Number(
+          (updatedTokenPrice[marketInfo.baseAsset.symbol])
+            .toFixed(marketInfo.pricePrecisionDecimals)
+        )
+        marketInfo.quoteAsset.usdPrice = Number(
+          (updatedTokenPrice[marketInfo.quoteAsset.symbol])
+            .toFixed(marketInfo.pricePrecisionDecimals)
+        )
         this.redis.HSET(
           `marketinfo:${chainId}`,
           market,
