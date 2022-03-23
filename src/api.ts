@@ -36,6 +36,9 @@ export default class API extends EventEmitter {
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
+  ZKSYNC_BASE_URL = (this.DEFAULT_CHAIN === 1)
+    ? "https://api.zksync.io/api/v0.2/"
+    : "https://rinkeby-api.zksync.io/api/v0.2/"
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -157,8 +160,8 @@ export default class API extends EventEmitter {
       marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
         .then((r: any) => r.json())
 
+      // not using redis tokeninfo here to refetch infos 
       const chainId = marketInfo.zigzagChainId
-
       const [
         baseAsset,
         quoteAsset
@@ -275,11 +278,12 @@ export default class API extends EventEmitter {
     console.time("Update fees")
     const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId: number) => {
       const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
-      const tokenSymbols = Object.keys(tokenInfos)
-      const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {        
+      const tokenSymbols = Object.keys(tokenInfos).filter(t => t.length < 20)
+      const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {       
         const tokenInfo: any = JSON.parse(tokenInfos[tokenSymbol])
         let fee
-        if(tokenInfo?.enabledForFees) {
+        if (!tokenInfo) return 
+        if(tokenInfo.enabledForFees) {
           try {
             const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
                 "Swap",
@@ -300,7 +304,7 @@ export default class API extends EventEmitter {
 
         if(!fee) {
           try {
-            const usdPrice: number = await this.getUsdPrice(chainId, tokenSymbol)
+            const usdPrice: number = (tokenInfo.usdPrice) ? Number(tokenInfo.usdPrice) : 0
             const usdReference = Number(
               await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
             )
@@ -322,9 +326,8 @@ export default class API extends EventEmitter {
       })
       await Promise.all(results1)
 
-      // check if fee's have changed (only on alias markets)
+      // check if fee's have changed
       const markets = (await this.redis.SMEMBERS(`activemarkets:${chainId}`))
-        .filter((m) => m.length < 20)
       const fees = await this.redis.HGETALL(`tokenfee:${chainId}`)
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
@@ -2171,90 +2174,67 @@ export default class API extends EventEmitter {
     return volumes
   }
 
-  getUsdPrice = async (chainid: number, tokenSymbol: string) => {
-    const redisKey = `usdprice:${chainid}:&{tokenSymbol}`
-    const cache = await this.redis.GET(redisKey)
-    if (cache) return +cache
-
-    console.time(`getUSDprice: ${tokenSymbol}`)
-    const stablePrice = await this.getUsdStablePrice(chainid, tokenSymbol)
-    if (stablePrice) {
-      this.redis.set(redisKey, stablePrice, { EX: 30 })
-      console.log(`stablePrice ${tokenSymbol}`)
-      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
-      return stablePrice
+  getUsdPrice = async (
+    chainId: number,
+    tokenSymbol: string
+  ): Promise<number> => {
+    const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenSymbol)
+    if (cache) {      
+      return Number((JSON.parse(cache)).usdPrice)
     }
-
-    const linkedPrice = await this.getUsdLinkedPrice(chainid, tokenSymbol)
-    if (linkedPrice) {
-      this.redis.set(redisKey, linkedPrice, { EX: 60 })
-      console.log(`linkedPrice ${tokenSymbol}`)
-      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
-      return linkedPrice
-    }
-
-    const baseUrl = (chainid === 1) 
-      ? "https://api.zksync.io/api/v0.2"
-      : "https://rinkeby-api.zksync.io/api/v0.2"
-
-    const fetchedPrice = await fetch(`${baseUrl[chainid]}/tokens/${tokenSymbol}/priceIn/usd`)
-      .then((r: any) => r.json())
-
-    if (fetchedPrice) {
-      this.redis.set(redisKey, fetchedPrice, { EX: 300 })
-      console.log(`fetchedPrice ${tokenSymbol}`)
-      console.timeEnd(`getUSDprice: ${tokenSymbol}`)
-      return fetchedPrice
-    }
-
-    console.log(`no price ${tokenSymbol}`)
-    console.timeEnd(`getUSDprice: ${tokenSymbol}`)
-    return null
+    return 0
   }
 
-  getUsdStablePrice = async (chainid: number, tokenSymbol: string) => {
-    const redisKeyPrices = `lastprices:${chainid}`
-    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
-    const stabels = ['DAI', 'FRAX', 'USDC', 'USDT', 'UST']
+  updateUsdPrice = async () => {
+    console.time("Updating usd price.")
+    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
+      const tokenInfoKey = `tokeninfo:${chainId}`
+      const tokenInfos = await this.redis.HGETALL(tokenInfoKey)
+      const updatedTokenInfos: any = {}
+      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      const updatedTokens: string[] = []
+      const results1: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        const tokens = market.split('-')
+        tokens.forEach(async (token) => {
+          if (!updatedTokens.includes(token)) {
+            updatedTokens.push(token)
+            const tokenInfo = JSON.parse(tokenInfos[token])
+            const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
+              .then((r: any) => r.json()) as AnyObject
+            tokenInfo.usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
+            updatedTokenInfos[token] = tokenInfo
+            this.redis.HSET(
+              tokenInfoKey,
+              token,
+              JSON.stringify(tokenInfo)
+            )
+          }
+        })
+      })
+      await Promise.all(results1)
 
-    const prices: number[] = []
-    stabels.forEach((stabel) => {
-      const possibleMarket = `${tokenSymbol}-${stabel}`
-      const price = redisPrices[possibleMarket]
-      if (price) prices.push(+price)
+      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
+      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        const marketInfo = JSON.parse(marketInfos[market])
+        marketInfo.baseAsset = updatedTokenInfos[marketInfo.baseAsset.symbol]
+        marketInfo.quoteAsset = updatedTokenInfos[marketInfo.baseAsset.symbol]
+        this.redis.HSET(
+          `marketinfo:${chainId}`,
+          market,
+          JSON.stringify(marketInfo)
+        )
+        // update Arweave id as well
+        this.redis.HSET(
+          `marketinfo:${chainId}`,
+          marketInfo.id,
+          JSON.stringify(marketInfo)
+        )
+        const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
+        this.broadcastMessage(chainId, market, marketInfoMsg)
+      })
+      await Promise.all(results2)
     })
-
-    if (prices.length > 0) {
-      const sum = prices.reduce((pv, cv) => pv + cv, 0)
-      return sum / prices.length
-    }
-    return null
-  }
-
-  getUsdLinkedPrice = async (chainid: number, tokenSymbol: string) => {
-    const redisKeyPrices = `lastprices:${chainid}`
-    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
-    const markets = Object.keys(redisPrices)
-
-    const prices: number[] = []
-    const results: Promise<any>[] = markets.map(async (market) => {
-      const [baseAsset, quoteAsset] = market.split('-')
-      if (baseAsset === tokenSymbol) {
-        const quotePrice = await this.getUsdStablePrice(chainid, quoteAsset)
-        if (quotePrice) {
-          prices.push(quotePrice * Number(redisPrices[market]))
-        }
-      } else if (quoteAsset === tokenSymbol) {
-        const basePrice = await this.getUsdStablePrice(chainid, baseAsset)
-        if (basePrice) prices.push(1 / basePrice * Number(redisPrices[market]))
-      }
-    })
-    await Promise.all(results)
-
-    if (prices.length > 0) {
-      const sum = prices.reduce((pv, cv) => pv + cv, 0)
-      return sum / prices.length
-    }
-    return null  
+    await Promise.all(results0)
+    console.timeEnd("Updating usd price.")
   }
 }
