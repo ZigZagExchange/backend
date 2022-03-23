@@ -2202,7 +2202,7 @@ export default class API extends EventEmitter {
     const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
       const tokenInfoKey = `tokeninfo:${chainId}`
       const tokenInfos = await this.redis.HGETALL(tokenInfoKey)
-      const updatedTokenInfos: any = {}
+      const updatedTokenPrice: any = {}
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
       const updatedTokens: string[] = []
       const results1: Promise<any>[] = markets.map(async (market: ZZMarket) => {
@@ -2218,8 +2218,9 @@ export default class API extends EventEmitter {
 
             const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
               .then((r: any) => r.json()) as AnyObject
-            tokenInfo.usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
-            updatedTokenInfos[token] = tokenInfo
+            const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
+            updatedTokenPrice[token] = usdPrice
+            tokenInfo.usdPrice = usdPrice
             this.redis.HSET(
               tokenInfoKey,
               token,
@@ -2233,8 +2234,8 @@ export default class API extends EventEmitter {
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
-        marketInfo.baseAsset = updatedTokenInfos[marketInfo.baseAsset.symbol]
-        marketInfo.quoteAsset = updatedTokenInfos[marketInfo.quoteAsset.symbol]
+        marketInfo.baseAsset.usdPrice = updatedTokenPrice[marketInfo.baseAsset.symbol]
+        marketInfo.quoteAsset.usdPrice = updatedTokenPrice[marketInfo.quoteAsset.symbol]
         this.redis.HSET(
           `marketinfo:${chainId}`,
           market,
