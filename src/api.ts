@@ -1982,8 +1982,11 @@ export default class API extends EventEmitter {
       const results: Promise<any>[] = markets.map(async (market_id) => {
         const liquidity = await this.getLiquidity(chainid, market_id)
         if (liquidity.length === 0) {
+          const marketInfo = await this.getMarketInfo(market_id, chainid)
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
+          await this.redis.HDEL(`marketinfo:${chainid}`, market_id)
+          await this.redis.HDEL(`marketinfo:${chainid}`, marketInfo.id)
           return
         }
         this.broadcastMessage(chainid, market_id, {
