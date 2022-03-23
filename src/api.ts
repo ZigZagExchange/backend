@@ -89,7 +89,8 @@ export default class API extends EventEmitter {
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateFees, 10000),
+      setInterval(this.updateUsdPrice, 20000),
+      setInterval(this.updateFees, 30100),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -315,8 +316,8 @@ export default class API extends EventEmitter {
           try {
             const usdPrice: number = (tokenInfo.usdPrice) ? Number(tokenInfo.usdPrice) : 0
             const usdReferenceString = await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
-            const usdReference = (usdReferenceString) ? Number(usdReferenceString) : 0
-            if (usdPrice) {
+            const usdReference: number = (usdReferenceString) ? Number(usdReferenceString) : 0
+            if (usdPrice > 0) {
               fee = (usdReference / usdPrice)
             }
           } catch (e) {
