@@ -64,7 +64,7 @@ export default class API extends EventEmitter {
 
   serviceHandler = (msg: WSMessage, ws?: WSocket): any => {
     if (msg.op === "ping") {
-        return false
+      return false
     }
     if (!Object.prototype.hasOwnProperty.call(services, msg.op)) {
       console.error(`Operation failed: ${msg.op}`)
@@ -122,9 +122,9 @@ export default class API extends EventEmitter {
     this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
 
     this.ETHERS_PROVIDER[1] =
-      new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID, )
+      new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
     this.ETHERS_PROVIDER[1000] =
-      new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID, )
+      new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
     this.started = true
 
@@ -161,12 +161,12 @@ export default class API extends EventEmitter {
         .then((r: any) => r.json())
 
       if (!marketInfo) return null
-      
+
       const chainId = marketInfo.zigzagChainId
       const [
         baseAsset,
         quoteAsset
-      ] = await Promise.all ([
+      ] = await Promise.all([
         this.getTokenInfo(chainId, marketInfo.baseAsset.id),
         this.getTokenInfo(chainId, marketInfo.quoteAsset.id)
       ])
@@ -180,13 +180,13 @@ export default class API extends EventEmitter {
       const [
         baseFee,
         quoteFee
-      ] = await Promise.all ([
+      ] = await Promise.all([
         this.redis.HGET(`tokenfee:${chainId}`, marketInfo.baseAsset.symbol),
         this.redis.HGET(`tokenfee:${chainId}`, marketInfo.quoteAsset.symbol)
       ])
-      if(baseFee) marketInfo.baseFee = Number(baseFee)
-      if(quoteFee) marketInfo.quoteFee = Number(quoteFee)
-      
+      if (baseFee) marketInfo.baseFee = Number(baseFee)
+      if (quoteFee) marketInfo.quoteFee = Number(quoteFee)
+
       const redisKey = `marketinfo:${chainId}`
       this.redis.HSET(
         redisKey,
@@ -268,7 +268,7 @@ export default class API extends EventEmitter {
         this.ERC20_ABI,
         this.ETHERS_PROVIDER[chainId]
       )
-       name = await contract.name()
+      name = await contract.name()
     } catch (e) {
       console.error(e)
       name = tokenSymbol
@@ -290,13 +290,13 @@ export default class API extends EventEmitter {
         const tokenInfo = (tokenInfoString)
           ? JSON.parse(tokenInfoString)
           : await this.getTokenInfo(chainId, tokenSymbol)
-        if (!tokenInfo) return 
-        if(tokenInfo.enabledForFees) {
+        if (!tokenInfo) return
+        if (tokenInfo.enabledForFees) {
           try {
             const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
-                "Swap",
-                '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
-                tokenSymbol
+              "Swap",
+              '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
+              tokenSymbol
             )
             fee = Number(
               this.SYNC_PROVIDER[chainId].tokenSet
@@ -306,11 +306,11 @@ export default class API extends EventEmitter {
                 )
             )
           } catch (e: any) {
-              console.log(`Can't get fee for ${tokenSymbol}, error: ${  e.message}`)
+            console.log(`Can't get fee for ${tokenSymbol}, error: ${e.message}`)
           }
         }
 
-        if(!fee) {
+        if (!fee) {
           try {
             const usdPrice: number = (tokenInfo.usdPrice) ? Number(tokenInfo.usdPrice) : 0
             const usdReferenceString = await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
@@ -319,11 +319,11 @@ export default class API extends EventEmitter {
               fee = (usdReference / usdPrice)
             }
           } catch (e) {
-              console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
+            console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
           }
         }
 
-        if(fee) {
+        if (fee) {
           this.redis.HSET(
             `tokenfee:${chainId}`,
             tokenSymbol,
@@ -340,15 +340,15 @@ export default class API extends EventEmitter {
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
         let updated = false
-        if(marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
+        if (marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
           marketInfo.baseFee = (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
           updated = true
         }
-        if(marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
+        if (marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
           marketInfo.quoteFee = (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
           updated = true
         }
-        if(updated) {
+        if (updated) {
           this.redis.HSET(
             `marketinfo:${chainId}`,
             market,
@@ -366,7 +366,7 @@ export default class API extends EventEmitter {
       })
       await Promise.all(results2)
     })
-    await Promise.all(results0) 
+    await Promise.all(results0)
     console.timeEnd("Update fees")
   }
 
@@ -425,7 +425,7 @@ export default class API extends EventEmitter {
     try {
       this.VALID_CHAINS.forEach(async (chainId: number) => {
         const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-        markets.forEach(async (market: ZZMarket) => {        
+        markets.forEach(async (market: ZZMarket) => {
           const marketInfo = await this.getMarketInfo(market, chainId)
           const marketId = marketInfo.id
           await this.db.query(
@@ -479,12 +479,12 @@ export default class API extends EventEmitter {
     let timestamp
     try {
       if (marketInfo) {
-        if(side === 's') {
+        if (side === 's') {
           feeAmount = marketInfo.baseFee
-          feeToken =  marketInfo.baseAsset.symbol
+          feeToken = marketInfo.baseAsset.symbol
         } else {
           feeAmount = marketInfo.quoteFee
-          feeToken =  marketInfo.quoteAsset.symbol
+          feeToken = marketInfo.quoteAsset.symbol
         }
       } else {
         feeAmount = 0.5
@@ -933,7 +933,7 @@ export default class API extends EventEmitter {
 
     const userconnkey = `${chainid}:${select.rows[0].userid}`
 
-    if (select.rows[0].order_status !== 'o') {   
+    if (select.rows[0].order_status !== 'o') {
       // somehow user was not updated, do that now   
       if (ws) {
         try {
@@ -978,12 +978,12 @@ export default class API extends EventEmitter {
     if (select.rows.length === 0) {
       ws.send(
         JSON.stringify(
-          { 
+          {
             op: 'error',
             args: [
               'fillrequest',
               fillOrder.accountId.toString(),
-              `Order ${orderId} is not open`] 
+              `Order ${orderId} is not open`]
           }
         )
       )
@@ -991,12 +991,12 @@ export default class API extends EventEmitter {
     }
 
     const selectresult = select.rows[0]
-    
+
     // Determine fill price
     const marketInfo = await this.getMarketInfo(selectresult.market, chainid)
     let baseQuantity: number
     let quoteQuantity: number
-    
+
     if (selectresult.side === 's') {
       baseQuantity = selectresult.base_quantity
       quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
@@ -1026,7 +1026,7 @@ export default class API extends EventEmitter {
     const redisKey = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKey, 0, 99999999)
     this.redis.ZADD(redisKey, redis_members)
-    if(existingMembers === 0) {
+    if (existingMembers === 0) {
       this.redis.EXPIRE(redisKey, 10)
       setTimeout(
         this.senduserordermatch,
@@ -1044,12 +1044,12 @@ export default class API extends EventEmitter {
   ) => {
     const redisKeyMatchingOrder = `matchingorders:${chainid}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(redisKeyMatchingOrder, -Infinity, Infinity)
-    if(existingMembers === 0) {
+    if (existingMembers === 0) {
       return
     }
 
     let redis_members
-    if(side === 'b') {
+    if (side === 'b') {
       redis_members = await this.redis.ZPOPMIN(redisKeyMatchingOrder)
     } else {
       redis_members = await this.redis.ZPOPMAX(redisKeyMatchingOrder)
@@ -1060,14 +1060,14 @@ export default class API extends EventEmitter {
 
     const fillPrice = redis_members.score
     const value = JSON.parse(redis_members.value)
-    const {fillOrder} = value
+    const { fillOrder } = value
     const makerAccountId = fillOrder.accountId.toString()
     const makerConnId = `${chainid}:${value.wsUUID}`
     const ws = this.MAKER_CONNECTIONS[makerConnId]
 
     let fill
     const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
-    try {      
+    try {
       const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
@@ -1080,20 +1080,20 @@ export default class API extends EventEmitter {
               makerAccountId,
               // eslint-disable-next-line prefer-template
               'Your address did not respond to order (' +
-                processingOrderId +
-                ') yet. Remaining timeout: ' +
-                remainingTime +
-                '.',
+              processingOrderId +
+              ') yet. Remaining timeout: ' +
+              remainingTime +
+              '.',
             ],
           })
         )
-        throw new Error('fillrequest - market maker is timed out.') 
+        throw new Error('fillrequest - market maker is timed out.')
       }
-      
+
       const marketInfo = await this.getMarketInfo(value.market, chainid)
       let priceWithoutFee: string
-      if(marketInfo) {
-        if(side === 's') {
+      if (marketInfo) {
+        if (side === 's') {
           const quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
           const baseQuantityWithoutFee = value.baseQuantity - marketInfo.baseFee
           priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
@@ -1117,8 +1117,8 @@ export default class API extends EventEmitter {
       )
       if (update1.rows.length === 0)
         // this *should* not happen, so no need to send to ws
-        throw new Error(`Order ${orderId} is not open`)  
-      
+        throw new Error(`Order ${orderId} is not open`)
+
       values = [
         chainid,
         value.market,
@@ -1176,14 +1176,14 @@ export default class API extends EventEmitter {
         console.log(`Failed to match order because ${err.message}, sending next best`)
         // try next best one
         this.senduserordermatch(
-          chainid, 
-          orderId, 
+          chainid,
+          orderId,
           side
         )
-      }    
-      return  
+      }
+      return
     }
-    
+
     try {
       // send result to other mm's, remove set
       const otherMakerList: any[] = await this.redis.ZRANGE(redisKeyMatchingOrder, 0, -1)
@@ -1194,21 +1194,21 @@ export default class API extends EventEmitter {
         console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
         const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
         const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-        if(otherWs) {
+        if (otherWs) {
           otherWs.send(
             JSON.stringify(
-              { 
+              {
                 op: 'error',
                 args: [
                   'fillrequest',
                   otherMakerAccountId,
                   "The Order was filled by better offer."
-                ] 
+                ]
               }
             )
           )
         }
-      }) 
+      })
     } catch (err: any) {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
@@ -1229,7 +1229,7 @@ export default class API extends EventEmitter {
     market: ZZMarket | null = null,
     msg: WSMessage | null = null
   ) => {
-    ;(this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
+    ; (this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
       if (chainid && ws.chainid !== chainid) return
       if (market && !ws.marketSubscriptions.includes(market)) return
@@ -1315,7 +1315,7 @@ export default class API extends EventEmitter {
         bids: [bids[0]],
         asks: [asks[0]],
       }
-    } 
+    }
     if (level === 2) {
       // Level 2 – Arranged by best bids and asks.
       const marketInfo = await this.getMarketInfo(market, chainid)
@@ -1373,7 +1373,7 @@ export default class API extends EventEmitter {
         bids: returnBids,
         asks: returnAsks,
       }
-    } 
+    }
     if (level === 3) {
       // Level 3 – Complete order book, no aggregation.
       return {
@@ -1479,16 +1479,16 @@ export default class API extends EventEmitter {
     direction?: string
   ) => {
     let text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f'"
-    
-    if(market) {
+
+    if (market) {
       text += ` AND market = '${market}'`
     }
 
     let sqlDirection = "DESC"
-    if(direction) {
-      if(direction === "older") {
+    if (direction) {
+      if (direction === "older") {
         sqlDirection = "DESC"
-      } else if(direction === "newer") {
+      } else if (direction === "newer") {
         sqlDirection = "ASC"
       } else {
         throw new Error("Only direction 'older' or 'newer' is allowed.")
@@ -1496,11 +1496,11 @@ export default class API extends EventEmitter {
     }
 
     if (orderId) {
-      if(sqlDirection === "DESC") {
+      if (sqlDirection === "DESC") {
         text += ` AND id <= '${orderId}'`
       } else {
         text += ` AND id >= '${orderId}'`
-      }      
+      }
     }
 
     if (type) {
@@ -1589,7 +1589,7 @@ export default class API extends EventEmitter {
     try {
       // remove zero volumes
       this.VALID_CHAINS.forEach(async (chainId) => {
-        const nonZeroMarkets = select.rows.filter(row => row.chainid===chainId)
+        const nonZeroMarkets = select.rows.filter(row => row.chainid === chainId)
           .map(row => row.market)
 
         const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
@@ -1604,7 +1604,7 @@ export default class API extends EventEmitter {
         keysToDelQuote.forEach(key => {
           this.redis.HDEL(`volume:${chainId}:quote`, key)
         })
-      })    
+      })
     } catch (err) {
       console.error(err)
       console.log('Could not remove zero volumes')
@@ -1967,12 +1967,12 @@ export default class API extends EventEmitter {
   }
 
   clearDeadConnections = () => {
-    ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
+    ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
         const userconnkey = `${ws.chainid}:${ws.userid}`
         delete this.USER_CONNECTIONS[userconnkey]
         delete this.MAKER_CONNECTIONS[userconnkey]
-        ws.terminate()        
+        ws.terminate()
       } else {
         ws.isAlive = false
         ws.ping()
@@ -2057,10 +2057,10 @@ export default class API extends EventEmitter {
       throw new Error(
         // eslint-disable-next-line prefer-template
         'Your address did not respond to order ' +
-          waitingOrderId +
-          ' yet. Remaining timeout: ' +
-          remainingTime +
-          '.'
+        waitingOrderId +
+        ' yet. Remaining timeout: ' +
+        remainingTime +
+        '.'
       )
     }
 
@@ -2146,7 +2146,7 @@ export default class API extends EventEmitter {
   }
 
   populateV1TokenIds = async () => {
-    for (let i = 0; ; ) {
+    for (let i = 0; ;) {
       const result: any = (await fetch(
         `https://api.zksync.io/api/v0.2/tokens?from=${i}&limit=100&direction=newer`
       ).then((r: any) => r.json())) as AnyObject
@@ -2212,7 +2212,7 @@ export default class API extends EventEmitter {
             const tokenInfo = (tokenInfoString)
               ? JSON.parse(tokenInfoString)
               : await this.getTokenInfo(chainId, token)
-            if(!tokenInfo) return
+            if (!tokenInfo) return
 
             const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
               .then((r: any) => r.json()) as AnyObject
