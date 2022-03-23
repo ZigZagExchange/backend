@@ -157,6 +157,7 @@ export default class API extends EventEmitter {
       return marketInfo
     }
     try {
+      console.log(`Fetch marketInfo from Arweave`)
       marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
         .then((r: any) => r.json())
 
@@ -415,7 +416,7 @@ export default class API extends EventEmitter {
     if (select.rows.length === 0) {
       return ""
     }
-    return select.rows[0]
+    return select.rows[0].marketid
   }
 
   /**
