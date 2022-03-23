@@ -316,8 +316,8 @@ export default class API extends EventEmitter {
           try {
             const usdPrice: number = (tokenInfo.usdPrice) ? Number(tokenInfo.usdPrice) : 0
             const usdReferenceString = await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
-            const usdReference = (usdReferenceString) ? Number(usdReferenceString) : 0
-            if (usdPrice) {
+            const usdReference: number = (usdReferenceString) ? Number(usdReferenceString) : 0
+            if (usdPrice > 0) {
               fee = (usdReference / usdPrice)
             }
           } catch (e) {
