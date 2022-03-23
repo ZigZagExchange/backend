@@ -415,7 +415,7 @@ export default class API extends EventEmitter {
     if (select.rows.length === 0) {
       return ""
     }
-    return select.rows[0]
+    return select.rows[0].marketid
   }
 
   /**
