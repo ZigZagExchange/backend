@@ -193,12 +193,12 @@ export default class API extends EventEmitter {
       if (quoteFee) marketInfo.quoteFee = Number(quoteFee)
 
       const redisKey = `marketinfo:${chainId}`
-      this.redis.HSET(
+      await this.redis.HSET(
         redisKey,
         marketArweaveId,
         JSON.stringify(marketInfo)
       )
-      this.redis.HSET(
+      await this.redis.HSET(
         redisKey,
         marketInfo.alias,
         JSON.stringify(marketInfo)
@@ -206,7 +206,7 @@ export default class API extends EventEmitter {
 
       // update id in SQL
       try {
-        this.db.query(
+        await this.db.query(
           'UPDATE marketids SET marketid=$1 WHERE marketAlias = $2 AND chainid = $3',
           [marketArweaveId, marketInfo.alias, chainId]
         )
@@ -1994,11 +1994,8 @@ export default class API extends EventEmitter {
       const results: Promise<any>[] = markets.map(async (market_id) => {
         const liquidity = await this.getLiquidity(chainid, market_id)
         if (liquidity.length === 0) {
-          const marketInfo = await this.getMarketInfo(market_id, chainid)
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
-          await this.redis.HDEL(`marketinfo:${chainid}`, market_id)
-          await this.redis.HDEL(`marketinfo:${chainid}`, marketInfo.id)
           return
         }
         this.broadcastMessage(chainid, market_id, {
