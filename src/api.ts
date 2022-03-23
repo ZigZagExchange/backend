@@ -112,6 +112,14 @@ export default class API extends EventEmitter {
       })
     })
 
+    // reset liquidityKeys
+    this.VALID_CHAINS.map(async (chainid) => {      
+      const liquidityKeys = await this.redis.KEYS(`liquidity:${chainid}:*`)
+      liquidityKeys.forEach(async (key) => {
+        await this.redis.DEL(key)
+      })
+    })
+
     this.ERC20_ABI = JSON.parse(
       fs.readFileSync(
         'abi/ERC20.abi',
@@ -173,8 +181,8 @@ export default class API extends EventEmitter {
         this.getTokenInfo(chainId, marketInfo.quoteAssetId)
       ])
 
-      if (!baseAsset) throw new Error (`AssetInfos for ${marketInfo.baseAssetId} is null`)
-      if (!quoteAsset) throw new Error (`AssetInfos for ${marketInfo.quoteAssetId} is null`)
+      if (!baseAsset) throw new Error(`AssetInfos for ${marketInfo.baseAssetId} is null`)
+      if (!quoteAsset) throw new Error(`AssetInfos for ${marketInfo.quoteAssetId} is null`)
 
       marketInfo.baseAsset = baseAsset
       marketInfo.quoteAsset = quoteAsset
@@ -2209,11 +2217,15 @@ export default class API extends EventEmitter {
         if (!tokenInfoString) return
         const tokenInfo = JSON.parse(tokenInfoString)
 
-        const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
-          .then((r: any) => r.json()) as AnyObject
-        const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
-        updatedTokenPrice[token] = usdPrice
-        tokenInfo.usdPrice = usdPrice
+        try {
+          const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
+            .then((r: any) => r.json()) as AnyObject
+          const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
+          updatedTokenPrice[token] = usdPrice
+          tokenInfo.usdPrice = usdPrice
+        } catch (err: any) {
+          console.log(`Could not update price for ${token}, Error: ${err.message}`)
+        }
         this.redis.HSET(
           `tokeninfo:${chainId}`,
           token,
@@ -2225,8 +2237,14 @@ export default class API extends EventEmitter {
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
-        marketInfo.baseAsset.usdPrice = updatedTokenPrice[marketInfo.baseAsset.symbol]
-        marketInfo.quoteAsset.usdPrice = updatedTokenPrice[marketInfo.quoteAsset.symbol]
+        marketInfo.baseAsset.usdPrice = Number(
+          (updatedTokenPrice[marketInfo.baseAsset.symbol])
+            .toFixed(marketInfo.pricePrecisionDecimals)
+        )
+        marketInfo.quoteAsset.usdPrice = Number(
+          (updatedTokenPrice[marketInfo.quoteAsset.symbol])
+            .toFixed(marketInfo.pricePrecisionDecimals)
+        )
         this.redis.HSET(
           `marketinfo:${chainId}`,
           market,
