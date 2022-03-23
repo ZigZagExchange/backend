@@ -203,7 +203,7 @@ export default class API extends EventEmitter {
       try {
         this.db.query(
           'UPDATE marketids SET marketid=$1 WHERE marketAlias = $2 AND chainid = $3',
-          [marketArweaveId, marketInfo.alias, marketInfo.chainId]
+          [marketArweaveId, marketInfo.alias, chainId]
         )
       } catch (err: any) {
         console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${marketArweaveId}`)
