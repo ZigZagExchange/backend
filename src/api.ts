@@ -209,7 +209,7 @@ export default class API extends EventEmitter {
         console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${marketArweaveId}`)
       }
     } catch (err: any) {
-      console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}`)
+      console.error(`Can't update marketinfo from Arweave for ${marketArweaveId}, Error ${err.message}`)
     }
     return marketInfo
   }
