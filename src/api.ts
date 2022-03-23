@@ -157,6 +157,7 @@ export default class API extends EventEmitter {
       return marketInfo
     }
     try {
+      console.log(`Fetch marketInfo from Arweave`)
       marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
         .then((r: any) => r.json())
 
