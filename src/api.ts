@@ -2190,9 +2190,9 @@ export default class API extends EventEmitter {
     chainId: number,
     tokenSymbol: string
   ): Promise<number> => {
-    const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenSymbol)
+    const cache = await this.getTokenInfo(chainId, tokenSymbol)
     if (cache) {
-      return Number((JSON.parse(cache)).usdPrice)
+      return Number(cache.usdPrice)
     }
     return 0
   }
@@ -2200,34 +2200,25 @@ export default class API extends EventEmitter {
   updateUsdPrice = async () => {
     console.time("Updating usd price.")
     const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const tokenInfoKey = `tokeninfo:${chainId}`
-      const tokenInfos = await this.redis.HGETALL(tokenInfoKey)
-      const updatedTokenPrice: any = {}
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-      const updatedTokens: string[] = []
-      const results1: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-        const tokens = market.split('-')
-        tokens.forEach(async (token) => {
-          if (!updatedTokens.includes(token)) {
-            updatedTokens.push(token)
-            const tokenInfoString = tokenInfos[token]
-            const tokenInfo = (tokenInfoString)
-              ? JSON.parse(tokenInfoString)
-              : await this.getTokenInfo(chainId, token)
-            if (!tokenInfo) return
+      const tokenInfos = (await this.redis.HGETALL(`tokeninfo:${chainId}`))
+      const tokens = Object.keys(tokenInfos).filter(t => t.length < 20)
+      const updatedTokenPrice: any = {}
+      const results1: Promise<any>[] = tokens.map(async (token: string) => {
+        const tokenInfoString = tokenInfos[token]
+        if (!tokenInfoString) return
+        const tokenInfo = JSON.parse(tokenInfoString)
 
-            const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
-              .then((r: any) => r.json()) as AnyObject
-            const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
-            updatedTokenPrice[token] = usdPrice
-            tokenInfo.usdPrice = usdPrice
-            this.redis.HSET(
-              tokenInfoKey,
-              token,
-              JSON.stringify(tokenInfo)
-            )
-          }
-        })
+        const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
+          .then((r: any) => r.json()) as AnyObject
+        const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
+        updatedTokenPrice[token] = usdPrice
+        tokenInfo.usdPrice = usdPrice
+        this.redis.HSET(
+          `tokeninfo:${chainId}`,
+          token,
+          JSON.stringify(tokenInfo)
+        )
       })
       await Promise.all(results1)
 
