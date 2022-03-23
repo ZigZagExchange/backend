@@ -2217,11 +2217,15 @@ export default class API extends EventEmitter {
         if (!tokenInfoString) return
         const tokenInfo = JSON.parse(tokenInfoString)
 
-        const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
-          .then((r: any) => r.json()) as AnyObject
-        const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
-        updatedTokenPrice[token] = usdPrice
-        tokenInfo.usdPrice = usdPrice
+        try {
+          const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
+            .then((r: any) => r.json()) as AnyObject
+          const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
+          updatedTokenPrice[token] = usdPrice
+          tokenInfo.usdPrice = usdPrice
+        } catch (err: any) {
+          console.log(`Could not update price for ${token}, Error: ${err.message}`)
+        }
         this.redis.HSET(
           `tokeninfo:${chainId}`,
           token,
