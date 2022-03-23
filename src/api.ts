@@ -2238,11 +2238,11 @@ export default class API extends EventEmitter {
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.baseAsset.usdPrice = Number(
-          (updatedTokenPrice[marketInfo.baseAsset.symbol])
+          (Number(updatedTokenPrice[marketInfo.baseAsset.symbol]))
             .toFixed(marketInfo.pricePrecisionDecimals)
         )
         marketInfo.quoteAsset.usdPrice = Number(
-          (updatedTokenPrice[marketInfo.quoteAsset.symbol])
+          (Number(updatedTokenPrice[marketInfo.quoteAsset.symbol]))
             .toFixed(marketInfo.pricePrecisionDecimals)
         )
         this.redis.HSET(
