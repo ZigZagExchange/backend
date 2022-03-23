@@ -215,7 +215,7 @@ export default class API extends EventEmitter {
   }
 
   /**
-   * Used to savly get tokenInfo
+   * Used to safely get tokenInfo
    * @param chainId 
    * @param tokenLike symbole or zkSync ID
    * @returns tokenInfo {id, address, symbol, decimals, name, usdPrice enabledForFees }
