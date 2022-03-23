@@ -112,6 +112,17 @@ export default class API extends EventEmitter {
       })
     })
 
+    // reset some redis keys
+    this.VALID_CHAINS.map(async (chainid) => {
+      await this.redis.DEL(`tokeninfo:${chainid}`)
+      await this.redis.DEL(`tokenfee:${chainid}`)
+      await this.redis.DEL(`marketinfo:${chainid}`)
+      const liquidityKeys = await this.redis.KEYS(`liquidity:${chainid}:*`)
+      liquidityKeys.forEach(async (key) => {
+        await this.redis.DEL(key)
+      })
+    })
+
     this.ERC20_ABI = JSON.parse(
       fs.readFileSync(
         'abi/ERC20.abi',
