@@ -9,5 +9,5 @@ export const unsubscribemarket: ZZServiceHandler = async (
     ws.marketSubscriptions = []
   } else {
     ws.marketSubscriptions = ws.marketSubscriptions.filter((m) => m !== market)
-  }  
+  }
 }

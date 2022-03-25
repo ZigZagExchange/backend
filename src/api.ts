@@ -167,12 +167,13 @@ export default class API extends EventEmitter {
       return marketInfo
     }
     try {
-      console.log(`Fetch marketInfo from Arweave`)
-      marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`)
-        .then((r: any) => r.json())
+      const controller = new AbortController()
+      setTimeout(() => controller.abort(), 5000)
 
-      if (!marketInfo) return null
+      marketInfo = await fetch(`https://arweave.net/${marketArweaveId}`, {
+        signal: controller.signal, }).then((r: any) => r.json())
 
+      if (!marketInfo) throw new Error(`No marketinfo found.`)
       const chainId = marketInfo.zigzagChainId
       const [
         baseAsset,
@@ -1667,7 +1668,10 @@ export default class API extends EventEmitter {
     return true
   }
 
-  getLastPrices = async (chainid: number) => {
+  getLastPrices = async (
+    chainid: number,
+    markets: ZZMarket[] = []
+  ) => {
     const lastprices: any[] = []
     const redis_key_prices = `lastprices:${chainid}`
     const redisKeyVolumesQuote = `volume:${chainid}:quote`
@@ -1675,9 +1679,10 @@ export default class API extends EventEmitter {
     const redis_prices = await this.redis.HGETALL(redis_key_prices)
     const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
     const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
-    const markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    if (markets.length === 0) {
+      markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
+    }   
 
-    // eslint-disable-next-line no-restricted-syntax
     const results: Promise<any>[] = markets.map(async (market_id) => {
       const marketInfo = await this.getMarketInfo(market_id, chainid)
       if (!marketInfo || marketInfo.error) {

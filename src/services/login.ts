@@ -5,7 +5,7 @@ export const login: ZZServiceHandler = async (
   ws,
   [chainId, userid]
 ) => {
-  if(!api.VALID_CHAINS.includes(chainId)) {
+  if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['login', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
     ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
