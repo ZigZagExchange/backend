@@ -22,6 +22,7 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
+import { formatPrice } from 'src/utils'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -1022,9 +1023,7 @@ export default class API extends EventEmitter {
       throw new Error(`Side ${selectresult.side} is not valid!`)
     }
 
-    const fillPrice = (quoteQuantity / baseQuantity).toFixed(
-      marketInfo.pricePrecisionDecimals
-    )
+    const fillPrice = formatPrice(quoteQuantity / baseQuantity)
     const redis_members: any = {
       score: fillPrice,
       value: JSON.stringify({
@@ -1111,15 +1110,11 @@ export default class API extends EventEmitter {
         if (side === 's') {
           const quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
           const baseQuantityWithoutFee = value.baseQuantity - marketInfo.baseFee
-          priceWithoutFee = (quoteQuantity / baseQuantityWithoutFee).toFixed(
-            marketInfo.pricePrecisionDecimals
-          )
+          priceWithoutFee = formatPrice(quoteQuantity / baseQuantityWithoutFee)
         } else {
           const baseQuantity = Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
           const quoteQuantityWithoutFee = value.quoteQuantity - marketInfo.quoteFee
-          priceWithoutFee = (quoteQuantityWithoutFee / baseQuantity).toFixed(
-            marketInfo.pricePrecisionDecimals
-          )
+          priceWithoutFee = formatPrice(quoteQuantityWithoutFee / baseQuantity)
         }
       } else {
         priceWithoutFee = fillPrice.toString()
@@ -1695,9 +1690,7 @@ export default class API extends EventEmitter {
         await this.redis.get(`dailyprice:${chainid}:${market_id}:${yesterday}`)
       )
       const price = +redis_prices[market_id]
-      const priceChange = +(price - yesterdayPrice).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
+      const priceChange = Number(formatPrice(price - yesterdayPrice))
       const quoteVolume = redisPricesQuote[market_id] || 0
       const baseVolume = redisVolumesBase[market_id] || 0
       lastprices.push([market_id, price, priceChange, quoteVolume, baseVolume])
@@ -1742,12 +1735,8 @@ export default class API extends EventEmitter {
         )
       )
       const lastPrice = +redisPrices[market]
-      const priceChange = +(lastPrice - yesterdayPrice).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
-      const priceChangePercent_24h = +(priceChange / lastPrice).toFixed(
-        marketInfo.pricePrecisionDecimals
-      )
+      const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
+      const priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
 
       // get low/high price
       const lowestPrice_24h = Number(redisPricesLow[market])
@@ -1899,23 +1888,15 @@ export default class API extends EventEmitter {
           baseQuantity * ladderPrice +
           marketInfo.quoteFee
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = +(hardQuoteQuantity / hardBaseQuantity).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
-        softPrice = +(hardPrice * 1.001).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
+        hardPrice = Number(formatPrice(hardQuoteQuantity / hardBaseQuantity))
+        softPrice = Number(formatPrice(hardPrice * 1.001))
       } else {
         hardQuoteQuantity = (
           (baseQuantity - marketInfo.baseFee) *
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
-        softPrice = (hardPrice * 0.999).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
+        hardPrice = Number(formatPrice(hardQuoteQuantity / hardBaseQuantity))
+        softPrice = Number(formatPrice(hardPrice * 0.999))
       }
 
       softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals)
@@ -1938,12 +1919,8 @@ export default class API extends EventEmitter {
           (quoteQuantity - marketInfo.quoteFee) /
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = (hardQuoteQuantity / hardBaseQuantity).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
-        softPrice = (hardPrice * 1.0005).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
+        hardPrice = formatPrice(hardQuoteQuantity / hardBaseQuantity)
+        softPrice = formatPrice(hardPrice * 1.0005)
       } else {
         const bids = liquidity
           .filter((l: any) => l[0] === 'b')
@@ -1954,12 +1931,8 @@ export default class API extends EventEmitter {
           quoteQuantity / ladderPrice +
           marketInfo.baseFee
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = (hardQuoteQuantity / Number(hardBaseQuantity)).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
-        softPrice = (hardPrice * 0.9995).toFixed(
-          marketInfo.pricePrecisionDecimals
-        )
+        hardPrice = formatPrice(hardQuoteQuantity / Number(hardBaseQuantity))
+        softPrice = formatPrice(hardPrice * 0.9995)
       }
 
       softQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
@@ -2030,11 +2003,10 @@ export default class API extends EventEmitter {
           bidVolume += +bid[2]
         })
         const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
-        const marketInfo = await this.getMarketInfo(market_id, chainid)
         this.redis.HSET(
           `lastprices:${chainid}`,
           market_id,
-          mid.toFixed(marketInfo.pricePrecisionDecimals)
+          formatPrice(mid)
         )
       })
       // Broadcast last prices
@@ -2240,12 +2212,10 @@ export default class API extends EventEmitter {
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.baseAsset.usdPrice = Number(
-          (Number(updatedTokenPrice[marketInfo.baseAsset.symbol]))
-            .toFixed(marketInfo.pricePrecisionDecimals)
+          formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])          
         )
         marketInfo.quoteAsset.usdPrice = Number(
-          (Number(updatedTokenPrice[marketInfo.quoteAsset.symbol]))
-            .toFixed(marketInfo.pricePrecisionDecimals)
+          formatPrice(updatedTokenPrice[marketInfo.quoteAsset.symbol])
         )
         this.redis.HSET(
           `marketinfo:${chainId}`,
