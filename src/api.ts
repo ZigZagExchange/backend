@@ -352,12 +352,14 @@ export default class API extends EventEmitter {
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
         const marketInfo = JSON.parse(marketInfos[market])
+        const newBaseFee = fees[marketInfo.baseAsset.symbol]
+        const newQuoteFee = fees[marketInfo.quoteAsset.symbol]
         let updated = false
-        if (marketInfo.baseFee !== fees[marketInfo.baseAsset.symbol]) {
+        if (newBaseFee && marketInfo.baseFee !== newBaseFee) {
           marketInfo.baseFee = (Number(fees[marketInfo.baseAsset.symbol]) * 1.05)
           updated = true
         }
-        if (marketInfo.quoteFee !== fees[marketInfo.quoteAsset.symbol]) {
+        if (newQuoteFee && marketInfo.quoteFee !== newQuoteFee) {
           marketInfo.quoteFee = (Number(fees[marketInfo.quoteAsset.symbol]) * 1.05)
           updated = true
         }
