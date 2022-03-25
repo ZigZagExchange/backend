@@ -1748,8 +1748,8 @@ export default class API extends EventEmitter {
 
       // get best ask/bid
       const liquidity = await this.getLiquidityPerSide(chainid, market, 0, 1)
-      const lowestAsk: number = liquidity.asks[0]?.[0]
-      const highestBid: number = liquidity.bids[0]?.[0]
+      const lowestAsk = Number(formatPrice(liquidity.asks[0]?.[0]))
+      const highestBid = Number(formatPrice(liquidity.bids[0]?.[0]))
 
       const marketSummary: ZZMarketSummary = {
         market,
