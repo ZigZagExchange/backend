@@ -31,7 +31,7 @@ export const subscribemarket: ZZServiceHandler = async (
       }
       ws.send(JSON.stringify(marketSummaryMsg))
     } else {
-      const errorMsg = { op: 'error', message: `Can not find marketSummary for ${market}` }
+      const errorMsg = { op: 'error', args: ['subscribemarket', `Can not find marketSummary for ${market}`] }
       ws.send(JSON.stringify(errorMsg))
     }
 
@@ -40,7 +40,7 @@ export const subscribemarket: ZZServiceHandler = async (
       const marketInfoMsg = { op: 'marketinfo', args: [marketinfo] }
       ws.send(JSON.stringify(marketInfoMsg))
     } else {
-      const errorMsg = { op: 'error', message: `Can not find market ${market}` }
+      const errorMsg = { op: 'error', args: ['subscribemarket', `Can not find market ${market}`] }
       ws.send(JSON.stringify(errorMsg))
     }
   } catch (e) {
