@@ -98,6 +98,7 @@ export default class API extends EventEmitter {
 
     // update updatePriceHighLow once
     setTimeout(this.updatePriceHighLow, 10000)
+    setTimeout(this.backupMarkets, 30000)    
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
