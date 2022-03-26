@@ -196,8 +196,8 @@ export default class API extends EventEmitter {
           const marketInfo = await this.getMarketInfo(market, chainId)
           const marketId = marketInfo.id
           await this.db.query(
-            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT marketid DO UPDATE SET marketid=$4 ',
-            [marketId, chainId, market, marketId]
+            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+            [marketId, chainId, market]
           )
         })
       })
