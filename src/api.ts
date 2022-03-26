@@ -195,10 +195,21 @@ export default class API extends EventEmitter {
         markets.forEach(async (market: ZZMarket) => {
           const marketInfo = await this.getMarketInfo(market, chainId)
           const marketId = marketInfo.id
-          await this.db.query(
-            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (id) DO UPDATE SET marketid = EXCLUDED.marketid',
-            [marketId, chainId, market]
+          const select = await this.db.query(
+            'SELECT marketid FROM marketids WHERE marketalias=$1 AND chainid=$2',
+            [market, chainId]
           )
+          if (select?.rows?.[0]?.marketid !== marketId) {
+            await this.db.query(
+              'UPDATE marketids SET marketid = $1 WHERE marketalias=$2 AND chainid=$3',
+              [marketId, market, chainId]
+            )
+          } else {
+            await this.db.query(
+              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3)',
+              [marketId, chainId, market]
+            )
+          }
         })
       })
     } catch (err: any) {
