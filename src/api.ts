@@ -72,6 +72,7 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
+      setInterval(this.backupMarkets, 21600000),
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
@@ -183,7 +184,28 @@ export default class API extends EventEmitter {
     }
     console.timeEnd('updating market info')
   }
-
+  
+  /**
+   * Backs up market-alias and market-ID keys
+   */
+  backupMarkets = async () => {
+    try {
+      this.VALID_CHAINS.forEach(async (chainId: number) => {
+        const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+        markets.forEach(async (market: ZZMarket) => {
+          const marketInfo = await this.getMarketInfo(market, chainId)
+          const marketId = marketInfo.id
+          await this.db.query(
+            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT DO UPDATE SET marketid=$4 ',
+            [marketId, chainId, market, marketId]
+          )
+        })
+      })
+    } catch (err: any) {
+      console.log(`Failed to backup market keys to SQL`)
+    }
+  }
+  
  updateOrderFillStatus = async (
     chainid: number,
     orderid: number,
