@@ -192,7 +192,7 @@ export default class API extends EventEmitter {
       // update marketArweaveId in SQL
       try {
         await this.db.query(
-          'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+          'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (id) DO UPDATE SET marketid = EXCLUDED.marketid',
           [marketArweaveId, marketInfo.alias, chainId]
         )
       } catch (err: any) {
@@ -450,7 +450,7 @@ export default class API extends EventEmitter {
           const marketInfo = await this.getMarketInfo(market, chainId)
           const marketId = marketInfo.id
           await this.db.query(
-            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT DO UPDATE SET marketid=$4 ',
+            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (id) DO UPDATE SET marketid = EXCLUDED.marketid',
             [marketId, chainId, market, marketId]
           )
         })
