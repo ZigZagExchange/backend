@@ -1894,15 +1894,15 @@ export default class API extends EventEmitter {
           baseQuantity * ladderPrice +
           marketInfo.quoteFee
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = Number(formatPrice(hardQuoteQuantity / hardBaseQuantity))
-        softPrice = Number(formatPrice(hardPrice * 1.001))
+        hardPrice = formatPrice(hardQuoteQuantity / hardBaseQuantity)
+        softPrice = formatPrice(hardPrice * 1.001)
       } else {
         hardQuoteQuantity = (
           (baseQuantity - marketInfo.baseFee) *
           ladderPrice
         ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = Number(formatPrice(hardQuoteQuantity / hardBaseQuantity))
-        softPrice = Number(formatPrice(hardPrice * 0.999))
+        hardPrice = formatPrice(hardQuoteQuantity / hardBaseQuantity)
+        softPrice = formatPrice(hardPrice * 0.999)
       }
 
       softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals)
