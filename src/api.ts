@@ -72,7 +72,6 @@ export default class API extends EventEmitter {
     await this.redis.connect()
 
     this.watchers = [
-      setInterval(this.backupMarkets, 21600000),
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
@@ -942,12 +941,14 @@ export default class API extends EventEmitter {
         null,
       ]
 
-      ws.send(
-        JSON.stringify({
-          op: 'userordermatch',
-          args: [chainid, orderId, value.zktx, fillOrder],
-        })
-      )
+      if (ws) {
+        ws.send(
+          JSON.stringify({
+            op: 'userordermatch',
+            args: [chainid, orderId, value.zktx, fillOrder],
+          })
+        )
+      }      
 
       // update user
       this.sendMessageToUser(
