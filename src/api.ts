@@ -30,16 +30,16 @@ export default class API extends EventEmitter {
   V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDER: AnyObject = {}
+  ZKSYNC_BASE_URL: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
+  VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
-  ZKSYNC_BASE_URL = (this.DEFAULT_CHAIN === 1)
-    ? "https://api.zksync.io/api/v0.2/"
-    : "https://rinkeby-api.zksync.io/api/v0.2/"
+  
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -90,7 +90,7 @@ export default class API extends EventEmitter {
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
       setInterval(this.updateUsdPrice, 10000),
-      setInterval(this.updateFees, 10100),
+      setInterval(this.updateFeesZkSync, 10100),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -128,12 +128,14 @@ export default class API extends EventEmitter {
       )
     )
 
-    this.SYNC_PROVIDER[1] = await zksync.getDefaultRestProvider("mainnet")
-    this.SYNC_PROVIDER[1000] = await zksync.getDefaultRestProvider("rinkeby")
+    this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
+    this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
+    this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
+    this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
 
-    this.ETHERS_PROVIDER[1] =
+    this.ETHERS_PROVIDER.mainnet =
       new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
-    this.ETHERS_PROVIDER[1000] =
+    this.ETHERS_PROVIDER.rinkeby =
       new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
     await this.updateTokenInfo()
@@ -159,8 +161,8 @@ export default class API extends EventEmitter {
    * @returns 
    */
   getDefaultValuesFromArweave = async (
-    market: string,
-    chainId = this.DEFAULT_CHAIN
+    chainId: number,
+    market: string
   ) => {
     let marketInfo = null
     let marketArweaveId: string
@@ -213,8 +215,9 @@ export default class API extends EventEmitter {
   ) => {
     let index = 0
     let tokenInfos
+    const network = await this.getNetwork(chainId)
     do {
-      const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens?from=${index}&limit=100&direction=newer`).then((r: any) => r.json())
+      const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL[network]}tokens?from=${index}&limit=100&direction=newer`).then((r: any) => r.json())
       tokenInfos = fetchResult.result.list
       const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
         const tokenSymbol = tokenInfo.symbol
@@ -251,12 +254,13 @@ export default class API extends EventEmitter {
     if (tokenSymbol === "ETH") {
       return "Ethereum"
     }
+    const network = await this.getNetwork(chainId)
     let name
     try {
       const contract = new ethers.Contract(
         contractAddress,
         this.ERC20_ABI,
-        this.ETHERS_PROVIDER[chainId]
+        this.ETHERS_PROVIDER[network]
       )
       name = await contract.name()
     } catch (e) {
@@ -269,96 +273,98 @@ export default class API extends EventEmitter {
   /**
    * Update the fee for each token on regular basis
    */
-  updateFees = async (
-    chainId = this.DEFAULT_CHAIN
-  ) => {
+  updateFeesZkSync = async () => {    
     console.time("Update fees")
-    const newFees: any = {}
-    // get redis cache
-    const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
-    const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-    // get every token form activemarkets once
-    let tokenSymbols = markets.join('-').split('-')
-    tokenSymbols = tokenSymbols.filter((x, i) => i === tokenSymbols.indexOf(x))
-    // update fee for each
-    const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {
-      let fee = 0
-      const tokenInfoString = tokenInfos[tokenSymbol]
-      if (!tokenInfoString) return
+    const results0: Promise<any>[] = this.VALID_CHAINS_ZKSYNC.map(async (chainId: number) => {
+      const newFees: any = {}
+      const network = await this.getNetwork(chainId)
+      // get redis cache
+      const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
+      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      // get every token form activemarkets once
+      let tokenSymbols = markets.join('-').split('-')
+      tokenSymbols = tokenSymbols.filter((x, i) => i === tokenSymbols.indexOf(x))
+      // update fee for each
+      const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {
+        let fee = 0
+        const tokenInfoString = tokenInfos[tokenSymbol]
+        if (!tokenInfoString) return
 
-      const tokenInfo = JSON.parse(tokenInfoString)
-      if (!tokenInfo) return
-      // enabledForFees -> get fee dircectly form zkSync
-      if (tokenInfo.enabledForFees) {
-        try {
-          const feeReturn = await this.SYNC_PROVIDER[chainId].getTransactionFee(
-            "Swap",
-            '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
-            tokenSymbol
-          )
-          fee = Number(
-            this.SYNC_PROVIDER[chainId].tokenSet
-              .formatToken(
-                tokenSymbol,
-                feeReturn.totalFee
-              )
-          )
-        } catch (e: any) {
-          console.log(`Can't get fee for ${tokenSymbol}, error: ${e.message}`)
-        }
-      }
-      // not enabledForFees -> use token price and USDC fee
-      if (!fee) {
-        try {
-          const usdPrice: number = (tokenInfo.usdPrice) ? Number(tokenInfo.usdPrice) : 0
-          const usdReferenceString = await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
-          const usdReference: number = (usdReferenceString) ? Number(usdReferenceString) : 0
-          if (usdPrice > 0) {
-            fee = (usdReference / usdPrice)
+        const tokenInfo = JSON.parse(tokenInfoString)
+        if (!tokenInfo) return
+        // enabledForFees -> get fee dircectly form zkSync
+        if (tokenInfo.enabledForFees) {
+          try {
+            const feeReturn = await this.SYNC_PROVIDER[network].getTransactionFee(
+              "Swap",
+              '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
+              tokenSymbol
+            )
+            fee = Number(
+              this.SYNC_PROVIDER[network].tokenSet
+                .formatToken(
+                  tokenSymbol,
+                  feeReturn.totalFee
+                )
+            )
+          } catch (e: any) {
+            console.log(`Can't get fee for ${tokenSymbol}, error: ${e.message}`)
           }
-        } catch (e) {
-          console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
         }
-      }
+        // not enabledForFees -> use token price and USDC fee
+        if (!fee) {
+          try {
+            const usdPrice: number = (tokenInfo.usdPrice) ? Number(tokenInfo.usdPrice) : 0
+            const usdReferenceString = await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
+            const usdReference: number = (usdReferenceString) ? Number(usdReferenceString) : 0
+            if (usdPrice > 0) {
+              fee = (usdReference / usdPrice)
+            }
+          } catch (e) {
+            console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
+          }
+        }
 
-      // save new fee
-      newFees[tokenSymbol] = fee
-      if (fee) {
-        this.redis.HSET(
-          `tokenfee:${chainId}`,
-          tokenSymbol,
-          fee
-        )
-      }
-    })
-    await Promise.all(results1)
+        // save new fee
+        newFees[tokenSymbol] = fee
+        if (fee) {
+          this.redis.HSET(
+            `tokenfee:${chainId}`,
+            tokenSymbol,
+            fee
+          )
+        }
+      })
+      await Promise.all(results1)
 
-    // check if fee's have changed
-    const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
-    const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-      const marketInfo = JSON.parse(marketInfos[market])
-      const newBaseFee = newFees[marketInfo.baseAsset.symbol]
-      const newQuoteFee = newFees[marketInfo.quoteAsset.symbol]
-      let updated = false
-      if (newBaseFee && marketInfo.baseFee !== newBaseFee) {
-        marketInfo.baseFee = (Number(newFees[marketInfo.baseAsset.symbol]) * 1.05)
-        updated = true
-      }
-      if (newQuoteFee && marketInfo.quoteFee !== newQuoteFee) {
-        marketInfo.quoteFee = (Number(newFees[marketInfo.quoteAsset.symbol]) * 1.05)
-        updated = true
-      }
-      if (updated) {
-        this.redis.HSET(
-          `marketinfo:${chainId}`,
-          market,
-          JSON.stringify(marketInfo)
-        )
-        const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
-        this.broadcastMessage(chainId, market, marketInfoMsg)
-      }
+      // check if fee's have changed
+      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
+      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        const marketInfo = JSON.parse(marketInfos[market])
+        const newBaseFee = newFees[marketInfo.baseAsset.symbol]
+        const newQuoteFee = newFees[marketInfo.quoteAsset.symbol]
+        let updated = false
+        if (newBaseFee && marketInfo.baseFee !== newBaseFee) {
+          marketInfo.baseFee = (Number(newFees[marketInfo.baseAsset.symbol]) * 1.05)
+          updated = true
+        }
+        if (newQuoteFee && marketInfo.quoteFee !== newQuoteFee) {
+          marketInfo.quoteFee = (Number(newFees[marketInfo.quoteAsset.symbol]) * 1.05)
+          updated = true
+        }
+        if (updated) {
+          this.redis.HSET(
+            `marketinfo:${chainId}`,
+            market,
+            JSON.stringify(marketInfo)
+          )
+          const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
+          this.broadcastMessage(chainId, market, marketInfoMsg)
+        }
+      })
+      await Promise.all(results2)
     })
-    await Promise.all(results2)
+    await Promise.all(results0)
     console.timeEnd("Update fees")
   }
 
@@ -372,6 +378,8 @@ export default class API extends EventEmitter {
     market: ZZMarket,
     chainId: number
   ): Promise<ZZMarketInfo> => {
+    if (!this.VALID_CHAINS.includes(chainId)) throw new Error('No valid chainId')
+
     const redis_key = `marketinfo:${chainId}`
     const cache = await this.redis.HGET(
       redis_key,
@@ -382,8 +390,8 @@ export default class API extends EventEmitter {
       return JSON.parse(cache) as ZZMarketInfo
     }
 
-    if (!this.VALID_CHAINS.includes(chainId)) throw new Error('No valid chainId')
     const marketInfoDefaults: ZZMarketInfo = await this.getDefaultValuesFromArweave(
+      chainId,
       market
     )
 
@@ -2194,6 +2202,7 @@ export default class API extends EventEmitter {
   updateUsdPrice = async () => {
     console.time("Updating usd price.")
     const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
+      const network = await this.getNetwork(chainId)
       const updatedTokenPrice: any = {}
       // fetch redis 
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
@@ -2207,7 +2216,7 @@ export default class API extends EventEmitter {
         const tokenInfo = JSON.parse(tokenInfoString)
 
         try {
-          const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL}tokens/${token}/priceIn/usd`)
+          const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL[network]}tokens/${token}/priceIn/usd`)
             .then((r: any) => r.json()) as AnyObject
           const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
           updatedTokenPrice[token] = usdPrice
@@ -2244,5 +2253,18 @@ export default class API extends EventEmitter {
     })
     await Promise.all(results0)
     console.timeEnd("Updating usd price.")
+  }
+
+  getNetwork = async (
+    chainId: number
+  ): Promise<string> => {
+    if (!this.VALID_CHAINS.includes(chainId)) throw new Error('No valid chainId')
+    if ([1].includes(chainId)) {
+      return "mainnet"
+    } 
+    if ([1000].includes(chainId)) {
+      return "rinkeby"
+    }
+    return ""
   }
 }
