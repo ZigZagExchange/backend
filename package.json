@@ -4,12 +4,11 @@
   "description": "Typescript implementation of Zigzag protocol",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "true",
     "dev": "nodemon -x ts-node -e 'ts tsx json' -r ./src/env src/",
     "build": "tsc",
     "start": "ts-node --transpile-only -r ./src/env src/",
-    "prepare": "husky install",
-    "test": "true"
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
