@@ -2218,7 +2218,7 @@ export default class API extends EventEmitter {
         try {
           const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL[network]}tokens/${token}/priceIn/usd`)
             .then((r: any) => r.json()) as AnyObject
-          const usdPrice = (fetchResult?.result?.price) ? fetchResult?.result?.price : 0
+          const usdPrice = (fetchResult?.result?.price) ? formatPrice(fetchResult?.result?.price) : 0
           updatedTokenPrice[token] = usdPrice
           tokenInfo.usdPrice = usdPrice
         } catch (err: any) {
