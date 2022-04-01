@@ -83,7 +83,7 @@ export default class API extends EventEmitter {
 
     // update updatePriceHighLow once
     setTimeout(this.updatePriceHighLow, 10000)
-    // setTimeout(this.backupMarkets, 60000)
+    setTimeout(this.backupMarkets, 600000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
@@ -190,28 +190,19 @@ export default class API extends EventEmitter {
    */
   backupMarkets = async () => {
     try {
-      this.VALID_CHAINS.forEach(async (chainId: number) => {
+      // eslint-disable-next-line
+      for (const chainId in this.VALID_CHAINS) {
         const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-        markets.forEach(async (market: ZZMarket) => {
-          const marketInfo = await this.getMarketInfo(market, chainId)
+        // eslint-disable-next-line
+        for (const market in markets) {
+          const marketInfo = await this.getMarketInfo(market, Number(chainId))
           const marketId = marketInfo.id
-          const select = await this.db.query(
-            'SELECT marketid FROM marketids WHERE marketalias=$1 AND chainid=$2',
-            [market, chainId]
+          await this.db.query(
+            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+            [marketId, chainId, market]
           )
-          if (select?.rows?.[0]?.marketid !== marketId) {
-            await this.db.query(
-              'UPDATE marketids SET marketid = $1 WHERE marketalias=$2 AND chainid=$3',
-              [marketId, market, chainId]
-            )
-          } else {
-            await this.db.query(
-              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3)',
-              [marketId, chainId, market]
-            )
-          }
-        })
-      })
+        }
+      }
     } catch (err: any) {
       console.log(`Failed to backup market keys to SQL`)
     }
