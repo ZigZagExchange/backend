@@ -425,15 +425,21 @@ export default class API extends EventEmitter {
     marketInfo.zigzagChainId = chainId
     marketInfo.baseAssetId = baseAsset.id
     marketInfo.quoteAssetId = quoteAsset.id
+    // set fee, use arewavw fees as fallback
     marketInfo.baseFee = (baseFee)
       ? Number(baseFee)
       : Number(marketInfoDefaults?.baseFee)
     marketInfo.quoteFee = (quoteFee)
       ? Number(quoteFee)
       : Number(marketInfoDefaults?.quoteFee)
+    // set tradingViewChart, use binance as fallback
     marketInfo.tradingViewChart = (marketInfoDefaults?.tradingViewChart)
       ? marketInfoDefaults.tradingViewChart
-      : `BINANCE:${baseSymbol}${quoteSymbol}` // use binance as default chart
+      : `BINANCE:${baseSymbol}${quoteSymbol}`
+    // set pricePrecisionDecimal, use max decimals as fallback
+    marketInfo.pricePrecisionDecimal = marketInfoDefaults?.pricePrecisionDecimal
+      ? marketInfoDefaults.pricePrecisionDecimal
+      : Math.max(baseAsset.decimals, quoteAsset.decimals)
     marketInfo.baseAsset = baseAsset
     marketInfo.quoteAsset = quoteAsset
     marketInfo.alias = `${baseSymbol}-${quoteSymbol}`
