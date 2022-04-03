@@ -1,0 +1,184 @@
+[
+  {
+      "members": [
+          {
+              "name": "message_prefix",
+              "offset": 0,
+              "type": "felt"
+          },
+          {
+              "name": "domain_prefix",
+              "offset": 1,
+              "type": "StarkNet_Domain"
+          },
+          {
+              "name": "sender",
+              "offset": 4,
+              "type": "felt"
+          },
+          {
+              "name": "order",
+              "offset": 5,
+              "type": "Order"
+          },
+          {
+              "name": "sig_r",
+              "offset": 12,
+              "type": "felt"
+          },
+          {
+              "name": "sig_s",
+              "offset": 13,
+              "type": "felt"
+          }
+      ],
+      "name": "ZZ_Message",
+      "size": 14,
+      "type": "struct"
+  },
+  {
+      "members": [
+          {
+              "name": "name",
+              "offset": 0,
+              "type": "felt"
+          },
+          {
+              "name": "version",
+              "offset": 1,
+              "type": "felt"
+          },
+          {
+              "name": "chain_id",
+              "offset": 2,
+              "type": "felt"
+          }
+      ],
+      "name": "StarkNet_Domain",
+      "size": 3,
+      "type": "struct"
+  },
+  {
+      "members": [
+          {
+              "name": "base_asset",
+              "offset": 0,
+              "type": "felt"
+          },
+          {
+              "name": "quote_asset",
+              "offset": 1,
+              "type": "felt"
+          },
+          {
+              "name": "side",
+              "offset": 2,
+              "type": "felt"
+          },
+          {
+              "name": "base_quantity",
+              "offset": 3,
+              "type": "felt"
+          },
+          {
+              "name": "price",
+              "offset": 4,
+              "type": "PriceRatio"
+          },
+          {
+              "name": "expiration",
+              "offset": 6,
+              "type": "felt"
+          }
+      ],
+      "name": "Order",
+      "size": 7,
+      "type": "struct"
+  },
+  {
+      "members": [
+          {
+              "name": "numerator",
+              "offset": 0,
+              "type": "felt"
+          },
+          {
+              "name": "denominator",
+              "offset": 1,
+              "type": "felt"
+          }
+      ],
+      "name": "PriceRatio",
+      "size": 2,
+      "type": "struct"
+  },
+  {
+      "inputs": [],
+      "name": "test",
+      "outputs": [
+          {
+              "name": "hash",
+              "type": "felt"
+          }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+  },
+  {
+      "inputs": [],
+      "name": "constructor",
+      "outputs": [],
+      "type": "constructor"
+  },
+  {
+      "inputs": [
+          {
+              "name": "buy_order",
+              "type": "ZZ_Message"
+          },
+          {
+              "name": "sell_order",
+              "type": "ZZ_Message"
+          },
+          {
+              "name": "fill_price",
+              "type": "PriceRatio"
+          },
+          {
+              "name": "base_fill_quantity",
+              "type": "felt"
+          }
+      ],
+      "name": "fill_order",
+      "outputs": [],
+      "type": "function"
+  },
+  {
+      "inputs": [
+          {
+              "name": "order",
+              "type": "ZZ_Message"
+          }
+      ],
+      "name": "cancel_order",
+      "outputs": [],
+      "type": "function"
+  },
+  {
+      "inputs": [
+          {
+              "name": "orderhash",
+              "type": "felt"
+          }
+      ],
+      "name": "get_order_status",
+      "outputs": [
+          {
+              "name": "filled",
+              "type": "felt"
+          }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+  }
+]

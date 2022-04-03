@@ -41,6 +41,35 @@ export type ZkTx = {
   validUntil: number
 }
 
+export type domain_prefix = {
+  name: string,
+  version: string,
+  chain_id: string,
+}
+
+export type sCOrder = {
+  base_asset: string, 
+  quote_asset: string, 
+  side: string, // 0 = buy, 1 = sell
+  base_quantity: string,  
+  priceRatio: [string, string], // numerator, denominator
+  expiration: string
+}
+
+export type ZZ_Message = {
+  message_prefix: string,
+  domain_prefix: domain_prefix,
+  sender: string,
+  order: sCOrder,
+  sig_r: string,
+  sig_s: string
+}
+
+export type PriceRatio = {
+  numerator: string,
+  denominator: string
+}
+
 export type WSMessage = {
   op: string
   args: any[]
