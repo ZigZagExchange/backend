@@ -97,7 +97,7 @@ export default class API extends EventEmitter {
 
     // update updatePriceHighLow once
     setTimeout(this.updatePriceHighLow, 10000)
-    setTimeout(this.backupMarkets, 300000)
+    setTimeout(this.backupMarkets, 600000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
@@ -475,8 +475,32 @@ export default class API extends EventEmitter {
       console.log(`Failed to backup market keys to SQL`)
     }
   }
-
-  updateOrderFillStatus = async (
+  
+  /**
+   * Backs up market-alias and market-ID keys
+   */
+  backupMarkets = async () => {
+    try {
+      // eslint-disable-next-line
+      for (const chainId in this.VALID_CHAINS) {
+        const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+        // eslint-disable-next-line
+        for (const market in markets) {
+          const marketInfo = await this.getMarketInfo(market, Number(chainId))
+          const marketId = marketInfo.id
+          if (!marketId) { continue; }
+          await this.db.query(
+            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+            [marketId, chainId, market]
+          )
+        }
+      }
+    } catch (err: any) {
+      console.log(`Failed to backup market keys to SQL`)
+    }
+  }
+  
+ updateOrderFillStatus = async (
     chainid: number,
     orderid: number,
     newstatus: string
@@ -1180,13 +1204,14 @@ export default class API extends EventEmitter {
         null,
       ]
 
-      console.log(`SEND: orderId: ${orderId}, side: ${side}, userordermatch to ${fillOrder.accountId.toString()}`)
-      ws.send(
-        JSON.stringify({
-          op: 'userordermatch',
-          args: [chainid, orderId, value.zktx, fillOrder],
-        })
-      )
+      if (ws) {
+        ws.send(
+          JSON.stringify({
+            op: 'userordermatch',
+            args: [chainid, orderId, value.zktx, fillOrder],
+          })
+        )
+      }      
 
       // update user
       this.sendMessageToUser(
@@ -1222,7 +1247,6 @@ export default class API extends EventEmitter {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
         const otherMakerAccountId = otherFillOrder.accountId.toString()
-        console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
         const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
         const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
         if (otherWs) {
@@ -1233,7 +1257,7 @@ export default class API extends EventEmitter {
                 args: [
                   'fillrequest',
                   otherMakerAccountId,
-                  "The Order was filled by better offer."
+                  "The Order was filled by better offer
                 ]
               }
             )
