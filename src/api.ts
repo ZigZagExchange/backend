@@ -452,29 +452,6 @@ export default class API extends EventEmitter {
     )
     return marketInfo
   }
-
-  /**
-   * Backs up market-alias and market-ID keys
-   */
-  backupMarkets = async () => {
-    try {
-      // eslint-disable-next-line
-      for (const chainId in this.VALID_CHAINS) {
-        const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-        // eslint-disable-next-line
-        for (const market in markets) {
-          const marketInfo = await this.getMarketInfo(market, Number(chainId))
-          const marketId = marketInfo.id
-          await this.db.query(
-            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
-            [marketId, chainId, market]
-          )
-        }
-      }
-    } catch (err: any) {
-      console.log(`Failed to backup market keys to SQL`)
-    }
-  }
   
   /**
    * Backs up market-alias and market-ID keys
@@ -488,11 +465,12 @@ export default class API extends EventEmitter {
         for (const market in markets) {
           const marketInfo = await this.getMarketInfo(market, Number(chainId))
           const marketId = marketInfo.id
-          if (!marketId) { continue; }
-          await this.db.query(
-            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
-            [marketId, chainId, market]
-          )
+          if (marketId) { 
+            await this.db.query(
+              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+              [marketId, chainId, market]
+            )
+          }
         }
       }
     } catch (err: any) {
@@ -1257,7 +1235,7 @@ export default class API extends EventEmitter {
                 args: [
                   'fillrequest',
                   otherMakerAccountId,
-                  "The Order was filled by better offer
+                  "The Order was filled by better offer"
                 ]
               }
             )
