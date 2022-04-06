@@ -39,7 +39,7 @@ export default class API extends EventEmitter {
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
-  
+
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -190,16 +190,6 @@ export default class API extends EventEmitter {
 
       if (!fetchResult) return marketInfo
       marketInfo = fetchResult
-
-      // update marketArweaveId in SQL
-      try {
-        await this.db.query(
-          'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
-          [marketArweaveId, chainId, market]
-        )
-      } catch (err: any) {
-        console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${marketArweaveId}`)
-      }
     } catch (err: any) {
       console.error(`Can't fetch update default marketInfo for ${market}, Error ${err.message}`)
     }
@@ -273,7 +263,7 @@ export default class API extends EventEmitter {
   /**
    * Update the fee for each token on regular basis
    */
-  updateFeesZkSync = async () => {    
+  updateFeesZkSync = async () => {
     console.time("Update fees")
     const results0: Promise<any>[] = this.VALID_CHAINS_ZKSYNC.map(async (chainId: number) => {
       const newFees: any = {}
@@ -395,7 +385,10 @@ export default class API extends EventEmitter {
       market
     )
 
-    if (market.length > 19 && !marketInfoDefaults) {
+    if (
+      (market.length > 19 && !marketInfoDefaults) ||
+      Number(marketInfoDefaults.zigzagChainId) !== chainId
+    ) {
       return {} as ZZMarketInfo
     }
 
@@ -408,6 +401,9 @@ export default class API extends EventEmitter {
     } else {
       [baseSymbol, quoteSymbol] = market.split('-')
     }
+
+    if (!baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also chekc here: https://zkscan.io/explorer/tokens')
+    if (!quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also chekc here: https://zkscan.io/explorer/tokens')
 
     // get last fee
     const [
@@ -456,9 +452,22 @@ export default class API extends EventEmitter {
       marketInfo.alias,
       JSON.stringify(marketInfo)
     )
+
+    // return if alias
+    if (market.length < 19) return marketInfo
+
+    // update marketArweaveId in SQL
+    try {
+      await this.db.query(
+        'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+        [market, chainId, marketInfo.alias] // market is the id in this case, as market > 19
+      )
+    } catch (err) {
+      console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${market}`)
+    }
     return marketInfo
   }
-  
+
   /**
    * Backs up market-alias and market-ID keys
    */
@@ -471,7 +480,7 @@ export default class API extends EventEmitter {
         for (const market in markets) {
           const marketInfo = await this.getMarketInfo(market, Number(chainId))
           const marketId = marketInfo.id
-          if (marketId) { 
+          if (marketId) {
             await this.db.query(
               'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
               [marketId, chainId, market]
@@ -483,8 +492,8 @@ export default class API extends EventEmitter {
       console.log(`Failed to backup market keys to SQL`)
     }
   }
-  
- updateOrderFillStatus = async (
+
+  updateOrderFillStatus = async (
     chainid: number,
     orderid: number,
     newstatus: string
@@ -1195,7 +1204,7 @@ export default class API extends EventEmitter {
             args: [chainid, orderId, value.zktx, fillOrder],
           })
         )
-      }      
+      }
 
       // update user
       this.sendMessageToUser(
@@ -2275,7 +2284,7 @@ export default class API extends EventEmitter {
     if (!this.VALID_CHAINS.includes(chainId)) throw new Error('No valid chainId')
     if ([1].includes(chainId)) {
       return "mainnet"
-    } 
+    }
     if ([1000].includes(chainId)) {
       return "rinkeby"
     }
