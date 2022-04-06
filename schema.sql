@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS marketids (
 -- Returns a table of IDs. That list ID in the table is the offer ID. Every other ID in the table is a fill ID.
 -------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _amount NUMERIC, _zktx TEXT)
+CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _base_quantity NUMERIC, _quote_quantity NUMERIC, _expires BIGINT, _zktx TEXT)
   RETURNS TABLE (
     id INTEGER
   )
@@ -77,15 +77,11 @@ BEGIN
   -- Insert initial order to get an orderid
   INSERT INTO offers (chainid , userid, market, side, price, base_quantity, order_status, order_type, quote_quantity, expires, unfilled, zktx, insert_timestamp) 
   VALUES (
-      _chainid , _userid, _market, _side, _price, _amount, 
-      'o', 'l', 
-      _amount * _price, 
-      EXTRACT(epoch FROM (NOW() + '1 day')), 
-      _amount, _zktx, NOW()
+      _chainid , _userid, _market, _side, _price, _base_quantity, 'o', 'l', _quote_quantity, _expires, _base_quantity, _zktx, NOW()
   )
   RETURNING offers.id INTO _taker_offer_id;
 
-  amount_remaining := _amount;
+  amount_remaining := _base_quantity;
 
   -- take any offers that cross
   IF _side = 'b' THEN
@@ -136,7 +132,7 @@ BEGIN
 
   -- Update offer with fill and status data 
   UPDATE offers SET 
-    order_status=(CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _amount THEN 'pm' ELSE 'o' END),
+    order_status=(CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _base_quantity THEN 'pm' ELSE 'o' END),
     unfilled=amount_remaining
   WHERE offers.id=_taker_offer_id;
 
