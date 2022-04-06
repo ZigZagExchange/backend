@@ -395,7 +395,7 @@ export default class API extends EventEmitter {
       market
     )
 
-    if (market.length > 19 && !marketInfoDefaults?.displayName) {
+    if (market.length > 19 && !marketInfoDefaults) {
       return {} as ZZMarketInfo
     }
 
