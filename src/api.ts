@@ -42,7 +42,7 @@ export default class API extends EventEmitter {
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
-    : 1
+    : 1  
   starknetContract: any
 
   watchers: NodeJS.Timer[] = []
@@ -101,7 +101,7 @@ export default class API extends EventEmitter {
 
     // update updatePriceHighLow once
     setTimeout(this.updatePriceHighLow, 10000)
-    setTimeout(this.backupMarkets, 300000)
+    setTimeout(this.backupMarkets, 600000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
@@ -200,16 +200,6 @@ export default class API extends EventEmitter {
 
       if (!fetchResult) return marketInfo
       marketInfo = fetchResult
-
-      // update marketArweaveId in SQL
-      try {
-        await this.db.query(
-          'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
-          [marketArweaveId, chainId, market]
-        )
-      } catch (err: any) {
-        console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${marketArweaveId}`)
-      }
     } catch (err: any) {
       console.error(`Can't fetch update default marketInfo for ${market}, Error ${err.message}`)
     }
@@ -283,7 +273,7 @@ export default class API extends EventEmitter {
   /**
    * Update the fee for each token on regular basis
    */
-  updateFeesZkSync = async () => {    
+  updateFeesZkSync = async () => {
     console.time("Update fees")
     const results0: Promise<any>[] = this.VALID_CHAINS_ZKSYNC.map(async (chainId: number) => {
       const newFees: any = {}
@@ -405,13 +395,25 @@ export default class API extends EventEmitter {
       market
     )
 
-    if (market.length > 19 && !marketInfoDefaults?.displayName) {
+    if (
+      (market.length > 19 && !marketInfoDefaults) ||
+      Number(marketInfoDefaults.zigzagChainId) !== chainId
+    ) {
       return {} as ZZMarketInfo
     }
 
-    const [baseSymbol, quoteSymbol] = (market.length > 19)
-      ? marketInfoDefaults.displayName.split('-')
-      : market.split('-')
+    let baseSymbol: string
+    let quoteSymbol: string
+    if (market.length > 19) {
+      const network = await this.getNetwork(chainId)
+      baseSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenSymbol(marketInfoDefaults.baseAssetId)
+      quoteSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenSymbol(marketInfoDefaults.quoteAssetId)
+    } else {
+      [baseSymbol, quoteSymbol] = market.split('-')
+    }
+
+    if (!baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also chekc here: https://zkscan.io/explorer/tokens')
+    if (!quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also chekc here: https://zkscan.io/explorer/tokens')
 
     // get last fee
     const [
@@ -446,10 +448,10 @@ export default class API extends EventEmitter {
     marketInfo.tradingViewChart = (marketInfoDefaults?.tradingViewChart)
       ? marketInfoDefaults.tradingViewChart
       : `BINANCE:${baseSymbol}${quoteSymbol}`
-    // set pricePrecisionDecimal, use max decimals as fallback
+    // set pricePrecisionDecimal, use min decimals as fallback
     marketInfo.pricePrecisionDecimal = marketInfoDefaults?.pricePrecisionDecimal
       ? marketInfoDefaults.pricePrecisionDecimal
-      : Math.max(baseAsset.decimals, quoteAsset.decimals)
+      : Math.min(baseAsset.decimals, quoteAsset.decimals)
     marketInfo.baseAsset = baseAsset
     marketInfo.quoteAsset = quoteAsset
     marketInfo.alias = `${baseSymbol}-${quoteSymbol}`
@@ -460,6 +462,19 @@ export default class API extends EventEmitter {
       marketInfo.alias,
       JSON.stringify(marketInfo)
     )
+
+    // return if alias
+    if (market.length < 19) return marketInfo
+
+    // update marketArweaveId in SQL
+    try {
+      await this.db.query(
+        'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+        [market, chainId, marketInfo.alias] // market is the id in this case, as market > 19
+      )
+    } catch (err) {
+      console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${market}`)
+    }
     return marketInfo
   }
 
@@ -475,10 +490,12 @@ export default class API extends EventEmitter {
         for (const market in markets) {
           const marketInfo = await this.getMarketInfo(market, Number(chainId))
           const marketId = marketInfo.id
-          await this.db.query(
-            'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
-            [marketId, chainId, market]
-          )
+          if (marketId) {
+            await this.db.query(
+              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+              [marketId, chainId, market]
+            )
+          }
         }
       }
     } catch (err: any) {
@@ -753,7 +770,7 @@ export default class API extends EventEmitter {
 
     return { op: 'userorderack', args: orderreceipt }
   }
-
+/*
   processorderstarknet = async (
     chainId: number,
     market: string,
@@ -962,7 +979,7 @@ export default class API extends EventEmitter {
       })
     }
   }
-
+*/
   cancelallorders = async (userid: string | number): Promise<string[]> => {
     const values = [userid]
     const select = await this.db.query(
@@ -1245,7 +1262,6 @@ export default class API extends EventEmitter {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
         const otherMakerAccountId = otherFillOrder.accountId.toString()
-        console.log(`SEND: orderId: ${orderId}, side: ${side}, filled by better offer to ${otherMakerAccountId}`)
         const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
         const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
         if (otherWs) {
@@ -1256,7 +1272,7 @@ export default class API extends EventEmitter {
                 args: [
                   'fillrequest',
                   otherMakerAccountId,
-                  "The Order was filled by better offer."
+                  "The Order was filled by better offer"
                 ]
               }
             )
@@ -2290,7 +2306,7 @@ export default class API extends EventEmitter {
     if (!this.VALID_CHAINS.includes(chainId)) throw new Error('No valid chainId')
     if ([1].includes(chainId)) {
       return "mainnet"
-    } 
+    }
     if ([1000].includes(chainId)) {
       return "rinkeby"
     }
