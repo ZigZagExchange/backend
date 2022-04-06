@@ -285,9 +285,7 @@ Description: Get an order receipt. Returns a message with the same format as use
 
 ###### Operation: **orders**
 
-Arguments: `[orders]`
-
-Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]
+Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
 ```json
 {
