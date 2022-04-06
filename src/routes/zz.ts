@@ -221,7 +221,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
     let markets: ZZMarket[] = []
     if (req.query.market) {
-      markets = markets.concat((req.query.market as string).split(","))
+      markets = markets.concat(String(req.query.market).split(","))
     } else {
       res.send({ op: 'error', message: `Set a requested pair with '?market=___'` })
       return
