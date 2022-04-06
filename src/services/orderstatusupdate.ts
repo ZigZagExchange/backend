@@ -35,7 +35,8 @@ export const orderstatusupdate: ZZServiceHandler = async (
       const result = (await api.updateOrderFillStatus(
         chainId,
         orderId,
-        newstatus
+        newstatus,
+        txhash
       )) as AnyObject
       success = result.success
       fillId = result.fillId
