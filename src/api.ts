@@ -770,7 +770,7 @@ export default class API extends EventEmitter {
 
     return { op: 'userorderack', args: orderreceipt }
   }
-
+/*
   processorderstarknet = async (
     chainId: number,
     market: string,
@@ -979,7 +979,7 @@ export default class API extends EventEmitter {
       })
     }
   }
-
+*/
   cancelallorders = async (userid: string | number): Promise<string[]> => {
     const values = [userid]
     const select = await this.db.query(
