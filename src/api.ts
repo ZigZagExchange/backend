@@ -399,9 +399,15 @@ export default class API extends EventEmitter {
       return {} as ZZMarketInfo
     }
 
-    const [baseSymbol, quoteSymbol] = (market.length > 19)
-      ? marketInfoDefaults.displayName.split('-')
-      : market.split('-')
+    let baseSymbol: string
+    let quoteSymbol: string
+    if (market.length > 19) {
+      const network = await this.getNetwork(chainId)
+      baseSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenId(marketInfoDefaults.baseAssetId)
+      quoteSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenId(marketInfoDefaults.quoteAssetId)
+    } else {
+      [baseSymbol, quoteSymbol] = market.split('-')
+    }
 
     // get last fee
     const [
