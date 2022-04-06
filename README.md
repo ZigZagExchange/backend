@@ -255,6 +255,34 @@ Description: Get an order receipt. Returns a message with the same format as use
 
 ---
 
+###### Operation: **orderreceipt**
+
+Arguments: `[chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,remaining,txhash]`
+
+Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
+
+```json
+{ 
+  "op": "orderreceipt", 
+  "args": [
+    1000,
+    40,
+    "ETH-USDT",
+    "s",
+    3370.93,
+    0.1,
+    337.093,
+    4294967295,
+    "23",
+    "f",
+    0,
+    "0x...24a12"
+  ] 
+}
+```
+
+---
+
 ###### Operation: **orders**
 
 Arguments: `[orders]`
