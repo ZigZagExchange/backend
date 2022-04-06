@@ -506,7 +506,8 @@ export default class API extends EventEmitter {
   updateOrderFillStatus = async (
     chainid: number,
     orderid: number,
-    newstatus: string
+    newstatus: string,
+    txhash: string
   ) => {
     chainid = Number(chainid)
     orderid = Number(orderid)
@@ -521,9 +522,9 @@ export default class API extends EventEmitter {
     let side
     let maker_user_id
     try {
-      const valuesOffers = [newstatus, chainid, orderid]
+      const valuesOffers = [newstatus, txhash, chainid, orderid]
       update = await this.db.query(
-        "UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market, userid",
+        "UPDATE offers SET order_status=$1, txhash=$2, update_timestamp=NOW() WHERE chainid=$2 AND id=$3 AND order_status IN ('b', 'm') RETURNING side, market, userid",
         valuesOffers
       )
       if (update.rows.length > 0) {
