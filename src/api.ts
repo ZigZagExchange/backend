@@ -132,13 +132,14 @@ export default class API extends EventEmitter {
       )
     )
 
-    this.starknetContract = JSON.parse(
+    const starknetContractABI = JSON.parse(
       fs.readFileSync(
         'abi/starknet_v1.abi',
         'utf8'
       )
     )
 
+    this.starknetContract = new starknet.Contract(starknetContractABI, process.env.STARKNET_CONTRACT_ADDRESS)
     this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
     this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
@@ -770,7 +771,7 @@ export default class API extends EventEmitter {
 
     return { op: 'userorderack', args: orderreceipt }
   }
-/*
+
   processorderstarknet = async (
     chainId: number,
     market: string,
@@ -920,15 +921,11 @@ export default class API extends EventEmitter {
     const fillQtyParsed = (fillQty * 10 ** baseAssetDecimals).toFixed(0)
     const calldata = [buyer, seller, fillPriceRatio, fillQtyParsed]
     try {
-      const transactionDetails = {
-        type: 'INVOKE_FUNCTION',
-        contract_address: process.env.STARKNET_CONTRACT_ADDRESS as string,
-        entry_point_selector: starknet.stark.getSelectorFromName('fill_order'),
-        calldata: JSON.stringify(calldata)
-      } 
-      const relayResult = await starknet.defaultProvider.addTransaction(
-        transactionDetails
+      const relayResult  = await this.starknetContract.fill_order(
+        calldata
       )
+
+      // TODO handel f or r
 
       // TODO we want to add fees here
 
@@ -979,7 +976,7 @@ export default class API extends EventEmitter {
       })
     }
   }
-*/
+
   cancelallorders = async (userid: string | number): Promise<string[]> => {
     const values = [userid]
     const select = await this.db.query(
