@@ -403,8 +403,8 @@ export default class API extends EventEmitter {
     let quoteSymbol: string
     if (market.length > 19) {
       const network = await this.getNetwork(chainId)
-      baseSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenId(marketInfoDefaults.baseAssetId)
-      quoteSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenId(marketInfoDefaults.quoteAssetId)
+      baseSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenSymbol(marketInfoDefaults.baseAssetId)
+      quoteSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenSymbol(marketInfoDefaults.quoteAssetId)
     } else {
       [baseSymbol, quoteSymbol] = market.split('-')
     }
