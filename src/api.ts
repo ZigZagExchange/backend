@@ -11,9 +11,6 @@ import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
 import type {
-  PriceRatio,
-  ZZ_Message,
-  sCOrder,
   ZkTx,
   WSocket,
   WSMessage,
@@ -775,23 +772,23 @@ export default class API extends EventEmitter {
   processorderstarknet = async (
     chainId: number,
     market: string,
-    txMsg: ZZ_Message
+    txMsg: string []
   ) => {
     const inputValidation = ZZMessageSchema.validate(txMsg)
     if (inputValidation.error) throw inputValidation.error
     if (chainId !== 1001) throw new Error("Only for StarkNet")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const sCTx: sCOrder = txMsg.order
+    const orderString = txMsg[3]
 
-    const userAddress = txMsg.sender
-    if (Number(sCTx.side) !== 1 && Number(sCTx.side) !== 0) throw new Error('Invalid side')
-    const side = Number(sCTx.side) === 0 ? 'b' : 's'
-    const base_quantity = Number(sCTx.base_quantity) / 10 ** marketInfo.baseAsset.decimals
-    const price = (Number(sCTx.priceRatio[0]) / Number(sCTx.priceRatio[1]))
+    const userAddress = txMsg[2]
+    if (Number(orderString[2]) !== 1 && Number(orderString[2]) !== 0) throw new Error('Invalid side')
+    const side = Number(orderString[2]) === 0 ? 'b' : 's'
+    const base_quantity = Number(orderString[0]) / 10 ** marketInfo.baseAsset.decimals
+    const price = (Number(orderString[4][0]) / Number(orderString[4][1]))
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(sCTx.expiration)
+    const expiration = Number(orderString[5])
     // const order_type = 'limit' - set in match_limit_order
 
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8)'
@@ -804,7 +801,7 @@ export default class API extends EventEmitter {
       base_quantity,
       quote_quantity,
       expiration,
-      JSON.stringify(txMsg),
+      txMsg,
     ]
     console.log(values)
 
@@ -850,20 +847,22 @@ export default class API extends EventEmitter {
         row.maker_user_id,
       ])
 
-      let buyer: any
-      let seller: any
+      let buyer: string []
+      let seller: string []
       if (row.maker_side === 'b') {
         buyer = row.maker_zktx
         seller = offer.zktx
       } else if (row.maker_side === 's') {
         buyer = offer.zktx
         seller = row.maker_zktx
+      } else {
+        throw new Error('Invalid side')
       }
       this.relayStarknetMatch(
         chainId,
         market,
-        JSON.parse(buyer),
-        JSON.parse(seller),
+        buyer,
+        seller,
         row.amount,
         row.price,
         row.id,
@@ -898,8 +897,8 @@ export default class API extends EventEmitter {
   relayStarknetMatch = async (
     chainId: number,
     market: ZZMarket,
-    buyer: ZZ_Message,
-    seller: ZZ_Message,
+    buyer: string [],
+    seller: string [],
     fillQty: number,
     fillPrice: number,
     fillId: number,
@@ -914,10 +913,10 @@ export default class API extends EventEmitter {
       return {numerator: decimals * denominator, denominator }
     }
     const fillPriceRatioNumber = getFraction(fillPrice)
-    const fillPriceRatio: PriceRatio = {
-      numerator: fillPriceRatioNumber.numerator.toFixed(0),
-      denominator: fillPriceRatioNumber.denominator.toFixed(0)
-    }
+    const fillPriceRatio = [
+      fillPriceRatioNumber.numerator.toFixed(0),
+      fillPriceRatioNumber.denominator.toFixed(0)
+    ]
     const fillQtyParsed = (fillQty * 10 ** baseAssetDecimals).toFixed(0)
     const calldata = [buyer, seller, fillPriceRatio, fillQtyParsed]
     try {
