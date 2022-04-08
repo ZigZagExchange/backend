@@ -93,8 +93,8 @@ export default class API extends EventEmitter {
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateUsdPrice, 10000),
-      setInterval(this.updateFeesZkSync, 10100),
+      setInterval(this.updateUsdPrice, 12500),
+      setInterval(this.updateFeesZkSync, 30010),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
