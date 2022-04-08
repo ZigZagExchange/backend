@@ -1,27 +1,27 @@
 CREATE TABLE IF NOT EXISTS offers (
-    id SERIAL PRIMARY KEY,
-    userid TEXT,
-    nonce INTEGER,
-    market TEXT,
-    side CHAR(1),
-    price NUMERIC NOT NULL CHECK (price > 0),
-    base_quantity NUMERIC CHECK (base_quantity > 0),
-    quote_quantity NUMERIC CHECK (quote_quantity > 0),
-    order_type TEXT,
-    order_status TEXT,
-    expires BIGINT,
-    zktx TEXT,
-    chainid INTEGER NOT NULL,
-    insert_timestamp TIMESTAMPTZ,
-    update_timestamp TIMESTAMPTZ,
-    unfilled NUMERIC NOT NULL CHECK (unfilled <= base_quantity)
+    id                SERIAL         PRIMARY KEY,
+    userid            TEXT,
+    nonce             INTEGER,
+    market            TEXT,
+    side              CHAR(1),
+    price             NUMERIC        NOT NULL CHECK (price > 0),
+    base_quantity     NUMERIC        CHECK (base_quantity > 0),
+    quote_quantity    NUMERIC        CHECK (quote_quantity > 0),
+    order_type        TEXT,
+    order_status      TEXT,
+    expires           BIGINT,
+    zktx              TEXT,
+    chainid           INTEGER        NOT NULL,
+    insert_timestamp  TIMESTAMPTZ,
+    update_timestamp  TIMESTAMPTZ,
+    unfilled          NUMERIC        NOT NULL CHECK (unfilled <= base_quantity)
 );
 CREATE INDEX IF NOT EXISTS offers_order_status_by_market_idx ON offers(chainid, market, order_status);
 
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS txhash TEXT;
 
 CREATE TABLE IF NOT EXISTS fills (
-  id                 SERIAL PRIMARY KEY,
+  id                 SERIAL          PRIMARY KEY,
   insert_timestamp   TIMESTAMPTZ     NOT NULL DEFAULT now(),
   chainid            INTEGER         NOT NULL,
   market             TEXT            NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS marketids (
 -- Returns a table of IDs. That list ID in the table is the offer ID. Every other ID in the table is a fill ID.
 -------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _amount NUMERIC, _zktx TEXT)
+CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _base_quantity NUMERIC, _quote_quantity NUMERIC, _expires BIGINT, _zktx TEXT)
   RETURNS TABLE (
     id INTEGER
   )
@@ -77,15 +77,11 @@ BEGIN
   -- Insert initial order to get an orderid
   INSERT INTO offers (chainid , userid, market, side, price, base_quantity, order_status, order_type, quote_quantity, expires, unfilled, zktx, insert_timestamp) 
   VALUES (
-      _chainid , _userid, _market, _side, _price, _amount, 
-      'o', 'l', 
-      _amount * _price, 
-      EXTRACT(epoch FROM (NOW() + '1 day')), 
-      _amount, _zktx, NOW()
+      _chainid , _userid, _market, _side, _price, _base_quantity, 'o', 'l', _quote_quantity, _expires, _base_quantity, _zktx, NOW()
   )
   RETURNING offers.id INTO _taker_offer_id;
 
-  amount_remaining := _amount;
+  amount_remaining := _base_quantity;
 
   -- take any offers that cross
   IF _side = 'b' THEN
@@ -136,7 +132,7 @@ BEGIN
 
   -- Update offer with fill and status data 
   UPDATE offers SET 
-    order_status=(CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _amount THEN 'pm' ELSE 'o' END),
+    order_status=(CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _base_quantity THEN 'pm' ELSE 'o' END),
     unfilled=amount_remaining
   WHERE offers.id=_taker_offer_id;
 

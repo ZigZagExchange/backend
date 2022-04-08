@@ -36,7 +36,7 @@ The current list of operations available over HTTP POST are: `submitorder3`, `re
 
 The Zksync limit order system is pretty complicated, so we've simplified it down into an RFQ.
 
-There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the $1 flat fee.
+There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the variable fee.
 
 Using the price from the `quote` response, you can send a limit order with `submitorder3`. An order sent at the `quote` price will fill like a market order.
 
@@ -247,7 +247,7 @@ NO EXAMPLE AVAILABLE YET
 
 Arguments: `[chainid,orderid]`
 
-Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
+Description: Get an order receipt. Returns an orderreceipt. That is a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
 
 ```json
 { "op": "orderreceiptreq", "args": [1000, 40] }
@@ -255,11 +255,37 @@ Description: Get an order receipt. Returns a message with the same format as use
 
 ---
 
+###### Operation: **orderreceipt**
+
+Arguments: `[chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,remaining,txhash]`
+
+Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
+
+```json
+{ 
+  "op": "orderreceipt", 
+  "args": [
+    1000,
+    40,
+    "ETH-USDT",
+    "s",
+    3370.93,
+    0.1,
+    337.093,
+    4294967295,
+    "23",
+    "f",
+    0,
+    "0x...24a12"
+  ] 
+}
+```
+
+---
+
 ###### Operation: **orders**
 
-Arguments: `[orders]`
-
-Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]
+Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
 ```json
 {
@@ -959,6 +985,8 @@ Returns a JSON containing the last trades in decending order.
     "timestamp":1646307989024,
     "side":"sell",
     "txHash":"3e870f76771a37e9da5d0d3d82c3d0a83699e359254c0c2fb4c0aee8fe64a01f",
+    "takerId": 674945,
+    "makerId": 354861,
     "feeAmount":0.00003025,
     "feeToken":"ETH"
   },

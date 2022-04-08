@@ -31,7 +31,7 @@ export const submitorder: ZZServiceHandler = async (
     if (ws) ws.send(JSON.stringify(errorMsg))
     return errorMsg
   }
-  
+
   try {
     const order = await api.processorderzksync(chainId, market, zktx)
     return order

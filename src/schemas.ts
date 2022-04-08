@@ -20,3 +20,23 @@ export const zksyncOrderSchema = Joi.object({
   }),
   ethSignature: Joi.any(),
 })
+
+export const ZZMessageSchema = Joi.object({
+  message_prefix: Joi.string().required(),
+  domain_prefix: Joi.object({
+    name: Joi.string().required(),
+    version: Joi.string().required(),
+    chain_id: Joi.string().required()
+  }),
+  sender: Joi.string(),
+  order: Joi.object({
+    base_asset: Joi.string().required(),
+    quote_asset: Joi.string().required(),
+    side: Joi.string().required(),
+    base_quantity: Joi.string().required(),
+    priceRatio: Joi.array().items(Joi.string()).length(2).required(),
+    expiration: Joi.string().required()    
+  }),
+  sig_r: Joi.string(),
+  sig_s: Joi.string()
+})

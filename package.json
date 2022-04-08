@@ -4,12 +4,11 @@
   "description": "Typescript implementation of Zigzag protocol",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "true",
     "dev": "nodemon -x ts-node -e 'ts tsx json' -r ./src/env src/",
     "build": "tsc",
     "start": "ts-node --transpile-only -r ./src/env src/",
-    "prepare": "husky install",
-    "test": "true"
+    "prepare": "husky install"
   },
   "repository": {
     "type": "git",
@@ -30,7 +29,7 @@
     "@types/ws": "^8.2.2",
     "better-sqlite3": "^7.4.3",
     "dotenv": "^10.0.0",
-    "ethers": "^5.5.3",
+    "ethers": "^5.5.4",
     "express": "^4.17.1",
     "install": "^0.13.0",
     "isomorphic-fetch": "^3.0.0",
