@@ -396,8 +396,8 @@ export default class API extends EventEmitter {
     )
 
     if (
-      (market.length > 19 && !marketInfoDefaults) ||
-      Number(marketInfoDefaults.zigzagChainId) !== chainId
+      market.length > 19 &&
+      (!marketInfoDefaults || Number(marketInfoDefaults.zigzagChainId) !== chainId)
     ) {
       return {} as ZZMarketInfo
     }
