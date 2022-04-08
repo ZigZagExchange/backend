@@ -412,8 +412,8 @@ export default class API extends EventEmitter {
       [baseSymbol, quoteSymbol] = market.split('-')
     }
 
-    if (!baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also chekc here: https://zkscan.io/explorer/tokens')
-    if (!quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also chekc here: https://zkscan.io/explorer/tokens')
+    if (!baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
+    if (!quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
 
     // get last fee
     const [
