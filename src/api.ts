@@ -1743,22 +1743,27 @@ export default class API extends EventEmitter {
       markets = await this.redis.SMEMBERS(`activemarkets:${chainid}`)
     }
 
-    const results: Promise<any>[] = markets.map(async (market_id) => {
-      const marketInfo = await this.getMarketInfo(market_id, chainid)
-      if (!marketInfo || marketInfo.error) {
+    const results: Promise<any>[] = markets.map(async (marketId) => {
+      let marketInfo: any = null
+      try {
+        marketInfo = await this.getMarketInfo(marketId, chainid)
+      } catch (e: any) {
+        return
+      }
+      if (!marketInfo) {
         return
       }
       const yesterday = new Date(Date.now() - 86400 * 1000)
         .toISOString()
         .slice(0, 10)
       const yesterdayPrice = Number(
-        await this.redis.get(`dailyprice:${chainid}:${market_id}:${yesterday}`)
+        await this.redis.get(`dailyprice:${chainid}:${marketId}:${yesterday}`)
       )
-      const price = +redis_prices[market_id]
+      const price = +redis_prices[marketId]
       const priceChange = Number(formatPrice(price - yesterdayPrice))
-      const quoteVolume = redisPricesQuote[market_id] || 0
-      const baseVolume = redisVolumesBase[market_id] || 0
-      lastprices.push([market_id, price, priceChange, quoteVolume, baseVolume])
+      const quoteVolume = redisPricesQuote[marketId] || 0
+      const baseVolume = redisVolumesBase[marketId] || 0
+      lastprices.push([marketId, price, priceChange, quoteVolume, baseVolume])
     })
     await Promise.all(results)
     return lastprices
@@ -1791,8 +1796,13 @@ export default class API extends EventEmitter {
     const redisPricesHigh = await this.redis.HGETALL(redisKeyHigh)
 
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-      const marketInfo = await this.getMarketInfo(market, chainid)
-      if (!marketInfo || marketInfo.error) return
+      let marketInfo: any = null
+      try {
+        marketInfo = await this.getMarketInfo(market, chainid)
+      } catch (e: any) {
+        return
+      }
+      if (!marketInfo) return
       const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
       const yesterdayPrice = Number(
         await this.redis.get(
