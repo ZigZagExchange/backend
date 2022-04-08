@@ -150,6 +150,16 @@ export default class API extends EventEmitter {
       new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
     await this.updateTokenInfo()
+
+    // temp
+    const markets = await this.redis.SMEMBERS(`activemarkets:${this.DEFAULT_CHAIN}`)
+    const results: Promise<any>[] = markets.map(async (market: string) => {
+      await this.getMarketInfo(market, this.DEFAULT_CHAIN)
+      console.log(`fetched ${market}`)
+    })
+    await Promise.all(results)
+    console.log(`all marketinfos fetched`)
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -193,7 +203,7 @@ export default class API extends EventEmitter {
 
       // get arweave default marketinfo
       const controller = new AbortController()
-      setTimeout(() => controller.abort(), 5000)
+      setTimeout(() => controller.abort(), 15000)
       const fetchResult = await fetch(`https://arweave.net/${marketArweaveId}`, {
         signal: controller.signal,
       }).then((r: any) => r.json())
