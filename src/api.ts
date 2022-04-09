@@ -150,6 +150,16 @@ export default class API extends EventEmitter {
       new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
     await this.updateTokenInfo()
+
+    // temp
+    const markets = await this.redis.SMEMBERS(`activemarkets:${this.DEFAULT_CHAIN}`)
+    const results: Promise<any>[] = markets.map(async (market: string) => {
+      await this.getMarketInfo(market, this.DEFAULT_CHAIN)
+      console.log(`fetched ${market}`)
+    })
+    await Promise.all(results)
+    console.log(`all marketinfos fetched`)
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -193,7 +203,7 @@ export default class API extends EventEmitter {
 
       // get arweave default marketinfo
       const controller = new AbortController()
-      setTimeout(() => controller.abort(), 5000)
+      setTimeout(() => controller.abort(), 15000)
       const fetchResult = await fetch(`https://arweave.net/${marketArweaveId}`, {
         signal: controller.signal,
       }).then((r: any) => r.json())
@@ -340,6 +350,7 @@ export default class API extends EventEmitter {
       // check if fee's have changed
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        if (!marketInfos[market]) return
         const marketInfo = JSON.parse(marketInfos[market])
         const newBaseFee = newFees[marketInfo.baseAsset.symbol]
         const newQuoteFee = newFees[marketInfo.quoteAsset.symbol]
@@ -412,8 +423,8 @@ export default class API extends EventEmitter {
       [baseSymbol, quoteSymbol] = market.split('-')
     }
 
-    if (!baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
-    if (!quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
+    if (baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
+    if (quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
 
     // get last fee
     const [
@@ -2290,6 +2301,7 @@ export default class API extends EventEmitter {
 
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        if (!marketInfos[market]) return
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.baseAsset.usdPrice = Number(
           formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])
