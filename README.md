@@ -997,3 +997,42 @@ Returns a JSON containing the last trades in decending order.
 ]
 
 ```
+
+###### /api/v1/trades/
+
+Example: `/api/v1/marketinfos?chain_id=1&market=ETH-USDC`
+
+Arguments: 
+* `?chain_id`
+* `?market` - can be a list of markets "...&market=ETH-USDC,ETH-USDT,ETH-UST"
+
+{
+  "ETH-USDC": {
+    "zigzagChainId":1,
+    "baseAssetId":0,
+    "quoteAssetId":2,
+    "baseFee":0.00008977500000000001,
+    "quoteFee":0.28980000000000006,
+    "tradingViewChart":"BINANCE:ETHUSDC",
+    "pricePrecisionDecimal":6,
+    "baseAsset": {
+      "id":0,
+      "address":"0x0000000000000000000000000000000000000000",
+      "symbol":"ETH",
+      "decimals":18,
+      "enabledForFees":true,
+      "usdPrice":3226.65,
+      "name":"Ethereum"
+    },
+    "quoteAsset": {
+      "id":2,
+      "address":"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "symbol":"USDC",
+      "decimals":6,
+      "enabledForFees":true,
+      "usdPrice":0.997891,
+      "name":"USD Coin"
+    },
+    "alias":"ETH-USDC"
+  }
+}
