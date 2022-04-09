@@ -422,8 +422,8 @@ export default class API extends EventEmitter {
       [baseSymbol, quoteSymbol] = market.split('-')
     }
 
-    if (!baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
-    if (!quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
+    if (baseSymbol.includes("ERC20")) throw new Error('Your base token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
+    if (quoteSymbol.includes("ERC20")) throw new Error('Your quote token has no symbol on zkSync. Please contact ZigZag or zkSync to get it listed properly. You can also check here: https://zkscan.io/explorer/tokens')
 
     // get last fee
     const [
@@ -2300,6 +2300,7 @@ export default class API extends EventEmitter {
 
       const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
       const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        if (!marketInfos[market]) return
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.baseAsset.usdPrice = Number(
           formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])
