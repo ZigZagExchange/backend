@@ -101,7 +101,6 @@ export default class API extends EventEmitter {
 
     // update updatePriceHighLow once
     setTimeout(this.updatePriceHighLow, 10000)
-    setTimeout(this.backupMarkets, 600000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainid) => {
@@ -150,15 +149,6 @@ export default class API extends EventEmitter {
       new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
     await this.updateTokenInfo()
-
-    // temp
-    const markets = await this.redis.SMEMBERS(`activemarkets:${this.DEFAULT_CHAIN}`)
-    const results: Promise<any>[] = markets.map(async (market: string) => {
-      await this.getMarketInfo(market, this.DEFAULT_CHAIN)
-      console.log(`fetched ${market}`)
-    })
-    await Promise.all(results)
-    console.log(`all marketinfos fetched`)
 
     this.started = true
 
@@ -487,31 +477,6 @@ export default class API extends EventEmitter {
       console.error(`Failed to update SQL for ${marketInfo.alias} SET id = ${market}`)
     }
     return marketInfo
-  }
-
-  /**
-   * Backs up market-alias and market-ID keys
-   */
-  backupMarkets = async () => {
-    try {
-      // eslint-disable-next-line
-      for (const chainId in this.VALID_CHAINS) {
-        const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-        // eslint-disable-next-line
-        for (const market in markets) {
-          const marketInfo = await this.getMarketInfo(market, Number(chainId))
-          const marketId = marketInfo.id
-          if (marketId) {
-            await this.db.query(
-              'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
-              [marketId, chainId, market]
-            )
-          }
-        }
-      }
-    } catch (err: any) {
-      console.log(`Failed to backup market keys to SQL`)
-    }
   }
 
   updateOrderFillStatus = async (
