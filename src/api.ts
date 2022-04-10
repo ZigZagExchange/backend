@@ -42,7 +42,7 @@ export default class API extends EventEmitter {
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
-    : 1  
+    : 1
   starknetContract: any
 
   watchers: NodeJS.Timer[] = []
@@ -648,9 +648,12 @@ export default class API extends EventEmitter {
     const ratelimit = await this.redis.get(redis_rate_limit_key)
     if (ratelimit) throw new Error('Only one order per 3 seconds allowed')
     else {
-      await this.redis.set(redis_rate_limit_key, '1')
+      await this.redis.SET(
+        redis_rate_limit_key,
+        '1',
+        { EX: 3 }
+      )
     }
-    await this.redis.expire(redis_rate_limit_key, 3)
 
     const marketInfo = await this.getMarketInfo(market, chainid)
     let side
@@ -1212,7 +1215,7 @@ export default class API extends EventEmitter {
         { op: 'orderstatus', args: [[[chainid, orderId, 'm']]], }
       )
 
-      this.redis.set(
+      this.redis.SET(
         redisKeyBussy,
         JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
         { EX: this.MARKET_MAKER_TIMEOUT }
@@ -1820,9 +1823,11 @@ export default class API extends EventEmitter {
     })
     await Promise.all(results)
     if (marketReq === '') {
-      this.redis.SET(redisKeyMarketSummary, JSON.stringify(marketSummarys), {
-        EX: 10,
-      })
+      this.redis.SET(
+        redisKeyMarketSummary,
+        JSON.stringify(marketSummarys),
+        { EX: 10 }
+      )
     }
     return marketSummarys
   }
@@ -2166,9 +2171,11 @@ export default class API extends EventEmitter {
             const redisKey = `passivews:${chainid}:${marketmaker.ws_uuid}`
             const passivews = await this.redis.get(redisKey)
             if (!passivews) {
-              this.redis.set(redisKey, JSON.stringify(marketmaker.orderId), {
-                EX: remainingTime,
-              })
+              this.redis.SET(
+                redisKey,
+                JSON.stringify(marketmaker.orderId),
+                { EX: remainingTime }
+              )
             }
           }
         }
@@ -2214,7 +2221,7 @@ export default class API extends EventEmitter {
     }
     const select = await this.db.query(query)
     const volumes = select.rows
-    await this.redis.set(redis_key, JSON.stringify(volumes))
+    await this.redis.SET(redis_key, JSON.stringify(volumes))
     await this.redis.expire(redis_key, 1200)
     return volumes
   }
