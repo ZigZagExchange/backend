@@ -635,8 +635,8 @@ export default class API extends EventEmitter {
 
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
-
     if (chainid !== 1 && chainid !== 1000) throw new Error("Only for zkSync")
+    if ((zktx.validUntil * 1000) > Date.now()) throw new Error("Wrong expiry, check PC clock")
 
     // TODO: Activate nonce check here
     // if(NONCES[zktx.accountId] && NONCES[zktx.accountId][chainid] && NONCES[zktx.accountId][chainid] > zktx.nonce) {
