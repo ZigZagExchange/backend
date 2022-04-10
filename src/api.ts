@@ -2090,17 +2090,15 @@ export default class API extends EventEmitter {
     const FIFTEEN_SECONDS = ((Date.now() / 1000) | 0) + 15
     const marketInfo = await this.getMarketInfo(market, chainid)
 
-    const redisKey = `passivews:${chainid}:${client_id}`
-    const waitingOrderId = await this.redis.get(redisKey)
-    if (waitingOrderId) {
-      const remainingTime = await this.redis.ttl(redisKey)
-      throw new Error(
-        // eslint-disable-next-line prefer-template
-        'Your address did not respond to order ' +
-        waitingOrderId +
-        ' yet. Remaining timeout: ' +
-        remainingTime +
-        '.'
+    const redisKeyPassive = `passivews:${chainid}:${client_id}`
+    const msg = await this.redis.get(redisKeyPassive)
+    if (msg) {
+      const remainingTime = await this.redis.ttl(redisKeyPassive)
+      if (msg.includes('Your price is too far from the mid Price')) {
+        throw new Error(`${msg}. Remaining timeout: ${remainingTime}.`)
+      }
+      throw new Error(`Your address did not respond to order ${msg
+        } yet. Remaining timeout: ${remainingTime}.`
       )
     }
 
@@ -2114,6 +2112,8 @@ export default class API extends EventEmitter {
         parseFloat(l[2]) > marketInfo.baseFee
     )
 
+    const redisKeyPrices = `lastprices:${chainid}`
+    const midPrice = Number(await this.redis.HGET(redisKeyPrices, market))
     // Add expirations to liquidity if needed
     Object.keys(liquidity).forEach((i: any) => {
       const expires = liquidity[i][3]
@@ -2121,6 +2121,17 @@ export default class API extends EventEmitter {
         liquidity[i][3] = FIFTEEN_SECONDS
       }
       liquidity[i][4] = client_id
+
+      if (
+        midPrice < liquidity[i][1] * 0.25 ||
+        midPrice > liquidity[i][1] * 1.75
+      ) {
+        this.redis.SET(
+          redisKeyPassive,
+          'Your price is too far from the mid Price',
+          { EX: 900 }
+        )
+      }
     })
 
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
