@@ -2131,6 +2131,7 @@ export default class API extends EventEmitter {
           'Your price is too far from the mid Price',
           { EX: 900 }
         )
+        throw new Error('Your price is too far from the mid Price. Remaining timeout: 900')
       }
     })
 
