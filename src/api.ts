@@ -515,13 +515,6 @@ export default class API extends EventEmitter {
       return false
     }
 
-    // update user
-    this.sendMessageToUser(
-      chainid,
-      userId,
-      { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
-    )
-
     let feeAmount
     let feeToken
     let timestamp
