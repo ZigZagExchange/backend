@@ -2131,7 +2131,7 @@ export default class API extends EventEmitter {
       liquidity[i][4] = client_id
 
       if (
-        midPrice &&
+        (midPrice > 0) &&
         (Number(liquidity[i][1]) < midPrice * 0.25 || Number(liquidity[i][1]) > midPrice * 1.75)
       ) {
         this.redis.SET(
