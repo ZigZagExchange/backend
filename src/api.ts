@@ -1133,12 +1133,8 @@ export default class API extends EventEmitter {
             args: [
               'fillrequest',
               makerAccountId,
-              // eslint-disable-next-line prefer-template
-              'Your address did not respond to order (' +
-              processingOrderId +
-              ') yet. Remaining timeout: ' +
-              remainingTime +
-              '.',
+              `Your address did not respond to order (${processingOrderId
+              }) yet. Remaining timeout: ${remainingTime}.`
             ],
           })
         )
