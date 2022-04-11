@@ -2114,7 +2114,10 @@ export default class API extends EventEmitter {
         Number(l[2]) > marketInfo.baseFee
     )
 
-    const midPrice = await this.getUsdPrice(chainid, market)
+    const [baseToken, quoteToken] = market.split('-')
+    const midPriceBase = await this.getUsdPrice(chainid, baseToken)
+    const midPriceQuote = await this.getUsdPrice(chainid, quoteToken)
+    const midPrice = midPriceBase / midPriceQuote;
     // Add expirations to liquidity if needed
     Object.keys(liquidity).forEach((i: any) => {
       const expires = liquidity[i][3]
@@ -2123,10 +2126,8 @@ export default class API extends EventEmitter {
       }
       liquidity[i][4] = client_id
 
-      console.log(midPrice)
-      console.log(Number(liquidity[i][1]))
       if (
-        (midPrice > 0) &&
+        midPrice &&
         (Number(liquidity[i][1]) < midPrice * 0.25 || Number(liquidity[i][1]) > midPrice * 1.75)
       ) {
         this.redis.SET(
