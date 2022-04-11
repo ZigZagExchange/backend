@@ -2131,8 +2131,8 @@ export default class API extends EventEmitter {
       liquidity[i][4] = client_id
 
       if (
-        midPrice < liquidity[i][1] * 0.25 ||
-        midPrice > liquidity[i][1] * 1.75
+        liquidity[i][1] < midPrice * 0.25 ||
+        liquidity[i][1] > midPrice * 1.75
       ) {
         this.redis.SET(
           redisKeyPassive,
