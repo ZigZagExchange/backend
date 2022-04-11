@@ -2121,8 +2121,7 @@ export default class API extends EventEmitter {
         parseFloat(l[2]) > marketInfo.baseFee
     )
 
-    const redisKeyPrices = `lastprices:${chainid}`
-    const midPrice = Number(await this.redis.HGET(redisKeyPrices, market))
+    const midPrice = await this.getUsdPrice(chainid, market)
     // Add expirations to liquidity if needed
     Object.keys(liquidity).forEach((i: any) => {
       const expires = liquidity[i][3]
