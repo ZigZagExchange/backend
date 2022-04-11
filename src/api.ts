@@ -2117,7 +2117,9 @@ export default class API extends EventEmitter {
     const [baseToken, quoteToken] = market.split('-')
     const midPriceBase = await this.getUsdPrice(chainid, baseToken)
     const midPriceQuote = await this.getUsdPrice(chainid, quoteToken)
-    const midPrice = midPriceBase / midPriceQuote;
+    const midPrice = (midPriceBase && midPriceQuote)
+      ? midPriceBase / midPriceQuote
+      : 0
     // Add expirations to liquidity if needed
     Object.keys(liquidity).forEach((i: any) => {
       const expires = liquidity[i][3]
