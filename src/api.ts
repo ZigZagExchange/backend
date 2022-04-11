@@ -380,6 +380,7 @@ export default class API extends EventEmitter {
     chainId: number
   ): Promise<ZZMarketInfo> => {
     if (!this.VALID_CHAINS.includes(chainId)) throw new Error('No valid chainId')
+    if (!market) throw new Error('Bad market')
 
     const redis_key = `marketinfo:${chainId}`
     const cache = await this.redis.HGET(
@@ -521,11 +522,11 @@ export default class API extends EventEmitter {
       { op: 'orderstatus', args: [[[chainid, orderid, newstatus]]], }
     )
 
-    const marketInfo = await this.getMarketInfo(market, chainid)
     let feeAmount
     let feeToken
     let timestamp
     try {
+      const marketInfo = await this.getMarketInfo(market, chainid)
       if (marketInfo) {
         if (side === 's') {
           feeAmount = marketInfo.baseFee
@@ -1144,9 +1145,10 @@ export default class API extends EventEmitter {
         throw new Error('fillrequest - market maker is timed out.')
       }
 
-      const marketInfo = await this.getMarketInfo(value.market, chainid)
+      
       let priceWithoutFee: string
-      if (marketInfo) {
+      try {
+        const marketInfo = await this.getMarketInfo(value.market, chainid)
         if (side === 's') {
           const quoteQuantity = Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
           const baseQuantityWithoutFee = value.baseQuantity - marketInfo.baseFee
@@ -1156,7 +1158,8 @@ export default class API extends EventEmitter {
           const quoteQuantityWithoutFee = value.quoteQuantity - marketInfo.quoteFee
           priceWithoutFee = formatPrice(quoteQuantityWithoutFee / baseQuantity)
         }
-      } else {
+      } catch (e: any) {
+        console.log(e.message)
         priceWithoutFee = fillPrice.toString()
       }
 
@@ -1368,7 +1371,17 @@ export default class API extends EventEmitter {
     }
     if (level === 2) {
       // Level 2 – Arranged by best bids and asks.
-      const marketInfo = await this.getMarketInfo(market, chainid)
+      let marketInfo: any = {}
+      try {
+        marketInfo = await this.getMarketInfo(market, chainid)
+      } catch (e: any) {
+        console.log(e.message)
+        return {
+          timestamp,
+          bids: [],
+          asks: [],
+        }
+      }
       // get mid price
       const redis_key_prices = `lastprices:${chainid}`
       const midPrice = Number(await this.redis.HGET(redis_key_prices, market))
