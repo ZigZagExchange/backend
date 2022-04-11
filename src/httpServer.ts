@@ -35,7 +35,11 @@ export const createHttpServer = (
       return
     }
 
-    console.log('REST: %s', JSON.stringify(req.body))
+    const outputString = JSON.stringify(req.body)
+    if (!outputString.includes("/api/v1/marketinfos")) {
+      console.log(`REST: ${outputString}`)
+    }
+    
 
     if (!httpMessages.includes(req.body.op)) {
       res.json({ op: 'error', args: [req.body.op, 'Not supported in HTTP'] })
