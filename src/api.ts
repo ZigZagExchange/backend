@@ -2115,10 +2115,10 @@ export default class API extends EventEmitter {
     liquidity = liquidity.filter(
       (l: any[]) =>
         ['b', 's'].includes(l[0]) &&
-        !Number.isNaN(parseFloat(l[1])) &&
-        parseFloat(l[1]) > 0 &&
-        !Number.isNaN(parseFloat(l[2])) &&
-        parseFloat(l[2]) > marketInfo.baseFee
+        !Number.isNaN(Number(l[1])) &&
+        Number(l[1]) > 0 &&
+        !Number.isNaN(Number(l[2])) &&
+        Number(l[2]) > marketInfo.baseFee
     )
 
     const midPrice = await this.getUsdPrice(chainid, market)
@@ -2132,7 +2132,7 @@ export default class API extends EventEmitter {
 
       if (
         midPrice &&
-        (liquidity[i][1] < midPrice * 0.25 || liquidity[i][1] > midPrice * 1.75)
+        (Number(liquidity[i][1]) < midPrice * 0.25 || Number(liquidity[i][1]) > midPrice * 1.75)
       ) {
         this.redis.SET(
           redisKeyPassive,
