@@ -2123,6 +2123,8 @@ export default class API extends EventEmitter {
       }
       liquidity[i][4] = client_id
 
+      console.log(midPrice)
+      console.log(Number(liquidity[i][1]))
       if (
         (midPrice > 0) &&
         (Number(liquidity[i][1]) < midPrice * 0.25 || Number(liquidity[i][1]) > midPrice * 1.75)
