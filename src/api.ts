@@ -2103,9 +2103,6 @@ export default class API extends EventEmitter {
     const msg = await this.redis.get(redisKeyPassive)
     if (msg) {
       const remainingTime = await this.redis.ttl(redisKeyPassive)
-      if (msg.includes('Your price is too far from the mid Price')) {
-        throw new Error(`${msg}. Remaining timeout: ${remainingTime}.`)
-      }
       throw new Error(`Your address did not respond to order ${msg
         } yet. Remaining timeout: ${remainingTime}.`
       )
@@ -2121,7 +2118,6 @@ export default class API extends EventEmitter {
         parseFloat(l[2]) > marketInfo.baseFee
     )
 
-    const midPrice = await this.getUsdPrice(chainid, market)
     // Add expirations to liquidity if needed
     Object.keys(liquidity).forEach((i: any) => {
       const expires = liquidity[i][3]
@@ -2129,18 +2125,6 @@ export default class API extends EventEmitter {
         liquidity[i][3] = FIFTEEN_SECONDS
       }
       liquidity[i][4] = client_id
-
-      if (
-        liquidity[i][1] < midPrice * 0.25 ||
-        liquidity[i][1] > midPrice * 1.75
-      ) {
-        this.redis.SET(
-          redisKeyPassive,
-          'Your price is too far from the mid Price',
-          { EX: 900 }
-        )
-        throw new Error('Your price is too far from the mid Price. Remaining timeout: 900')
-      }
     })
 
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
