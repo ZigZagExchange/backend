@@ -50,12 +50,13 @@ export const createHttpServer = (
     try {
       responseMessage = await expressApp.api.serviceHandler(req.body)
     } catch (e: any) {
-      console.error(`Error while processing HTTP request: ${e.message}`)
+      console.error(`Unexpected error while processing HTTP request: ${e.message}`)
+      res.status(400).json(`Unexpected error while processing your request: ${e.message}`)
     }
     
 
     res.header('Content-Type', 'application/json')
-    res.json(responseMessage)
+    res.status(200).json(responseMessage)
   })
 
   server.on('upgrade', (request, socket, head) => {
