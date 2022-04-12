@@ -630,7 +630,7 @@ export default class API extends EventEmitter {
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
     if (chainid !== 1 && chainid !== 1000) throw new Error("Only for zkSync")
-    if ((zktx.validUntil * 1000) > Date.now()) throw new Error("Wrong expiry, check PC clock")
+    if ((zktx.validUntil * 1000) < Date.now()) throw new Error("Wrong expiry, check PC clock")
 
     // TODO: Activate nonce check here
     // if(NONCES[zktx.accountId] && NONCES[zktx.accountId][chainid] && NONCES[zktx.accountId][chainid] > zktx.nonce) {
@@ -2117,7 +2117,9 @@ export default class API extends EventEmitter {
     const [baseToken, quoteToken] = market.split('-')
     const midPriceBase = await this.getUsdPrice(chainid, baseToken)
     const midPriceQuote = await this.getUsdPrice(chainid, quoteToken)
-    const midPrice = midPriceBase / midPriceQuote;
+    const midPrice = (midPriceBase && midPriceQuote)
+      ? midPriceBase / midPriceQuote
+      : 0
     // Add expirations to liquidity if needed
     Object.keys(liquidity).forEach((i: any) => {
       const expires = liquidity[i][3]
