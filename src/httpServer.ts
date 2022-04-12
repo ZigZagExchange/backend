@@ -46,7 +46,13 @@ export const createHttpServer = (
       return
     }
 
-    const responseMessage = await expressApp.api.serviceHandler(req.body)
+    let responseMessage
+    try {
+      responseMessage = await expressApp.api.serviceHandler(req.body)
+    } catch (e: any) {
+      console.error(`Error while processing HTTP request: ${e.message}`)
+    }
+    
 
     res.header('Content-Type', 'application/json')
     res.json(responseMessage)

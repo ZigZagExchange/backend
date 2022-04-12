@@ -21,7 +21,7 @@ export const submitorder3: ZZServiceHandler = async (
   } else if (chainId === 1001) {
     try {
       const errorMsg = { op: 'error', args: ['submitorder2', 'Chain id 1001 not suported for now.'] }
-      ws.send(JSON.stringify(errorMsg))
+      if (ws) ws.send(JSON.stringify(errorMsg))
       return errorMsg
       // @TODO: Fix me
       // const order = await api.processorderstarknet(chainId, market, zktx)
@@ -29,12 +29,12 @@ export const submitorder3: ZZServiceHandler = async (
     } catch (err: any) {
       console.error(err)
       const errorMsg = { op: 'error', args: ['submitorder3', err.message] }
-      ws.send(JSON.stringify(errorMsg))
+      if (ws) ws.send(JSON.stringify(errorMsg))
       return errorMsg
     }
   } else {
     const errorMsg = { op: 'error', args: ['submitorder3', 'Invalid chainId'] }
-    ws.send(JSON.stringify(errorMsg))
+    if (ws) ws.send(JSON.stringify(errorMsg))
     return errorMsg
   }
 }
