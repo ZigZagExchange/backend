@@ -7,9 +7,9 @@ export const refreshliquidity: ZZServiceHandler = async (
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['refreshliquidity', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
-    ws.send(JSON.stringify(errorMsg))
+    if (ws) ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
-    return null
+    return errorMsg
   }
 
   const liquidity = await api.getLiquidity(chainId, market)
