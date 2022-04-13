@@ -17,7 +17,7 @@ export const cancelorder: ZZServiceHandler = async (
     cancelresult = await api.cancelorder(chainId, orderId, ws)
   } catch (e: any) {
     ws.send(
-      JSON.stringify({ op: 'error', args: ['cancelorder', orderId, e.message] })
+      JSON.stringify({ op: 'error', args: ['cancelorder', e.message, orderId ] })
     )
     return
   }
