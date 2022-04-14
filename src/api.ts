@@ -772,23 +772,24 @@ export default class API extends EventEmitter {
   processorderstarknet = async (
     chainId: number,
     market: string,
-    txMsg: string []
+    ZZMessageString: string
   ) => {
-    const inputValidation = ZZMessageSchema.validate(txMsg)
+    const ZZMessage = JSON.parse(ZZMessageString)
+    const inputValidation = ZZMessageSchema.validate(ZZMessage)
     if (inputValidation.error) throw inputValidation.error
     if (chainId !== 1001) throw new Error("Only for StarkNet")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const orderString = txMsg[3]
+    const {order} = ZZMessage
 
-    const userAddress = txMsg[2]
-    if (Number(orderString[2]) !== 1 && Number(orderString[2]) !== 0) throw new Error('Invalid side')
-    const side = Number(orderString[2]) === 0 ? 'b' : 's'
-    const base_quantity = Number(orderString[0]) / 10 ** marketInfo.baseAsset.decimals
-    const price = (Number(orderString[4][0]) / Number(orderString[4][1]))
+    const userAddress = ZZMessage.sender
+    if (order.side !== '1' && order.side !== '0') throw new Error('Invalid side')
+    const side = order.side === '0' ? 'b' : 's'
+    const base_quantity = Number(order.base_quantity) / 10 ** marketInfo.baseAsset.decimals
+    const price = (Number(order.price.numerator) / Number(order.price.denominator))
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(orderString[5])
+    const expiration = Number(order.expiration)
     // const order_type = 'limit' - set in match_limit_order
 
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8)'
@@ -801,7 +802,7 @@ export default class API extends EventEmitter {
       base_quantity,
       quote_quantity,
       expiration,
-      txMsg,
+      ZZMessageString
     ]
     console.log(values)
 
@@ -847,8 +848,8 @@ export default class API extends EventEmitter {
         row.maker_user_id,
       ])
 
-      let buyer: string []
-      let seller: string []
+      let buyer: any
+      let seller: any
       if (row.maker_side === 'b') {
         buyer = row.maker_zktx
         seller = offer.zktx
@@ -870,7 +871,7 @@ export default class API extends EventEmitter {
         offer.id
       )
     })
-    const order = [
+    const orderMsg = [
       chainId,
       offer.id,
       market,
@@ -884,7 +885,7 @@ export default class API extends EventEmitter {
       null,
       offer.unfilled,
     ]
-    this.broadcastMessage(chainId, market, { op: 'orders', args: [[order]] })
+    this.broadcastMessage(chainId, market, { op: 'orders', args: [[orderMsg]] })
     if (orderupdates.length > 0)
       this.broadcastMessage(chainId, market, {
         op: 'orderstatus',

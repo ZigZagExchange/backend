@@ -34,7 +34,10 @@ export const ZZMessageSchema = Joi.object({
     quote_asset: Joi.string().required(),
     side: Joi.string().required(),
     base_quantity: Joi.string().required(),
-    priceRatio: Joi.array().items(Joi.string()).length(2).required(),
+    price: Joi.object({
+      numerator: Joi.string().required(),
+      denominator: Joi.string().required()
+    }),
     expiration: Joi.string().required()    
   }),
   sig_r: Joi.string(),
