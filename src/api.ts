@@ -159,8 +159,8 @@ export default class API extends EventEmitter {
     await this.updateTokenInfo()
 
     // setup redisSubscriber
-    this.redisSubscriber.on("pmessage", (pattern: string, channel: string, message: string)  => {
-      console.log(`Received message (${message}) from ${channel} channel wiht the pattern: ${pattern}.`)
+    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string)  => {
+      console.log(`Received message (${message}) from ${channel}.`)
       const channelArgs = channel.split(':')
       if (channelArgs.length !== 4) {
         console.error(`redisSubscriber wrong channel format: ${channel}`)
@@ -192,7 +192,6 @@ export default class API extends EventEmitter {
         console.error(`redisSubscriber wrong broadcastChannel: ${broadcastChannel}`)
       }
     })
-    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*")
     
     this.started = true
 
