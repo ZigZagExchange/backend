@@ -23,7 +23,7 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
-import { formatPrice } from 'src/utils'
+import { formatPrice, stringToFelt } from 'src/utils'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -32,6 +32,7 @@ export default class API extends EventEmitter {
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDER: AnyObject = {}
   ZKSYNC_BASE_URL: AnyObject = {}
+  STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
@@ -39,8 +40,7 @@ export default class API extends EventEmitter {
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
-    : 1  
-  starknetContract: any
+    : 1
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -136,7 +136,10 @@ export default class API extends EventEmitter {
       )
     )
 
-    this.starknetContract = new starknet.Contract(starknetContractABI, process.env.STARKNET_CONTRACT_ADDRESS)
+    this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
+      starknetContractABI,
+      process.env.STARKNET_CONTRACT_ADDRESS
+    )
     this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
     this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
@@ -780,7 +783,7 @@ export default class API extends EventEmitter {
     if (chainId !== 1001) throw new Error("Only for StarkNet")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const {order} = ZZMessage
+    const { order } = ZZMessage
 
     const userAddress = ZZMessage.sender
     if (order.side !== '1' && order.side !== '0') throw new Error('Invalid side')
@@ -826,7 +829,7 @@ export default class API extends EventEmitter {
     const orderupdates: any[] = []
     const marketFills: any[] = []
     fills.rows.forEach((row) => {
-      if (row.maker_unfilled > 0)
+      if (row.maker_unfilled > 0) {
         orderupdates.push([
           chainId,
           row.maker_offer_id,
@@ -834,7 +837,9 @@ export default class API extends EventEmitter {
           row.amount,
           row.maker_unfilled,
         ])
-      else orderupdates.push([chainId, row.maker_offer_id, 'm'])
+      } else {
+        orderupdates.push([chainId, row.maker_offer_id, 'm'])
+      }
       marketFills.push([
         chainId,
         row.id,
@@ -862,8 +867,8 @@ export default class API extends EventEmitter {
       this.relayStarknetMatch(
         chainId,
         market,
-        buyer,
-        seller,
+        JSON.parse(buyer),
+        JSON.parse(seller),
         row.amount,
         row.price,
         row.id,
@@ -898,35 +903,71 @@ export default class API extends EventEmitter {
   relayStarknetMatch = async (
     chainId: number,
     market: ZZMarket,
-    buyer: string [],
-    seller: string [],
-    fillQty: number,
+    buyer: any,
+    seller: any,
+    fillQuantity: number,
     fillPrice: number,
     fillId: number,
     makerOfferId: number,
     takerOfferId: number
   ) => {
     const marketInfo = await this.getMarketInfo(market, chainId)
+    const network = await this.getNetwork(chainId)
     const baseAssetDecimals = marketInfo.baseAsset.decimals
     const getFraction = (decimals: number) => {
       let denominator = 1
-      for(; (decimals * denominator) % 1 !== 0; denominator++);
-      return {numerator: decimals * denominator, denominator }
+      for (; (decimals * denominator) % 1 !== 0; denominator++);
+      return { numerator: decimals * denominator, denominator }
     }
     const fillPriceRatioNumber = getFraction(fillPrice)
-    const fillPriceRatio = [
+    const calldataFillPrice = [
       fillPriceRatioNumber.numerator.toFixed(0),
       fillPriceRatioNumber.denominator.toFixed(0)
     ]
-    const fillQtyParsed = (fillQty * 10 ** baseAssetDecimals).toFixed(0)
-    const calldata = [buyer, seller, fillPriceRatio, fillQtyParsed]
+    const calldataFillQuantity = (fillQuantity * 10 ** baseAssetDecimals).toFixed(0)
+
+    const calldataBuyOrder = [
+      stringToFelt(buyer.message_prefix),
+      stringToFelt(buyer.domain_prefix.name),
+      buyer.domain_prefix.version,
+      stringToFelt(buyer.domain_prefix.chain_id),
+      buyer.sender,
+      buyer.order.base_asset,
+      buyer.order.quote_asset,
+      buyer.order.side,
+      buyer.order.base_quantity,
+      buyer.order.price.numerator,
+      buyer.order.price.denominator,
+      buyer.order.expiration
+    ]
+
+    const calldataSellOrder = [
+      stringToFelt(seller.message_prefix),
+      stringToFelt(seller.domain_prefix.name),
+      seller.domain_prefix.version,
+      stringToFelt(seller.domain_prefix.chain_id),
+      seller.sender,
+      seller.order.base_asset,
+      seller.order.quote_asset,
+      seller.order.side,
+      seller.order.base_quantity,
+      seller.order.price.numerator,
+      seller.order.price.denominator,
+      seller.order.expiration
+    ]
+
     try {
-      const relayResult  = await this.starknetContract.fill_order(
-        calldata
+      const relayResult = await this.STARKNET_EXCHANGE[network].invoke(
+        'fill_order',
+        [
+          calldataBuyOrder,
+          calldataSellOrder,
+          calldataFillPrice,
+          calldataFillQuantity
+        ]
       )
-
+      await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
       // TODO handel f or r
-
       // TODO we want to add fees here
 
       console.log('Starknet tx success')
@@ -2306,6 +2347,9 @@ export default class API extends EventEmitter {
     }
     if ([1000].includes(chainId)) {
       return "rinkeby"
+    }
+    if ([1001].includes(chainId)) {
+      return "goerli"
     }
     return ""
   }
