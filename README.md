@@ -247,7 +247,7 @@ NO EXAMPLE AVAILABLE YET
 
 Arguments: `[chainid,orderid]`
 
-Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
+Description: Get an order receipt. Returns an orderreceipt. That is a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
 
 ```json
 { "op": "orderreceiptreq", "args": [1000, 40] }
@@ -255,11 +255,37 @@ Description: Get an order receipt. Returns a message with the same format as use
 
 ---
 
+###### Operation: **orderreceipt**
+
+Arguments: `[chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,remaining,txhash]`
+
+Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
+
+```json
+{ 
+  "op": "orderreceipt", 
+  "args": [
+    1000,
+    40,
+    "ETH-USDT",
+    "s",
+    3370.93,
+    0.1,
+    337.093,
+    4294967295,
+    "23",
+    "f",
+    0,
+    "0x...24a12"
+  ] 
+}
+```
+
+---
+
 ###### Operation: **orders**
 
-Arguments: `[orders]`
-
-Description: Current open orders for a market. order = [chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]
+Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
 
 ```json
 {
@@ -971,3 +997,42 @@ Returns a JSON containing the last trades in decending order.
 ]
 
 ```
+
+###### /api/v1/trades/
+
+Example: `/api/v1/marketinfos?chain_id=1&market=ETH-USDC`
+
+Arguments: 
+* `?chain_id`
+* `?market` - can be a list of markets "...&market=ETH-USDC,ETH-USDT,ETH-UST"
+
+{
+  "ETH-USDC": {
+    "zigzagChainId":1,
+    "baseAssetId":0,
+    "quoteAssetId":2,
+    "baseFee":0.00008977500000000001,
+    "quoteFee":0.28980000000000006,
+    "tradingViewChart":"BINANCE:ETHUSDC",
+    "pricePrecisionDecimal":6,
+    "baseAsset": {
+      "id":0,
+      "address":"0x0000000000000000000000000000000000000000",
+      "symbol":"ETH",
+      "decimals":18,
+      "enabledForFees":true,
+      "usdPrice":3226.65,
+      "name":"Ethereum"
+    },
+    "quoteAsset": {
+      "id":2,
+      "address":"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "symbol":"USDC",
+      "decimals":6,
+      "enabledForFees":true,
+      "usdPrice":0.997891,
+      "name":"USD Coin"
+    },
+    "alias":"ETH-USDC"
+  }
+}

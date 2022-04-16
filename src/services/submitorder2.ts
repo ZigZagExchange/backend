@@ -18,17 +18,18 @@ export const submitorder2: ZZServiceHandler = async (
     }
   } else if (chainId === 1001) {
     try {
-      const order = await api.processorderstarknet(chainId, market, zktx)
-      return order
+      // const order = await api.processorderstarknet(chainId, market, zktx)
+      // return order
+      return ' '
     } catch (err: any) {
       console.error(err)
       const errorMsg = { op: 'error', args: ['submitorder2', err.message] }
-      ws.send(JSON.stringify(errorMsg))
+      if (ws) ws.send(JSON.stringify(errorMsg))
       return errorMsg
     }
   } else {
     const errorMsg = { op: 'error', args: ['submitorder2', 'Invalid chainId'] }
-    ws.send(JSON.stringify(errorMsg))
+    if (ws) ws.send(JSON.stringify(errorMsg))
     return errorMsg
   }
 }

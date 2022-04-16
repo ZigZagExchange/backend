@@ -43,8 +43,10 @@ export const subscribemarket: ZZServiceHandler = async (
       const errorMsg = { op: 'error', args: ['subscribemarket', `Can not find market ${market}`] }
       ws.send(JSON.stringify(errorMsg))
     }
-  } catch (e) {
-    console.error(e)
+  } catch (e: any) {
+    console.error(e.message)
+    const errorMsg = { op: 'error', args: ['subscribemarket', e.message] }
+    ws.send(JSON.stringify(errorMsg))
   }
 
   const openorders = await api.getopenorders(chainId, market)
