@@ -27,8 +27,8 @@ export const cancelorder: ZZServiceHandler = async (
     JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
   )
 
-  await api.broadcastMessage(chainId, cancelresult.market, {
-    op: 'orderstatus',
-    args: [[[chainId, orderId, 'c']]],
-  })
+  await api.redisPublisher.publish(
+    `broadcastmsg:all:${chainId}:${cancelresult.market}`,
+    JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
+  )
 }

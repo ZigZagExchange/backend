@@ -20,6 +20,7 @@ export const cancelall: ZZServiceHandler = async (
         args: ['cancelall', userid, 'Unauthorized'],
       })
     )
+    return
   }
   const canceled_orders = await api.cancelallorders(userid)
   const orderupdates = canceled_orders.map((orderid: string) => [
@@ -27,8 +28,8 @@ export const cancelall: ZZServiceHandler = async (
     orderid,
     'c',
   ])
-  await api.broadcastMessage(chainId, null, {
-    op: 'orderstatus',
-    args: [orderupdates],
-  })
+  await api.redisPublisher.publish(
+    `broadcastmsg:all:${chainId}:all`,
+    JSON.stringify({ op: 'orderstatus', args: [orderupdates], })
+  )
 }
