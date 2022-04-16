@@ -136,6 +136,7 @@ export default class API extends EventEmitter {
       )
     )
 
+    if(!process.env.STARKNET_CONTRACT_ADDRESS) throw new Error('process.env.STARKNET_CONTRACT_ADDRESS not set!')
     this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
