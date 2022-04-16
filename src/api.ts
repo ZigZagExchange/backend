@@ -163,7 +163,7 @@ export default class API extends EventEmitter {
       if (err) console.error(err.message)
       console.log(`RedisSubscriber subscribed to ${count} channels.`)
     })
-    this.redisSubscriber.ON("message", (channel: string, message: string) => {
+    this.redisSubscriber.on("message", (channel: string, message: string) => {
       console.log(`Received message from ${channel} channel.`)
       const channelArgs = channel.split(':')
       if (channelArgs.length !== 4) {
