@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 import { createHttpServer } from 'src/httpServer'
 import { createSocketServer } from 'src/socketServer'
-import redis from 'src/redisClient'
+import { redis, subscriber, publisher } from 'src/redisClient'
 import db from 'src/db'
 import API from 'src/api'
 import type { RedisClientType } from 'redis'
@@ -15,7 +15,9 @@ const api = new API(
   socketServer as any,
   db,
   httpServer,
-  redis as RedisClientType
+  redis as RedisClientType,
+  subscriber as RedisClientType,
+  publisher as RedisClientType
 )
 
 api.start(port).then(() => {
