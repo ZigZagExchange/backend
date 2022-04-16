@@ -18,9 +18,8 @@ export const submitorder2: ZZServiceHandler = async (
     }
   } else if (chainId === 1001) {
     try {
-      // const order = await api.processorderstarknet(chainId, market, zktx)
-      // return order
-      return ' '
+      const order = await api.processorderstarknet(chainId, market, zktx)
+      return order
     } catch (err: any) {
       console.error(err)
       const errorMsg = { op: 'error', args: ['submitorder2', err.message] }

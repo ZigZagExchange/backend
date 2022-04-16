@@ -145,7 +145,7 @@ export default class API extends EventEmitter {
     )
 
     // setup provider
-    if(!process.env.STARKNET_CONTRACT_ADDRESS) throw new Error('process.env.STARKNET_CONTRACT_ADDRESS not set!')
+    if (!process.env.STARKNET_CONTRACT_ADDRESS) throw new Error('process.env.STARKNET_CONTRACT_ADDRESS not set!')
     this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
@@ -162,7 +162,7 @@ export default class API extends EventEmitter {
     await this.updateTokenInfo()
 
     // setup redisSubscriber
-    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string)  => {      
+    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string) => {
       const channelArgs = channel.split(':')
       if (channelArgs.length !== 4) {
         console.error(`redisSubscriber wrong channel format: ${channel}`)
@@ -172,20 +172,20 @@ export default class API extends EventEmitter {
       const broadcastChannel = channelArgs[1]
       const chainId = Number(channelArgs[2])
       const target = channelArgs[3]
-      
+
       if (!this.VALID_CHAINS.includes(chainId)) {
         console.error(`redisSubscriber wrong chainId: ${chainId}`)
         return
       }
       if (op !== "broadcastmsg") throw new Error('Sanity check failed.')
       if (broadcastChannel === "user") {
-        this.sendMessageToUser (
+        this.sendMessageToUser(
           chainId,
           target,
           message
         )
       } else if (broadcastChannel === "all") {
-        this.broadcastMessage (
+        this.broadcastMessage(
           chainId,
           target,
           message
@@ -194,7 +194,7 @@ export default class API extends EventEmitter {
         console.error(`redisSubscriber wrong broadcastChannel: ${broadcastChannel}`)
       }
     })
-    
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -406,7 +406,7 @@ export default class API extends EventEmitter {
             market,
             JSON.stringify(marketInfo)
           )
-          this.redisPublisher.PUBLISH (
+          this.redisPublisher.PUBLISH(
             `broadcastmsg:all:${chainId}:${market}`,
             JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
           )
@@ -778,18 +778,18 @@ export default class API extends EventEmitter {
     ]
 
     // broadcast new order
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${market}`,
       JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
     )
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:user:${chainid}:${userid}`,
       JSON.stringify({ op: 'userorderack', args: orderreceipt })
     )
 
     return { op: 'userorderack', args: orderreceipt }
   }
-/*
+
   processorderstarknet = async (
     chainId: number,
     market: string,
@@ -908,14 +908,22 @@ export default class API extends EventEmitter {
       null,
       offer.unfilled,
     ]
-    this.broadcastMessage(chainId, market, { op: 'orders', args: [[orderMsg]] })
-    if (orderupdates.length > 0)
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderupdates],
-      })
-    if (marketFills.length > 0)
-      this.broadcastMessage(chainId, market, { op: 'fills', args: [marketFills] })
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainId}:${market}`,
+      JSON.stringify({ op: 'orders', args: [[orderMsg]] })
+    )
+    if (orderupdates.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderupdates] })
+      )
+    }
+    if (marketFills.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fills', args: [marketFills] })
+      )
+    }
   }
 
   relayStarknetMatch = async (
@@ -1009,14 +1017,14 @@ export default class API extends EventEmitter {
         row.txhash,
       ])
 
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderUpdates],
-      })
-      this.broadcastMessage(chainId, market, {
-        op: 'fillstatus',
-        args: [fillUpdates]
-      })
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+      )
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fillstatus', args: [fillUpdates] })
+      )
     } catch (e: any) {
       console.error(e)
       console.error('Starknet tx failed')
@@ -1029,13 +1037,12 @@ export default class API extends EventEmitter {
         row.id,
         row.order_status,
       ])
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderUpdates],
-      })
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+      )
     }
   }
-  */
 
   cancelallorders = async (userid: string | number): Promise<string[]> => {
     const values = [userid]
@@ -1284,7 +1291,7 @@ export default class API extends EventEmitter {
       }
 
       // update user
-      this.redisPublisher.PUBLISH (
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:user:${chainid}:${value.userId}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
       )
@@ -1337,11 +1344,11 @@ export default class API extends EventEmitter {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
 
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${value.market}`,
       JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]] })
     )
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${value.market}`,
       JSON.stringify({ op: 'fills', args: [[fill]] })
     )
@@ -1770,7 +1777,7 @@ export default class API extends EventEmitter {
         row.chainid,
         row.id,
         row.order_status,
-      ]))      
+      ]))
     }
 
     // Update fills
@@ -1793,15 +1800,15 @@ export default class API extends EventEmitter {
       ]))
     }
 
-    if(orderUpdates.length > 0) {
+    if (orderUpdates.length > 0) {
       this.VALID_CHAINS.forEach((chainId: number) => {
         const updatesForThisChain = orderUpdates.filter(row => Number(row[0]) === chainId)
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainId}:all`,
           JSON.stringify({ op: 'orderstatus', args: [updatesForThisChain] })
         )
       })
-    }    
+    }
     return true
   }
 
@@ -2135,7 +2142,7 @@ export default class API extends EventEmitter {
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
           return
         }
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainid}:${market_id}`,
           JSON.stringify({ op: 'liquidity2', args: [chainid, market_id, liquidity] })
         )
@@ -2167,7 +2174,7 @@ export default class API extends EventEmitter {
       const lastprices = (await this.getLastPrices(chainid)).map((l) =>
         l.splice(0, 3)
       )
-      this.redisPublisher.PUBLISH (
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainid}:all`,
         JSON.stringify({ op: 'lastprice', args: [lastprices] })
       )
@@ -2401,7 +2408,7 @@ export default class API extends EventEmitter {
           market,
           JSON.stringify(marketInfo)
         )
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainId}:${market}`,
           JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
         )
