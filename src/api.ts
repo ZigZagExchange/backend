@@ -159,8 +159,7 @@ export default class API extends EventEmitter {
     await this.updateTokenInfo()
 
     // setup redisSubscriber
-    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string)  => {
-      console.log(`Received message (${message}) from ${channel}.`)
+    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string)  => {      
       const channelArgs = channel.split(':')
       if (channelArgs.length !== 4) {
         console.error(`redisSubscriber wrong channel format: ${channel}`)
@@ -1318,7 +1317,6 @@ export default class API extends EventEmitter {
     market: ZZMarket,
     msg: string
   ) => {
-    console.log(msg)
     ; (this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
       if (ws.chainid !== chainid) return
@@ -1338,7 +1336,6 @@ export default class API extends EventEmitter {
     userId: string,
     msg: string
   ) => {
-    console.log(msg)
     const userConnKey = `${chainId}:${userId}`
     const userWs = this.USER_CONNECTIONS[userConnKey]
     if (userWs) {
