@@ -69,7 +69,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
       )
       api.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'fillstatus', args: [[update]], })
+        JSON.stringify({ op: 'fillstatus', args: [[fillUpdate]], })
       )
     }
     if (success && newstatus === 'f') {
@@ -79,7 +79,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
       const yesterdayPrice = Number(
         await api.redis.get(`dailyprice:${chainId}:${market}:${yesterday}`)
       )
-      const priceChange = (lastprice - yesterdayPrice).toString()      
+      const priceChange = (lastprice - yesterdayPrice).toString()
       api.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:all`,
         JSON.stringify({ op: 'lastprice', args: [[[market, lastprice, priceChange]]], })

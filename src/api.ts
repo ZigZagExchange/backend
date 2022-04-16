@@ -163,7 +163,7 @@ export default class API extends EventEmitter {
       if (err) console.error(err.message)
       console.log(`RedisSubscriber subscribed to ${count} channels.`)
     })
-    this.redisSubscriber.on("message", (channel: string, message: string) => {
+    this.redisSubscriber.ON("message", (channel: string, message: string) => {
       console.log(`Received message from ${channel} channel.`)
       const channelArgs = channel.split(':')
       if (channelArgs.length !== 4) {
@@ -408,7 +408,7 @@ export default class API extends EventEmitter {
             market,
             JSON.stringify(marketInfo)
           )
-          this.redisPublisher.publish(
+          this.redisPublisher.PUBLISH(
             `broadcastmsg:all:${chainId}:${market}`,
             JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
           )
@@ -780,11 +780,11 @@ export default class API extends EventEmitter {
     ]
 
     // broadcast new order
-    this.redisPublisher.publish(
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${market}`,
       JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
     )
-    this.redisPublisher.publish(
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:user:${chainid}:${userid}`,
       JSON.stringify({ op: 'userorderack', args: orderreceipt })
     )
@@ -859,7 +859,7 @@ export default class API extends EventEmitter {
       else orderupdates.push([chainId, row.maker_offer_id, 'm'])
       marketFills.push([
         chainId,
-        userAddress,
+        row.id,
         market,
         side,
         row.price,
@@ -1248,7 +1248,7 @@ export default class API extends EventEmitter {
       }
 
       // update user
-      this.redisPublisher.publish(
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:user:${chainid}:${value.userId}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
       )
@@ -1301,11 +1301,11 @@ export default class API extends EventEmitter {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
 
-    this.redisPublisher.publish(
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${value.market}`,
       JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]] })
     )
-    this.redisPublisher.publish(
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${value.market}`,
       JSON.stringify({ op: 'fills', args: [[fill]] })
     )
@@ -1762,7 +1762,7 @@ export default class API extends EventEmitter {
     if(orderUpdates.length > 0) {
       this.VALID_CHAINS.forEach((chainId: number) => {
         const updatesForThisChain = orderUpdates.filter(row => Number(row[0]) === chainId)
-        this.redisPublisher.publish(
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainId}:all`,
           JSON.stringify({ op: 'orderstatus', args: [updatesForThisChain] })
         )
@@ -2101,7 +2101,7 @@ export default class API extends EventEmitter {
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
           return
         }
-        this.redisPublisher.publish(
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainid}:${market_id}`,
           JSON.stringify({ op: 'liquidity2', args: [chainid, market_id, liquidity] })
         )
@@ -2133,7 +2133,7 @@ export default class API extends EventEmitter {
       const lastprices = (await this.getLastPrices(chainid)).map((l) =>
         l.splice(0, 3)
       )
-      this.redisPublisher.publish(
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainid}:all`,
         JSON.stringify({ op: 'lastprice', args: [lastprices] })
       )
@@ -2367,7 +2367,7 @@ export default class API extends EventEmitter {
           market,
           JSON.stringify(marketInfo)
         )
-        this.redisPublisher.publish(
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainId}:${market}`,
           JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
         )
