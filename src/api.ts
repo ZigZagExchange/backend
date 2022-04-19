@@ -11,9 +11,6 @@ import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
 import type {
-  PriceRatio,
-  ZZ_Message,
-  sCOrder,
   ZkTx,
   WSocket,
   WSMessage,
@@ -26,7 +23,7 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
-import { formatPrice } from 'src/utils'
+import { formatPrice, stringToFelt } from 'src/utils'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -35,6 +32,7 @@ export default class API extends EventEmitter {
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDER: AnyObject = {}
   ZKSYNC_BASE_URL: AnyObject = {}
+  STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
@@ -43,7 +41,6 @@ export default class API extends EventEmitter {
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
-  starknetContract: any
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -139,7 +136,8 @@ export default class API extends EventEmitter {
         'utf8'
       )
     )
-    this.starknetContract = JSON.parse(
+
+    const starknetContractABI = JSON.parse(
       fs.readFileSync(
         'abi/starknet_v1.abi',
         'utf8'
@@ -147,6 +145,11 @@ export default class API extends EventEmitter {
     )
 
     // setup provider
+    if (!process.env.STARKNET_CONTRACT_ADDRESS) throw new Error('process.env.STARKNET_CONTRACT_ADDRESS not set!')
+    this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
+      starknetContractABI,
+      process.env.STARKNET_CONTRACT_ADDRESS
+    )
     this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
     this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
@@ -159,7 +162,7 @@ export default class API extends EventEmitter {
     await this.updateTokenInfo()
 
     // setup redisSubscriber
-    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string)  => {      
+    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string) => {
       const channelArgs = channel.split(':')
       if (channelArgs.length !== 4) {
         console.error(`redisSubscriber wrong channel format: ${channel}`)
@@ -169,20 +172,20 @@ export default class API extends EventEmitter {
       const broadcastChannel = channelArgs[1]
       const chainId = Number(channelArgs[2])
       const target = channelArgs[3]
-      
+
       if (!this.VALID_CHAINS.includes(chainId)) {
         console.error(`redisSubscriber wrong chainId: ${chainId}`)
         return
       }
       if (op !== "broadcastmsg") throw new Error('Sanity check failed.')
       if (broadcastChannel === "user") {
-        this.sendMessageToUser (
+        this.sendMessageToUser(
           chainId,
           target,
           message
         )
       } else if (broadcastChannel === "all") {
-        this.broadcastMessage (
+        this.broadcastMessage(
           chainId,
           target,
           message
@@ -191,7 +194,7 @@ export default class API extends EventEmitter {
         console.error(`redisSubscriber wrong broadcastChannel: ${broadcastChannel}`)
       }
     })
-    
+
     this.started = true
 
     this.http.listen(port, () => {
@@ -403,7 +406,7 @@ export default class API extends EventEmitter {
             market,
             JSON.stringify(marketInfo)
           )
-          this.redisPublisher.PUBLISH (
+          this.redisPublisher.PUBLISH(
             `broadcastmsg:all:${chainId}:${market}`,
             JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
           )
@@ -775,38 +778,39 @@ export default class API extends EventEmitter {
     ]
 
     // broadcast new order
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${market}`,
       JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
     )
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:user:${chainid}:${userid}`,
       JSON.stringify({ op: 'userorderack', args: orderreceipt })
     )
 
     return { op: 'userorderack', args: orderreceipt }
   }
-/*
+
   processorderstarknet = async (
     chainId: number,
     market: string,
-    txMsg: ZZ_Message
+    ZZMessageString: string
   ) => {
-    const inputValidation = ZZMessageSchema.validate(txMsg)
+    const ZZMessage = JSON.parse(ZZMessageString)
+    const inputValidation = ZZMessageSchema.validate(ZZMessage)
     if (inputValidation.error) throw inputValidation.error
     if (chainId !== 1001) throw new Error("Only for StarkNet")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const sCTx: sCOrder = txMsg.order
+    const { order } = ZZMessage
 
-    const userAddress = txMsg.sender
-    if (Number(sCTx.side) !== 1 && Number(sCTx.side) !== 0) throw new Error('Invalid side')
-    const side = Number(sCTx.side) === 0 ? 'b' : 's'
-    const base_quantity = Number(sCTx.base_quantity) / 10 ** marketInfo.baseAsset.decimals
-    const price = (Number(sCTx.priceRatio[0]) / Number(sCTx.priceRatio[1]))
+    const userAddress = ZZMessage.sender
+    if (order.side !== '1' && order.side !== '0') throw new Error('Invalid side')
+    const side = order.side === '0' ? 'b' : 's'
+    const base_quantity = Number(order.base_quantity) / 10 ** marketInfo.baseAsset.decimals
+    const price = (Number(order.price.numerator) / Number(order.price.denominator))
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(sCTx.expiration)
+    const expiration = Number(order.expiration)
     // const order_type = 'limit' - set in match_limit_order
 
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8)'
@@ -819,7 +823,7 @@ export default class API extends EventEmitter {
       base_quantity,
       quote_quantity,
       expiration,
-      JSON.stringify(txMsg),
+      ZZMessageString
     ]
     console.log(values)
 
@@ -843,7 +847,7 @@ export default class API extends EventEmitter {
     const orderupdates: any[] = []
     const marketFills: any[] = []
     fills.rows.forEach((row) => {
-      if (row.maker_unfilled > 0)
+      if (row.maker_unfilled > 0) {
         orderupdates.push([
           chainId,
           row.maker_offer_id,
@@ -851,7 +855,9 @@ export default class API extends EventEmitter {
           row.amount,
           row.maker_unfilled,
         ])
-      else orderupdates.push([chainId, row.maker_offer_id, 'm'])
+      } else {
+        orderupdates.push([chainId, row.maker_offer_id, 'm'])
+      }
       marketFills.push([
         chainId,
         row.id,
@@ -873,6 +879,8 @@ export default class API extends EventEmitter {
       } else if (row.maker_side === 's') {
         buyer = offer.zktx
         seller = row.maker_zktx
+      } else {
+        throw new Error('Invalid side')
       }
       this.relayStarknetMatch(
         chainId,
@@ -886,7 +894,7 @@ export default class API extends EventEmitter {
         offer.id
       )
     })
-    const order = [
+    const orderMsg = [
       chainId,
       offer.id,
       market,
@@ -900,52 +908,92 @@ export default class API extends EventEmitter {
       null,
       offer.unfilled,
     ]
-    this.broadcastMessage(chainId, market, { op: 'orders', args: [[order]] })
-    if (orderupdates.length > 0)
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderupdates],
-      })
-    if (marketFills.length > 0)
-      this.broadcastMessage(chainId, market, { op: 'fills', args: [marketFills] })
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainId}:${market}`,
+      JSON.stringify({ op: 'orders', args: [[orderMsg]] })
+    )
+    if (orderupdates.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderupdates] })
+      )
+    }
+    if (marketFills.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fills', args: [marketFills] })
+      )
+    }
   }
 
   relayStarknetMatch = async (
     chainId: number,
     market: ZZMarket,
-    buyer: ZZ_Message,
-    seller: ZZ_Message,
-    fillQty: number,
+    buyer: any,
+    seller: any,
+    fillQuantity: number,
     fillPrice: number,
     fillId: number,
     makerOfferId: number,
     takerOfferId: number
   ) => {
     const marketInfo = await this.getMarketInfo(market, chainId)
+    const network = await this.getNetwork(chainId)
     const baseAssetDecimals = marketInfo.baseAsset.decimals
     const getFraction = (decimals: number) => {
       let denominator = 1
-      for(; (decimals * denominator) % 1 !== 0; denominator++);
-      return {numerator: decimals * denominator, denominator }
+      for (; (decimals * denominator) % 1 !== 0; denominator++);
+      return { numerator: decimals * denominator, denominator }
     }
     const fillPriceRatioNumber = getFraction(fillPrice)
-    const fillPriceRatio: PriceRatio = {
-      numerator: fillPriceRatioNumber.numerator.toFixed(0),
-      denominator: fillPriceRatioNumber.denominator.toFixed(0)
-    }
-    const fillQtyParsed = (fillQty * 10 ** baseAssetDecimals).toFixed(0)
-    const calldata = [buyer, seller, fillPriceRatio, fillQtyParsed]
-    try {
-      const transactionDetails = {
-        type: 'INVOKE_FUNCTION',
-        contract_address: process.env.STARKNET_CONTRACT_ADDRESS as string,
-        entry_point_selector: starknet.stark.getSelectorFromName('fill_order'),
-        calldata: JSON.stringify(calldata)
-      } 
-      const relayResult = await starknet.defaultProvider.addTransaction(
-        transactionDetails
-      )
+    const calldataFillPrice = [
+      fillPriceRatioNumber.numerator.toFixed(0),
+      fillPriceRatioNumber.denominator.toFixed(0)
+    ]
+    const calldataFillQuantity = (fillQuantity * 10 ** baseAssetDecimals).toFixed(0)
 
+    const calldataBuyOrder = [
+      stringToFelt(buyer.message_prefix),
+      stringToFelt(buyer.domain_prefix.name),
+      buyer.domain_prefix.version,
+      stringToFelt(buyer.domain_prefix.chain_id),
+      buyer.sender,
+      buyer.order.base_asset,
+      buyer.order.quote_asset,
+      buyer.order.side,
+      buyer.order.base_quantity,
+      buyer.order.price.numerator,
+      buyer.order.price.denominator,
+      buyer.order.expiration
+    ]
+
+    const calldataSellOrder = [
+      stringToFelt(seller.message_prefix),
+      stringToFelt(seller.domain_prefix.name),
+      seller.domain_prefix.version,
+      stringToFelt(seller.domain_prefix.chain_id),
+      seller.sender,
+      seller.order.base_asset,
+      seller.order.quote_asset,
+      seller.order.side,
+      seller.order.base_quantity,
+      seller.order.price.numerator,
+      seller.order.price.denominator,
+      seller.order.expiration
+    ]
+
+    try {
+      const relayResult = await this.STARKNET_EXCHANGE[network].invoke(
+        'fill_order',
+        [
+          calldataBuyOrder,
+          calldataSellOrder,
+          calldataFillPrice,
+          calldataFillQuantity
+        ]
+      )
+      await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
+      // TODO handel f or r
       // TODO we want to add fees here
 
       console.log('Starknet tx success')
@@ -969,14 +1017,14 @@ export default class API extends EventEmitter {
         row.txhash,
       ])
 
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderUpdates],
-      })
-      this.broadcastMessage(chainId, market, {
-        op: 'fillstatus',
-        args: [fillUpdates]
-      })
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+      )
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fillstatus', args: [fillUpdates] })
+      )
     } catch (e: any) {
       console.error(e)
       console.error('Starknet tx failed')
@@ -989,13 +1037,13 @@ export default class API extends EventEmitter {
         row.id,
         row.order_status,
       ])
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderUpdates],
-      })
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+      )
     }
   }
-*/
+
   cancelallorders = async (userid: string | number): Promise<string[]> => {
     const values = [userid]
     const select = await this.db.query(
@@ -1243,7 +1291,7 @@ export default class API extends EventEmitter {
       }
 
       // update user
-      this.redisPublisher.PUBLISH (
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:user:${chainid}:${value.userId}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
       )
@@ -1296,11 +1344,11 @@ export default class API extends EventEmitter {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
 
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${value.market}`,
       JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]] })
     )
-    this.redisPublisher.PUBLISH (
+    this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainid}:${value.market}`,
       JSON.stringify({ op: 'fills', args: [[fill]] })
     )
@@ -1729,7 +1777,7 @@ export default class API extends EventEmitter {
         row.chainid,
         row.id,
         row.order_status,
-      ]))      
+      ]))
     }
 
     // Update fills
@@ -1752,15 +1800,15 @@ export default class API extends EventEmitter {
       ]))
     }
 
-    if(orderUpdates.length > 0) {
+    if (orderUpdates.length > 0) {
       this.VALID_CHAINS.forEach((chainId: number) => {
         const updatesForThisChain = orderUpdates.filter(row => Number(row[0]) === chainId)
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainId}:all`,
           JSON.stringify({ op: 'orderstatus', args: [updatesForThisChain] })
         )
       })
-    }    
+    }
     return true
   }
 
@@ -2094,7 +2142,7 @@ export default class API extends EventEmitter {
           await this.redis.HDEL(`lastprices:${chainid}`, market_id)
           return
         }
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainid}:${market_id}`,
           JSON.stringify({ op: 'liquidity2', args: [chainid, market_id, liquidity] })
         )
@@ -2126,7 +2174,7 @@ export default class API extends EventEmitter {
       const lastprices = (await this.getLastPrices(chainid)).map((l) =>
         l.splice(0, 3)
       )
-      this.redisPublisher.PUBLISH (
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainid}:all`,
         JSON.stringify({ op: 'lastprice', args: [lastprices] })
       )
@@ -2360,7 +2408,7 @@ export default class API extends EventEmitter {
           market,
           JSON.stringify(marketInfo)
         )
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainId}:${market}`,
           JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
         )
@@ -2380,6 +2428,9 @@ export default class API extends EventEmitter {
     }
     if ([1000].includes(chainId)) {
       return "rinkeby"
+    }
+    if ([1001].includes(chainId)) {
+      return "goerli"
     }
     return ""
   }
