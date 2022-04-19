@@ -179,13 +179,19 @@ export default class API extends EventEmitter {
       }
       if (op !== "broadcastmsg") throw new Error('Sanity check failed.')
       if (broadcastChannel === "user") {
-        this.sendMessageToUser(
+        this.sendMessageToUser (
           chainId,
           target,
           message
         )
       } else if (broadcastChannel === "all") {
-        this.broadcastMessage(
+        this.broadcastMessage (
+          chainId,
+          target,
+          message
+        )
+      } else if (broadcastChannel === "maker") {
+        this.sendMessageToMM (
           chainId,
           target,
           message
@@ -1200,8 +1206,6 @@ export default class API extends EventEmitter {
     const value = JSON.parse(redis_members.value)
     const { fillOrder } = value
     const makerAccountId = fillOrder.accountId.toString()
-    const makerConnId = `${chainid}:${value.wsUUID}`
-    const ws = this.MAKER_CONNECTIONS[makerConnId]
 
     let fill
     const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
@@ -1210,15 +1214,15 @@ export default class API extends EventEmitter {
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
         const remainingTime = await this.redis.ttl(redisKeyBussy)
-        ws.send(
+        this.redisPublisher.PUBLISH (
+          `broadcastmsg:maker:${chainid}:${value.wsUUID}`,
           JSON.stringify({
-            op: 'error',
+            op: 'error', 
             args: [
               'fillrequest',
               makerAccountId,
-              `Your address did not respond to order (${processingOrderId
-              }) yet. Remaining timeout: ${remainingTime}.`
-            ],
+              `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
+            ]
           })
         )
         throw new Error('fillrequest - market maker is timed out.')
@@ -1281,24 +1285,23 @@ export default class API extends EventEmitter {
         null,
       ]
 
-      if (ws) {
-        ws.send(
-          JSON.stringify({
-            op: 'userordermatch',
-            args: [chainid, orderId, value.zktx, fillOrder],
-          })
-        )
-      }
+      this.redisPublisher.PUBLISH (
+        `broadcastmsg:maker:${chainid}:${value.wsUUID}`,
+        JSON.stringify({
+          op: 'userordermatch', 
+          args: [chainid, orderId, value.zktx, fillOrder],
+        })
+      )
 
       // update user
-      this.redisPublisher.PUBLISH(
+      this.redisPublisher.PUBLISH (
         `broadcastmsg:user:${chainid}:${value.userId}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
       )
 
-      this.redis.SET(
+      this.redis.SET (
         redisKeyBussy,
-        JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
+        JSON.stringify({ "orderId": orderId, "ws_uuid": value.wsUUID }),
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
@@ -1323,22 +1326,17 @@ export default class API extends EventEmitter {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
         const otherMakerAccountId = otherFillOrder.accountId.toString()
-        const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
-        const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-        if (otherWs) {
-          otherWs.send(
-            JSON.stringify(
-              {
-                op: 'error',
-                args: [
-                  'fillrequest',
-                  otherMakerAccountId,
-                  "The Order was filled by better offer"
-                ]
-              }
-            )
-          )
-        }
+        this.redisPublisher.PUBLISH (
+          `broadcastmsg:maker:${chainid}:${otherValue.wsUUID}`,
+          JSON.stringify({
+            op: 'error', 
+            args: [
+              'fillrequest',
+              otherMakerAccountId,
+              "The Order was filled by better offer"
+            ],
+          })
+        )
       })
     } catch (err: any) {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
@@ -1388,6 +1386,24 @@ export default class API extends EventEmitter {
     const userWs = this.USER_CONNECTIONS[userConnKey]
     if (userWs) {
       userWs.send(msg)
+    }
+  }
+
+  /**
+ * Send msg to marketmaker (zkSync V1.X)
+ * @param chainId 
+ * @param marketmakerId user ws id like: `${chainId}:${userid}`
+ * @param msg JSON.stringify( WSMessage )
+ */
+  sendMessageToMM = async (
+    chainId: number,
+    marketmakerId: string,
+    msg: string
+  ) => {
+    const makerConnKey = `${chainId}:${marketmakerId}`
+    const makerWs = this.MAKER_CONNECTIONS[makerConnKey]
+    if (makerWs) {
+      makerWs.send(msg)
     }
   }
 
