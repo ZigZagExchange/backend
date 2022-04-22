@@ -22,15 +22,19 @@ export const marketsreq: ZZServiceHandler = async (
     })
     await Promise.all(result)
     marketsMsg = { op: 'marketinfo2', args: [marketInfo] }
+
+    if (ws) {
+      ws.send(JSON.stringify(marketsMsg))
+      // fetch lastPrices after sending marketsMsg for some delay
+      const lastPrices = await api.getLastPrices(chainId)
+      ws.send(JSON.stringify({ op: 'lastprice', args: [lastPrices] }))
+    }
   } else {
     const lastPrices = await api.getLastPrices(chainId)
     marketsMsg = { op: 'lastprice', args: [lastPrices] }
+    if (ws) {
+      ws.send(JSON.stringify({ op: 'lastprice', args: [lastPrices] }))
+    }
   }
-
-  if (ws) {
-    const lastPrices = await api.getLastPrices(chainId)
-    ws.send(JSON.stringify({ op: 'lastprice', args: [lastPrices] }))
-    ws.send(JSON.stringify(marketsMsg))
-  }  
   return marketsMsg
 }
