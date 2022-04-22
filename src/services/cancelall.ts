@@ -5,8 +5,11 @@ export const cancelall: ZZServiceHandler = async (
   ws,
   [chainId, userid]
 ) => {
-  if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = { op: 'error', args: ['cancelall', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
+  if (
+    !api.VALID_CHAINS.includes(chainId) ||
+    Number(chainId) === 0
+  ) {
+    const errorMsg = { op: 'error', args: ['cancelall', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS} or 0 to cancel on all networks`] }
     ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return
@@ -17,19 +20,17 @@ export const cancelall: ZZServiceHandler = async (
     ws.send(
       JSON.stringify({
         op: 'error',
-        args: ['cancelall', userid, 'Unauthorized'],
+        args: ['cancelall', 'Unauthorized', userid],
       })
     )
     return
   }
-  const canceled_orders = await api.cancelallorders(userid)
-  const orderupdates = canceled_orders.map((orderid: string) => [
-    chainId,
-    orderid,
-    'c',
-  ])
-  await api.redisPublisher.publish(
-    `broadcastmsg:all:${chainId}:all`,
-    JSON.stringify({ op: 'orderstatus', args: [orderupdates], })
-  )
+  try {
+    const cancelresult = await api.cancelallorders(chainId, userid)
+    if (!cancelresult) throw new Error('Unexpected error')
+  } catch (e: any) {
+    ws.send(
+      JSON.stringify({ op: 'error', args: ['cancelall', e.message, userid] })
+    )
+  }
 }
