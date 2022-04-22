@@ -32,7 +32,7 @@ export const fillrequest: ZZServiceHandler = async (
   }
 
   try {
-    await api.matchorder(chainId, orderId, fillOrder, ws)
+    await api.matchorder(chainId, orderId, fillOrder, ws.uuid)
   } catch (err: any) {
     console.log(err)
     ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', maker_user_id, err.message] }))

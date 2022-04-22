@@ -1142,7 +1142,7 @@ export default class API extends EventEmitter {
     chainid: number,
     orderId: string,
     fillOrder: ZZFillOrder,
-    ws: WSocket
+    wsUUID: string
   ) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
@@ -1150,18 +1150,7 @@ export default class API extends EventEmitter {
       values
     )
     if (select.rows.length === 0) {
-      ws.send(
-        JSON.stringify(
-          {
-            op: 'error',
-            args: [
-              'fillrequest',
-              fillOrder.accountId.toString(),
-              `Order ${orderId} is not open`]
-          }
-        )
-      )
-      return
+      throw new Error(`Order ${orderId} is not open`)
     }
 
     const selectresult = select.rows[0]
@@ -1191,7 +1180,7 @@ export default class API extends EventEmitter {
         "quoteQuantity": selectresult.quote_quantity,
         "userId": selectresult.userid,
         "fillOrder": fillOrder,
-        "wsUUID": ws.uuid
+        "wsUUID": wsUUID
       })
     }
 
