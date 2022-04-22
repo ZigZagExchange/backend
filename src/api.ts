@@ -1050,23 +1050,56 @@ export default class API extends EventEmitter {
     }
   }
 
-  cancelallorders = async (userid: string | number): Promise<string[]> => {
-    const values = [userid]
-    const select = await this.db.query(
-      "SELECT id FROM offers WHERE userid=$1 AND order_status='o'",
-      values
-    )
-    const ids = select.rows.map((s) => s.id)
+  cancelallorders = async (
+    chainId: number,
+    userid: string | number
+  ) => {
+    let orders: any
+    if (chainId) {
+      // cancel for chainId set
+      const values = [userid, chainId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, market, id;",
+        values
+      )
+    } else {
+      // cancel for all chainIds - chainId not set
+      const values = [userid]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, market, id;",
+        values
+      )
+    }
 
-    await this.db.query(
-      "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o'",
-      values
-    )
+    if (orders.rows.length === 0) throw new Error('No open Orders')
 
-    return ids
+    this.VALID_CHAINS.forEach(async (broadcastChainId) => {
+      const orderStatusUpdate = orders.rows
+        .filter((o: any) => Number(o.chainid) === broadcastChainId)
+        .map((o: any) => [
+          o.chainid,
+          o.id,
+          o.market
+        ])
+
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${broadcastChainId}:all`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+      await this.redisPublisher.publish(
+        `broadcastmsg:user:${broadcastChainId}:${userid}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+    })
+    
+    return true
   }
 
-  cancelorder = async (chainid: number, orderId: string, ws?: WSocket) => {
+  cancelorder = async (
+    chainid: number,
+    orderId: string,
+    ws?: WSocket
+  ) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
       'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
@@ -1079,17 +1112,7 @@ export default class API extends EventEmitter {
 
     const userconnkey = `${chainid}:${select.rows[0].userid}`
 
-    if (select.rows[0].order_status !== 'o') {
-      // somehow user was not updated, do that now   
-      if (ws) {
-        try {
-          ws.send(
-            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, select.rows[0].order_status]]], })
-          )
-        } catch (err: any) {
-          throw new Error('Order is no longer open')
-        }
-      }
+    if (select.rows[0].order_status !== 'o') {      
       throw new Error('Order is no longer open')
     }
 
@@ -1102,19 +1125,24 @@ export default class API extends EventEmitter {
       "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
       updatevalues
     )
-    let market
-    if (update.rows.length > 0) {
-      market = update.rows[0].market
-    }
 
-    return { success: true, market }
+    if (update.rows.length > 0) {
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${chainid}:${update.rows[0].market}`,
+        JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'c']]], })
+      )
+    } else {
+      throw new Error('Order not found')
+    }    
+
+    return true
   }
 
   matchorder = async (
     chainid: number,
     orderId: string,
     fillOrder: ZZFillOrder,
-    ws: WSocket
+    wsUUID: string
   ) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
@@ -1122,18 +1150,7 @@ export default class API extends EventEmitter {
       values
     )
     if (select.rows.length === 0) {
-      ws.send(
-        JSON.stringify(
-          {
-            op: 'error',
-            args: [
-              'fillrequest',
-              fillOrder.accountId.toString(),
-              `Order ${orderId} is not open`]
-          }
-        )
-      )
-      return
+      throw new Error(`Order ${orderId} is not open`)
     }
 
     const selectresult = select.rows[0]
@@ -1163,7 +1180,7 @@ export default class API extends EventEmitter {
         "quoteQuantity": selectresult.quote_quantity,
         "userId": selectresult.userid,
         "fillOrder": fillOrder,
-        "wsUUID": ws.uuid
+        "wsUUID": wsUUID
       })
     }
 
