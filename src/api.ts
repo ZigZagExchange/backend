@@ -1609,6 +1609,7 @@ export default class API extends EventEmitter {
       redis_key_liquidity,
       redis_member
     )
+    this.redis.SADD(`activemarkets:${chainid}`, market)
   }
 
   getLiquidity = async (
@@ -1626,7 +1627,7 @@ export default class API extends EventEmitter {
 
     liquidity = liquidity.map((json) => JSON.parse(json))
 
-    const now = (Date.now() / 1000) | 0
+    const now = Date.now()
     const expired_values = liquidity
       .filter((l) => Number(l[3]) < now || !l[3])
       .map((l) => JSON.stringify(l))
