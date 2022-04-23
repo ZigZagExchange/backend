@@ -1627,7 +1627,7 @@ export default class API extends EventEmitter {
 
     liquidity = liquidity.map((json) => JSON.parse(json))
 
-    const now = Date.now() / 1000
+    const now = Date.now() / 1000 | 0
     const expired_values = liquidity
       .filter((l) => Number(l[3]) < now || !l[3])
       .map((l) => JSON.stringify(l))
@@ -2215,7 +2215,6 @@ export default class API extends EventEmitter {
         const liquidity = await this.getLiquidity(chainid, market_id)
         if (liquidity.length === 0) {
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
-          await this.redis.HDEL(`lastprices:${chainid}`, market_id)
           return
         }
         this.redisPublisher.PUBLISH(
