@@ -1609,6 +1609,7 @@ export default class API extends EventEmitter {
       redis_key_liquidity,
       redis_member
     )
+    this.redis.SADD(`activemarkets:${chainid}`, market)
   }
 
   getLiquidity = async (
