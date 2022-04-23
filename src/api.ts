@@ -819,7 +819,7 @@ export default class API extends EventEmitter {
     const expiration = Number(order.expiration)
     // const order_type = 'limit' - set in match_limit_order
 
-    const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8)'
+    const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
     const values = [
       chainId,
       userAddress,
