@@ -809,15 +809,27 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainId)
     const { order } = ZZMessage
 
+    order.base_quantity = Number(order.base_quantity)
+    if (order.base_quantity <= 0) throw new Error('Quantity cannot be negative')
+
+    order.price.numerator = Number(order.price.numerator)
+    if (order.price.numerator <= 0) throw new Error('Price numerator cannot be negative')
+
+    order.price.denominator = Number(order.price.denominator)
+    if (order.price.denominator <= 0) throw new Error('Price denominator cannot be negative')
+
     const userAddress = ZZMessage.sender
     if (order.side !== '1' && order.side !== '0') throw new Error('Invalid side')
     const side = order.side === '0' ? 'b' : 's'
-    const base_quantity = Number(order.base_quantity) / 10 ** marketInfo.baseAsset.decimals
-    const price = (Number(order.price.numerator) / Number(order.price.denominator))
+    const base_quantity = order.base_quantity / 10 ** marketInfo.baseAsset.decimals
+    const price = (order.price.numerator / order.price.denominator)
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(order.expiration)
+    const expiration = Number(order.expiration)    
+    if (expiration < Date.now()) throw new Error("Wrong expiry, check PC clock")
     // const order_type = 'limit' - set in match_limit_order
+
+    let remainingAmount = base_quantity
 
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
     const values = [
@@ -831,7 +843,7 @@ export default class API extends EventEmitter {
       expiration,
       ZZMessageString
     ]
-    console.log(values)
+    
 
     const matchquery = await this.db.query(query, values)
     const fill_ids = matchquery.rows
@@ -899,6 +911,8 @@ export default class API extends EventEmitter {
         row.maker_offer_id,
         offer.id
       )
+
+      remainingAmount -= row.amount
     })
     const orderMsg = [
       chainId,
@@ -928,6 +942,15 @@ export default class API extends EventEmitter {
       this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainId}:${market}`,
         JSON.stringify({ op: 'fills', args: [marketFills] })
+      )
+    }
+
+    // 'remainingAmount > marketInfo.baseFee' => 'remainingAmount > 0'
+    if (remainingAmount > marketInfo.baseFee) {
+      this.addLiquidity(
+        chainId,
+        market,
+        [side, price, remainingAmount, expiration]        
       )
     }
   }
@@ -1572,7 +1595,26 @@ export default class API extends EventEmitter {
     )
   }
 
-  getLiquidity = async (chainid: number, market: ZZMarket) => {
+  addLiquidity = async (
+    chainid: number,
+    market: ZZMarket,
+    liquidity: any[]  
+  ) => {
+    const redis_key_liquidity = `liquidity:${chainid}:${market}`
+    const redis_member = {
+      score: Number(liquidity[1]),
+      value: JSON.stringify(liquidity),
+    }
+    this.redis.ZADD(
+      redis_key_liquidity,
+      redis_member
+    )
+  }
+
+  getLiquidity = async (
+    chainid: number,
+    market: ZZMarket
+  ) => {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
     let liquidity = await this.redis.ZRANGEBYSCORE(
       redis_key_liquidity,
