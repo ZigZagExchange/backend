@@ -809,14 +809,24 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainId)
     const { order } = ZZMessage
 
+    order.base_quantity = Number(order.base_quantity)
+    if (order.base_quantity <= 0) throw new Error('Quantity cannot be negative')
+
+    order.price.numerator = Number(order.price.numerator)
+    if (order.price.numerator <= 0) throw new Error('Price numerator cannot be negative')
+
+    order.price.denominator = Number(order.price.denominator)
+    if (order.price.denominator <= 0) throw new Error('Price denominator cannot be negative')
+
     const userAddress = ZZMessage.sender
     if (order.side !== '1' && order.side !== '0') throw new Error('Invalid side')
     const side = order.side === '0' ? 'b' : 's'
-    const base_quantity = Number(order.base_quantity) / 10 ** marketInfo.baseAsset.decimals
-    const price = (Number(order.price.numerator) / Number(order.price.denominator))
+    const base_quantity = order.base_quantity / 10 ** marketInfo.baseAsset.decimals
+    const price = (order.price.numerator / order.price.denominator)
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(order.expiration)
+    const expiration = Number(order.expiration)    
+    if (expiration < Date.now()) throw new Error("Wrong expiry, check PC clock")
     // const order_type = 'limit' - set in match_limit_order
 
     let remainingAmount = base_quantity
