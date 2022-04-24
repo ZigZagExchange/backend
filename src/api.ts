@@ -993,7 +993,9 @@ export default class API extends EventEmitter {
       buyer.order.base_quantity,
       buyer.order.price.numerator,
       buyer.order.price.denominator,
-      buyer.order.expiration
+      buyer.order.expiration,
+      buyer.order.sig_r,
+      buyer.order.sig_s
     ]
 
     const calldataSellOrder = [
@@ -1008,7 +1010,9 @@ export default class API extends EventEmitter {
       seller.order.base_quantity,
       seller.order.price.numerator,
       seller.order.price.denominator,
-      seller.order.expiration
+      seller.order.expiration,
+      seller.order.sig_r,
+      seller.order.sig_s
     ]
 
     try {
