@@ -179,19 +179,19 @@ export default class API extends EventEmitter {
       }
       if (op !== "broadcastmsg") throw new Error('Sanity check failed.')
       if (broadcastChannel === "user") {
-        this.sendMessageToUser (
+        this.sendMessageToUser(
           chainId,
           target,
           message
         )
       } else if (broadcastChannel === "all") {
-        this.broadcastMessage (
+        this.broadcastMessage(
           chainId,
           target,
           message
         )
       } else if (broadcastChannel === "maker") {
-        this.sendMessageToMM (
+        this.sendMessageToMM(
           chainId,
           target,
           message
@@ -843,7 +843,7 @@ export default class API extends EventEmitter {
       expiration,
       ZZMessageString
     ]
-    
+
 
     const matchquery = await this.db.query(query, values)
     const fill_ids = matchquery.rows
@@ -855,12 +855,12 @@ export default class API extends EventEmitter {
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fill_ids]
     )
-    console.log('fills', fills.rows)
+    // console.log('fills', fills.rows)
     const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
       offer_id,
     ])
     const offer = offerquery.rows[0]
-    console.log('offer', offer)
+    // console.log('offer', offer)
 
     const orderupdates: any[] = []
     const marketFills: any[] = []
@@ -950,7 +950,7 @@ export default class API extends EventEmitter {
       this.addLiquidity(
         chainId,
         market,
-        [side, price, remainingAmount, expiration]        
+        [side, price, remainingAmount, expiration]
       )
     }
   }
@@ -1114,7 +1114,7 @@ export default class API extends EventEmitter {
         JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
       )
     })
-    
+
     return true
   }
 
@@ -1135,7 +1135,7 @@ export default class API extends EventEmitter {
 
     const userconnkey = `${chainid}:${select.rows[0].userid}`
 
-    if (select.rows[0].order_status !== 'o') {      
+    if (select.rows[0].order_status !== 'o') {
       throw new Error('Order is no longer open')
     }
 
@@ -1156,7 +1156,7 @@ export default class API extends EventEmitter {
       )
     } else {
       throw new Error('Order not found')
-    }    
+    }
 
     return true
   }
@@ -1254,10 +1254,10 @@ export default class API extends EventEmitter {
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
         const remainingTime = await this.redis.ttl(redisKeyBussy)
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:maker:${chainid}:${value.wsUUID}`,
           JSON.stringify({
-            op: 'error', 
+            op: 'error',
             args: [
               'fillrequest',
               makerAccountId,
@@ -1325,21 +1325,21 @@ export default class API extends EventEmitter {
         null,
       ]
 
-      this.redisPublisher.PUBLISH (
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:maker:${chainid}:${value.wsUUID}`,
         JSON.stringify({
-          op: 'userordermatch', 
+          op: 'userordermatch',
           args: [chainid, orderId, value.zktx, fillOrder],
         })
       )
 
       // update user
-      this.redisPublisher.PUBLISH (
+      this.redisPublisher.PUBLISH(
         `broadcastmsg:user:${chainid}:${value.userId}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
       )
 
-      this.redis.SET (
+      this.redis.SET(
         redisKeyBussy,
         JSON.stringify({ "orderId": orderId, "ws_uuid": value.wsUUID }),
         { EX: this.MARKET_MAKER_TIMEOUT }
@@ -1366,10 +1366,10 @@ export default class API extends EventEmitter {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
         const otherMakerAccountId = otherFillOrder.accountId.toString()
-        this.redisPublisher.PUBLISH (
+        this.redisPublisher.PUBLISH(
           `broadcastmsg:maker:${chainid}:${otherValue.wsUUID}`,
           JSON.stringify({
-            op: 'error', 
+            op: 'error',
             args: [
               'fillrequest',
               otherMakerAccountId,
@@ -1598,7 +1598,7 @@ export default class API extends EventEmitter {
   addLiquidity = async (
     chainid: number,
     market: ZZMarket,
-    liquidity: any[]  
+    liquidity: any[]
   ) => {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
     const redis_member = {
