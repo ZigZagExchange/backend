@@ -11,9 +11,6 @@ import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
 import * as services from 'src/services'
 import type {
-  PriceRatio,
-  ZZ_Message,
-  sCOrder,
   ZkTx,
   WSocket,
   WSMessage,
@@ -26,7 +23,7 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
-import { formatPrice } from 'src/utils'
+import { formatPrice, stringToFelt } from 'src/utils'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -35,6 +32,7 @@ export default class API extends EventEmitter {
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDER: AnyObject = {}
   ZKSYNC_BASE_URL: AnyObject = {}
+  STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
@@ -43,12 +41,13 @@ export default class API extends EventEmitter {
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
-  starknetContract: any
 
   watchers: NodeJS.Timer[] = []
   started = false
   wss: ZZSocketServer
   redis: RedisClientType
+  redisSubscriber: any
+  redisPublisher: any
   http: ZZHttpServer
   db: Pool
 
@@ -56,11 +55,15 @@ export default class API extends EventEmitter {
     wss: ZZSocketServer,
     db: Pool,
     http: ZZHttpServer,
-    redis: RedisClientType
+    redis: RedisClientType,
+    subscriber: RedisClientType,
+    publisher: RedisClientType
   ) {
     super()
     this.db = db
     this.redis = redis
+    this.redisSubscriber = subscriber
+    this.redisPublisher = publisher
     this.http = http
     this.wss = wss
     this.http.api = this
@@ -87,6 +90,8 @@ export default class API extends EventEmitter {
     if (this.started) return
 
     await this.redis.connect()
+    await this.redisSubscriber.connect()
+    await this.redisPublisher.connect()
 
     this.watchers = [
       setInterval(this.updatePriceHighLow, 300000),
@@ -124,6 +129,7 @@ export default class API extends EventEmitter {
       })
     })
 
+    // fetch abi's
     this.ERC20_ABI = JSON.parse(
       fs.readFileSync(
         'abi/ERC20.abi',
@@ -131,24 +137,69 @@ export default class API extends EventEmitter {
       )
     )
 
-    this.starknetContract = JSON.parse(
+    const starknetContractABI = JSON.parse(
       fs.readFileSync(
         'abi/starknet_v1.abi',
         'utf8'
       )
     )
 
+    // setup provider
+    if (!process.env.STARKNET_CONTRACT_ADDRESS) throw new Error('process.env.STARKNET_CONTRACT_ADDRESS not set!')
+    this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
+      starknetContractABI,
+      process.env.STARKNET_CONTRACT_ADDRESS
+    )
     this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
     this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
     this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
-
     this.ETHERS_PROVIDER.mainnet =
       new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
     this.ETHERS_PROVIDER.rinkeby =
       new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
     await this.updateTokenInfo()
+
+    // setup redisSubscriber
+    this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string) => {
+      const channelArgs = channel.split(':')
+      if (channelArgs.length !== 4) {
+        console.error(`redisSubscriber wrong channel format: ${channel}`)
+        return
+      }
+      const op = channelArgs[0]
+      const broadcastChannel = channelArgs[1]
+      const chainId = Number(channelArgs[2])
+      const target = channelArgs[3]
+
+      if (!this.VALID_CHAINS.includes(chainId)) {
+        console.error(`redisSubscriber wrong chainId: ${chainId}`)
+        return
+      }
+      if (op !== "broadcastmsg") throw new Error('Sanity check failed.')
+      if (broadcastChannel === "user") {
+        this.sendMessageToUser(
+          chainId,
+          target,
+          message
+        )
+      } else if (broadcastChannel === "all") {
+        this.broadcastMessage(
+          chainId,
+          target,
+          message
+        )
+      } else if (broadcastChannel === "maker") {
+        this.sendMessageToMM(
+          chainId,
+          target,
+          message
+        )
+      } else {
+        console.error(`redisSubscriber wrong broadcastChannel: ${broadcastChannel}`)
+      }
+    })
 
     this.started = true
 
@@ -160,6 +211,8 @@ export default class API extends EventEmitter {
   stop = async () => {
     if (!this.started) return
     await this.redis.disconnect()
+    await this.redisSubscriber.disconnect()
+    await this.redisPublisher.disconnect()
     this.watchers.forEach((watcher) => clearInterval(watcher))
     this.watchers = []
     this.started = false
@@ -359,8 +412,10 @@ export default class API extends EventEmitter {
             market,
             JSON.stringify(marketInfo)
           )
-          const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
-          this.broadcastMessage(chainId, market, marketInfoMsg)
+          this.redisPublisher.PUBLISH(
+            `broadcastmsg:all:${chainId}:${market}`,
+            JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+          )
         }
       })
       await Promise.all(results2)
@@ -729,45 +784,54 @@ export default class API extends EventEmitter {
     ]
 
     // broadcast new order
-    this.broadcastMessage(chainid, market, {
-      op: 'orders',
-      args: [[orderreceipt]],
-    })
-    try {
-      const userconnkey = `${chainid}:${userid}`
-      this.USER_CONNECTIONS[userconnkey].send(
-        JSON.stringify({ op: 'userorderack', args: orderreceipt })
-      )
-    } catch (e) {
-      // user connection doesn't exist. just pass along
-    }
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainid}:${market}`,
+      JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
+    )
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:user:${chainid}:${userid}`,
+      JSON.stringify({ op: 'userorderack', args: orderreceipt })
+    )
 
     return { op: 'userorderack', args: orderreceipt }
   }
-/*
+
   processorderstarknet = async (
     chainId: number,
     market: string,
-    txMsg: ZZ_Message
+    ZZMessageString: string
   ) => {
-    const inputValidation = ZZMessageSchema.validate(txMsg)
+    const ZZMessage = JSON.parse(ZZMessageString)
+    const inputValidation = ZZMessageSchema.validate(ZZMessage)
     if (inputValidation.error) throw inputValidation.error
     if (chainId !== 1001) throw new Error("Only for StarkNet")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const sCTx: sCOrder = txMsg.order
+    const { order } = ZZMessage
 
-    const userAddress = txMsg.sender
-    if (Number(sCTx.side) !== 1 && Number(sCTx.side) !== 0) throw new Error('Invalid side')
-    const side = Number(sCTx.side) === 0 ? 'b' : 's'
-    const base_quantity = Number(sCTx.base_quantity) / 10 ** marketInfo.baseAsset.decimals
-    const price = (Number(sCTx.priceRatio[0]) / Number(sCTx.priceRatio[1]))
+    order.base_quantity = Number(order.base_quantity)
+    if (order.base_quantity <= 0) throw new Error('Quantity cannot be negative')
+
+    order.price.numerator = Number(order.price.numerator)
+    if (order.price.numerator <= 0) throw new Error('Price numerator cannot be negative')
+
+    order.price.denominator = Number(order.price.denominator)
+    if (order.price.denominator <= 0) throw new Error('Price denominator cannot be negative')
+
+    const userAddress = ZZMessage.sender
+    if (order.side !== '1' && order.side !== '0') throw new Error('Invalid side')
+    const side = order.side === '0' ? 'b' : 's'
+    const base_quantity = order.base_quantity / 10 ** marketInfo.baseAsset.decimals
+    const price = (order.price.numerator / order.price.denominator)
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(sCTx.expiration)
+    const expiration = Number(order.expiration)
+    if ((expiration * 1000) < Date.now()) throw new Error("Wrong expiry, check PC clock")
     // const order_type = 'limit' - set in match_limit_order
 
-    const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8)'
+    let remainingAmount = base_quantity
+
+    const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
     const values = [
       chainId,
       userAddress,
@@ -777,9 +841,9 @@ export default class API extends EventEmitter {
       base_quantity,
       quote_quantity,
       expiration,
-      JSON.stringify(txMsg),
+      ZZMessageString
     ]
-    console.log(values)
+
 
     const matchquery = await this.db.query(query, values)
     const fill_ids = matchquery.rows
@@ -791,17 +855,17 @@ export default class API extends EventEmitter {
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fill_ids]
     )
-    console.log('fills', fills.rows)
+    // console.log('fills', fills.rows)
     const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
       offer_id,
     ])
     const offer = offerquery.rows[0]
-    console.log('offer', offer)
+    // console.log('offer', offer)
 
     const orderupdates: any[] = []
     const marketFills: any[] = []
     fills.rows.forEach((row) => {
-      if (row.maker_unfilled > 0)
+      if (row.maker_unfilled > 0) {
         orderupdates.push([
           chainId,
           row.maker_offer_id,
@@ -809,7 +873,9 @@ export default class API extends EventEmitter {
           row.amount,
           row.maker_unfilled,
         ])
-      else orderupdates.push([chainId, row.maker_offer_id, 'm'])
+      } else {
+        orderupdates.push([chainId, row.maker_offer_id, 'm'])
+      }
       marketFills.push([
         chainId,
         row.id,
@@ -831,6 +897,8 @@ export default class API extends EventEmitter {
       } else if (row.maker_side === 's') {
         buyer = offer.zktx
         seller = row.maker_zktx
+      } else {
+        throw new Error('Invalid side')
       }
       this.relayStarknetMatch(
         chainId,
@@ -843,8 +911,10 @@ export default class API extends EventEmitter {
         row.maker_offer_id,
         offer.id
       )
+
+      remainingAmount -= row.amount
     })
-    const order = [
+    const orderMsg = [
       chainId,
       offer.id,
       market,
@@ -858,52 +928,101 @@ export default class API extends EventEmitter {
       null,
       offer.unfilled,
     ]
-    this.broadcastMessage(chainId, market, { op: 'orders', args: [[order]] })
-    if (orderupdates.length > 0)
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderupdates],
-      })
-    if (marketFills.length > 0)
-      this.broadcastMessage(chainId, market, { op: 'fills', args: [marketFills] })
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainId}:${market}`,
+      JSON.stringify({ op: 'orders', args: [[orderMsg]] })
+    )
+    if (orderupdates.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderupdates] })
+      )
+    }
+    if (marketFills.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fills', args: [marketFills] })
+      )
+    }
+
+    // 'remainingAmount > marketInfo.baseFee' => 'remainingAmount > 0'
+    if (remainingAmount > marketInfo.baseFee) {
+      this.addLiquidity(
+        chainId,
+        market,
+        [side, price, remainingAmount, expiration]
+      )
+    }
   }
 
   relayStarknetMatch = async (
     chainId: number,
     market: ZZMarket,
-    buyer: ZZ_Message,
-    seller: ZZ_Message,
-    fillQty: number,
+    buyer: any,
+    seller: any,
+    fillQuantity: number,
     fillPrice: number,
     fillId: number,
     makerOfferId: number,
     takerOfferId: number
   ) => {
     const marketInfo = await this.getMarketInfo(market, chainId)
+    const network = await this.getNetwork(chainId)
     const baseAssetDecimals = marketInfo.baseAsset.decimals
     const getFraction = (decimals: number) => {
       let denominator = 1
-      for(; (decimals * denominator) % 1 !== 0; denominator++);
-      return {numerator: decimals * denominator, denominator }
+      for (; (decimals * denominator) % 1 !== 0; denominator++);
+      return { numerator: decimals * denominator, denominator }
     }
     const fillPriceRatioNumber = getFraction(fillPrice)
-    const fillPriceRatio: PriceRatio = {
-      numerator: fillPriceRatioNumber.numerator.toFixed(0),
-      denominator: fillPriceRatioNumber.denominator.toFixed(0)
-    }
-    const fillQtyParsed = (fillQty * 10 ** baseAssetDecimals).toFixed(0)
-    const calldata = [buyer, seller, fillPriceRatio, fillQtyParsed]
-    try {
-      const transactionDetails = {
-        type: 'INVOKE_FUNCTION',
-        contract_address: process.env.STARKNET_CONTRACT_ADDRESS as string,
-        entry_point_selector: starknet.stark.getSelectorFromName('fill_order'),
-        calldata: JSON.stringify(calldata)
-      } 
-      const relayResult = await starknet.defaultProvider.addTransaction(
-        transactionDetails
-      )
+    const calldataFillPrice = [
+      fillPriceRatioNumber.numerator.toFixed(0),
+      fillPriceRatioNumber.denominator.toFixed(0)
+    ]
+    const calldataFillQuantity = (fillQuantity * 10 ** baseAssetDecimals).toFixed(0)
 
+    const calldataBuyOrder = [
+      stringToFelt(buyer.message_prefix),
+      stringToFelt(buyer.domain_prefix.name),
+      buyer.domain_prefix.version,
+      stringToFelt(buyer.domain_prefix.chain_id),
+      buyer.sender,
+      buyer.order.base_asset,
+      buyer.order.quote_asset,
+      buyer.order.side,
+      buyer.order.base_quantity,
+      buyer.order.price.numerator,
+      buyer.order.price.denominator,
+      buyer.order.expiration
+    ]
+
+    const calldataSellOrder = [
+      stringToFelt(seller.message_prefix),
+      stringToFelt(seller.domain_prefix.name),
+      seller.domain_prefix.version,
+      stringToFelt(seller.domain_prefix.chain_id),
+      seller.sender,
+      seller.order.base_asset,
+      seller.order.quote_asset,
+      seller.order.side,
+      seller.order.base_quantity,
+      seller.order.price.numerator,
+      seller.order.price.denominator,
+      seller.order.expiration
+    ]
+
+    try {
+      const relayResult = await this.STARKNET_EXCHANGE[network].invoke(
+        'fill_order',
+        [
+          calldataBuyOrder,
+          calldataSellOrder,
+          calldataFillPrice,
+          calldataFillQuantity
+        ]
+      )
+      await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
+      // TODO handel f or r
       // TODO we want to add fees here
 
       console.log('Starknet tx success')
@@ -927,14 +1046,14 @@ export default class API extends EventEmitter {
         row.txhash,
       ])
 
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderUpdates],
-      })
-      this.broadcastMessage(chainId, market, {
-        op: 'fillstatus',
-        args: [fillUpdates]
-      })
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+      )
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fillstatus', args: [fillUpdates] })
+      )
     } catch (e: any) {
       console.error(e)
       console.error('Starknet tx failed')
@@ -947,30 +1066,63 @@ export default class API extends EventEmitter {
         row.id,
         row.order_status,
       ])
-      this.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [orderUpdates],
-      })
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+      )
     }
   }
-*/
-  cancelallorders = async (userid: string | number): Promise<string[]> => {
-    const values = [userid]
-    const select = await this.db.query(
-      "SELECT id FROM offers WHERE userid=$1 AND order_status='o'",
-      values
-    )
-    const ids = select.rows.map((s) => s.id)
 
-    await this.db.query(
-      "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o'",
-      values
-    )
+  cancelallorders = async (
+    chainId: number,
+    userid: string | number
+  ) => {
+    let orders: any
+    if (chainId) {
+      // cancel for chainId set
+      const values = [userid, chainId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, market, id;",
+        values
+      )
+    } else {
+      // cancel for all chainIds - chainId not set
+      const values = [userid]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, market, id;",
+        values
+      )
+    }
 
-    return ids
+    if (orders.rows.length === 0) throw new Error('No open Orders')
+
+    this.VALID_CHAINS.forEach(async (broadcastChainId) => {
+      const orderStatusUpdate = orders.rows
+        .filter((o: any) => Number(o.chainid) === broadcastChainId)
+        .map((o: any) => [
+          o.chainid,
+          o.id,
+          o.market
+        ])
+
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${broadcastChainId}:all`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+      await this.redisPublisher.publish(
+        `broadcastmsg:user:${broadcastChainId}:${userid}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+    })
+
+    return true
   }
 
-  cancelorder = async (chainid: number, orderId: string, ws?: WSocket) => {
+  cancelorder = async (
+    chainid: number,
+    orderId: string,
+    ws?: WSocket
+  ) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
       'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
@@ -984,16 +1136,6 @@ export default class API extends EventEmitter {
     const userconnkey = `${chainid}:${select.rows[0].userid}`
 
     if (select.rows[0].order_status !== 'o') {
-      // somehow user was not updated, do that now   
-      if (ws) {
-        try {
-          ws.send(
-            JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, select.rows[0].order_status]]], })
-          )
-        } catch (err: any) {
-          throw new Error('Order is no longer open')
-        }
-      }
       throw new Error('Order is no longer open')
     }
 
@@ -1006,19 +1148,24 @@ export default class API extends EventEmitter {
       "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
       updatevalues
     )
-    let market
+
     if (update.rows.length > 0) {
-      market = update.rows[0].market
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${chainid}:${update.rows[0].market}`,
+        JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'c']]], })
+      )
+    } else {
+      throw new Error('Order not found')
     }
 
-    return { success: true, market }
+    return true
   }
 
   matchorder = async (
     chainid: number,
     orderId: string,
     fillOrder: ZZFillOrder,
-    ws: WSocket
+    wsUUID: string
   ) => {
     const values = [orderId, chainid]
     const select = await this.db.query(
@@ -1026,18 +1173,7 @@ export default class API extends EventEmitter {
       values
     )
     if (select.rows.length === 0) {
-      ws.send(
-        JSON.stringify(
-          {
-            op: 'error',
-            args: [
-              'fillrequest',
-              fillOrder.accountId.toString(),
-              `Order ${orderId} is not open`]
-          }
-        )
-      )
-      return
+      throw new Error(`Order ${orderId} is not open`)
     }
 
     const selectresult = select.rows[0]
@@ -1067,7 +1203,7 @@ export default class API extends EventEmitter {
         "quoteQuantity": selectresult.quote_quantity,
         "userId": selectresult.userid,
         "fillOrder": fillOrder,
-        "wsUUID": ws.uuid
+        "wsUUID": wsUUID
       })
     }
 
@@ -1110,8 +1246,6 @@ export default class API extends EventEmitter {
     const value = JSON.parse(redis_members.value)
     const { fillOrder } = value
     const makerAccountId = fillOrder.accountId.toString()
-    const makerConnId = `${chainid}:${value.wsUUID}`
-    const ws = this.MAKER_CONNECTIONS[makerConnId]
 
     let fill
     const redisKeyBussy = `bussymarketmaker:${chainid}:${makerAccountId}`
@@ -1120,21 +1254,21 @@ export default class API extends EventEmitter {
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
         const remainingTime = await this.redis.ttl(redisKeyBussy)
-        ws.send(
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:maker:${chainid}:${value.wsUUID}`,
           JSON.stringify({
             op: 'error',
             args: [
               'fillrequest',
               makerAccountId,
-              `Your address did not respond to order (${processingOrderId
-              }) yet. Remaining timeout: ${remainingTime}.`
-            ],
+              `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
+            ]
           })
         )
         throw new Error('fillrequest - market maker is timed out.')
       }
 
-      
+
       let priceWithoutFee: string
       try {
         const marketInfo = await this.getMarketInfo(value.market, chainid)
@@ -1191,25 +1325,23 @@ export default class API extends EventEmitter {
         null,
       ]
 
-      if (ws) {
-        ws.send(
-          JSON.stringify({
-            op: 'userordermatch',
-            args: [chainid, orderId, value.zktx, fillOrder],
-          })
-        )
-      }
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:maker:${chainid}:${value.wsUUID}`,
+        JSON.stringify({
+          op: 'userordermatch',
+          args: [chainid, orderId, value.zktx, fillOrder],
+        })
+      )
 
       // update user
-      this.sendMessageToUser(
-        chainid,
-        value.userId,
-        { op: 'orderstatus', args: [[[chainid, orderId, 'm']]], }
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:user:${chainid}:${value.userId}`,
+        JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]], })
       )
 
       this.redis.SET(
         redisKeyBussy,
-        JSON.stringify({ "orderId": orderId, "ws_uuid": ws.uuid }),
+        JSON.stringify({ "orderId": orderId, "ws_uuid": value.wsUUID }),
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
@@ -1234,60 +1366,84 @@ export default class API extends EventEmitter {
         const otherValue = JSON.parse(otherMaker)
         const otherFillOrder = otherValue.fillOrder
         const otherMakerAccountId = otherFillOrder.accountId.toString()
-        const otherMakerConnId = `${chainid}:${otherValue.wsUUID}`
-        const otherWs = this.MAKER_CONNECTIONS[otherMakerConnId]
-        if (otherWs) {
-          otherWs.send(
-            JSON.stringify(
-              {
-                op: 'error',
-                args: [
-                  'fillrequest',
-                  otherMakerAccountId,
-                  "The Order was filled by better offer"
-                ]
-              }
-            )
-          )
-        }
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:maker:${chainid}:${otherValue.wsUUID}`,
+          JSON.stringify({
+            op: 'error',
+            args: [
+              'fillrequest',
+              otherMakerAccountId,
+              "The Order was filled by better offer"
+            ],
+          })
+        )
       })
     } catch (err: any) {
       console.log(`senduserordermatch: Error while updating other mms: ${err.message}`)
     }
 
-    this.broadcastMessage(chainid, value.market, {
-      op: 'orderstatus',
-      args: [[[chainid, orderId, 'm']]],
-    })
-
-    this.broadcastMessage(chainid, value.market, {
-      op: 'fills',
-      args: [[fill]],
-    })
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainid}:${value.market}`,
+      JSON.stringify({ op: 'orderstatus', args: [[[chainid, orderId, 'm']]] })
+    )
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainid}:${value.market}`,
+      JSON.stringify({ op: 'fills', args: [[fill]] })
+    )
   }
 
+  /**
+   * Broadcast message to all subscibed connections
+   * @param chainid
+   * @param market market alias - all for all markets
+   * @param msg JSON.stringify( WSMessage )
+   */
   broadcastMessage = async (
-    chainid: number | null = null,
-    market: ZZMarket | null = null,
-    msg: WSMessage | null = null
+    chainid: number,
+    market: ZZMarket,
+    msg: string
   ) => {
     ; (this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
-      if (chainid && ws.chainid !== chainid) return
-      if (market && !ws.marketSubscriptions.includes(market)) return
-      ws.send(JSON.stringify(msg))
+      if (ws.chainid !== chainid) return
+      if (market !== "all" && !ws.marketSubscriptions.includes(market)) return
+      ws.send(msg)
     })
   }
 
+  /**
+   * Send msg to user
+   * @param chainId 
+   * @param userId user ws id like: `${chainId}:${userid}`
+   * @param msg JSON.stringify( WSMessage )
+   */
   sendMessageToUser = async (
     chainId: number,
-    userId: number,
-    msg: WSMessage
+    userId: string,
+    msg: string
   ) => {
     const userConnKey = `${chainId}:${userId}`
     const userWs = this.USER_CONNECTIONS[userConnKey]
     if (userWs) {
-      userWs.send(JSON.stringify(msg))
+      userWs.send(msg)
+    }
+  }
+
+  /**
+ * Send msg to marketmaker (zkSync V1.X)
+ * @param chainId 
+ * @param marketmakerId user ws id like: `${chainId}:${userid}`
+ * @param msg JSON.stringify( WSMessage )
+ */
+  sendMessageToMM = async (
+    chainId: number,
+    marketmakerId: string,
+    msg: string
+  ) => {
+    const makerConnKey = `${chainId}:${marketmakerId}`
+    const makerWs = this.MAKER_CONNECTIONS[makerConnKey]
+    if (makerWs) {
+      makerWs.send(msg)
     }
   }
 
@@ -1439,7 +1595,27 @@ export default class API extends EventEmitter {
     )
   }
 
-  getLiquidity = async (chainid: number, market: ZZMarket) => {
+  addLiquidity = async (
+    chainid: number,
+    market: ZZMarket,
+    liquidity: any[]
+  ) => {
+    const redis_key_liquidity = `liquidity:${chainid}:${market}`
+    const redis_member = {
+      score: Number(liquidity[1]),
+      value: JSON.stringify(liquidity),
+    }
+    this.redis.ZADD(
+      redis_key_liquidity,
+      redis_member
+    )
+    this.redis.SADD(`activemarkets:${chainid}`, market)
+  }
+
+  getLiquidity = async (
+    chainid: number,
+    market: ZZMarket
+  ) => {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
     let liquidity = await this.redis.ZRANGEBYSCORE(
       redis_key_liquidity,
@@ -1451,7 +1627,7 @@ export default class API extends EventEmitter {
 
     liquidity = liquidity.map((json) => JSON.parse(json))
 
-    const now = (Date.now() / 1000) | 0
+    const now = Date.now() / 1000 | 0
     const expired_values = liquidity
       .filter((l) => Number(l[3]) < now || !l[3])
       .map((l) => JSON.stringify(l))
@@ -1666,21 +1842,18 @@ export default class API extends EventEmitter {
 
   updatePendingOrders = async () => {
     const one_min_ago = new Date(Date.now() - 60 * 1000).toISOString()
+    const orderUpdates: string[][] = []
     const query = {
       text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
     if (update.rowCount > 0) {
-      const orderUpdates = update.rows.map((row) => [
+      orderUpdates.concat(update.rows.map((row) => [
         row.chainid,
         row.id,
         row.order_status,
-      ])
-      this.broadcastMessage(null, null, {
-        op: 'orderstatus',
-        args: [orderUpdates],
-      })
+      ]))
     }
 
     // Update fills
@@ -1696,14 +1869,20 @@ export default class API extends EventEmitter {
     }
     const updateExpires = await this.db.query(expiredQuery)
     if (updateExpires.rowCount > 0) {
-      const orderUpdates = updateExpires.rows.map((row) => [
+      orderUpdates.concat(updateExpires.rows.map((row) => [
         row.chainid,
         row.id,
         row.order_status,
-      ])
-      this.broadcastMessage(null, null, {
-        op: 'orderstatus',
-        args: [orderUpdates],
+      ]))
+    }
+
+    if (orderUpdates.length > 0) {
+      this.VALID_CHAINS.forEach((chainId: number) => {
+        const updatesForThisChain = orderUpdates.filter(row => Number(row[0]) === chainId)
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:all`,
+          JSON.stringify({ op: 'orderstatus', args: [updatesForThisChain] })
+        )
       })
     }
     return true
@@ -2036,13 +2215,12 @@ export default class API extends EventEmitter {
         const liquidity = await this.getLiquidity(chainid, market_id)
         if (liquidity.length === 0) {
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
-          await this.redis.HDEL(`lastprices:${chainid}`, market_id)
           return
         }
-        this.broadcastMessage(chainid, market_id, {
-          op: 'liquidity2',
-          args: [chainid, market_id, liquidity],
-        })
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainid}:${market_id}`,
+          JSON.stringify({ op: 'liquidity2', args: [chainid, market_id, liquidity] })
+        )
 
         // Update last price while you're at it
         const asks = liquidity.filter((l) => l[0] === 's')
@@ -2071,10 +2249,10 @@ export default class API extends EventEmitter {
       const lastprices = (await this.getLastPrices(chainid)).map((l) =>
         l.splice(0, 3)
       )
-      this.broadcastMessage(chainid, null, {
-        op: 'lastprice',
-        args: [lastprices],
-      })
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainid}:all`,
+        JSON.stringify({ op: 'lastprice', args: [lastprices] })
+      )
 
       // eslint-disable-next-line consistent-return
       return Promise.all(results)
@@ -2305,8 +2483,10 @@ export default class API extends EventEmitter {
           market,
           JSON.stringify(marketInfo)
         )
-        const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
-        this.broadcastMessage(chainId, market, marketInfoMsg)
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+        )
       })
       await Promise.all(results2)
     })
@@ -2323,6 +2503,9 @@ export default class API extends EventEmitter {
     }
     if ([1000].includes(chainId)) {
       return "rinkeby"
+    }
+    if ([1001].includes(chainId)) {
+      return "goerli"
     }
     return ""
   }

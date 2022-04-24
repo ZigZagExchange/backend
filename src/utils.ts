@@ -1,3 +1,5 @@
+import * as starknet from 'starknet'
+
 export function formatPrice (input: any) {
   const inputNumber = Number(input)
   if (inputNumber > 99999) {
@@ -19,4 +21,11 @@ export function formatPrice (input: any) {
     return inputNumber.toFixed(5)
   } 
   return inputNumber.toPrecision(6)
+}
+
+
+export function stringToFelt (text: string) {
+  const bufferText = Buffer.from(text, 'utf8')
+  const hexString = `0x${bufferText.toString('hex')}`
+  return starknet.number.toFelt(hexString)
 }

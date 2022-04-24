@@ -12,9 +12,9 @@ export const cancelorder: ZZServiceHandler = async (
     return
   }
 
-  let cancelresult
   try {
-    cancelresult = await api.cancelorder(chainId, orderId, ws)
+    const cancelresult = await api.cancelorder(chainId, orderId, ws)
+    if(!cancelresult) throw new Error('Unexpected error')
   } catch (e: any) {
     ws.send(
       JSON.stringify({ op: 'error', args: ['cancelorder', e.message, orderId ] })
@@ -22,13 +22,8 @@ export const cancelorder: ZZServiceHandler = async (
     return
   }
 
-  // return the new status to the sender, regardless of market
+  // return the new status to the sender
   ws.send(
     JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
-  )
-
-  await api.broadcastMessage(chainId, cancelresult.market, {
-    op: 'orderstatus',
-    args: [[[chainId, orderId, 'c']]],
-  })
+  )  
 }

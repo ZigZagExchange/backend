@@ -776,27 +776,6 @@ curl "https://zigzag-exchange.herokuapp.com/" -X POST -H 'Content-Type:applicati
 
 ---
 
-###### Operation: **markets**
-
-Arguments: `[markets]`. market = `[marketId,lastPrice,priceChange24h]`
-
-Description: Request a list of markets. Available over REST. Response is a `markets` message.
-
-```json
-{
-  "op": "markets",
-  "args": [
-    [
-      ["ETH-USDT", "3500", 120],
-      ["ETH-USDC", "3500", 122],
-      ["USDC-USDT", "0.9993", 0.0001]
-    ]
-  ]
-}
-```
-
----
-
 ###### Operation: **dailyvolumereq**
 
 Arguments: `[chainreq]`

@@ -58,18 +58,19 @@ export const orderstatusupdate: ZZServiceHandler = async (
       fillUpdate[6] = feeToken
       fillUpdate[7] = timestamp
       // update user
-      api.sendMessageToUser(orderId, userId, {
-        op: 'orderstatus',
-        args: [[update]],
-      })
-      api.broadcastMessage(chainId, market, {
-        op: 'orderstatus',
-        args: [[update]],
-      })
-      api.broadcastMessage(chainId, market, {
-        op: 'fillstatus',
-        args: [[fillUpdate]],
-      })
+      // update user
+      api.redisPublisher.publish(
+        `broadcastmsg:user:${chainId}:${userId}`,
+        JSON.stringify({ op: 'orderstatus', args: [[update]], })
+      )
+      api.redisPublisher.publish(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [[update]], })
+      )
+      api.redisPublisher.publish(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fillstatus', args: [[fillUpdate]], })
+      )
     }
     if (success && newstatus === 'f') {
       const yesterday = new Date(Date.now() - 86400 * 1000)
@@ -79,10 +80,10 @@ export const orderstatusupdate: ZZServiceHandler = async (
         await api.redis.get(`dailyprice:${chainId}:${market}:${yesterday}`)
       )
       const priceChange = (lastprice - yesterdayPrice).toString()
-      api.broadcastMessage(chainId, null, {
-        op: 'lastprice',
-        args: [[[market, lastprice, priceChange]]],
-      })
+      api.redisPublisher.publish(
+        `broadcastmsg:all:${chainId}:all`,
+        JSON.stringify({ op: 'lastprice', args: [[[market, lastprice, priceChange]]], })
+      )
       // TODO: Account for nonce checks here
       // const userId = update[5];
       // const userNonce = update[6];

@@ -27,7 +27,18 @@ export const createSocketServer = (): ZZSocketServer => {
       try {
         msg = JSON.parse(json) as WSMessage
         if (typeof msg.op === 'string' && Array.isArray(msg.args)) {
-          if (msg.op !== 'indicateliq2') console.log('WS: %s', json)
+          if (![
+            'indicateliq2',
+            'submitorder2',
+            'submitorder3'
+          ].includes(msg.op)) { console.log('WS: %s', json) }
+          if ([
+            'submitorder2',
+            'submitorder3'
+          ].includes(msg.op)) {
+            console.log(`WS: {"op":"submitorder2","args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`)
+          }
+
           if (wss.api) return wss.api.serviceHandler(msg, ws)
         }
       } catch (err) {
@@ -38,12 +49,6 @@ export const createSocketServer = (): ZZSocketServer => {
     })
 
     ws.on('error', console.error)
-
-    const defaultChainId = process.env.DEFAULT_CHAIN_ID
-      ? Number(process.env.DEFAULT_CHAIN_ID)
-      : 1
-    const lastprices = await wss.api.getLastPrices(defaultChainId)
-    ws.send(JSON.stringify({ op: 'lastprice', args: [lastprices] }))
   }
 
   wss.on('connection', onWsConnection)
