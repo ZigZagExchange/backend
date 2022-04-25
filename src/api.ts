@@ -93,42 +93,6 @@ export default class API extends EventEmitter {
     await this.redisSubscriber.connect()
     await this.redisPublisher.connect()
 
-    this.watchers = [
-      setInterval(this.updatePriceHighLow, 300000),
-      setInterval(this.updateVolumes, 120000),
-      setInterval(this.clearDeadConnections, 60000),
-      setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateUsdPrice, 12500),
-      setInterval(this.updateFeesZkSync, 30010),
-      // setInterval(this.updatePassiveMM, 10000),
-      setInterval(this.broadcastLiquidity, 4000),
-    ]
-
-    // update updatePriceHighLow once
-    setTimeout(this.updatePriceHighLow, 10000)
-
-    // reset redis mm timeouts
-    this.VALID_CHAINS.map(async (chainid) => {
-      const redisPatternBussy = `bussymarketmaker:${chainid}:*`
-      const keysBussy = await this.redis.keys(redisPatternBussy)
-      keysBussy.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-      const redisPatternPassiv = `passivews:${chainid}:*`
-      const keysPassiv = await this.redis.keys(redisPatternPassiv)
-      keysPassiv.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-    })
-
-    // reset liquidityKeys
-    this.VALID_CHAINS.map(async (chainid) => {
-      const liquidityKeys = await this.redis.KEYS(`liquidity:${chainid}:*`)
-      liquidityKeys.forEach(async (key) => {
-        await this.redis.DEL(key)
-      })
-    })
-
     // fetch abi's
     this.ERC20_ABI = JSON.parse(
       fs.readFileSync(
@@ -200,6 +164,43 @@ export default class API extends EventEmitter {
         console.error(`redisSubscriber wrong broadcastChannel: ${broadcastChannel}`)
       }
     })
+    
+    this.watchers = [
+      setInterval(this.updatePriceHighLow, 300000),
+      setInterval(this.updateVolumes, 120000),
+      setInterval(this.clearDeadConnections, 60000),
+      setInterval(this.updatePendingOrders, 60000),
+      setInterval(this.updateUsdPrice, 12500),
+      setInterval(this.updateFeesZkSync, 30010),
+      // setInterval(this.updatePassiveMM, 10000),
+      setInterval(this.broadcastLiquidity, 4000),
+    ]
+
+    // update updatePriceHighLow once
+    setTimeout(this.updatePriceHighLow, 10000)
+
+    // reset redis mm timeouts
+    this.VALID_CHAINS.map(async (chainid) => {
+      const redisPatternBussy = `bussymarketmaker:${chainid}:*`
+      const keysBussy = await this.redis.keys(redisPatternBussy)
+      keysBussy.forEach(async (key: string) => {
+        this.redis.del(key)
+      })
+      const redisPatternPassiv = `passivews:${chainid}:*`
+      const keysPassiv = await this.redis.keys(redisPatternPassiv)
+      keysPassiv.forEach(async (key: string) => {
+        this.redis.del(key)
+      })
+    })
+
+    // reset liquidityKeys
+    const removeOldLiquidityPromise: Promise<any>[] = this.VALID_CHAINS.map(async (chainid) => {
+      const liquidityKeys = await this.redis.KEYS(`liquidity:${chainid}:*`)
+      liquidityKeys.forEach(async (key) => {
+        await this.redis.DEL(key)
+      })
+    })
+    await Promise.all(removeOldLiquidityPromise)
 
     this.started = true
 
