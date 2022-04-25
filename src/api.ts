@@ -211,7 +211,8 @@ export default class API extends EventEmitter {
       }
       const select = await this.db.query(query)
       const rowsPromise: Promise<any>[] = select.rows.map(async (row) => {
-        this.addLiquidity(
+        console.log(row)
+        await this.addLiquidity(
           row.chainid,
           row.market,
           [row.side, row.price, row.unfilled, row.expires]
