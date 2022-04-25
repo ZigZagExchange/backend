@@ -1014,8 +1014,8 @@ export default class API extends EventEmitter {
       buyer.order.price.numerator,
       buyer.order.price.denominator,
       buyer.order.expiration,
-      buyer.order.sig_r,
-      buyer.order.sig_s
+      buyer.sig_r,
+      buyer.sig_s
     ]
 
     const calldataSellOrder = [
@@ -1031,8 +1031,8 @@ export default class API extends EventEmitter {
       seller.order.price.numerator,
       seller.order.price.denominator,
       seller.order.expiration,
-      seller.order.sig_r,
-      seller.order.sig_s
+      seller.sig_r,
+      seller.sig_s
     ]
 
     let relayResult: any
