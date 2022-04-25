@@ -202,6 +202,25 @@ export default class API extends EventEmitter {
     })
     await Promise.all(removeOldLiquidityPromise)
 
+    // add valid open orders to Liquidity
+    const addLiquidityPromise: Promise<any>[] = [1001].map(async (chainid) => {
+      const query = {
+        text: "SELECT chainid,market,side,price,expires,unfilled FROM offers WHERE chainid=$1 AND order_status IN ('o', 'pm', 'pf')",
+        values: [chainid],
+        rowMode: 'array',
+      }
+      const select = await this.db.query(query)
+      const rowsPromise: Promise<any>[] = select.rows.map(async (row) => {
+        this.addLiquidity(
+          row.chainid,
+          row.market,
+          [row.side, row.price, row.unfilled, row.expires]
+        )
+      })
+      await Promise.all(rowsPromise)
+    })
+    await Promise.all(addLiquidityPromise)
+
     this.started = true
 
     this.http.listen(port, () => {
