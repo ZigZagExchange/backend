@@ -1877,7 +1877,8 @@ export default class API extends EventEmitter {
   }
 
   updatePendingOrders = async () => {
-    const one_min_ago = new Date(Date.now() - 60 * 1000).toISOString()
+    // TODO back to one min, temp 300, starknet is too slow
+    const one_min_ago = new Date(Date.now() - 300 * 1000).toISOString()
     const orderUpdates: string[][] = []
     const query = {
       text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
