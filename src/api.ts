@@ -164,7 +164,7 @@ export default class API extends EventEmitter {
         console.error(`redisSubscriber wrong broadcastChannel: ${broadcastChannel}`)
       }
     })
-    
+
     this.watchers = [
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
@@ -1035,8 +1035,9 @@ export default class API extends EventEmitter {
       seller.order.sig_s
     ]
 
+    let relayResult: any
     try {
-      const relayResult = await this.STARKNET_EXCHANGE[network].invoke(
+      relayResult = await this.STARKNET_EXCHANGE[network].invoke(
         'fill_order',
         [
           calldataBuyOrder,
@@ -1045,8 +1046,15 @@ export default class API extends EventEmitter {
           calldataFillQuantity
         ]
       )
+      
+      // add broadcast flag here
+      // TODO as user msg
+
       await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
-      // TODO handel f or r
+
+      
+      console.log(`New starknet tx: ${relayResult.transaction_hash}`)
+
       // TODO we want to add fees here
 
       console.log('Starknet tx success')
@@ -1078,6 +1086,7 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${chainId}:${market}`,
         JSON.stringify({ op: 'fillstatus', args: [fillUpdates] })
       )
+      // TODO as user msg
     } catch (e: any) {
       console.error(e)
       console.error('Starknet tx failed')
@@ -1089,11 +1098,14 @@ export default class API extends EventEmitter {
         chainId,
         row.id,
         row.order_status,
+        relayResult.transaction_hash,
+        e.message
       ])
       this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainId}:${market}`,
         JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
       )
+      // TODO as user msg
     }
   }
 
