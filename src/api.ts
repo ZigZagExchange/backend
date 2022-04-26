@@ -1097,6 +1097,11 @@ export default class API extends EventEmitter {
       )
       // TODO as user msg
     } catch (e: any) {
+      console.error('Starknet tx failed')
+      console.error(calldataBuyOrder)
+      console.error(calldataSellOrder)
+      console.error(calldataFillPrice)
+      console.error(calldataFillQuantity)
       console.error(e)
       console.error('Starknet tx failed')
       const orderupdate = await this.db.query(
