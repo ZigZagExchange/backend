@@ -37,7 +37,7 @@ export default class API extends EventEmitter {
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
-  VALID_SMART_CONTRACT_CHAIN = [1001]
+  VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
@@ -932,6 +932,8 @@ export default class API extends EventEmitter {
         offer.id
       )
 
+      console.log(`FILL: offer.price: ${offer.price}, remaining: ${(Number(offer.amount) - Number(row.amount))}, id: ${row.id}`)
+      /*
       this.subLiquidity(
         chainId,
         market,
@@ -939,6 +941,7 @@ export default class API extends EventEmitter {
         (Number(offer.amount) - Number(row.amount)),
         row.id
       )
+      */
 
       remainingAmount -= row.amount
     })
