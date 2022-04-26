@@ -37,6 +37,7 @@ export default class API extends EventEmitter {
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
+  VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
@@ -203,18 +204,17 @@ export default class API extends EventEmitter {
     await Promise.all(removeOldLiquidityPromise)
 
     // add valid open orders to Liquidity
-    const addLiquidityPromise: Promise<any>[] = [1001].map(async (chainid) => {
+    const addLiquidityPromise: Promise<any>[] = this.VALID_SMART_CONTRACT_CHAIN.map(async (chainid) => {
       const query = {
-        text: "SELECT chainid,market,side,price,expires,unfilled FROM offers WHERE chainid=$1 AND order_status IN ('o', 'pm', 'pf')",
+        text: "SELECT chainid,market,side,price,expires,unfilled,id FROM offers WHERE chainid=$1 AND order_status IN ('o', 'pm', 'pf')",
         values: [chainid]
       }
       const select = await this.db.query(query)
       const rowsPromise: Promise<any>[] = select.rows.map(async (row) => {
-        console.log(row)
         await this.addLiquidity(
           row.chainid,
           row.market,
-          [row.side, row.price, row.unfilled, row.expires]
+          [row.side, row.price, row.unfilled, row.expires, row.id]
         )
       })
       await Promise.all(rowsPromise)
@@ -932,6 +932,17 @@ export default class API extends EventEmitter {
         offer.id
       )
 
+      console.log(`FILL: offer.price: ${offer.price}, remaining: ${(Number(offer.amount) - Number(row.amount))}, id: ${row.id}`)
+      /*
+      this.subLiquidity(
+        chainId,
+        market,
+        offer.price,
+        (Number(offer.amount) - Number(row.amount)),
+        row.id
+      )
+      */
+
       remainingAmount -= row.amount
     })
     const orderMsg = [
@@ -966,11 +977,12 @@ export default class API extends EventEmitter {
     }
 
     // 'remainingAmount > marketInfo.baseFee' => 'remainingAmount > 0'
+    // only add to the orderbook if not filled instantly
     if (remainingAmount > marketInfo.baseFee) {
       this.addLiquidity(
         chainId,
         market,
-        [side, price, remainingAmount, expiration]
+        [side, price, remainingAmount, expiration, offer.id]
       )
     }
   }
@@ -1088,6 +1100,11 @@ export default class API extends EventEmitter {
       )
       // TODO as user msg
     } catch (e: any) {
+      console.error('Starknet tx failed')
+      console.error(calldataBuyOrder)
+      console.error(calldataSellOrder)
+      console.error(calldataFillPrice)
+      console.error(calldataFillQuantity)
       console.error(e)
       console.error('Starknet tx failed')
       const orderupdate = await this.db.query(
@@ -1629,6 +1646,35 @@ export default class API extends EventEmitter {
     throw new Error(
       `level': ${level} is not supported for getLiquidityPerSide. Use 1, 2 or 3`
     )
+  }
+
+  subLiquidity = async (
+    chainid: number,
+    market: ZZMarket,
+    price: number,
+    amount: number,
+    id: number
+  ) => {
+    // get old liquidity in the same range
+    const redis_key_liquidity = `liquidity:${chainid}:${market}`
+    const existingLiquidity = await this.redis.ZRANGEBYSCORE(
+      redis_key_liquidity,
+      price * 0.999999,
+      price * 1.000001
+    )
+    // get the matching entry
+    const oldLiquidity = existingLiquidity
+      .map((json: string) => JSON.parse(json))
+      .filter((l) => (
+        Number(l[4]) === id
+      ))
+    // worst case: only update one liquidity
+    const oldLiquidityUpdate = JSON.stringify(oldLiquidity[0])
+    this.redis.ZREM(redis_key_liquidity, oldLiquidityUpdate)
+
+    // add new liquidity
+    oldLiquidity[0][2] = amount.toString()
+    this.addLiquidity(chainid, market, oldLiquidity[0])
   }
 
   addLiquidity = async (
