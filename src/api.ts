@@ -1100,7 +1100,7 @@ export default class API extends EventEmitter {
       )
       // TODO as user msg
     } catch (e: any) {
-      console.error('Starknet tx failed')
+      console.log(`Starknet tx failed: ${relayResult.transaction_hash}`)
       console.error(calldataBuyOrder)
       console.error(calldataSellOrder)
       console.error(calldataFillPrice)
