@@ -932,7 +932,7 @@ export default class API extends EventEmitter {
         offer.id
       )
 
-      console.log(`FILL: offer.price: ${offer.price}, remaining: ${(Number(offer.amount) - Number(row.amount))}, id: ${row.id}`)
+      console.log(`FILL: offer.price: ${offer.price}, amount: ${(Number(row.amount))}, id: ${offer.id}`)
       /*
       this.subLiquidity(
         chainId,
@@ -1100,7 +1100,7 @@ export default class API extends EventEmitter {
       )
       // TODO as user msg
     } catch (e: any) {
-      console.error('Starknet tx failed')
+      console.log(`Starknet tx failed: ${relayResult.transaction_hash}`)
       console.error(calldataBuyOrder)
       console.error(calldataSellOrder)
       console.error(calldataFillPrice)
@@ -1652,7 +1652,7 @@ export default class API extends EventEmitter {
     chainid: number,
     market: ZZMarket,
     price: number,
-    amount: number,
+    amountSwap: number,
     id: number
   ) => {
     // get old liquidity in the same range
@@ -1672,9 +1672,17 @@ export default class API extends EventEmitter {
     const oldLiquidityUpdate = JSON.stringify(oldLiquidity[0])
     this.redis.ZREM(redis_key_liquidity, oldLiquidityUpdate)
 
+    // get minAmount (1 USD)
+    const base = market.split('-')[0]
+    const usdPrice = await this.getUsdPrice(1001, base)
+    const minAmount: number = usdPrice ? (1 / usdPrice) : 0
+
     // add new liquidity
-    oldLiquidity[0][2] = amount.toString()
-    this.addLiquidity(chainid, market, oldLiquidity[0])
+    const newAmount = Number(oldLiquidity[0][2]) - amountSwap
+    if (newAmount > minAmount) {
+      oldLiquidity[0][2] = newAmount
+      this.addLiquidity(chainid, market, oldLiquidity[0])
+    }    
   }
 
   addLiquidity = async (
@@ -2509,6 +2517,7 @@ export default class API extends EventEmitter {
     chainId: number,
     tokenSymbol: string
   ): Promise<number> => {
+    chainId = 1
     const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenSymbol)
     if (cache) {
       const tokenInfo = JSON.parse(cache)
