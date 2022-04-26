@@ -845,8 +845,11 @@ export default class API extends EventEmitter {
     const price = (order.price.numerator / order.price.denominator)
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(order.expiration)
-    if ((expiration * 1000) < Date.now()) throw new Error("Wrong expiry, check PC clock")
+
+    // starknet uses unix * 100, generate correct unix
+    const expirationStarkNet = Number(order.expiration)
+    if ((expirationStarkNet * 10) < Date.now()) throw new Error("Wrong expiry, check PC clock")
+    const expiration = (expirationStarkNet / 100) | 0
     // const order_type = 'limit' - set in match_limit_order
 
     let remainingAmount = base_quantity
