@@ -405,47 +405,27 @@ Description: Latest fills for a market. order = [chainId,id,market,side,price,ba
 
 Arguments: `[orderupdates]`
 
-Description: A series of order status updates. orderupdate = `[chainId,orderId,status,txHash,remaining]`. See [Order Status](#order-statuses) for status flags.
+Description: A series of order status updates. orderupdate = `[chainId,orderId,status,txHash,remaining/error]`. See [Order Status](#order-statuses) for status flags.
 
 ```json
 {
   "op": "orderstatus",
   "args": [
     [
-      [1000, 5, "m", 4700.23],
+      [
+        1000,
+        5,
+        "m",
+        4700.23,
+        "0x5c633d31817a9b95973670733aed5feb8255d67f36f74517462063659bcd7dd",
+        1
+      ],
       [
         1000,
         890013,
         "f",
-        "51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",
-        null
-      ]
-    ]
-  ]
-}
-```
-
----
-
-###### Operation: **orderstatusupdate**
-
-Arguments: `[orderupdates]`
-
-Description: Used by market makers to submit chain commitment information on a matched order. orderupdate = `[chainId,orderId,status,...args]`
-
-Only "f" and "r" status updates are permitted, and only for matched orders.
-
-```json
-{
-  "op": "orderstatusupdate",
-  "args": [
-    [
-      [
-        1000,
-        5,
-        "f",
-        4700.23,
-        "9ddba58f75a6b8e65828c2fb5e7e6d80001fccbd6ce0c931181dfdcdb4721162"
+        "0x51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",
+        "Not enough balance"
       ]
     ]
   ]
