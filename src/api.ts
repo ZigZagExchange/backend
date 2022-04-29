@@ -1067,6 +1067,16 @@ export default class API extends EventEmitter {
         "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
         [relayResult.transaction_hash, fillId]
       )
+      const orderUpdateBroadcast = await this.db.query(
+        "UPDATE offers SET fill_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, fill_status, txhash",
+        [makerOfferId, takerOfferId]
+      )
+      const orderUpdatesBroadcast = orderUpdateBroadcast.rows.map((row) => [
+        chainId,
+        row.id,
+        row.order_status,
+        row.unfilled,
+      ])
       const fillUpdatesBroadcast = fillupdateBroadcast.rows.map((row) => [
         chainId,
         row.id,
@@ -1078,6 +1088,20 @@ export default class API extends EventEmitter {
         Date.now() // timestamp
       ])
 
+      if (orderUpdatesBroadcast.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+      }
       if (fillUpdatesBroadcast.length) {
         this.redisPublisher.PUBLISH(
           `broadcastmsg:all:${chainId}:${market}`,
