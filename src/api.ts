@@ -1061,7 +1061,7 @@ export default class API extends EventEmitter {
           calldataFillQuantity
         ]
       )
-      
+
       console.log('Starknet tx success')
       const fillupdateBroadcast = await this.db.query(
         "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
@@ -1093,7 +1093,7 @@ export default class API extends EventEmitter {
 
       await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
 
-      
+
       console.log(`New starknet tx: ${relayResult.transaction_hash}`)
 
       // TODO we want to add fees here
@@ -1118,7 +1118,7 @@ export default class API extends EventEmitter {
         row.id,
         row.fill_status,
         row.txhash,
-        null, // ???
+        null,
         0, // fee amount
         0, // fee amount
         Date.now() // timestamp
@@ -1180,7 +1180,6 @@ export default class API extends EventEmitter {
         row.id,
         row.order_status,
         relayResult.transaction_hash,
-        0, // remaining
         e.message
       ])
       this.redisPublisher.PUBLISH(
@@ -1767,7 +1766,7 @@ export default class API extends EventEmitter {
     if (newAmount > minAmount) {
       oldLiquidity[0][2] = newAmount
       this.addLiquidity(chainid, market, oldLiquidity[0])
-    }    
+    }
   }
 
   addLiquidity = async (
