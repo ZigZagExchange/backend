@@ -2458,6 +2458,14 @@ export default class API extends EventEmitter {
       )
     }
 
+    const [baseToken, quoteToken] = market.split('-')
+    const basePrice = await this.getUsdPrice(chainid, baseToken)
+    const quotePrice = await this.getUsdPrice(chainid, quoteToken)
+    const midPrice = (basePrice && quotePrice)
+      ? basePrice / quotePrice
+      : 0
+    const minSize = (basePrice) ? (10 / basePrice) : marketInfo.baseFee
+
     // validation
     liquidity = liquidity.filter(
       (l: any[]) =>
@@ -2465,15 +2473,10 @@ export default class API extends EventEmitter {
         !Number.isNaN(Number(l[1])) &&
         Number(l[1]) > 0 &&
         !Number.isNaN(Number(l[2])) &&
-        Number(l[2]) > marketInfo.baseFee
+        Number(l[2]) > minSize
     )
 
-    const [baseToken, quoteToken] = market.split('-')
-    const midPriceBase = await this.getUsdPrice(chainid, baseToken)
-    const midPriceQuote = await this.getUsdPrice(chainid, quoteToken)
-    const midPrice = (midPriceBase && midPriceQuote)
-      ? midPriceBase / midPriceQuote
-      : 0
+    
     // Add expirations to liquidity if needed
     Object.keys(liquidity).forEach((i: any) => {
       const expires = liquidity[i][3]
