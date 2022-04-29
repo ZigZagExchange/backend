@@ -1130,7 +1130,7 @@ export default class API extends EventEmitter {
         [relayResult.transaction_hash, fillId]
       )
       const orderupdateFill = await this.db.query(
-        "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
+        "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' WHEN unfilled > 0 THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
         [makerOfferId, takerOfferId]
       )
       const orderUpdateFills = orderupdateFill.rows.map((row) => [
@@ -1145,8 +1145,8 @@ export default class API extends EventEmitter {
         row.fill_status,
         row.txhash,
         null,
-        0, // fee amount
-        0, // fee amount
+        0, // fee amount - TODO this should be marketInfo fees
+        0, // fee token - TODO this should be marketInfo fees
         Date.now() // timestamp
       ])
 
