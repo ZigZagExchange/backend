@@ -1078,18 +1078,20 @@ export default class API extends EventEmitter {
         Date.now() // timestamp
       ])
 
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${buyer.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${seller.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
-      )
+      if (fillUpdatesBroadcast.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+      }
 
       await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
 
@@ -1124,31 +1126,34 @@ export default class API extends EventEmitter {
         Date.now() // timestamp
       ])
 
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${buyer.sender}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${seller.sender}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
-      )
-
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${buyer.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${seller.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
-      )
+      if (orderUpdateFills.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+      }
+      if (fillUpdateFills.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+      }
     } catch (e: any) {
       console.log(`Starknet tx failed: ${relayResult.transaction_hash}`)
       console.error(calldataBuyOrder)
