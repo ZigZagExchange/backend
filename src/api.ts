@@ -1061,7 +1061,7 @@ export default class API extends EventEmitter {
           calldataFillQuantity
         ]
       )
-      
+
       console.log('Starknet tx success')
       const fillupdateBroadcast = await this.db.query(
         "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
@@ -1093,7 +1093,7 @@ export default class API extends EventEmitter {
 
       await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
 
-      
+
       console.log(`New starknet tx: ${relayResult.transaction_hash}`)
 
       // TODO we want to add fees here
@@ -1767,7 +1767,7 @@ export default class API extends EventEmitter {
     if (newAmount > minAmount) {
       oldLiquidity[0][2] = newAmount
       this.addLiquidity(chainid, market, oldLiquidity[0])
-    }    
+    }
   }
 
   addLiquidity = async (
@@ -2450,9 +2450,6 @@ export default class API extends EventEmitter {
     const msg = await this.redis.get(redisKeyPassive)
     if (msg) {
       const remainingTime = await this.redis.ttl(redisKeyPassive)
-      if (msg.includes('Your price is too far from the mid Price')) {
-        throw new Error(`${msg}. Remaining timeout: ${remainingTime}.`)
-      }
       throw new Error(`Your address did not respond to order ${msg
         } yet. Remaining timeout: ${remainingTime}.`
       )
@@ -2465,38 +2462,6 @@ export default class API extends EventEmitter {
       ? basePrice / quotePrice
       : 0
     const minSize = (basePrice) ? (10 / basePrice) : marketInfo.baseFee
-
-    // validation
-    liquidity = liquidity.filter(
-      (l: any[]) =>
-        ['b', 's'].includes(l[0]) &&
-        !Number.isNaN(Number(l[1])) &&
-        Number(l[1]) > 0 &&
-        !Number.isNaN(Number(l[2])) &&
-        Number(l[2]) > minSize
-    )
-
-    
-    // Add expirations to liquidity if needed
-    Object.keys(liquidity).forEach((i: any) => {
-      const expires = liquidity[i][3]
-      if (!expires || expires > FIFTEEN_SECONDS) {
-        liquidity[i][3] = FIFTEEN_SECONDS
-      }
-      liquidity[i][4] = client_id
-
-      if (
-        midPrice &&
-        (Number(liquidity[i][1]) < midPrice * 0.25 || Number(liquidity[i][1]) > midPrice * 1.75)
-      ) {
-        this.redis.SET(
-          redisKeyPassive,
-          'Your price is too far from the mid Price',
-          { EX: 900 }
-        )
-        throw new Error('Your price is too far from the mid Price. Remaining timeout: 900')
-      }
-    })
 
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
 
@@ -2514,20 +2479,62 @@ export default class API extends EventEmitter {
       old_values.forEach((v: string) => this.redis.ZREM(redis_key_liquidity, v))
     }
 
-    // Set new liquidity
-    const redis_members = liquidity.map((l) => ({
-      score: l[1],
-      value: JSON.stringify(l),
-    }))
-    try {
-      if (liquidity.length > 0) {
-        await this.redis.ZADD(redis_key_liquidity, redis_members)
+    const errorMsg: string[] = []
+    const redis_members = liquidity.reduce((result, l: any[]) => {
+      const price = Number(l[1])
+      const amount = Number(l[2])
+
+      // validation
+      if (!['b', 's'].includes(l[0])) {
+        errorMsg.push('Bad side')
+      } else if (Number.isNaN(price)) {
+        errorMsg.push('Price is not a number')
+      } else if (price < 0) {
+        errorMsg.push('Price cant be negative')
+      } else if (Number.isNaN(amount)) {
+        errorMsg.push('Amount is not a number')
+      } else if (amount < minSize) {
+        errorMsg.push('Amount to small')
+      } else if (
+        midPrice &&
+        (price < midPrice * 0.25 || price > midPrice * 1.75)
+      ) {
+        errorMsg.push('Your price is too far from the mid Price')
+      } else {
+        // Add expirations to liquidity if needed
+        if (!l[3] || Number(l[3]) > FIFTEEN_SECONDS) {
+          l[3] = FIFTEEN_SECONDS
+        }
+        if (client_id) l[4] = client_id
+
+        // Set new liquidity
+        result.push({
+          score: l[1],
+          value: JSON.stringify(l),
+        })
       }
-      await this.redis.SADD(`activemarkets:${chainid}`, market)
-    } catch (e) {
-      console.error(e)
-      console.log(liquidity)
+      return result
+    }, [])
+
+    if (errorMsg.length > 0) {
+      const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join('. ')}.`
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:maker:${chainid}:${client_id}`,
+        JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
+      )
     }
+
+    if (liquidity.length > 0) {
+      try {
+        await this.redis.ZADD(redis_key_liquidity, redis_members)
+      } catch (e) {
+        console.error(e)
+        console.log(liquidity)
+      }
+    } else {
+      throw new Error('No valid liquidity send')
+    }
+    await this.redis.SADD(`activemarkets:${chainid}`, market)
   }
 
   updatePassiveMM = async () => {
