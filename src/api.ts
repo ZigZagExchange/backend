@@ -935,7 +935,7 @@ export default class API extends EventEmitter {
         offer.id
       )
 
-      console.log(`FILL: offer.price: ${offer.price}, amount: ${(Number(row.amount))}, id: ${offer.id}`)
+      console.log(`FILL: offer.price: ${offer.price}, amount: ${(Number(row.amount))}, id: ${row.maker_offer_id}`)
       /*
       this.subLiquidity(
         chainId,
@@ -2048,7 +2048,7 @@ export default class API extends EventEmitter {
     const one_min_ago = new Date(Date.now() - 300 * 1000).toISOString()
     const orderUpdates: string[][] = []
     const query = {
-      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
