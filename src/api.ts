@@ -885,7 +885,8 @@ export default class API extends EventEmitter {
 
     const orderupdates: any[] = []
     const marketFills: any[] = []
-    fills.rows.forEach((row) => {
+    const liquidityUpdates: any = {}
+    fills.rows.forEach(async (row) => {
       if (row.maker_unfilled > 0) {
         orderupdates.push([
           chainId,
@@ -933,6 +934,8 @@ export default class API extends EventEmitter {
         offer.id
       )
 
+      // addes the amount filled to liquidityUpdates to update later
+      liquidityUpdates[row.maker_offer_id] = row.amount
       remainingAmount -= row.amount
     })
     const orderMsg = [
@@ -964,6 +967,33 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${chainId}:${market}`,
         JSON.stringify({ op: 'fills', args: [marketFills] })
       )
+    }    
+    if (liquidityUpdates.length > 0) {
+      const redisKeyLiquidity = `liquidity:${chainId}:${market}`
+      const liquidityList = await this.redis.ZRANGEBYSCORE(
+        redisKeyLiquidity,
+        '0',
+        '1000000'
+      )
+
+      const lenght = Object.keys(liquidityList).length
+      for (let i = 0; i < lenght; i++) {
+        const liquidityString = liquidityList[i]
+        const liquidity = JSON.parse(liquidityString)
+        // filledliquidity for that orderID
+        const filledliquidity = liquidityUpdates[liquidity[4]]
+        if (filledliquidity) {
+          // remove outdated liquidity
+          this.redis.ZREM(redisKeyLiquidity, liquidityString)
+
+          const newLiquidity = Number(liquidity[2]) - Number(filledliquidity)
+          if (newLiquidity > Number(marketInfo.baseFee)) {
+            // add new liquidity to HSET
+            liquidity[2] = newLiquidity
+            this.addLiquidity(chainId, market, liquidity)
+          }
+        }
+      }
     }
 
     // 'remainingAmount > marketInfo.baseFee' => 'remainingAmount > 0'
