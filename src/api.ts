@@ -1799,25 +1799,30 @@ export default class API extends EventEmitter {
     chainid: number,
     market: ZZMarket
   ) => {
-    const redis_key_liquidity = `liquidity:${chainid}:${market}`
-    let liquidity = await this.redis.ZRANGEBYSCORE(
-      redis_key_liquidity,
+    const redisKeyLiquidity = `liquidity:${chainid}:${market}`
+    const liquidityList = await this.redis.ZRANGEBYSCORE(
+      redisKeyLiquidity,
       '0',
       '1000000'
     )
+    if (liquidityList.length === 0) return []
 
-    if (liquidity.length === 0) return []
-
-    liquidity = liquidity.map((json) => JSON.parse(json))
-
+    const activeLiquidity: string[] = []
     const now = Date.now() / 1000 | 0
-    const expired_values = liquidity
-      .filter((l) => Number(l[3]) < now || !l[3])
-      .map((l) => JSON.stringify(l))
-    expired_values.forEach((v) => this.redis.ZREM(redis_key_liquidity, v))
+    for (let i = 0; i < liquidityList.length; i++) {
+      const liquidityString = liquidityList[i]
+      const liquidity = JSON.parse(liquidityString)
+      const expiration = Number(liquidity[3])
 
-    const active_liquidity = liquidity.filter((l) => Number(l[3]) > now)
-    return active_liquidity
+      if (Number.isNaN(expiration) || expiration < now) {
+        // liquidity is expired, remove
+        this.redis.ZREM(redisKeyLiquidity, liquidityString)
+      } else {
+        // liquidity is good, add to activeLiquidit
+        activeLiquidity.push(liquidity)
+      }
+    }
+    return activeLiquidity
   }
 
   getopenorders = async (chainid: number, market: string) => {
