@@ -878,12 +878,10 @@ export default class API extends EventEmitter {
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fill_ids]
     )
-    // console.log('fills', fills.rows)
     const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
       offer_id,
     ])
     const offer = offerquery.rows[0]
-    // console.log('offer', offer)
 
     const orderupdates: any[] = []
     const marketFills: any[] = []
@@ -934,17 +932,6 @@ export default class API extends EventEmitter {
         row.maker_offer_id,
         offer.id
       )
-
-      console.log(`FILL: offer.price: ${offer.price}, amount: ${(Number(row.amount))}, id: ${row.maker_offer_id}`)
-      /*
-      this.subLiquidity(
-        chainId,
-        market,
-        offer.price,
-        (Number(offer.amount) - Number(row.amount)),
-        row.id
-      )
-      */
 
       remainingAmount -= row.amount
     })
@@ -1759,43 +1746,6 @@ export default class API extends EventEmitter {
     throw new Error(
       `level': ${level} is not supported for getLiquidityPerSide. Use 1, 2 or 3`
     )
-  }
-
-  subLiquidity = async (
-    chainid: number,
-    market: ZZMarket,
-    price: number,
-    amountSwap: number,
-    id: number
-  ) => {
-    // get old liquidity in the same range
-    const redis_key_liquidity = `liquidity:${chainid}:${market}`
-    const existingLiquidity = await this.redis.ZRANGEBYSCORE(
-      redis_key_liquidity,
-      price * 0.999999,
-      price * 1.000001
-    )
-    // get the matching entry
-    const oldLiquidity = existingLiquidity
-      .map((json: string) => JSON.parse(json))
-      .filter((l) => (
-        Number(l[4]) === id
-      ))
-    // worst case: only update one liquidity
-    const oldLiquidityUpdate = JSON.stringify(oldLiquidity[0])
-    this.redis.ZREM(redis_key_liquidity, oldLiquidityUpdate)
-
-    // get minAmount (1 USD)
-    const base = market.split('-')[0]
-    const usdPrice = await this.getUsdPrice(1001, base)
-    const minAmount: number = usdPrice ? (1 / usdPrice) : 0
-
-    // add new liquidity
-    const newAmount = Number(oldLiquidity[0][2]) - amountSwap
-    if (newAmount > minAmount) {
-      oldLiquidity[0][2] = newAmount
-      this.addLiquidity(chainid, market, oldLiquidity[0])
-    }
   }
 
   addLiquidity = async (
