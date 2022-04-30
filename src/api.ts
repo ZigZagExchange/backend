@@ -1068,7 +1068,7 @@ export default class API extends EventEmitter {
         [relayResult.transaction_hash, fillId]
       )
       const orderUpdateBroadcast = await this.db.query(
-        "UPDATE offers SET fill_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, fill_status, txhash",
+        "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
         [makerOfferId, takerOfferId]
       )
       const orderUpdatesBroadcast = orderUpdateBroadcast.rows.map((row) => [
