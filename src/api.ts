@@ -983,7 +983,7 @@ export default class API extends EventEmitter {
       for (let i = 0; i < lenght; i++) {
         const liquidityString = liquidityList[i]
         const liquidity = JSON.parse(liquidityString)
-        if (liquidityKeys.includes(liquidity[4])) {
+        if (liquidityKeys.includes(liquidity[4].toString())) {
           // remove outdated liquidity
           this.redis.ZREM(redisKeyLiquidity, liquidityString)
 
