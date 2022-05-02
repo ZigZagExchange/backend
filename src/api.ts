@@ -2454,12 +2454,12 @@ export default class API extends EventEmitter {
     chainid: number,
     market: ZZMarket,
     liquidity: any[],
-    client_id: string
+    clientId: string
   ) => {
     const FIFTEEN_SECONDS = ((Date.now() / 1000) | 0) + 15
     const marketInfo = await this.getMarketInfo(market, chainid)
 
-    const redisKeyPassive = `passivews:${chainid}:${client_id}`
+    const redisKeyPassive = `passivews:${chainid}:${clientId}`
     const msg = await this.redis.get(redisKeyPassive)
     if (msg) {
       const remainingTime = await this.redis.ttl(redisKeyPassive)
@@ -2479,21 +2479,29 @@ export default class API extends EventEmitter {
     const redis_key_liquidity = `liquidity:${chainid}:${market}`
 
     // Delete old liquidity by same client
-    if (client_id) {
-      let old_liquidity = await this.redis.ZRANGEBYSCORE(
+    if (clientId) {
+      const oldLiquidity = await this.redis.ZRANGEBYSCORE(
         redis_key_liquidity,
         '0',
         '1000000'
       )
-      old_liquidity = old_liquidity.map((json: string) => JSON.parse(json))
-      const old_values = old_liquidity
-        .filter((l: any) => l[4] && l[4] === client_id)
-        .map((l: string) => JSON.stringify(l))
-      old_values.forEach((v: string) => this.redis.ZREM(redis_key_liquidity, v))
+      const lenght = Object.keys(oldLiquidity).length
+      for (let i = 0; i < lenght; i++) {
+        const liquidityString = oldLiquidity[i]
+        const liquidityPosition = JSON.parse(liquidityString)
+        if(clientId === liquidityPosition[4]?.toString()) {
+          this.redis.ZREM(
+            redis_key_liquidity,
+            liquidityString
+          )
+        }
+      }
     }
 
     const errorMsg: string[] = []
-    const redis_members = liquidity.reduce((result, l: any[]) => {
+    const redisMembers: any[] = []
+    for(let i = 0; i < liquidity.length; i++) {
+      const l = liquidity[i]
       const price = Number(l[1])
       const amount = Number(l[2])
 
@@ -2518,28 +2526,27 @@ export default class API extends EventEmitter {
         if (!l[3] || Number(l[3]) > FIFTEEN_SECONDS) {
           l[3] = FIFTEEN_SECONDS
         }
-        if (client_id) l[4] = client_id
+        if (clientId) l[4] = clientId
 
         // Set new liquidity
-        result.push({
+        redisMembers.push({
           score: l[1],
           value: JSON.stringify(l),
         })
       }
-      return result
-    }, [])
+    }
 
     if (errorMsg.length > 0) {
       const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join('. ')}.`
       this.redisPublisher.PUBLISH(
-        `broadcastmsg:maker:${chainid}:${client_id}`,
+        `broadcastmsg:maker:${chainid}:${clientId}`,
         JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
       )
     }
 
     if (liquidity.length > 0) {
       try {
-        await this.redis.ZADD(redis_key_liquidity, redis_members)
+        await this.redis.ZADD(redis_key_liquidity, redisMembers)
       } catch (e) {
         console.error(e)
         console.log(liquidity)
