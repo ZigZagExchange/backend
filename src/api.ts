@@ -970,14 +970,12 @@ export default class API extends EventEmitter {
     }
     const liquidityKeys = Object.keys(liquidityUpdates)
     if (liquidityKeys.length > 0) {
-      console.log(liquidityUpdates)
       const redisKeyLiquidity = `liquidity:${chainId}:${market}`
       const liquidityList = await this.redis.ZRANGEBYSCORE(
         redisKeyLiquidity,
         '0',
         '1000000'
       )
-      console.log(liquidityList)
 
       const lenght = Object.keys(liquidityList).length
       for (let i = 0; i < lenght; i++) {
@@ -1101,7 +1099,7 @@ export default class API extends EventEmitter {
         row.id,
         row.fill_status,
         row.txhash,
-        null, // ???
+        null, // remaing
         0, // fee amount
         0, // fee amount
         Date.now() // timestamp
