@@ -878,16 +878,15 @@ export default class API extends EventEmitter {
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fill_ids]
     )
-    // console.log('fills', fills.rows)
     const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
       offer_id,
     ])
     const offer = offerquery.rows[0]
-    // console.log('offer', offer)
 
     const orderupdates: any[] = []
     const marketFills: any[] = []
-    fills.rows.forEach((row) => {
+    const liquidityUpdates: any = {}
+    fills.rows.forEach(async (row) => {
       if (row.maker_unfilled > 0) {
         orderupdates.push([
           chainId,
@@ -935,17 +934,8 @@ export default class API extends EventEmitter {
         offer.id
       )
 
-      console.log(`FILL: offer.price: ${offer.price}, amount: ${(Number(row.amount))}, id: ${offer.id}`)
-      /*
-      this.subLiquidity(
-        chainId,
-        market,
-        offer.price,
-        (Number(offer.amount) - Number(row.amount)),
-        row.id
-      )
-      */
-
+      // addes the amount filled to liquidityUpdates to update later
+      liquidityUpdates[row.maker_offer_id] = row.amount
       remainingAmount -= row.amount
     })
     const orderMsg = [
@@ -977,6 +967,33 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${chainId}:${market}`,
         JSON.stringify({ op: 'fills', args: [marketFills] })
       )
+    }
+    const liquidityKeys = Object.keys(liquidityUpdates)
+    if (liquidityKeys.length > 0) {
+      const redisKeyLiquidity = `liquidity:${chainId}:${market}`
+      const liquidityList = await this.redis.ZRANGEBYSCORE(
+        redisKeyLiquidity,
+        '0',
+        '1000000'
+      )
+
+      const lenght = Object.keys(liquidityList).length
+      for (let i = 0; i < lenght; i++) {
+        const liquidityString = liquidityList[i]
+        const liquidity = JSON.parse(liquidityString)
+        if (liquidityKeys.includes(liquidity[4].toString())) {
+          // remove outdated liquidity
+          this.redis.ZREM(redisKeyLiquidity, liquidityString)
+
+          // substract filledliquidity for that orderID
+          const newLiquidity = Number(liquidity[2]) - Number(liquidityUpdates[liquidity[4]])
+          if (newLiquidity > Number(marketInfo.baseFee)) {
+            // add new liquidity to HSET
+            liquidity[2] = newLiquidity
+            this.addLiquidity(chainId, market, liquidity)
+          }
+        }
+      }
     }
 
     // 'remainingAmount > marketInfo.baseFee' => 'remainingAmount > 0'
@@ -1067,29 +1084,55 @@ export default class API extends EventEmitter {
         "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
         [relayResult.transaction_hash, fillId]
       )
+      const orderUpdateBroadcast = await this.db.query(
+        "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
+        [makerOfferId, takerOfferId]
+      )
+      const orderUpdatesBroadcast = orderUpdateBroadcast.rows.map((row) => [
+        chainId,
+        row.id,
+        row.order_status,
+        row.unfilled,
+      ])
       const fillUpdatesBroadcast = fillupdateBroadcast.rows.map((row) => [
         chainId,
         row.id,
         row.fill_status,
         row.txhash,
-        null, // ???
+        null, // remaing
         0, // fee amount
         0, // fee amount
         Date.now() // timestamp
       ])
 
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${buyer.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${seller.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
-      )
+      if (orderUpdatesBroadcast.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+      }
+      if (fillUpdatesBroadcast.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+      }
 
       await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
 
@@ -1104,7 +1147,7 @@ export default class API extends EventEmitter {
         [relayResult.transaction_hash, fillId]
       )
       const orderupdateFill = await this.db.query(
-        "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
+        "UPDATE offers SET order_status=(CASE WHEN unfilled > 0 THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
         [makerOfferId, takerOfferId]
       )
       const orderUpdateFills = orderupdateFill.rows.map((row) => [
@@ -1118,37 +1161,40 @@ export default class API extends EventEmitter {
         row.id,
         row.fill_status,
         row.txhash,
-        null, // ???
-        0, // fee amount
-        0, // fee amount
+        null,
+        0, // fee amount - TODO this should be marketInfo fees
+        0, // fee token - TODO this should be marketInfo fees
         Date.now() // timestamp
       ])
 
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${buyer.sender}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${seller.sender}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
-      )
-
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${buyer.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
-      )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:user:${chainId}:${seller.sender}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
-      )
+      if (orderUpdateFills.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+      }
+      if (fillUpdateFills.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+      }
     } catch (e: any) {
       console.log(`Starknet tx failed: ${relayResult.transaction_hash}`)
       console.error(calldataBuyOrder)
@@ -1180,7 +1226,6 @@ export default class API extends EventEmitter {
         row.id,
         row.order_status,
         relayResult.transaction_hash,
-        0, // remaining
         e.message
       ])
       this.redisPublisher.PUBLISH(
@@ -1733,43 +1778,6 @@ export default class API extends EventEmitter {
     )
   }
 
-  subLiquidity = async (
-    chainid: number,
-    market: ZZMarket,
-    price: number,
-    amountSwap: number,
-    id: number
-  ) => {
-    // get old liquidity in the same range
-    const redis_key_liquidity = `liquidity:${chainid}:${market}`
-    const existingLiquidity = await this.redis.ZRANGEBYSCORE(
-      redis_key_liquidity,
-      price * 0.999999,
-      price * 1.000001
-    )
-    // get the matching entry
-    const oldLiquidity = existingLiquidity
-      .map((json: string) => JSON.parse(json))
-      .filter((l) => (
-        Number(l[4]) === id
-      ))
-    // worst case: only update one liquidity
-    const oldLiquidityUpdate = JSON.stringify(oldLiquidity[0])
-    this.redis.ZREM(redis_key_liquidity, oldLiquidityUpdate)
-
-    // get minAmount (1 USD)
-    const base = market.split('-')[0]
-    const usdPrice = await this.getUsdPrice(1001, base)
-    const minAmount: number = usdPrice ? (1 / usdPrice) : 0
-
-    // add new liquidity
-    const newAmount = Number(oldLiquidity[0][2]) - amountSwap
-    if (newAmount > minAmount) {
-      oldLiquidity[0][2] = newAmount
-      this.addLiquidity(chainid, market, oldLiquidity[0])
-    }
-  }
-
   addLiquidity = async (
     chainid: number,
     market: ZZMarket,
@@ -1791,25 +1799,30 @@ export default class API extends EventEmitter {
     chainid: number,
     market: ZZMarket
   ) => {
-    const redis_key_liquidity = `liquidity:${chainid}:${market}`
-    let liquidity = await this.redis.ZRANGEBYSCORE(
-      redis_key_liquidity,
+    const redisKeyLiquidity = `liquidity:${chainid}:${market}`
+    const liquidityList = await this.redis.ZRANGEBYSCORE(
+      redisKeyLiquidity,
       '0',
       '1000000'
     )
+    if (liquidityList.length === 0) return []
 
-    if (liquidity.length === 0) return []
-
-    liquidity = liquidity.map((json) => JSON.parse(json))
-
+    const activeLiquidity: string[] = []
     const now = Date.now() / 1000 | 0
-    const expired_values = liquidity
-      .filter((l) => Number(l[3]) < now || !l[3])
-      .map((l) => JSON.stringify(l))
-    expired_values.forEach((v) => this.redis.ZREM(redis_key_liquidity, v))
+    for (let i = 0; i < liquidityList.length; i++) {
+      const liquidityString = liquidityList[i]
+      const liquidity = JSON.parse(liquidityString)
+      const expiration = Number(liquidity[3])
 
-    const active_liquidity = liquidity.filter((l) => Number(l[3]) > now)
-    return active_liquidity
+      if (Number.isNaN(expiration) || expiration < now) {
+        // liquidity is expired, remove
+        this.redis.ZREM(redisKeyLiquidity, liquidityString)
+      } else {
+        // liquidity is good, add to activeLiquidit
+        activeLiquidity.push(liquidity)
+      }
+    }
+    return activeLiquidity
   }
 
   getopenorders = async (chainid: number, market: string) => {
@@ -2020,7 +2033,7 @@ export default class API extends EventEmitter {
     const one_min_ago = new Date(Date.now() - 300 * 1000).toISOString()
     const orderUpdates: string[][] = []
     const query = {
-      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
