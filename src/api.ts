@@ -967,8 +967,9 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${chainId}:${market}`,
         JSON.stringify({ op: 'fills', args: [marketFills] })
       )
-    }    
-    if (liquidityUpdates.length > 0) {
+    }
+    const liquidityKeys = Object.keys(liquidityUpdates)
+    if (liquidityKeys.length > 0) {
       console.log(liquidityUpdates)
       const redisKeyLiquidity = `liquidity:${chainId}:${market}`
       const liquidityList = await this.redis.ZRANGEBYSCORE(
@@ -982,13 +983,12 @@ export default class API extends EventEmitter {
       for (let i = 0; i < lenght; i++) {
         const liquidityString = liquidityList[i]
         const liquidity = JSON.parse(liquidityString)
-        // filledliquidity for that orderID
-        const filledliquidity = liquidityUpdates[liquidity[4]]
-        if (filledliquidity) {
+        if (liquidityKeys.includes(liquidity[4])) {
           // remove outdated liquidity
           this.redis.ZREM(redisKeyLiquidity, liquidityString)
 
-          const newLiquidity = Number(liquidity[2]) - Number(filledliquidity)
+          // substract filledliquidity for that orderID
+          const newLiquidity = Number(liquidity[2]) - Number(liquidityUpdates[liquidity[4]])
           if (newLiquidity > Number(marketInfo.baseFee)) {
             // add new liquidity to HSET
             liquidity[2] = newLiquidity
