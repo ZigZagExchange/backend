@@ -1204,8 +1204,8 @@ export default class API extends EventEmitter {
       console.error(e)
       console.error('Starknet tx failed')
       const rejectedFillupdate = await this.db.query(
-        "UPDATE fills SET fill_status='r' WHERE id IN ($1, $2) RETURNING id, fill_status",
-        [makerOfferId, takerOfferId]
+        "UPDATE fills SET fill_status='r', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
+        [relayResult.transaction_hash, fillId]
       )
       const rejectedOrderupdate = await this.db.query(
         "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
