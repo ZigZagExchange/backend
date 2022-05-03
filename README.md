@@ -436,7 +436,7 @@ Description: A series of order status updates. orderupdate = `[chainId,orderId,s
 
 ###### Operation: **fillstatus**
 
-Description: An update about the fill status of an active order. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken,timestamp]`. See [Order Status](#order-statuses) for status flags.
+Description: An update about the fill status of an active order. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken,timestamp,errorMsg]`. See [Order Status](#order-statuses) for status flags.
 
 ```json
 {
@@ -451,7 +451,8 @@ Description: An update about the fill status of an active order. fillstatus = `[
         null,
         0.000072,
         "ETH",
-        1646476058552
+        1646476058552,
+        "errorMsg or null"
       ]
     ]
   ]
