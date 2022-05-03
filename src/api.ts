@@ -1219,8 +1219,7 @@ export default class API extends EventEmitter {
         0, // remaining
         0, // fee amount
         0, // fee amount
-        Date.now(), // timestamp
-        e.message
+        Date.now() // timestamp
       ])
       const rejectedOrderUpdates = rejectedOrderupdate.rows.map((row) => [
         chainId,
