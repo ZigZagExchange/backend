@@ -1,6 +1,6 @@
 import type { ZZHttpServer, ZZMarket, ZZMarketInfo, ZZMarketSummary } from 'src/types'
 
-export default function cmcRoutes(app: ZZHttpServer) {
+export default function zzRoutes(app: ZZHttpServer) {
 
   const defaultChainId = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
