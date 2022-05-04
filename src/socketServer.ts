@@ -30,7 +30,8 @@ export const createSocketServer = (): ZZSocketServer => {
           if (![
             'indicateliq2',
             'submitorder2',
-            'submitorder3'
+            'submitorder3',
+            'ping'
           ].includes(msg.op)) { console.log('WS: %s', json) }
           if ([
             'submitorder2',

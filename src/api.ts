@@ -37,6 +37,7 @@ export default class API extends EventEmitter {
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
+  VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
@@ -92,42 +93,6 @@ export default class API extends EventEmitter {
     await this.redis.connect()
     await this.redisSubscriber.connect()
     await this.redisPublisher.connect()
-
-    this.watchers = [
-      setInterval(this.updatePriceHighLow, 300000),
-      setInterval(this.updateVolumes, 120000),
-      setInterval(this.clearDeadConnections, 60000),
-      setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateUsdPrice, 12500),
-      setInterval(this.updateFeesZkSync, 30010),
-      // setInterval(this.updatePassiveMM, 10000),
-      setInterval(this.broadcastLiquidity, 4000),
-    ]
-
-    // update updatePriceHighLow once
-    setTimeout(this.updatePriceHighLow, 10000)
-
-    // reset redis mm timeouts
-    this.VALID_CHAINS.map(async (chainid) => {
-      const redisPatternBussy = `bussymarketmaker:${chainid}:*`
-      const keysBussy = await this.redis.keys(redisPatternBussy)
-      keysBussy.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-      const redisPatternPassiv = `passivews:${chainid}:*`
-      const keysPassiv = await this.redis.keys(redisPatternPassiv)
-      keysPassiv.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-    })
-
-    // reset liquidityKeys
-    this.VALID_CHAINS.map(async (chainid) => {
-      const liquidityKeys = await this.redis.KEYS(`liquidity:${chainid}:*`)
-      liquidityKeys.forEach(async (key) => {
-        await this.redis.DEL(key)
-      })
-    })
 
     // fetch abi's
     this.ERC20_ABI = JSON.parse(
@@ -200,6 +165,61 @@ export default class API extends EventEmitter {
         console.error(`redisSubscriber wrong broadcastChannel: ${broadcastChannel}`)
       }
     })
+
+    this.watchers = [
+      setInterval(this.updatePriceHighLow, 300000),
+      setInterval(this.updateVolumes, 120000),
+      setInterval(this.clearDeadConnections, 60000),
+      setInterval(this.updatePendingOrders, 60000),
+      setInterval(this.updateUsdPrice, 12500),
+      setInterval(this.updateFeesZkSync, 30010),
+      // setInterval(this.updatePassiveMM, 10000),
+      setInterval(this.broadcastLiquidity, 4000),
+    ]
+
+    // update updatePriceHighLow once
+    setTimeout(this.updatePriceHighLow, 10000)
+
+    // reset redis mm timeouts
+    this.VALID_CHAINS.map(async (chainid) => {
+      const redisPatternBussy = `bussymarketmaker:${chainid}:*`
+      const keysBussy = await this.redis.keys(redisPatternBussy)
+      keysBussy.forEach(async (key: string) => {
+        this.redis.del(key)
+      })
+      const redisPatternPassiv = `passivews:${chainid}:*`
+      const keysPassiv = await this.redis.keys(redisPatternPassiv)
+      keysPassiv.forEach(async (key: string) => {
+        this.redis.del(key)
+      })
+    })
+
+    // reset liquidityKeys
+    const removeOldLiquidityPromise: Promise<any>[] = this.VALID_CHAINS.map(async (chainid) => {
+      const liquidityKeys = await this.redis.KEYS(`liquidity:${chainid}:*`)
+      liquidityKeys.forEach(async (key) => {
+        await this.redis.DEL(key)
+      })
+    })
+    await Promise.all(removeOldLiquidityPromise)
+
+    // add valid open orders to Liquidity
+    const addLiquidityPromise: Promise<any>[] = this.VALID_SMART_CONTRACT_CHAIN.map(async (chainid) => {
+      const query = {
+        text: "SELECT chainid,market,side,price,expires,unfilled,id FROM offers WHERE chainid=$1 AND order_status IN ('o', 'pm', 'pf')",
+        values: [chainid]
+      }
+      const select = await this.db.query(query)
+      const rowsPromise: Promise<any>[] = select.rows.map(async (row) => {
+        await this.addLiquidity(
+          row.chainid,
+          row.market,
+          [row.side, row.price, row.unfilled, row.expires, row.id]
+        )
+      })
+      await Promise.all(rowsPromise)
+    })
+    await Promise.all(addLiquidityPromise)
 
     this.started = true
 
@@ -825,8 +845,11 @@ export default class API extends EventEmitter {
     const price = (order.price.numerator / order.price.denominator)
 
     const quote_quantity = price * base_quantity
-    const expiration = Number(order.expiration)
-    if ((expiration * 1000) < Date.now()) throw new Error("Wrong expiry, check PC clock")
+
+    // starknet uses unix * 100, generate correct unix
+    const expirationStarkNet = Number(order.expiration)
+    if ((expirationStarkNet * 10) < Date.now()) throw new Error("Wrong expiry, check PC clock")
+    const expiration = (expirationStarkNet / 100) | 0
     // const order_type = 'limit' - set in match_limit_order
 
     let remainingAmount = base_quantity
@@ -855,16 +878,15 @@ export default class API extends EventEmitter {
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fill_ids]
     )
-    // console.log('fills', fills.rows)
     const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
       offer_id,
     ])
     const offer = offerquery.rows[0]
-    // console.log('offer', offer)
 
     const orderupdates: any[] = []
     const marketFills: any[] = []
-    fills.rows.forEach((row) => {
+    const liquidityUpdates: any = {}
+    fills.rows.forEach(async (row) => {
       if (row.maker_unfilled > 0) {
         orderupdates.push([
           chainId,
@@ -912,6 +934,8 @@ export default class API extends EventEmitter {
         offer.id
       )
 
+      // addes the amount filled to liquidityUpdates to update later
+      liquidityUpdates[row.maker_offer_id] = row.amount
       remainingAmount -= row.amount
     })
     const orderMsg = [
@@ -944,13 +968,41 @@ export default class API extends EventEmitter {
         JSON.stringify({ op: 'fills', args: [marketFills] })
       )
     }
+    const liquidityKeys = Object.keys(liquidityUpdates)
+    if (liquidityKeys.length > 0) {
+      const redisKeyLiquidity = `liquidity:${chainId}:${market}`
+      const liquidityList = await this.redis.ZRANGEBYSCORE(
+        redisKeyLiquidity,
+        '0',
+        '1000000'
+      )
+
+      const lenght = Object.keys(liquidityList).length
+      for (let i = 0; i < lenght; i++) {
+        const liquidityString = liquidityList[i]
+        const liquidity = JSON.parse(liquidityString)
+        if (liquidityKeys.includes(liquidity[4].toString())) {
+          // remove outdated liquidity
+          this.redis.ZREM(redisKeyLiquidity, liquidityString)
+
+          // substract filledliquidity for that orderID
+          const newLiquidity = Number(liquidity[2]) - Number(liquidityUpdates[liquidity[4]])
+          if (newLiquidity > Number(marketInfo.baseFee)) {
+            // add new liquidity to HSET
+            liquidity[2] = newLiquidity
+            this.addLiquidity(chainId, market, liquidity)
+          }
+        }
+      }
+    }
 
     // 'remainingAmount > marketInfo.baseFee' => 'remainingAmount > 0'
+    // only add to the orderbook if not filled instantly
     if (remainingAmount > marketInfo.baseFee) {
       this.addLiquidity(
         chainId,
         market,
-        [side, price, remainingAmount, expiration]
+        [side, price, remainingAmount, expiration, offer.id]
       )
     }
   }
@@ -993,7 +1045,9 @@ export default class API extends EventEmitter {
       buyer.order.base_quantity,
       buyer.order.price.numerator,
       buyer.order.price.denominator,
-      buyer.order.expiration
+      buyer.order.expiration,
+      buyer.sig_r,
+      buyer.sig_s
     ]
 
     const calldataSellOrder = [
@@ -1008,11 +1062,14 @@ export default class API extends EventEmitter {
       seller.order.base_quantity,
       seller.order.price.numerator,
       seller.order.price.denominator,
-      seller.order.expiration
+      seller.order.expiration,
+      seller.sig_r,
+      seller.sig_s
     ]
 
+    let relayResult: any
     try {
-      const relayResult = await this.STARKNET_EXCHANGE[network].invoke(
+      relayResult = await this.STARKNET_EXCHANGE[network].invoke(
         'fill_order',
         [
           calldataBuyOrder,
@@ -1021,54 +1078,180 @@ export default class API extends EventEmitter {
           calldataFillQuantity
         ]
       )
-      await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
-      // TODO handel f or r
-      // TODO we want to add fees here
 
       console.log('Starknet tx success')
-      const fillupdate = await this.db.query(
-        "UPDATE fills SET fill_status='f', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
+      const fillupdateBroadcast = await this.db.query(
+        "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
         [relayResult.transaction_hash, fillId]
       )
-      const orderupdate = await this.db.query(
-        "UPDATE offers SET order_status=(CASE WHEN order_status='pm' THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
+      const orderUpdateBroadcast = await this.db.query(
+        "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
         [makerOfferId, takerOfferId]
       )
-      const orderUpdates = orderupdate.rows.map((row) => [
+      const orderUpdatesBroadcast = orderUpdateBroadcast.rows.map((row) => [
         chainId,
         row.id,
         row.order_status,
+        row.unfilled,
       ])
-      const fillUpdates = fillupdate.rows.map((row) => [
+      const fillUpdatesBroadcast = fillupdateBroadcast.rows.map((row) => [
         chainId,
         row.id,
         row.fill_status,
         row.txhash,
+        null, // remaing
+        0, // fee amount
+        0, // fee amount
+        Date.now() // timestamp
       ])
 
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+      if (orderUpdatesBroadcast.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdatesBroadcast] })
+        )
+      }
+      if (fillUpdatesBroadcast.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcast] })
+        )
+      }
+
+      await starknet.defaultProvider.waitForTransaction(relayResult.transaction_hash)
+
+
+      console.log(`New starknet tx: ${relayResult.transaction_hash}`)
+
+      // TODO we want to add fees here
+
+      console.log('Starknet tx success')
+      const fillupdateFill = await this.db.query(
+        "UPDATE fills SET fill_status='f', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
+        [relayResult.transaction_hash, fillId]
       )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'fillstatus', args: [fillUpdates] })
-      )
-    } catch (e: any) {
-      console.error(e)
-      console.error('Starknet tx failed')
-      const orderupdate = await this.db.query(
-        "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
+      const orderupdateFill = await this.db.query(
+        "UPDATE offers SET order_status=(CASE WHEN unfilled > 0 THEN 'pf' ELSE 'f' END), update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
         [makerOfferId, takerOfferId]
       )
-      const orderUpdates = orderupdate.rows.map((row) => [
+      const orderUpdateFills = orderupdateFill.rows.map((row) => [
         chainId,
         row.id,
         row.order_status,
+        row.unfilled,
+      ])
+      const fillUpdateFills = fillupdateFill.rows.map((row) => [
+        chainId,
+        row.id,
+        row.fill_status,
+        row.txhash,
+        null,
+        0, // fee amount - TODO this should be marketInfo fees
+        0, // fee token - TODO this should be marketInfo fees
+        Date.now() // timestamp
+      ])
+
+      if (orderUpdateFills.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'orderstatus', args: [orderUpdateFills] })
+        )
+      }
+      if (fillUpdateFills.length) {
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${buyer.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+        this.redisPublisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${seller.sender}`,
+          JSON.stringify({ op: 'fillstatus', args: [fillUpdateFills] })
+        )
+      }
+    } catch (e: any) {
+      console.log(`Starknet tx failed: ${relayResult.transaction_hash}`)
+      console.error(calldataBuyOrder)
+      console.error(calldataSellOrder)
+      console.error(calldataFillPrice)
+      console.error(calldataFillQuantity)
+      console.error(e)
+      console.error('Starknet tx failed')
+      const rejectedFillupdate = await this.db.query(
+        "UPDATE fills SET fill_status='r', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
+        [relayResult.transaction_hash, fillId]
+      )
+      const rejectedOrderupdate = await this.db.query(
+        "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status",
+        [makerOfferId, takerOfferId]
+      )
+      const rejectedFillUpdates = rejectedFillupdate.rows.map((row) => [
+        chainId,
+        row.id,
+        row.fill_status,
+        row.txhash,
+        0, // remaining
+        0, // fee amount
+        0, // fee amount
+        Date.now() // timestamp
+      ])
+      const rejectedOrderUpdates = rejectedOrderupdate.rows.map((row) => [
+        chainId,
+        row.id,
+        row.order_status,
+        relayResult.transaction_hash,
+        e.message
       ])
       this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderUpdates] })
+        JSON.stringify({ op: 'orderstatus', args: [rejectedOrderUpdates] })
+      )
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:user:${chainId}:${buyer.sender}`,
+        JSON.stringify({ op: 'orderstatus', args: [rejectedOrderUpdates] })
+      )
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:user:${chainId}:${seller.sender}`,
+        JSON.stringify({ op: 'orderstatus', args: [rejectedOrderUpdates] })
+      )
+
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fillstatus', args: [rejectedFillUpdates] })
+      )
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:user:${chainId}:${buyer.sender}`,
+        JSON.stringify({ op: 'fillstatus', args: [rejectedFillUpdates] })
+      )
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:user:${chainId}:${seller.sender}`,
+        JSON.stringify({ op: 'fillstatus', args: [rejectedFillUpdates] })
       )
     }
   }
@@ -1616,25 +1799,30 @@ export default class API extends EventEmitter {
     chainid: number,
     market: ZZMarket
   ) => {
-    const redis_key_liquidity = `liquidity:${chainid}:${market}`
-    let liquidity = await this.redis.ZRANGEBYSCORE(
-      redis_key_liquidity,
+    const redisKeyLiquidity = `liquidity:${chainid}:${market}`
+    const liquidityList = await this.redis.ZRANGEBYSCORE(
+      redisKeyLiquidity,
       '0',
       '1000000'
     )
+    if (liquidityList.length === 0) return []
 
-    if (liquidity.length === 0) return []
-
-    liquidity = liquidity.map((json) => JSON.parse(json))
-
+    const activeLiquidity: string[] = []
     const now = Date.now() / 1000 | 0
-    const expired_values = liquidity
-      .filter((l) => Number(l[3]) < now || !l[3])
-      .map((l) => JSON.stringify(l))
-    expired_values.forEach((v) => this.redis.ZREM(redis_key_liquidity, v))
+    for (let i = 0; i < liquidityList.length; i++) {
+      const liquidityString = liquidityList[i]
+      const liquidity = JSON.parse(liquidityString)
+      const expiration = Number(liquidity[3])
 
-    const active_liquidity = liquidity.filter((l) => Number(l[3]) > now)
-    return active_liquidity
+      if (Number.isNaN(expiration) || expiration < now) {
+        // liquidity is expired, remove
+        this.redis.ZREM(redisKeyLiquidity, liquidityString)
+      } else {
+        // liquidity is good, add to activeLiquidit
+        activeLiquidity.push(liquidity)
+      }
+    }
+    return activeLiquidity
   }
 
   getopenorders = async (chainid: number, market: string) => {
@@ -1841,10 +2029,11 @@ export default class API extends EventEmitter {
   }
 
   updatePendingOrders = async () => {
-    const one_min_ago = new Date(Date.now() - 60 * 1000).toISOString()
+    // TODO back to one min, temp 300, starknet is too slow
+    const one_min_ago = new Date(Date.now() - 300 * 1000).toISOString()
     const orderUpdates: string[][] = []
     const query = {
-      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND insert_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
@@ -2426,6 +2615,7 @@ export default class API extends EventEmitter {
     chainId: number,
     tokenSymbol: string
   ): Promise<number> => {
+    chainId = 1
     const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenSymbol)
     if (cache) {
       const tokenInfo = JSON.parse(cache)
