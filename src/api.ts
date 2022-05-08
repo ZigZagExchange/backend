@@ -2031,14 +2031,14 @@ export default class API extends EventEmitter {
   updatePendingOrders = async () => {
     // TODO back to one min, temp 300, starknet is too slow
     const one_min_ago = new Date(Date.now() - 300 * 1000).toISOString()
-    const orderUpdates: string[][] = []
+    let orderUpdates: string[][] = []
     const query = {
       text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [one_min_ago],
     }
     const update = await this.db.query(query)
     if (update.rowCount > 0) {
-      orderUpdates.concat(update.rows.map((row) => [
+      orderUpdates = orderUpdates.concat(update.rows.map((row) => [
         row.chainid,
         row.id,
         row.order_status,
@@ -2058,7 +2058,7 @@ export default class API extends EventEmitter {
     }
     const updateExpires = await this.db.query(expiredQuery)
     if (updateExpires.rowCount > 0) {
-      orderUpdates.concat(updateExpires.rows.map((row) => [
+      orderUpdates = orderUpdates.concat(updateExpires.rows.map((row) => [
         row.chainid,
         row.id,
         row.order_status,
