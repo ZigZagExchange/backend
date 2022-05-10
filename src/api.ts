@@ -2406,8 +2406,9 @@ export default class API extends EventEmitter {
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
           return
         }
-        this.redisPublisher.PUBLISH(
-          `broadcastmsg:all:${chainid}:${market_id}`,
+        this.broadcastMessage (
+          chainid,
+          market_id,
           JSON.stringify({ op: 'liquidity2', args: [chainid, market_id, liquidity] })
         )
 
@@ -2438,8 +2439,9 @@ export default class API extends EventEmitter {
       const lastprices = (await this.getLastPrices(chainid)).map((l) =>
         l.splice(0, 3)
       )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainid}:all`,
+      this.broadcastMessage (
+        chainid,
+        'all',
         JSON.stringify({ op: 'lastprice', args: [lastprices] })
       )
 
