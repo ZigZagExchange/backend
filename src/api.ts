@@ -2635,7 +2635,6 @@ export default class API extends EventEmitter {
     chainId: number,
     tokenSymbol: string
   ): Promise<number> => {
-    chainId = 1
     const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenSymbol)
     if (cache) {
       const tokenInfo = JSON.parse(cache)
