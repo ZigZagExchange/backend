@@ -166,13 +166,15 @@ export default class API extends EventEmitter {
       }
     })
 
+    // some randomness to stagger updates between dynos
+    const random = Math.floor(Math.random() * 5000)
     this.watchers = [
       setInterval(this.updatePriceHighLow, 300000),
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
-      setInterval(this.updatePendingOrders, 60000),
-      setInterval(this.updateUsdPrice, 12500),
-      setInterval(this.updateFeesZkSync, 30010),
+      setInterval(this.updatePendingOrders, (60000 + random)),
+      setInterval(this.updateUsdPrice, (10000 + random)),
+      setInterval(this.updateFeesZkSync, (18000 + random)),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 4000),
     ]
@@ -347,6 +349,14 @@ export default class API extends EventEmitter {
    * Update the fee for each token on regular basis
    */
   updateFeesZkSync = async () => {
+    // only one dyno needs to update this
+    const redisZkSyncFeeKey = 'update:zkSyncFee'
+    const lock = await this.redis.get(redisZkSyncFeeKey)
+    if (lock) {
+      return
+    }
+    await this.redis.SET(redisZkSyncFeeKey, '1', { EX: 15 })
+
     console.time("Update fees")
     const results0: Promise<any>[] = this.VALID_CHAINS_ZKSYNC.map(async (chainId: number) => {
       const newFees: any = {}
@@ -2203,6 +2213,14 @@ export default class API extends EventEmitter {
   }
 
   updatePriceHighLow = async () => {
+    // only one dyno needs to update this
+    const redisPriceHighLowKey = 'update:PriceHighLow'
+    const lock = await this.redis.get(redisPriceHighLowKey)
+    if (lock) {
+      return
+    }
+    await this.redis.SET(redisPriceHighLowKey, '1', { EX: 300 })
+
     const one_day_ago = new Date(Date.now() - 86400 * 1000).toISOString()
     const select = await this.db.query(
       "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
@@ -2406,8 +2424,9 @@ export default class API extends EventEmitter {
           await this.redis.SREM(`activemarkets:${chainid}`, market_id)
           return
         }
-        this.redisPublisher.PUBLISH(
-          `broadcastmsg:all:${chainid}:${market_id}`,
+        this.broadcastMessage(
+          chainid,
+          market_id,
           JSON.stringify({ op: 'liquidity2', args: [chainid, market_id, liquidity] })
         )
 
@@ -2438,8 +2457,9 @@ export default class API extends EventEmitter {
       const lastprices = (await this.getLastPrices(chainid)).map((l) =>
         l.splice(0, 3)
       )
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainid}:all`,
+      this.broadcastMessage(
+        chainid,
+        'all',
         JSON.stringify({ op: 'lastprice', args: [lastprices] })
       )
 
@@ -2625,6 +2645,14 @@ export default class API extends EventEmitter {
   }
 
   updateUsdPrice = async () => {
+    // only one dyno needs to update this
+    const redisUSDPriceKey = 'update:usdprice'
+    const lock = await this.redis.get(redisUSDPriceKey)
+    if (lock) {
+      return
+    }
+    await this.redis.SET(redisUSDPriceKey, '1', { EX: 9 })
+
     console.time("Updating usd price.")
     // use mainnet as price source TODO we should rework the price source to work with multible networks
     const network = await this.getNetwork(1)
