@@ -1597,7 +1597,7 @@ export default class API extends EventEmitter {
   ) => {
     ; (this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
-      if (ws.chainId !== chainId) return
+      if (ws.chainid !== chainId) return
       if (market !== "all" && !ws.marketSubscriptions.includes(market)) return
       ws.send(msg)
     })
@@ -2400,7 +2400,7 @@ export default class API extends EventEmitter {
   clearDeadConnections = () => {
     ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
-        const userconnkey = `${ws.chainId}:${ws.userid}`
+        const userconnkey = `${ws.chainid}:${ws.userid}`
         delete this.USER_CONNECTIONS[userconnkey]
         delete this.MAKER_CONNECTIONS[userconnkey]
         ws.terminate()
@@ -2417,16 +2417,16 @@ export default class API extends EventEmitter {
     const result = this.VALID_CHAINS.map(async (chainId) => {
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
       if (!markets || markets.length === 0) return
-      const results: Promise<any>[] = markets.map(async (market_id) => {
-        const liquidity = await this.getLiquidity(chainId, market_id)
+      const results: Promise<any>[] = markets.map(async (marketId) => {
+        const liquidity = await this.getLiquidity(chainId, marketId)
         if (liquidity.length === 0) {
-          await this.redis.SREM(`activemarkets:${chainId}`, market_id)
+          await this.redis.SREM(`activemarkets:${chainId}`, marketId)
           return
         }
         this.broadcastMessage(
           chainId,
-          market_id,
-          JSON.stringify({ op: 'liquidity2', args: [chainId, market_id, liquidity] })
+          marketId,
+          JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
         )
 
         // Update last price while you're at it
@@ -2448,7 +2448,7 @@ export default class API extends EventEmitter {
         const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
         this.redis.HSET(
           `lastprices:${chainId}`,
-          market_id,
+          marketId,
           formatPrice(mid)
         )
       })
