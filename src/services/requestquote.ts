@@ -34,7 +34,7 @@ export const requestquote: ZZServiceHandler = async (
       ],
     }
   } catch (e: any) {
-    console.error(e)
+    console.error(e.message)
     quoteMessage = { op: 'error', args: ['requestquote', e.message] }
   }
 
