@@ -2169,11 +2169,14 @@ export default class API extends EventEmitter {
       )
       const lastPrice = +redisPrices[market]
       const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
-      const priceChangePercent24h = Number(formatPrice(priceChange / lastPrice))
+      // eslint-disable-next-line camelcase
+      const priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
 
       // get low/high price
-      const lowestPrice24h = Number(redisPricesLow[market])
-      const highestPrice24h = Number(redisPricesHigh[market])
+      // eslint-disable-next-line camelcase
+      const lowestPrice_24h = Number(redisPricesLow[market])
+      // eslint-disable-next-line camelcase
+      const highestPrice_24h = Number(redisPricesHigh[market])
 
       // get volume
       const quoteVolume = Number(redisVolumesQuote[market] || 0)
@@ -2194,9 +2197,12 @@ export default class API extends EventEmitter {
         baseVolume,
         quoteVolume,
         priceChange,
-        priceChangePercent24h,
-        highestPrice24h,
-        lowestPrice24h,
+        // eslint-disable-next-line camelcase
+        priceChangePercent_24h,
+        // eslint-disable-next-line camelcase
+        highestPrice_24h,
+        // eslint-disable-next-line camelcase
+        lowestPrice_24h,
       }
       marketSummarys[market] = marketSummary
     })
@@ -2508,7 +2514,7 @@ export default class API extends EventEmitter {
       for (let i = 0; i < lenght; i++) {
         const liquidityString = oldLiquidity[i]
         const liquidityPosition = JSON.parse(liquidityString)
-        if(clientId === liquidityPosition[4]?.toString()) {
+        if (clientId === liquidityPosition[4]?.toString()) {
           this.redis.ZREM(
             redisKeyLiquidity,
             liquidityString
@@ -2519,7 +2525,7 @@ export default class API extends EventEmitter {
 
     const errorMsg: string[] = []
     const redisMembers: any[] = []
-    for(let i = 0; i < liquidity.length; i++) {
+    for (let i = 0; i < liquidity.length; i++) {
       const l = liquidity[i]
       const price = Number(l[1])
       const amount = Number(l[2])
