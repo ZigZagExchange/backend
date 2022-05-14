@@ -2488,8 +2488,8 @@ export default class API extends EventEmitter {
     }
 
     const [baseToken, quoteToken] = market.split('-')
-    const basePrice = await this.getUsdPrice(chainid, baseToken)
-    const quotePrice = await this.getUsdPrice(chainid, quoteToken)
+    const basePrice = await this.getUsdPrice(chainId, baseToken)
+    const quotePrice = await this.getUsdPrice(chainId, quoteToken)
     const midPrice = (basePrice && quotePrice)
       ? basePrice / quotePrice
       : 0
@@ -2500,7 +2500,7 @@ export default class API extends EventEmitter {
     // Delete old liquidity by same client
     if (clientId) {
       const oldLiquidity = await this.redis.ZRANGEBYSCORE(
-        redis_key_liquidity,
+        redisKeyLiquidity,
         '0',
         '1000000'
       )
@@ -2510,7 +2510,7 @@ export default class API extends EventEmitter {
         const liquidityPosition = JSON.parse(liquidityString)
         if(clientId === liquidityPosition[4]?.toString()) {
           this.redis.ZREM(
-            redis_key_liquidity,
+            redisKeyLiquidity,
             liquidityString
           )
         }
@@ -2558,14 +2558,14 @@ export default class API extends EventEmitter {
     if (errorMsg.length > 0) {
       const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join('. ')}.`
       this.redisPublisher.PUBLISH(
-        `broadcastmsg:maker:${chainid}:${clientId}`,
+        `broadcastmsg:maker:${chainId}:${clientId}`,
         JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
       )
     }
 
     if (liquidity.length > 0) {
       try {
-        await this.redis.ZADD(redis_key_liquidity, redisMembers)
+        await this.redis.ZADD(redisKeyLiquidity, redisMembers)
       } catch (e) {
         console.error(e)
         console.log(liquidity)
@@ -2573,7 +2573,7 @@ export default class API extends EventEmitter {
     } else {
       throw new Error('No valid liquidity send')
     }
-    await this.redis.SADD(`activemarkets:${chainid}`, market)
+    await this.redis.SADD(`activemarkets:${chainId}`, market)
   }
 
   updatePassiveMM = async () => {
