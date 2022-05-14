@@ -196,6 +196,9 @@ export default class API extends EventEmitter {
       })
     })
 
+    // remove old offers
+    this.removeOldOffers()
+
     // reset liquidityKeys
     const removeOldLiquidityPromise: Promise<any>[] = this.VALID_CHAINS.map(async (chainid) => {
       const liquidityKeys = await this.redis.KEYS(`liquidity:${chainid}:*`)
@@ -2629,6 +2632,15 @@ export default class API extends EventEmitter {
     await this.redis.SET(redis_key, JSON.stringify(volumes))
     await this.redis.expire(redis_key, 1200)
     return volumes
+  }
+
+  removeOldOffers = async () => {
+    const fourWeeksAgo = new Date(Date.now() - 4 * 7 * 24 * 60 * 60 * 1000).toISOString()
+    const query = {
+      text: "DELETE FROM offers WHERE exp AND update_timestamp < $1 AND order_status IN ('c', 'm', 'f', 'e', 'r'))",
+      values: [fourWeeksAgo],
+    }
+    await this.db.query(query)
   }
 
   getUsdPrice = async (
