@@ -2567,12 +2567,16 @@ export default class API extends EventEmitter {
         `broadcastmsg:maker:${chainId}:${clientId}`,
         JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
       )
+
+      console.log(liquidity)
+      console.log(errorMsg)
     }
 
-    if (liquidity.length > 0) {
+    if (redisMembers.length > 0) {
       try {
         await this.redis.ZADD(redisKeyLiquidity, redisMembers)
       } catch (e) {
+        console.log('updateLiquidity')
         console.error(e)
         console.log(liquidity)
         console.log(redisKeyLiquidity)
