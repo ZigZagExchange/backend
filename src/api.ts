@@ -2526,7 +2526,7 @@ export default class API extends EventEmitter {
     const errorMsg: string[] = []
     const redisMembers: any[] = []
     for (let i = 0; i < liquidity.length; i++) {
-      const l = liquidity[i]
+      const l: any[] = liquidity[i]
       const price = Number(l[1])
       const amount = Number(l[2])
 
@@ -2575,6 +2575,8 @@ export default class API extends EventEmitter {
       } catch (e) {
         console.error(e)
         console.log(liquidity)
+        console.log(redisKeyLiquidity)
+        console.log(redisMembers)
       }
     } else {
       throw new Error('No valid liquidity send')
