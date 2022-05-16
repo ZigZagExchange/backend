@@ -2567,9 +2567,6 @@ export default class API extends EventEmitter {
         `broadcastmsg:maker:${chainId}:${clientId}`,
         JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
       )
-
-      console.log(liquidity)
-      console.log(errorMsg)
     }
 
     if (redisMembers.length > 0) {
