@@ -628,13 +628,13 @@ export default class API extends EventEmitter {
     try {
       const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainId]
       const update2 = await this.db.query(
-        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, makerUserId, insert_timestamp",
+        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
         valuesFills
       )
       if (update2.rows.length > 0) {
         fillId = update2.rows[0].id
         fillPrice = update2.rows[0].price
-        makerUserId = update2.rows[0].makerUserId
+        makerUserId = update2.rows[0].maker_user_id
         timestamp = update2.rows[0].insert_timestamp
       }
     } catch (e) {
@@ -1903,7 +1903,7 @@ export default class API extends EventEmitter {
     accountId?: number,
     direction?: string
   ) => {
-    let text = "SELECT chainId,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainId=$1 AND fill_status='f'"
+    let text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f'"
 
     if (market) {
       text += ` AND market = '${market}'`
@@ -1983,14 +1983,14 @@ export default class API extends EventEmitter {
   updateVolumes = async () => {
     const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
     const query = {
-      text: "SELECT chainId, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainId IS NOT NULL GROUP BY (chainId, market)",
+      text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
       values: [oneDayAgo],
     }
     const select = await this.db.query(query)
     select.rows.forEach(async (row) => {
       try {
         const price = Number(
-          await this.redis.HGET(`lastprices:${row.chainId}`, row.market)
+          await this.redis.HGET(`lastprices:${row.chainid}`, row.market)
         )
         let quoteVolume = (row.base_volume * price).toPrecision(6)
         let baseVolume = row.base_volume.toPrecision(6)
@@ -2001,8 +2001,8 @@ export default class API extends EventEmitter {
         if (baseVolume.includes('e')) {
           baseVolume = row.base_volume.toFixed(0)
         }
-        const redisKeyBase = `volume:${row.chainId}:base`
-        const redisKeyQuote = `volume:${row.chainId}:quote`
+        const redisKeyBase = `volume:${row.chainid}:base`
+        const redisKeyQuote = `volume:${row.chainid}:quote`
         this.redis.HSET(redisKeyBase, row.market, baseVolume)
         this.redis.HSET(redisKeyQuote, row.market, quoteVolume)
       } catch (err) {
@@ -2014,7 +2014,7 @@ export default class API extends EventEmitter {
     try {
       // remove zero volumes
       this.VALID_CHAINS.forEach(async (chainId) => {
-        const nonZeroMarkets = select.rows.filter(row => row.chainId === chainId)
+        const nonZeroMarkets = select.rows.filter(row => row.chainid === chainId)
           .map(row => row.market)
 
         const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
@@ -2042,13 +2042,13 @@ export default class API extends EventEmitter {
     const oneMinAgo = new Date(Date.now() - 300 * 1000).toISOString()
     let orderUpdates: string[][] = []
     const query = {
-      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainId, id, order_status;",
+      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
       values: [oneMinAgo],
     }
     const update = await this.db.query(query)
     if (update.rowCount > 0) {
       orderUpdates = orderUpdates.concat(update.rows.map((row) => [
-        row.chainId,
+        row.chainid,
         row.id,
         row.order_status,
       ]))
@@ -2062,13 +2062,13 @@ export default class API extends EventEmitter {
     await this.db.query(fillsQuery)
 
     const expiredQuery = {
-      text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainId, id, order_status",
+      text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
       values: [],
     }
     const updateExpires = await this.db.query(expiredQuery)
     if (updateExpires.rowCount > 0) {
       orderUpdates = orderUpdates.concat(updateExpires.rows.map((row) => [
-        row.chainId,
+        row.chainid,
         row.id,
         row.order_status,
       ]))
@@ -2228,12 +2228,12 @@ export default class API extends EventEmitter {
 
     const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
     const select = await this.db.query(
-      "SELECT chainId, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainId IS NOT NULL GROUP BY (chainId, market)",
+      "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
       [oneDayAgo]
     )
     select.rows.forEach(async (row) => {
-      const redisKeyLow = `price:${row.chainId}:low`
-      const redisKeyHigh = `price:${row.chainId}:high`
+      const redisKeyLow = `price:${row.chainid}:low`
+      const redisKeyHigh = `price:${row.chainid}:high`
       this.redis.HSET(redisKeyLow, row.market, row.min_price)
       this.redis.HSET(redisKeyHigh, row.market, row.max_price)
     })
@@ -2645,7 +2645,7 @@ export default class API extends EventEmitter {
     const cache = await this.redis.get(redisKey)
     if (cache) return JSON.parse(cache)
     const query = {
-      text: "SELECT chainId, market, DATE(insert_timestamp) AS trade_date, SUM(base_quantity) AS base_volume, SUM(quote_quantity) AS quote_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND chainId = $1 GROUP BY (chainId, market, trade_date)",
+      text: "SELECT chainid, market, DATE(insert_timestamp) AS trade_date, SUM(base_quantity) AS base_volume, SUM(quote_quantity) AS quote_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND chainid = $1 GROUP BY (chainid, market, trade_date)",
       values: [chainId],
       rowMode: 'array',
     }
