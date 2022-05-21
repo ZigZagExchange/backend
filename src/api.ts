@@ -2540,7 +2540,7 @@ export default class API extends EventEmitter {
       } else if (Number.isNaN(amount)) {
         errorMsg.push('Amount is not a number')
       } else if (amount < minSize) {
-        errorMsg.push('Amount to small')
+        errorMsg.push('Amount too small')
       } else if (
         midPrice &&
         (price < midPrice * 0.25 || price > midPrice * 1.75)
