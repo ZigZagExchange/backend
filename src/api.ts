@@ -22,8 +22,14 @@ import type {
   ZZHttpServer,
   ZZSocketServer,
   ZZMarketSummary,
+  ZZOrder
 } from 'src/types'
-import { formatPrice, stringToFelt } from 'src/utils'
+import { chainData } from 'src/constants'
+import { 
+  formatPrice,
+  stringToFelt,
+  get0xTokenAddress
+} from 'src/utils'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -37,7 +43,7 @@ export default class API extends EventEmitter {
   SET_MM_PASSIVE_TIME = 20
   VALID_CHAINS: number[] = [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
-  VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
+  VALID_SMART_CONTRACT_CHAIN: number[] = [1001, 42161]
   ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
@@ -1280,6 +1286,89 @@ export default class API extends EventEmitter {
         JSON.stringify({ op: 'fillstatus', args: [rejectedFillUpdates] })
       )
     }
+  }
+
+  processOrderZigZag = async(
+    chainId: number,
+    market: ZZMarket,
+    zktx: ZZOrder
+  ) => {
+    const validChainIds = Object.keys(chainData)
+    if (validChainIds.includes(chainId.toString())) throw new Error('Only for 0x style orders')
+    const marketInfo = await this.getMarketInfo(market, chainId)
+    const {
+      operatorAddress,
+      feeAddress,
+      makerFee,
+      takerFee
+    } = chainData[chainId as keyof typeof chainData]
+
+    const assets = [
+      marketInfo.baseAsset.address,
+      marketInfo.quoteAsset.address    
+    ]
+
+    /* validate order */
+    if(!ethers.utils.isAddress(zktx.makerAddress)) throw new Error('Bad makerAddress') 
+    if (zktx.takerAddress !== '0' && !ethers.utils.isAddress(zktx.takerAddress)) throw new Error('Bad takerAddress')
+    if (zktx.senderAddress !== '0' && zktx.senderAddress !== operatorAddress) throw new Error(`Bad senderAddress, use '${operatorAddress}' or '0'`)
+    const orderSellAsset = await get0xTokenAddress(zktx.makerAssetData).catch(e => { throw new Error(`Bad makerAssetData, ${e}`) })
+    if(!assets.includes(orderSellAsset)) throw new Error(`Bad makerAssetData, market ${assets} does not include ${orderSellAsset}`)
+    const orderBuyAsset = await get0xTokenAddress(zktx.takerAssetAmount).catch(e => { throw new Error(`Bad takerAssetAmount, ${e}`) })
+    if(!assets.includes(orderBuyAsset)) throw new Error(`Bad takerAssetAmount, market ${assets} does not include ${orderSellAsset}`)
+    if (orderSellAsset === orderBuyAsset) throw new Error(`Can't buy and sell the same token`)
+    const expiry = Number(zktx.expirationTimeSeconds) * 1000
+    if (expiry < (Date.now() + 15000)) throw new Error("Expiery time too low. Use at least NOW + 15sec")
+    const side = (marketInfo.baseAsset.address === orderBuyAsset) ? 's' : 'b'
+    let baseAssetBN
+    let quoteAssetBN
+    if (side === 's') {
+      baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+      quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+    } else {
+      baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+      quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+    }
+
+    // check fees
+    if (zktx.feeRecipientAddress !== feeAddress) throw new Error(`Bad feeRecipientAddress, use '${feeAddress}'`)
+    if (zktx.makerFeeAssetData !== zktx.makerAssetData) throw new Error(`Bad makerFeeAssetData, use the same as makerAssetData`)
+    if (zktx.takerFeeAssetData !== zktx.makerAssetData)throw new Error(`Bad takerFeeAssetData, use the same as makerAssetData`)
+    const orderMakerFeeAmountBN = ethers.BigNumber.from(zktx.makerFee)
+    const orderTakerFeeAmountBN = ethers.BigNumber.from(zktx.takerFee)
+    const makerFeeBN = baseAssetBN.div(1/makerFee)
+    const takerFeeBN = baseAssetBN.div(1/takerFee) 
+    if(orderMakerFeeAmountBN.lt(makerFeeBN)) throw new Error(`Bad makerFee, minimum is ${makerFee}`)
+    if(orderTakerFeeAmountBN.lt(takerFeeBN)) throw new Error(`Bad takerFee, minimum is ${takerFee}`)
+
+    /* validate order */
+      
+    const baseAmount = baseAssetBN.div(10**marketInfo.baseAsset.decimals).toNumber()
+    const quoteAmount = quoteAssetBN.div(10**marketInfo.quoteAsset.decimals).toNumber()
+    const price = quoteAmount / baseAmount
+
+
+
+    /*
+    TODO return
+    const orderreceipt = [
+      chainId,
+      orderId,
+      market,
+      side,
+      price,
+      baseQuantity,
+      quoteQuantity,
+      offer.expires,
+      offer.userid.toString(),
+      'o',
+      null,
+      baseQuantity,
+    ]
+
+
+    return { op: 'userorderack', args: orderreceipt }
+    */
   }
 
   cancelallorders = async (
