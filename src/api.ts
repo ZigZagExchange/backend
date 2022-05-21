@@ -2656,6 +2656,18 @@ export default class API extends EventEmitter {
     return volumes
   }
 
+  getTokenInfo = async (
+    chainId: number,
+    tokenSymbol: string
+  ): Promise<any> => {
+    const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenSymbol)
+    if (cache) {
+      const tokenInfo = JSON.parse(cache)
+      return tokenInfo
+    }
+    return null
+  }
+
   getUsdPrice = async (
     chainId: number,
     tokenSymbol: string
