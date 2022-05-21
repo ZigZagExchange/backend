@@ -771,7 +771,7 @@ export default class API extends EventEmitter {
     if (side === 's' && baseQuantity < marketInfo.baseFee) {
       throw new Error('Order size inadequate to pay fee')
     }
-    if (side === 'b' && baseQuantity < marketInfo.quoteFee) {
+    if (side === 'b' && quoteQuantity < marketInfo.quoteFee) {
       throw new Error('Order size inadequate to pay fee')
     }
     const orderType = 'limit'
