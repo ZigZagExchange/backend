@@ -486,7 +486,7 @@ export default class API extends EventEmitter {
       market.length > 19 &&
       (!marketInfoDefaults || Number(marketInfoDefaults.zigzagChainId) !== chainId)
     ) {
-      return {} as ZZMarketInfo
+      throw new Error(`Can't get marketInfo for market: ${market} and chainId: ${chainId}`)
     }
 
     let baseSymbol: string
@@ -881,14 +881,14 @@ export default class API extends EventEmitter {
     const fillIds = matchquery.rows
       .slice(0, matchquery.rows.length - 1)
       .map((r) => r.id)
-    const offerId = matchquery.rows[matchquery.rows.length - 1].id
+    const orderId = matchquery.rows[matchquery.rows.length - 1].id
 
     const fills = await this.db.query(
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fillIds]
     )
     const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
-      offerId,
+      orderId,
     ])
     const offer = offerquery.rows[0]
 
@@ -1014,6 +1014,23 @@ export default class API extends EventEmitter {
         [side, price, remainingAmount, expiration, offer.id]
       )
     }
+
+    const orderreceipt = [
+      chainId,
+      orderId,
+      market,
+      side,
+      price,
+      baseQuantity,
+      quoteQuantity,
+      offer.expires,
+      offer.userid.toString(),
+      'o',
+      null,
+      baseQuantity,
+    ]
+
+    return { op: 'userorderack', args: orderreceipt }
   }
 
   relayStarknetMatch = async (
