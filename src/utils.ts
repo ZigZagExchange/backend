@@ -1,4 +1,10 @@
 import * as starknet from 'starknet'
+import {
+  OX_ERC20_ASSET_PROXY_ID
+} from 'src/constants'
+
+
+
 
 export function formatPrice (input: any) {
   const inputNumber = Number(input)
@@ -28,4 +34,12 @@ export function stringToFelt (text: string) {
   const bufferText = Buffer.from(text, 'utf8')
   const hexString = `0x${bufferText.toString('hex')}`
   return starknet.number.toFelt(hexString)
+}
+
+export async function get0xTokenAddress (assetData: string) {
+  // check if ERC20 type
+  const assetProxy = assetData.substring(0, 10)
+  if(assetProxy === OX_ERC20_ASSET_PROXY_ID) throw new Error('No ERC20 asset')
+
+ return `0x${assetData.substring(assetData.length - 40)}`
 }

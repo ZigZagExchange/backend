@@ -5,7 +5,7 @@ export const submitorder2: ZZServiceHandler = async (
   ws,
   [chainId, market, zktx]
 ) => {
-  let msg
+  let msg = { op: 'error', args: ['submitorder3'] }
   try {
     switch (chainId) {
       case 1: case 1000:

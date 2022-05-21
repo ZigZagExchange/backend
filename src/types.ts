@@ -62,7 +62,7 @@ export type ZZMarketSummary = {
 }
 
 
-export type ZigZagOrderSchema = {
+export type ZZOrder = {
   makerAddress: string,
   takerAddress: string,
   feeRecipientAddress: string,
