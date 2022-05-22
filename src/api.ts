@@ -2533,7 +2533,7 @@ export default class API extends EventEmitter {
       // validation
       if (!['b', 's'].includes(l[0])) {
         errorMsg.push('Bad side')
-      } else if (Number.isNaN(price)) {
+      } else if (!price || Number.isNaN(price)) {
         errorMsg.push('Price is not a number')
       } else if (price < 0) {
         errorMsg.push('Price cant be negative')
@@ -2572,12 +2572,13 @@ export default class API extends EventEmitter {
     if (redisMembers.length > 0) {
       try {
         await this.redis.ZADD(redisKeyLiquidity, redisMembers)
-      } catch (e) {
-        console.log('updateLiquidity')
+      } catch (e: any) {
+        console.log(`updateLiquidity for ${market}`)
         console.error(e)
         console.log(liquidity)
         console.log(redisKeyLiquidity)
         console.log(redisMembers)
+        throw new Error(`Unexpected error: ${e.message}`)
       }
     } else {
       throw new Error('No valid liquidity send')
