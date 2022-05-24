@@ -47,7 +47,7 @@ export const createHttpServer = (
     }
 
     const timeOutLog = setTimeout(() => {
-      console.log(`10 sec Timeout processing: ${req}`)
+      console.log(`10 sec Timeout processing: ${req.body.toString()}`)
     }, 10000)
     let responseMessage
     try {
