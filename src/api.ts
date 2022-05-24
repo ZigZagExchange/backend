@@ -2097,7 +2097,13 @@ export default class API extends EventEmitter {
       const redisPriceInfo = await this.redis.HGET(redisKeyPriceInfo, markets[0])
       if (!redisPriceInfo) return []
       const priceInfo = JSON.parse(redisPriceInfo)
-      return [markets[0], +priceInfo.price, priceInfo.priceChange, priceInfo.quoteVolume, priceInfo.baseVolume]
+      return [
+        markets[0],
+        +priceInfo.price,
+        priceInfo.priceChange,
+        priceInfo.quoteVolume,
+        priceInfo.baseVolume
+      ]
     }
     // fetch all active markets if none is requested
     if (markets.length === 0) {
@@ -2108,7 +2114,13 @@ export default class API extends EventEmitter {
     for (let i = 0; i < markets.length; i++) {
       const priceInfo = JSON.parse(redisPriceInfo[markets[i]])
       if (!redisPriceInfo) return []
-      lastprices.push([markets[i], +priceInfo.price, priceInfo.priceChange, priceInfo.quoteVolume, priceInfo.baseVolume])
+      lastprices.push([
+        markets[i],
+        +priceInfo.price,
+        priceInfo.priceChange,
+        priceInfo.quoteVolume,
+        priceInfo.baseVolume
+      ])
     }
     return lastprices
   }
@@ -2139,7 +2151,9 @@ export default class API extends EventEmitter {
           await this.redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
         )
         lastPriceInfo.price = +redisPrices[marketId]
-        lastPriceInfo.priceChange = Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
+        lastPriceInfo.priceChange = Number(
+          formatPrice(lastPriceInfo.price - yesterdayPrice)
+        )
         lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
         lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
 
