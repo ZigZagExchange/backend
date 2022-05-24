@@ -2404,7 +2404,9 @@ export default class API extends EventEmitter {
   }
 
   clearDeadConnections = () => {
-    console.log(`Active WS connections: USER_CONNECTIONS: ${this.USER_CONNECTIONS.lenght}, MAKER_CONNECTIONS: ${this.MAKER_CONNECTIONS.lenght}`)
+    const numberUsers = Object.keys(this.USER_CONNECTIONS).length
+    const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
+    console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
     ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
         const userconnkey = `${ws.chainid}:${ws.userid}`
