@@ -173,6 +173,7 @@ export default class API extends EventEmitter {
       setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, (60000 + random)),
+      setInterval(this.updateLastPrices, (15000 + random)),
       setInterval(this.updateUsdPrice, (10000 + random)),
       setInterval(this.updateFeesZkSync, (18000 + random)),
       // setInterval(this.updatePassiveMM, 10000),
@@ -2090,41 +2091,81 @@ export default class API extends EventEmitter {
     chainId: number,
     markets: ZZMarket[] = []
   ) => {
-    const lastprices: any[] = []
-    const redisKeyPrices = `lastprices:${chainId}`
-    const redisKeyVolumesQuote = `volume:${chainId}:quote`
-    const redisKeyVolumesBase = `volume:${chainId}:base`
-    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
-    const redisPricesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
-    const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
+    const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
+
+    if (markets.length === 1) {
+      const redisPriceInfo = await this.redis.HGET(redisKeyPriceInfo, markets[0])
+      if (!redisPriceInfo) return []
+      const priceInfo = JSON.parse(redisPriceInfo)
+      return [
+        markets[0],
+        +priceInfo.price,
+        priceInfo.priceChange,
+        priceInfo.quoteVolume,
+        priceInfo.baseVolume
+      ]
+    }
+    // fetch all active markets if none is requested
     if (markets.length === 0) {
       markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
     }
-
-    const results: Promise<any>[] = markets.map(async (marketId) => {
-      let marketInfo: any = null
-      try {
-        marketInfo = await this.getMarketInfo(marketId, chainId)
-      } catch (e: any) {
-        return
-      }
-      if (!marketInfo) {
-        return
-      }
-      const yesterday = new Date(Date.now() - 86400 * 1000)
-        .toISOString()
-        .slice(0, 10)
-      const yesterdayPrice = Number(
-        await this.redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
-      )
-      const price = +redisPrices[marketId]
-      const priceChange = Number(formatPrice(price - yesterdayPrice))
-      const quoteVolume = redisPricesQuote[marketId] || 0
-      const baseVolume = redisVolumesBase[marketId] || 0
-      lastprices.push([marketId, price, priceChange, quoteVolume, baseVolume])
-    })
-    await Promise.all(results)
+    const redisPriceInfo = await this.redis.HGETALL(redisKeyPriceInfo)
+    const lastprices: any[] = []
+    for (let i = 0; i < markets.length; i++) {
+      const priceInfo = JSON.parse(redisPriceInfo[markets[i]])
+      if (!redisPriceInfo) return []
+      lastprices.push([
+        markets[i],
+        +priceInfo.price,
+        priceInfo.priceChange,
+        priceInfo.quoteVolume,
+        priceInfo.baseVolume
+      ])
+    }
     return lastprices
+  }
+
+  updateLastPrices = async () => {
+    const redisLastPricesKey = 'update:lastprices'
+    const lock = await this.redis.get(redisLastPricesKey)
+    if (lock) return
+    await this.redis.SET(redisLastPricesKey, '1', { EX: 14 })
+
+    console.time("Updating last prices.")
+    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
+      const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
+
+      const redisPrices = await this.redis.HGETALL(`lastprices:${chainId}`)
+      const redisPricesQuote = await this.redis.HGETALL(`volume:${chainId}:quote`)
+      const redisVolumesBase = await this.redis.HGETALL(`volume:${chainId}:base`)
+      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+
+      const results1: Promise<any>[] = markets.map(async (marketId) => {
+        const marketInfo = await this.getMarketInfo(marketId, chainId).catch(() => null)
+        if (!marketInfo) return
+        const lastPriceInfo: any = {}
+        const yesterday = new Date(Date.now() - 86400 * 1000)
+          .toISOString()
+          .slice(0, 10)
+        const yesterdayPrice = Number(
+          await this.redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
+        )
+        lastPriceInfo.price = +redisPrices[marketId]
+        lastPriceInfo.priceChange = Number(
+          formatPrice(lastPriceInfo.price - yesterdayPrice)
+        )
+        lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
+        lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
+
+        this.redis.HSET(
+          redisKeyPriceInfo,
+          marketId,
+          JSON.stringify(lastPriceInfo)
+        )
+      })
+      await Promise.all(results1)
+    })
+    await Promise.all(results0)
   }
 
   getMarketSummarys = async (chainId: number, marketReq = '') => {
