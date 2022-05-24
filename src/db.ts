@@ -14,7 +14,7 @@ const db = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
-  max: 15,
+  max: 10,
 })
 
 const migration = fs.readFileSync(path.join(__dirname, '../schema.sql'), 'utf8')
