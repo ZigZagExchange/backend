@@ -12,6 +12,16 @@ export const subscribemarket: ZZServiceHandler = async (
   }
 
   try {
+    // Prevent DOS attacks. Rate limit one order every 5 seconds.
+    const redisRateLimitKey = `ratelimit:subscribemarket:${chainId}:${market}:${ws.uuid}`
+    const ratelimit = await api.redis.get(redisRateLimitKey)
+    if (ratelimit) throw new Error('Only one marketsubcription per 5 seconds.')
+    await api.redis.SET(
+      redisRateLimitKey,
+      '1',
+      { EX: 5 }
+    )
+
     const marketSummary: ZZMarketSummary = (await api.getMarketSummarys(
       chainId,
       market
@@ -43,22 +53,24 @@ export const subscribemarket: ZZServiceHandler = async (
       const errorMsg = { op: 'error', args: ['subscribemarket', `Can not find market ${market}`] }
       ws.send(JSON.stringify(errorMsg))
     }
+
+    const openorders = await api.getopenorders(chainId, market)
+    ws.send(JSON.stringify({ op: 'orders', args: [openorders] }))
+
+    const fills = await api.getfills(chainId, market)
+    ws.send(JSON.stringify({ op: 'fills', args: [fills] }))
+
+    const liquidity = await api.getLiquidity(chainId, market)
+    ws.send(
+      JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
+    )
   } catch (e: any) {
     console.error(e.message)
     const errorMsg = { op: 'error', args: ['subscribemarket', e.message] }
     ws.send(JSON.stringify(errorMsg))
   }
 
-  const openorders = await api.getopenorders(chainId, market)
-  ws.send(JSON.stringify({ op: 'orders', args: [openorders] }))
 
-  const fills = await api.getfills(chainId, market)
-  ws.send(JSON.stringify({ op: 'fills', args: [fills] }))
-
-  const liquidity = await api.getLiquidity(chainId, market)
-  ws.send(
-    JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
-  )
   ws.chainid = chainId
   ws.marketSubscriptions.push(market)
 }
