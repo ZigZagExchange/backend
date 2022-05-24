@@ -176,6 +176,7 @@ export default class API extends EventEmitter {
       setInterval(this.updateUsdPrice, (10000 + random)),
       setInterval(this.updateFeesZkSync, (18000 + random)),
       // setInterval(this.updatePassiveMM, 10000),
+      setInterval(this.removeOldLiquidity, (5000 + random)),
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
@@ -1814,24 +1815,47 @@ export default class API extends EventEmitter {
       '0',
       '1000000'
     )
-    if (liquidityList.length === 0) return []
-
-    const activeLiquidity: string[] = []
-    const now = Date.now() / 1000 | 0
+    const liquidity: string[] = []
     for (let i = 0; i < liquidityList.length; i++) {
-      const liquidityString = liquidityList[i]
-      const liquidity = JSON.parse(liquidityString)
-      const expiration = Number(liquidity[3])
-
-      if (Number.isNaN(expiration) || expiration < now) {
-        // liquidity is expired, remove
-        this.redis.ZREM(redisKeyLiquidity, liquidityString)
-      } else {
-        // liquidity is good, add to activeLiquidit
-        activeLiquidity.push(liquidity)
-      }
+      const liquidityPosition = JSON.parse(liquidityList[i])
+      liquidity.push(liquidityPosition)
     }
-    return activeLiquidity
+    return liquidity
+  }
+
+  removeOldLiquidity = async () => {
+    const redisLiquidityKey = 'update:liquidity'
+    const lock = await this.redis.get(redisLiquidityKey)
+    if (lock) return
+    await this.redis.SET(redisLiquidityKey, '1', { EX: 4 })
+
+
+    const now = (Date.now() / 1000 | 0 + 5)
+    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
+      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      const results1: Promise<any>[] = markets.map(async (marketId) => {
+        const redisKeyLiquidity = `liquidity:${chainId}:${marketId}`
+
+        const liquidityList = await this.redis.ZRANGEBYSCORE(
+          redisKeyLiquidity,
+          '0',
+          '1000000'
+        )
+        const liquidityToRemove = []
+        for (let i = 0; i < liquidityList.length; i++) {
+          const liquidityString = liquidityList[i]
+          const liquidity = JSON.parse(liquidityString)
+          const expiration = Number(liquidity[3])
+          if (Number.isNaN(expiration) || expiration < now) {
+            // liquidity is expired, remove
+            liquidityToRemove.push(liquidityString)
+          }
+        }
+        this.redis.ZREM(redisKeyLiquidity, liquidityToRemove)
+      })
+      await Promise.all(results1)
+    })
+    await Promise.all(results0)
   }
 
   getopenorders = async (chainId: number, market: string) => {
