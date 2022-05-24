@@ -46,6 +46,9 @@ export const createHttpServer = (
       return
     }
 
+    const timeOutLog = setTimeout(() => {
+      console.log(`10 sec Timeout processing: ${req}`)
+    }, 10000)
     let responseMessage
     try {
       responseMessage = await expressApp.api.serviceHandler(req.body)
@@ -53,6 +56,7 @@ export const createHttpServer = (
       console.error(`Unexpected error while processing HTTP request: ${e.message}`)
       res.status(400).json(`Unexpected error while processing your request: ${e.message}`)
     }
+    clearTimeout(timeOutLog)
     
 
     res.header('Content-Type', 'application/json')
