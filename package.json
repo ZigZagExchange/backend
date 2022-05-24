@@ -7,7 +7,8 @@
     "test": "true",
     "dev": "nodemon -x ts-node -e 'ts tsx json' -r ./src/env src/",
     "build": "tsc",
-    "start": "ts-node --transpile-only -r ./src/env src/",
+    "start": "ts-node -r ./src/env src/",
+    "background": "ts-node -r ./src/background.ts",
     "prepare": "husky install"
   },
   "repository": {
