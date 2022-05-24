@@ -2112,7 +2112,9 @@ export default class API extends EventEmitter {
     const redisPriceInfo = await this.redis.HGETALL(redisKeyPriceInfo)
     const lastprices: any[] = []
     for (let i = 0; i < markets.length; i++) {
-      const priceInfo = JSON.parse(redisPriceInfo[markets[i]])
+      const redisString = redisPriceInfo[markets[i]]
+      if (!redisString) return []
+      const priceInfo = JSON.parse(redisString)
       if (!redisPriceInfo) return []
       lastprices.push([
         markets[i],
