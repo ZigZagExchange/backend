@@ -13,14 +13,14 @@ export const subscribemarket: ZZServiceHandler = async (
 
   try {
     // Prevent DOS attacks. Rate limit one order every 5 seconds.
-    const redisRateLimitKey = `ratelimit:subscribemarket:${chainId}:${market}:${ws.uuid}`
-    const ratelimit = await api.redis.get(redisRateLimitKey)
-    if (ratelimit) throw new Error('Only one marketsubcription per 1 seconds.')
-    await api.redis.SET(
-      redisRateLimitKey,
-      '1',
-      { EX: 1 }
-    )
+    //const redisRateLimitKey = `ratelimit:subscribemarket:${chainId}:${market}:${ws.uuid}`
+    //const ratelimit = await api.redis.get(redisRateLimitKey)
+    //if (ratelimit) throw new Error('Only one marketsubcription per 1 seconds.')
+    //await api.redis.SET(
+    //  redisRateLimitKey,
+    //  '1',
+    //  { EX: 1 }
+    //)
 
     const marketSummary: ZZMarketSummary = (await api.getMarketSummarys(
       chainId,
