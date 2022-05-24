@@ -23,7 +23,11 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
-import { formatPrice, stringToFelt } from 'src/utils'
+import { 
+  formatPrice,
+  stringToFelt,
+  getNetwork
+} from 'src/utils'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -167,23 +171,11 @@ export default class API extends EventEmitter {
     })
 
     // some randomness to stagger updates between dynos
-    const random = Math.floor(Math.random() * 5000)
     this.watchers = [
-      setInterval(this.updatePriceHighLow, 300000),
-      setInterval(this.updateVolumes, 120000),
       setInterval(this.clearDeadConnections, 60000),
-      setInterval(this.updatePendingOrders, (60000 + random)),
-      setInterval(this.updateLastPrices, (15000 + random)),
-      setInterval(this.updateMarketSummarys, (15000 + random)),
-      setInterval(this.updateUsdPrice, (10000 + random)),
-      setInterval(this.updateFeesZkSync, (18000 + random)),
       // setInterval(this.updatePassiveMM, 10000),
-      setInterval(this.removeOldLiquidity, (5000 + random)),
       setInterval(this.broadcastLiquidity, 15000),
     ]
-
-    // update updatePriceHighLow once
-    setTimeout(this.updatePriceHighLow, 10000)
 
     // reset redis mm timeouts
     this.VALID_CHAINS.map(async (chainId) => {
@@ -293,7 +285,7 @@ export default class API extends EventEmitter {
   ) => {
     let index = 0
     let tokenInfos
-    const network = await this.getNetwork(chainId)
+    const network = getNetwork(chainId)
     do {
       const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL[network]}tokens?from=${index}&limit=100&direction=newer`).then((r: any) => r.json())
       tokenInfos = fetchResult.result.list
@@ -332,7 +324,7 @@ export default class API extends EventEmitter {
     if (tokenSymbol === "ETH") {
       return "Ethereum"
     }
-    const network = await this.getNetwork(chainId)
+    const network = getNetwork(chainId)
     let name
     try {
       const contract = new ethers.Contract(
@@ -346,115 +338,6 @@ export default class API extends EventEmitter {
       name = tokenSymbol
     }
     return name
-  }
-
-  /**
-   * Update the fee for each token on regular basis
-   */
-  updateFeesZkSync = async () => {
-    // only one dyno needs to update this
-    const redisZkSyncFeeKey = 'update:zkSyncFee'
-    const lock = await this.redis.get(redisZkSyncFeeKey)
-    if (lock) {
-      return
-    }
-    await this.redis.SET(redisZkSyncFeeKey, '1', { EX: 15 })
-
-    console.time("Update fees")
-    const results0: Promise<any>[] = this.VALID_CHAINS_ZKSYNC.map(async (chainId: number) => {
-      const newFees: any = {}
-      const network = await this.getNetwork(chainId)
-      // get redis cache
-      const tokenInfos: any = await this.redis.HGETALL(`tokeninfo:${chainId}`)
-      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-      // get every token form activemarkets once
-      let tokenSymbols = markets.join('-').split('-')
-      tokenSymbols = tokenSymbols.filter((x, i) => i === tokenSymbols.indexOf(x))
-      // update fee for each
-      const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {
-        let fee = 0
-        const tokenInfoString = tokenInfos[tokenSymbol]
-        if (!tokenInfoString) return
-
-        const tokenInfo = JSON.parse(tokenInfoString)
-        if (!tokenInfo) return
-        // enabledForFees -> get fee dircectly form zkSync
-        if (tokenInfo.enabledForFees) {
-          try {
-            const feeReturn = await this.SYNC_PROVIDER[network].getTransactionFee(
-              "Swap",
-              '0x88d23a44d07f86b2342b4b06bd88b1ea313b6976',
-              tokenSymbol
-            )
-            fee = Number(
-              this.SYNC_PROVIDER[network].tokenSet
-                .formatToken(
-                  tokenSymbol,
-                  feeReturn.totalFee
-                )
-            )
-          } catch (e: any) {
-            console.log(`Can't get fee for ${tokenSymbol}, error: ${e.message}`)
-          }
-        }
-        // not enabledForFees -> use token price and USDC fee
-        if (!fee) {
-          try {
-            const usdPrice: number = (tokenInfo.usdPrice) ? Number(tokenInfo.usdPrice) : 0
-            const usdReferenceString = await this.redis.HGET(`tokenfee:${chainId}`, "USDC")
-            const usdReference: number = (usdReferenceString) ? Number(usdReferenceString) : 0
-            if (usdPrice > 0) {
-              fee = (usdReference / usdPrice)
-            }
-          } catch (e) {
-            console.log(`Can't get fee per reference for ${tokenSymbol}, error: ${e}`)
-          }
-        }
-
-        // save new fee
-        newFees[tokenSymbol] = fee
-        if (fee) {
-          this.redis.HSET(
-            `tokenfee:${chainId}`,
-            tokenSymbol,
-            fee
-          )
-        }
-      })
-      await Promise.all(results1)
-
-      // check if fee's have changed
-      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
-      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-        if (!marketInfos[market]) return
-        const marketInfo = JSON.parse(marketInfos[market])
-        const newBaseFee = newFees[marketInfo.baseAsset.symbol]
-        const newQuoteFee = newFees[marketInfo.quoteAsset.symbol]
-        let updated = false
-        if (newBaseFee && marketInfo.baseFee !== newBaseFee) {
-          marketInfo.baseFee = (Number(newFees[marketInfo.baseAsset.symbol]) * 1.05)
-          updated = true
-        }
-        if (newQuoteFee && marketInfo.quoteFee !== newQuoteFee) {
-          marketInfo.quoteFee = (Number(newFees[marketInfo.quoteAsset.symbol]) * 1.05)
-          updated = true
-        }
-        if (updated) {
-          this.redis.HSET(
-            `marketinfo:${chainId}`,
-            market,
-            JSON.stringify(marketInfo)
-          )
-          this.redisPublisher.PUBLISH(
-            `broadcastmsg:all:${chainId}:${market}`,
-            JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
-          )
-        }
-      })
-      await Promise.all(results2)
-    })
-    await Promise.all(results0)
-    console.timeEnd("Update fees")
   }
 
   /**
@@ -495,7 +378,7 @@ export default class API extends EventEmitter {
     let baseSymbol: string
     let quoteSymbol: string
     if (market.length > 19) {
-      const network = await this.getNetwork(chainId)
+      const network = getNetwork(chainId)
       baseSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenSymbol(marketInfoDefaults.baseAssetId)
       quoteSymbol = await this.SYNC_PROVIDER[network].tokenSet.resolveTokenSymbol(marketInfoDefaults.quoteAssetId)
     } else {
@@ -1031,7 +914,7 @@ export default class API extends EventEmitter {
     takerOfferId: number
   ) => {
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const network = await this.getNetwork(chainId)
+    const network = getNetwork(chainId)
     const baseAssetDecimals = marketInfo.baseAsset.decimals
     const getFraction = (decimals: number) => {
       let denominator = 1
@@ -1825,38 +1708,6 @@ export default class API extends EventEmitter {
     return liquidity
   }
 
-  removeOldLiquidity = async () => {
-    const redisLiquidityKey = 'update:liquidity'
-    const lock = await this.redis.get(redisLiquidityKey)
-    if (lock) return
-    await this.redis.SET(redisLiquidityKey, '1', { EX: 4 })
-
-
-    const now = (Date.now() / 1000 | 0 + 5)
-    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-      const results1: Promise<any>[] = markets.map(async (marketId) => {
-        const redisKeyLiquidity = `liquidity:${chainId}:${marketId}`
-
-        const liquidityList = await this.redis.ZRANGEBYSCORE(
-          redisKeyLiquidity,
-          '0',
-          '1000000'
-        )
-        for (let i = 0; i < liquidityList.length; i++) {
-          const liquidityString = liquidityList[i]
-          const liquidity = JSON.parse(liquidityString)
-          const expiration = Number(liquidity[3])
-          if (Number.isNaN(expiration) || expiration < now) {
-            this.redis.ZREM(redisKeyLiquidity, liquidityString)
-          }
-        }
-      })
-      await Promise.all(results1)
-    })
-    await Promise.all(results0)
-  }
-
   getopenorders = async (chainId: number, market: string) => {
     chainId = Number(chainId)
     const query = {
@@ -2003,112 +1854,6 @@ export default class API extends EventEmitter {
     }
   }
 
-  updateVolumes = async () => {
-    const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
-    const query = {
-      text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-      values: [oneDayAgo],
-    }
-    const select = await this.db.query(query)
-    select.rows.forEach(async (row) => {
-      try {
-        const price = Number(
-          await this.redis.HGET(`lastprices:${row.chainid}`, row.market)
-        )
-        let quoteVolume = (row.base_volume * price).toPrecision(6)
-        let baseVolume = row.base_volume.toPrecision(6)
-        // Prevent exponential notation
-        if (quoteVolume.includes('e')) {
-          quoteVolume = (row.base_volume * price).toFixed(0)
-        }
-        if (baseVolume.includes('e')) {
-          baseVolume = row.base_volume.toFixed(0)
-        }
-        const redisKeyBase = `volume:${row.chainid}:base`
-        const redisKeyQuote = `volume:${row.chainid}:quote`
-        this.redis.HSET(redisKeyBase, row.market, baseVolume)
-        this.redis.HSET(redisKeyQuote, row.market, quoteVolume)
-      } catch (err) {
-        console.error(err)
-        console.log('Could not update volumes')
-      }
-    })
-
-    try {
-      // remove zero volumes
-      this.VALID_CHAINS.forEach(async (chainId) => {
-        const nonZeroMarkets = select.rows.filter(row => row.chainid === chainId)
-          .map(row => row.market)
-
-        const baseVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:base`)
-        const quoteVolumeMarkets = await this.redis.HKEYS(`volume:${chainId}:quote`)
-
-        const keysToDelBase = baseVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
-        const keysToDelQuote = quoteVolumeMarkets.filter(m => !nonZeroMarkets.includes(m))
-
-        keysToDelBase.forEach(key => {
-          this.redis.HDEL(`volume:${chainId}:base`, key)
-        })
-        keysToDelQuote.forEach(key => {
-          this.redis.HDEL(`volume:${chainId}:quote`, key)
-        })
-      })
-    } catch (err) {
-      console.error(err)
-      console.log('Could not remove zero volumes')
-    }
-    return true
-  }
-
-  updatePendingOrders = async () => {
-    // TODO back to one min, temp 300, starknet is too slow
-    const oneMinAgo = new Date(Date.now() - 300 * 1000).toISOString()
-    let orderUpdates: string[][] = []
-    const query = {
-      text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
-      values: [oneMinAgo],
-    }
-    const update = await this.db.query(query)
-    if (update.rowCount > 0) {
-      orderUpdates = orderUpdates.concat(update.rows.map((row) => [
-        row.chainid,
-        row.id,
-        row.order_status,
-      ]))
-    }
-
-    // Update fills
-    const fillsQuery = {
-      text: "UPDATE fills SET fill_status='e', feeamount=0 WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
-      values: [oneMinAgo],
-    }
-    await this.db.query(fillsQuery)
-
-    const expiredQuery = {
-      text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
-      values: [],
-    }
-    const updateExpires = await this.db.query(expiredQuery)
-    if (updateExpires.rowCount > 0) {
-      orderUpdates = orderUpdates.concat(updateExpires.rows.map((row) => [
-        row.chainid,
-        row.id,
-        row.order_status,
-      ]))
-    }
-
-    if (orderUpdates.length > 0) {
-      this.VALID_CHAINS.forEach((chainId: number) => {
-        const updatesForThisChain = orderUpdates.filter(row => Number(row[0]) === chainId)
-        this.redisPublisher.PUBLISH(
-          `broadcastmsg:all:${chainId}:all`,
-          JSON.stringify({ op: 'orderstatus', args: [updatesForThisChain] })
-        )
-      })
-    }
-    return true
-  }
-
   getLastPrices = async (
     chainId: number,
     markets: ZZMarket[] = []
@@ -2149,49 +1894,6 @@ export default class API extends EventEmitter {
     return lastprices
   }
 
-  updateLastPrices = async () => {
-    const redisLastPricesKey = 'update:lastprices'
-    const lock = await this.redis.get(redisLastPricesKey)
-    if (lock) return
-    await this.redis.SET(redisLastPricesKey, '1', { EX: 14 })
-
-    console.time("Updating last prices.")
-    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
-
-      const redisPrices = await this.redis.HGETALL(`lastprices:${chainId}`)
-      const redisPricesQuote = await this.redis.HGETALL(`volume:${chainId}:quote`)
-      const redisVolumesBase = await this.redis.HGETALL(`volume:${chainId}:base`)
-      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-
-      const results1: Promise<any>[] = markets.map(async (marketId) => {
-        const marketInfo = await this.getMarketInfo(marketId, chainId).catch(() => null)
-        if (!marketInfo) return
-        const lastPriceInfo: any = {}
-        const yesterday = new Date(Date.now() - 86400 * 1000)
-          .toISOString()
-          .slice(0, 10)
-        const yesterdayPrice = Number(
-          await this.redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
-        )
-        lastPriceInfo.price = +redisPrices[marketId]
-        lastPriceInfo.priceChange = Number(
-          formatPrice(lastPriceInfo.price - yesterdayPrice)
-        )
-        lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
-        lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
-
-        this.redis.HSET(
-          redisKeyPriceInfo,
-          marketId,
-          JSON.stringify(lastPriceInfo)
-        )
-      })
-      await Promise.all(results1)
-    })
-    await Promise.all(results0)
-  }
-
   getMarketSummarys = async (
     chainId: number,
     markets: string[] = []
@@ -2226,117 +1928,6 @@ export default class API extends EventEmitter {
       }
     }
     return marketSummarys
-  }
-
-  updateMarketSummarys = async () => {
-    const redisLiquidityKey = 'update:liquidity'
-    const lock = await this.redis.get(redisLiquidityKey)
-    if (lock) return
-    await this.redis.SET(redisLiquidityKey, '1', { EX: 4 })
-
-    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const redisKeyMarketSummary = `marketsummary:${chainId}`
-
-      // fetch needed data
-      const redisVolumesQuote = await this.redis.HGETALL(`volume:${chainId}:quote`)
-      const redisVolumesBase = await this.redis.HGETALL(`volume:${chainId}:base`)
-      const redisPrices = await this.redis.HGETALL(`lastprices:${chainId}`)
-      const redisPricesLow = await this.redis.HGETALL(`price:${chainId}:low`)
-      const redisPricesHigh = await this.redis.HGETALL(`price:${chainId}:high`)
-      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-
-      const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
-        const marketInfo = await this.getMarketInfo(marketId, chainId).catch(() => null)
-        if (!marketInfo) return
-        const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
-        const yesterdayPrice = Number(
-          await this.redis.get(
-            `dailyprice:${chainId}:${marketId}:${yesterday.slice(0, 10)}`
-          )
-        )
-        const lastPrice = +redisPrices[marketId]
-        const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
-        // eslint-disable-next-line camelcase
-        const priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
-
-        // get low/high price
-        // eslint-disable-next-line camelcase
-        const lowestPrice_24h = Number(redisPricesLow[marketId])
-        // eslint-disable-next-line camelcase
-        const highestPrice_24h = Number(redisPricesHigh[marketId])
-
-        // get volume
-        const quoteVolume = Number(redisVolumesQuote[marketId] || 0)
-        const baseVolume = Number(redisVolumesBase[marketId] || 0)
-
-        // get best ask/bid
-        const liquidity = await this.getLiquidityPerSide(chainId, marketId, 0, 1)
-        const lowestAsk = Number(formatPrice(liquidity.asks[0]?.[0]))
-        const highestBid = Number(formatPrice(liquidity.bids[0]?.[0]))
-
-        const marketSummary: ZZMarketSummary = {
-          market: marketId,
-          baseSymbol: marketInfo.baseAsset.symbol,
-          quoteSymbol: marketInfo.quoteAsset.symbol,
-          lastPrice,
-          lowestAsk,
-          highestBid,
-          baseVolume,
-          quoteVolume,
-          priceChange,
-          // eslint-disable-next-line camelcase
-          priceChangePercent_24h,
-          // eslint-disable-next-line camelcase
-          highestPrice_24h,
-          // eslint-disable-next-line camelcase
-          lowestPrice_24h,
-        }
-        this.redis.HSET(
-          redisKeyMarketSummary,
-          marketId,
-          JSON.stringify(marketSummary)
-        )
-      })
-      await Promise.all(results1)
-    })
-    await Promise.all(results0)
-  }
-
-  updatePriceHighLow = async () => {
-    // only one dyno needs to update this
-    const redisPriceHighLowKey = 'update:PriceHighLow'
-    const lock = await this.redis.get(redisPriceHighLowKey)
-    if (lock) {
-      return
-    }
-    await this.redis.SET(redisPriceHighLowKey, '1', { EX: 300 })
-
-    const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
-    const select = await this.db.query(
-      "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
-      [oneDayAgo]
-    )
-    select.rows.forEach(async (row) => {
-      const redisKeyLow = `price:${row.chainid}:low`
-      const redisKeyHigh = `price:${row.chainid}:high`
-      this.redis.HSET(redisKeyLow, row.market, row.min_price)
-      this.redis.HSET(redisKeyHigh, row.market, row.max_price)
-    })
-
-    // delete inactive markets
-    this.VALID_CHAINS.forEach(async (chainId) => {
-      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-      const priceKeysLow = await this.redis.HKEYS(`price:${chainId}:low`)
-      const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
-      delKeysLow.forEach(async (key) => {
-        this.redis.HDEL(`price:${chainId}:low`, key)
-      })
-      const priceKeysHigh = await this.redis.HKEYS(`price:${chainId}:high`)
-      const delKeysHigh = priceKeysHigh.filter((k) => !markets.includes(k))
-      delKeysHigh.forEach(async (key) => {
-        this.redis.HDEL(`price:${chainId}:high`, key)
-      })
-    })
   }
 
   // Ladder has to be a sorted 2-D array contaning price and quantity
@@ -2755,89 +2346,5 @@ export default class API extends EventEmitter {
       return Number(tokenInfo.usdPrice)
     }
     return 0
-  }
-
-  updateUsdPrice = async () => {
-    // only one dyno needs to update this
-    const redisUSDPriceKey = 'update:usdprice'
-    const lock = await this.redis.get(redisUSDPriceKey)
-    if (lock) {
-      return
-    }
-    await this.redis.SET(redisUSDPriceKey, '1', { EX: 9 })
-
-    console.time("Updating usd price.")
-    // use mainnet as price source TODO we should rework the price source to work with multible networks
-    const network = await this.getNetwork(1)
-    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const updatedTokenPrice: any = {}
-      // fetch redis 
-      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-      const tokenInfos = await this.redis.HGETALL(`tokeninfo:${chainId}`)
-      // get active tokens once
-      let tokenSymbols = markets.join('-').split('-')
-      tokenSymbols = tokenSymbols.filter((x, i) => i === tokenSymbols.indexOf(x))
-      const results1: Promise<any>[] = tokenSymbols.map(async (token: string) => {
-        const tokenInfoString = tokenInfos[token]
-        if (!tokenInfoString) return
-        const tokenInfo = JSON.parse(tokenInfoString)
-
-        try {
-          const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL[network]}tokens/${token}/priceIn/usd`)
-            .then((r: any) => r.json()) as AnyObject
-          const usdPrice = (fetchResult?.result?.price) ? formatPrice(fetchResult?.result?.price) : 0
-          updatedTokenPrice[token] = usdPrice
-          tokenInfo.usdPrice = usdPrice
-        } catch (err: any) {
-          console.log(`Could not update price for ${token}, Error: ${err.message}`)
-        }
-        this.redis.HSET(
-          `tokeninfo:${chainId}`,
-          token,
-          JSON.stringify(tokenInfo)
-        )
-      })
-      await Promise.all(results1)
-
-      const marketInfos = await this.redis.HGETALL(`marketinfo:${chainId}`)
-      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-        if (!marketInfos[market]) return
-        const marketInfo = JSON.parse(marketInfos[market])
-        marketInfo.baseAsset.usdPrice = Number(
-          formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])
-        )
-        marketInfo.quoteAsset.usdPrice = Number(
-          formatPrice(updatedTokenPrice[marketInfo.quoteAsset.symbol])
-        )
-        this.redis.HSET(
-          `marketinfo:${chainId}`,
-          market,
-          JSON.stringify(marketInfo)
-        )
-        this.redisPublisher.PUBLISH(
-          `broadcastmsg:all:${chainId}:${market}`,
-          JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
-        )
-      })
-      await Promise.all(results2)
-    })
-    await Promise.all(results0)
-    console.timeEnd("Updating usd price.")
-  }
-
-  getNetwork = async (
-    chainId: number
-  ): Promise<string> => {
-    if (!this.VALID_CHAINS.includes(chainId)) throw new Error('No valid chainId')
-    if ([1].includes(chainId)) {
-      return "mainnet"
-    }
-    if ([1000].includes(chainId)) {
-      return "rinkeby"
-    }
-    if ([1001].includes(chainId)) {
-      return "goerli"
-    }
-    return ""
-  }
+  }  
 }
