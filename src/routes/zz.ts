@@ -7,36 +7,35 @@ export default function zzRoutes(app: ZZHttpServer) {
     : 1
 
   app.get('/api/v1/markets', async (req, res) => {
-    let market: string
-    let altMarket = ""
+    const markets: string[] = []
+    const altMarkets: string[] = []
+
     if (req.query.market) {
-      market = (req.query.market as string)
+      markets.push((req.query.market as string)
+        .replace('_', '-')
+        .replace('/', '-'))
+      altMarkets.push((req.query.market as string)
         .replace('_', '-')
         .replace('/', '-')
-      altMarket = (req.query.market as string)
-        .replace('_', '-')
-        .replace('/', '-')
-        .toUpperCase()
-    } else {
-      market = ""
+        .toUpperCase())
     }
 
     try {
       let marketSummarys: ZZMarketSummary = await app.api.getMarketSummarys(
         defaultChainId,
-        [market]
+        markets
       )
-      if (!marketSummarys && altMarket) {
+      if (!marketSummarys && altMarkets) {
         marketSummarys = await app.api.getMarketSummarys(
           defaultChainId,
-          [altMarket]
+          altMarkets
         )
       }
       if (!marketSummarys) {
-        if (market === "") {
+        if (markets.length === 0) {
           res.send({ op: 'error', message: `Can't find any markets.` })
         } else {
-          res.send({ op: 'error', message: `Can't find a summary for ${market}.` })
+          res.send({ op: 'error', message: `Can't find a summary for ${markets}.` })
         }
         return
       }
