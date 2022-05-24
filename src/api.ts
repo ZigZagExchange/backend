@@ -181,10 +181,6 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
-    // TODO REMOVE THIS ONLY NEEDED ONCE
-    await this.updateLastPrices()
-
-
     // update updatePriceHighLow once
     setTimeout(this.updatePriceHighLow, 10000)
 
@@ -1846,17 +1842,14 @@ export default class API extends EventEmitter {
           '0',
           '1000000'
         )
-        const liquidityToRemove = []
         for (let i = 0; i < liquidityList.length; i++) {
           const liquidityString = liquidityList[i]
           const liquidity = JSON.parse(liquidityString)
           const expiration = Number(liquidity[3])
           if (Number.isNaN(expiration) || expiration < now) {
-            // liquidity is expired, remove
-            liquidityToRemove.push(liquidityString)
+            this.redis.ZREM(redisKeyLiquidity, liquidityString)
           }
         }
-        this.redis.ZREM(redisKeyLiquidity, liquidityToRemove)
       })
       await Promise.all(results1)
     })
