@@ -5,6 +5,7 @@ export const subscribemarket: ZZServiceHandler = async (
   ws,
   [chainId, market]
 ) => {
+  console.time("service subscribemarket.")
   if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['subscribemarket', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
     ws.send(JSON.stringify(errorMsg))
@@ -15,11 +16,11 @@ export const subscribemarket: ZZServiceHandler = async (
     // Prevent DOS attacks. Rate limit one order every 5 seconds.
     const redisRateLimitKey = `ratelimit:subscribemarket:${chainId}:${market}:${ws.uuid}`
     const ratelimit = await api.redis.get(redisRateLimitKey)
-    if (ratelimit) throw new Error('Only one marketsubcription per 5 seconds.')
+    if (ratelimit) throw new Error('Only one marketsubcription per 1 seconds.')
     await api.redis.SET(
       redisRateLimitKey,
       '1',
-      { EX: 5 }
+      { EX: 1 }
     )
 
     const marketSummary: ZZMarketSummary = (await api.getMarketSummarys(
@@ -73,4 +74,5 @@ export const subscribemarket: ZZServiceHandler = async (
 
   ws.chainid = chainId
   ws.marketSubscriptions.push(market)
+  console.timeEnd("service subscribemarket.")
 }
