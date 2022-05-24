@@ -37,6 +37,7 @@ async function getMarketInfo (market: ZZMarket, chainId: number) {
 }
 
 async function updatePriceHighLow () {
+  console.time("updatePriceHighLow");
   // only one dyno needs to update this
   const redisPriceHighLowKey = 'update:PriceHighLow'
   const lock = await redis.get(redisPriceHighLowKey)
@@ -71,9 +72,11 @@ async function updatePriceHighLow () {
       redis.HDEL(`price:${chainId}:high`, key)
     })
   })
+  console.timeEnd("updatePriceHighLow");
 }
 
 async function updateVolumes () {
+  console.time("updateVolumes");
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
@@ -127,10 +130,12 @@ async function updateVolumes () {
     console.error(err)
     console.log('Could not remove zero volumes')
   }
+  console.timeEnd("updateVolumes");
   return true
 }
 
 async function updatePendingOrders () {
+  console.time("updatePendingOrders");
   // TODO back to one min, temp 300, starknet is too slow
   const oneMinAgo = new Date(Date.now() - 300 * 1000).toISOString()
   let orderUpdates: string[][] = []
@@ -176,10 +181,12 @@ async function updatePendingOrders () {
       )
     })
   }
+  console.timeEnd("updatePendingOrders");
   return true
 }
 
 async function updateLastPrices () {
+  console.time("updateLastPrices");
   const redisLastPricesKey = 'update:lastprices'
   const lock = await redis.get(redisLastPricesKey)
   if (lock) return
@@ -220,6 +227,7 @@ async function updateLastPrices () {
     await Promise.all(results1)
   })
   await Promise.all(results0)
+  console.timeEnd("updateLastPrices");
 }
 
 async function getBestAskBid (chainId: number, market: ZZMarket) {
@@ -251,6 +259,7 @@ async function getBestAskBid (chainId: number, market: ZZMarket) {
 }
 
 async function updateMarketSummarys () {
+  console.time("updateMarketSummarys");
   const redisLiquidityKey = 'update:liquidity'
   const lock = await redis.get(redisLiquidityKey)
   if (lock) return
@@ -322,6 +331,8 @@ async function updateMarketSummarys () {
     await Promise.all(results1)
   })
   await Promise.all(results0)
+
+  console.timeEnd("updateMarketSummarys");
 }
 
 async function updateUsdPrice () {
@@ -499,6 +510,7 @@ async function updateFeesZkSync () {
 }
 
 async function removeOldLiquidity () {
+  console.time("removeOldLiquidity");
   const now = (Date.now() / 1000 | 0 + 5)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
@@ -522,6 +534,7 @@ async function removeOldLiquidity () {
     await Promise.all(results1)
   })
   await Promise.all(results0)
+  console.timeEnd("removeOldLiquidity");
 }
 
 
