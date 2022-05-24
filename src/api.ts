@@ -178,7 +178,7 @@ export default class API extends EventEmitter {
       setInterval(this.updateFeesZkSync, (18000 + random)),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.removeOldLiquidity, (5000 + random)),
-      setInterval(this.broadcastLiquidity, 4000),
+      setInterval(this.broadcastLiquidity, 15000),
     ]
 
     // update updatePriceHighLow once
