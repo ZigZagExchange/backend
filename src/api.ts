@@ -2203,9 +2203,9 @@ export default class API extends EventEmitter {
       const marketId: ZZMarket = markets[0]
       const redisMarketSummaryString = await this.redis.HGET(redisKeyMarketSummary, marketId)
       if (redisMarketSummaryString) {
-        marketSummarys.marketId = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
+        marketSummarys[marketId] = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
       } else {
-        marketSummarys.marketId = null
+        marketSummarys[marketId] = null
       }
       return marketSummarys
     }
@@ -2220,9 +2220,9 @@ export default class API extends EventEmitter {
       const marketId: ZZMarket = markets[i]
       const redisMarketSummaryString = redisMarketSummarys[marketId]
       if (redisMarketSummaryString) {
-        marketSummarys.marketId = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
+        marketSummarys[marketId] = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
       } else {
-        marketSummarys.marketId = null
+        marketSummarys[marketId] = null
       }
     }
     return marketSummarys
