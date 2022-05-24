@@ -5,7 +5,6 @@ export const indicateliq2: ZZServiceHandler = async (
   ws,
   [chainId, market, liquidity]
 ) => {
-  console.time(`service indicateliq2: ${chainId}-${market}-${ws.uuid}`)
   const makerConnId = `${chainId}:${ws.uuid}`
   api.MAKER_CONNECTIONS[makerConnId] = ws
   try {
@@ -13,5 +12,4 @@ export const indicateliq2: ZZServiceHandler = async (
   } catch (e: any) {
     ws.send(JSON.stringify({ op: 'error', args: ['indicateliq2', e.message] }))
   }
-  console.time(`service indicateliq2: ${chainId}-${market}-${ws.uuid}`)
 }
