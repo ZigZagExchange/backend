@@ -174,11 +174,12 @@ export default class API extends EventEmitter {
       setInterval(this.clearDeadConnections, 60000),
       setInterval(this.updatePendingOrders, (60000 + random)),
       setInterval(this.updateLastPrices, (15000 + random)),
+      setInterval(this.updateMarketSummarys, (15000 + random)),
       setInterval(this.updateUsdPrice, (10000 + random)),
       setInterval(this.updateFeesZkSync, (18000 + random)),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.removeOldLiquidity, (5000 + random)),
-      setInterval(this.broadcastLiquidity, 4000),
+      setInterval(this.broadcastLiquidity, 15000),
     ]
 
     // update updatePriceHighLow once
@@ -2191,94 +2192,114 @@ export default class API extends EventEmitter {
     await Promise.all(results0)
   }
 
-  getMarketSummarys = async (chainId: number, marketReq = '') => {
-    const redisKeyMarketSummary = `marketsummary:${chainId}`
-    let markets
-    if (marketReq === '') {
-      const cache = await this.redis.GET(redisKeyMarketSummary)
-      if (cache) {
-        return JSON.parse(cache)
-      }
-      markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-    } else {
-      markets = [marketReq]
-    }
+  getMarketSummarys = async (
+    chainId: number,
+    markets: string[] = []
+  ) => {
     const marketSummarys: any = {}
-    const redisKeyPrices = `lastprices:${chainId}`
-    const redisPrices = await this.redis.HGETALL(redisKeyPrices)
+    const redisKeyMarketSummary = `marketsummary:${chainId}`
 
-    const redisKeyVolumesQuote = `volume:${chainId}:quote`
-    const redisKeyVolumesBase = `volume:${chainId}:base`
-    const redisVolumesQuote = await this.redis.HGETALL(redisKeyVolumesQuote)
-    const redisVolumesBase = await this.redis.HGETALL(redisKeyVolumesBase)
-
-    const redisKeyLow = `price:${chainId}:low`
-    const redisKeyHigh = `price:${chainId}:high`
-    const redisPricesLow = await this.redis.HGETALL(redisKeyLow)
-    const redisPricesHigh = await this.redis.HGETALL(redisKeyHigh)
-
-    const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-      let marketInfo: any = null
-      try {
-        marketInfo = await this.getMarketInfo(market, chainId)
-      } catch (e: any) {
-        return
+    if (markets.length === 1) {
+      const marketId: ZZMarket = markets[0]
+      const redisMarketSummaryString = await this.redis.HGET(redisKeyMarketSummary, marketId)
+      if (redisMarketSummaryString) {
+        marketSummarys[marketId] = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
+      } else {
+        marketSummarys[marketId] = null
       }
-      if (!marketInfo) return
-      const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
-      const yesterdayPrice = Number(
-        await this.redis.get(
-          `dailyprice:${chainId}:${market}:${yesterday.slice(0, 10)}`
-        )
-      )
-      const lastPrice = +redisPrices[market]
-      const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
-      // eslint-disable-next-line camelcase
-      const priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
+      return marketSummarys
+    }
 
-      // get low/high price
-      // eslint-disable-next-line camelcase
-      const lowestPrice_24h = Number(redisPricesLow[market])
-      // eslint-disable-next-line camelcase
-      const highestPrice_24h = Number(redisPricesHigh[market])
+    // fetch all active markets if none is requested
+    if (markets.length === 0) {
+      markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+    }
 
-      // get volume
-      const quoteVolume = Number(redisVolumesQuote[market] || 0)
-      const baseVolume = Number(redisVolumesBase[market] || 0)
-
-      // get best ask/bid
-      const liquidity = await this.getLiquidityPerSide(chainId, market, 0, 1)
-      const lowestAsk = Number(formatPrice(liquidity.asks[0]?.[0]))
-      const highestBid = Number(formatPrice(liquidity.bids[0]?.[0]))
-
-      const marketSummary: ZZMarketSummary = {
-        market,
-        baseSymbol: marketInfo.baseAsset.symbol,
-        quoteSymbol: marketInfo.quoteAsset.symbol,
-        lastPrice,
-        lowestAsk,
-        highestBid,
-        baseVolume,
-        quoteVolume,
-        priceChange,
-        // eslint-disable-next-line camelcase
-        priceChangePercent_24h,
-        // eslint-disable-next-line camelcase
-        highestPrice_24h,
-        // eslint-disable-next-line camelcase
-        lowestPrice_24h,
+    const redisMarketSummarys = await this.redis.HGETALL(redisKeyMarketSummary)
+    for (let i = 0; i < markets.length; i++) {
+      const marketId: ZZMarket = markets[i]
+      const redisMarketSummaryString = redisMarketSummarys[marketId]
+      if (redisMarketSummaryString) {
+        marketSummarys[marketId] = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
+      } else {
+        marketSummarys[marketId] = null
       }
-      marketSummarys[market] = marketSummary
-    })
-    await Promise.all(results)
-    if (marketReq === '') {
-      this.redis.SET(
-        redisKeyMarketSummary,
-        JSON.stringify(marketSummarys),
-        { EX: 10 }
-      )
     }
     return marketSummarys
+  }
+
+  updateMarketSummarys = async () => {
+    const redisLiquidityKey = 'update:liquidity'
+    const lock = await this.redis.get(redisLiquidityKey)
+    if (lock) return
+    await this.redis.SET(redisLiquidityKey, '1', { EX: 4 })
+
+    const results0: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
+      const redisKeyMarketSummary = `marketsummary:${chainId}`
+
+      // fetch needed data
+      const redisVolumesQuote = await this.redis.HGETALL(`volume:${chainId}:quote`)
+      const redisVolumesBase = await this.redis.HGETALL(`volume:${chainId}:base`)
+      const redisPrices = await this.redis.HGETALL(`lastprices:${chainId}`)
+      const redisPricesLow = await this.redis.HGETALL(`price:${chainId}:low`)
+      const redisPricesHigh = await this.redis.HGETALL(`price:${chainId}:high`)
+      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+
+      const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
+        const marketInfo = await this.getMarketInfo(marketId, chainId).catch(() => null)
+        if (!marketInfo) return
+        const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
+        const yesterdayPrice = Number(
+          await this.redis.get(
+            `dailyprice:${chainId}:${marketId}:${yesterday.slice(0, 10)}`
+          )
+        )
+        const lastPrice = +redisPrices[marketId]
+        const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
+        // eslint-disable-next-line camelcase
+        const priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
+
+        // get low/high price
+        // eslint-disable-next-line camelcase
+        const lowestPrice_24h = Number(redisPricesLow[marketId])
+        // eslint-disable-next-line camelcase
+        const highestPrice_24h = Number(redisPricesHigh[marketId])
+
+        // get volume
+        const quoteVolume = Number(redisVolumesQuote[marketId] || 0)
+        const baseVolume = Number(redisVolumesBase[marketId] || 0)
+
+        // get best ask/bid
+        const liquidity = await this.getLiquidityPerSide(chainId, marketId, 0, 1)
+        const lowestAsk = Number(formatPrice(liquidity.asks[0]?.[0]))
+        const highestBid = Number(formatPrice(liquidity.bids[0]?.[0]))
+
+        const marketSummary: ZZMarketSummary = {
+          market: marketId,
+          baseSymbol: marketInfo.baseAsset.symbol,
+          quoteSymbol: marketInfo.quoteAsset.symbol,
+          lastPrice,
+          lowestAsk,
+          highestBid,
+          baseVolume,
+          quoteVolume,
+          priceChange,
+          // eslint-disable-next-line camelcase
+          priceChangePercent_24h,
+          // eslint-disable-next-line camelcase
+          highestPrice_24h,
+          // eslint-disable-next-line camelcase
+          lowestPrice_24h,
+        }
+        this.redis.HSET(
+          redisKeyMarketSummary,
+          marketId,
+          JSON.stringify(marketSummary)
+        )
+      })
+      await Promise.all(results1)
+    })
+    await Promise.all(results0)
   }
 
   updatePriceHighLow = async () => {
