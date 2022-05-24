@@ -527,6 +527,7 @@ async function removeOldLiquidity () {
 
 async function start() {
   await redis.connect();
+  await publisher.connect();
 
   console.log("background.ts: Starting Update Functions");
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
