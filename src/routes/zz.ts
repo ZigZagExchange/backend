@@ -24,12 +24,12 @@ export default function zzRoutes(app: ZZHttpServer) {
     try {
       let marketSummarys: ZZMarketSummary = await app.api.getMarketSummarys(
         defaultChainId,
-        market
+        [market]
       )
       if (!marketSummarys && altMarket) {
         marketSummarys = await app.api.getMarketSummarys(
           defaultChainId,
-          altMarket
+          [altMarket]
         )
       }
       if (!marketSummarys) {
