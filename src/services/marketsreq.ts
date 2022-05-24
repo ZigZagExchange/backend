@@ -4,7 +4,7 @@ export const marketsreq: ZZServiceHandler = async (
   api,
   ws,
   [chainId, detailedFlag]
-) => {
+) => {  
   if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['marketsreq', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
     if (ws) ws.send(JSON.stringify(errorMsg))
