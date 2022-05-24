@@ -22,10 +22,10 @@ export const subscribemarket: ZZServiceHandler = async (
       { EX: 1 }
     )
 
-    const marketSummary: ZZMarketSummary = (await api.getMarketSummarys(
+    const marketSummary: ZZMarketSummary = await api.getMarketSummarys(
       chainId,
-      market
-    ))[market]
+      [market]
+    )
     if (marketSummary) {
       const marketSummaryMsg = {
         op: 'marketsummary',
