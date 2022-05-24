@@ -2195,8 +2195,8 @@ export default class API extends EventEmitter {
   getMarketSummarys = async (
     chainId: number,
     markets: string[] = []
-    ): Promise<ZZMarketSummary> => {
-      const marketSummarys: any = {}
+  ): Promise<ZZMarketSummary> => {
+    const marketSummarys: any = {}
     const redisKeyMarketSummary = `marketsummary:${chainId}`
 
     if (markets.length === 1) {

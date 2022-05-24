@@ -29,7 +29,7 @@ export default function cgRoutes(app: ZZHttpServer) {
   app.get('/api/coingecko/v1/tickers', async (req, res) => {
     try {
       const markets: any = {}
-      const marketSummarys: any = await app.api.getMarketSummarys(defaultChainId)
+      const marketSummarys: any = await app.api.getMarketSummarys(defaultChainId, [])
 
       Object.keys(marketSummarys).forEach((market: string) => {
         const marketSummary = marketSummarys[market]
