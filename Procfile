@@ -1,2 +1,2 @@
-web: ts-node --transpile-only -r ./src/env src/
-background: ts-node ./src/background.ts
+web: npm start
+background: npm run background
