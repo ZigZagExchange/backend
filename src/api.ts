@@ -2192,13 +2192,20 @@ export default class API extends EventEmitter {
     await Promise.all(results0)
   }
 
-  getMarketSummarys = async (chainId: number, markets: string[] = []) => {
+  getMarketSummarys = async (
+    chainId: number,
+    markets: string[] = []
+    ): Promise<ZZMarketSummary> => {
+      const marketSummarys: any = {}
     const redisKeyMarketSummary = `marketsummary:${chainId}`
 
     if (markets.length === 1) {
-      const redisMarketSummaryString = await this.redis.HGET(redisKeyMarketSummary, markets[0])
-      if (!redisMarketSummaryString) return {}
-      return JSON.parse(redisMarketSummaryString)
+      const marketId: ZZMarket = markets[0]
+      const redisMarketSummaryString = await this.redis.HGET(redisKeyMarketSummary, marketId)
+      if (redisMarketSummaryString) {
+        marketSummarys.marketId = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
+      }
+      return marketSummarys
     }
 
     // fetch all active markets if none is requested
@@ -2207,12 +2214,11 @@ export default class API extends EventEmitter {
     }
 
     const redisMarketSummarys = await this.redis.HGETALL(redisKeyMarketSummary)
-    const marketSummarys: any = {}
     for (let i = 0; i < markets.length; i++) {
       const marketId: ZZMarket = markets[i]
       const redisMarketSummaryString = redisMarketSummarys[marketId]
       if (redisMarketSummaryString) {
-        marketSummarys.marketId = JSON.parse(redisMarketSummaryString)
+        marketSummarys.marketId = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
       }
     }
     return marketSummarys
