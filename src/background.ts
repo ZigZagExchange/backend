@@ -1,14 +1,15 @@
+import * as ENV from './env'
 import fetch from 'isomorphic-fetch'
 import * as zksync from 'zksync'
-import { redis, publisher } from 'src/redisClient'
-import db from 'src/db'
-import { formatPrice, getNetwork } from 'src/utils'
+import { redis, publisher } from './redisClient'
+import db from './db'
+import { formatPrice, getNetwork } from './utils'
 import type {
   ZZMarketInfo,
   AnyObject,
   ZZMarket,
   ZZMarketSummary
-} from 'src/types'
+} from './types'
 
 const VALID_CHAINS: number[] = [1, 1000, 1001]
 const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
@@ -498,12 +499,6 @@ async function updateFeesZkSync () {
 }
 
 async function removeOldLiquidity () {
-  const redisLiquidityKey = 'update:liquidity'
-  const lock = await redis.get(redisLiquidityKey)
-  if (lock) return
-  await redis.SET(redisLiquidityKey, '1', { EX: 4 })
-
-
   const now = (Date.now() / 1000 | 0 + 5)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
@@ -531,6 +526,7 @@ async function removeOldLiquidity () {
 
 
 async function start() {
+  console.log("background.ts: Starting Update Functions");
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
   ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
