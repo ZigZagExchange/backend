@@ -180,6 +180,10 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 4000),
     ]
 
+    // TODO REMOVE THIS ONLY NEEDED ONCE
+    await this.updateLastPrices()
+
+
     // update updatePriceHighLow once
     setTimeout(this.updatePriceHighLow, 10000)
 
