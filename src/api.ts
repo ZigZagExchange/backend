@@ -2196,15 +2196,18 @@ export default class API extends EventEmitter {
     chainId: number,
     markets: string[] = []
   ) => {
+    const marketSummarys: any = {}
     const redisKeyMarketSummary = `marketsummary:${chainId}`
 
     if (markets.length === 1) {
       const marketId: ZZMarket = markets[0]
       const redisMarketSummaryString = await this.redis.HGET(redisKeyMarketSummary, marketId)
       if (redisMarketSummaryString) {
-        return JSON.parse(redisMarketSummaryString) as ZZMarketSummary
+        marketSummarys.marketId = JSON.parse(redisMarketSummaryString) as ZZMarketSummary
+      } else {
+        marketSummarys.marketId = null
       }
-      return null
+      return marketSummarys
     }
 
     // fetch all active markets if none is requested
@@ -2212,7 +2215,6 @@ export default class API extends EventEmitter {
       markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
     }
 
-    const marketSummarys: any = {}
     const redisMarketSummarys = await this.redis.HGETALL(redisKeyMarketSummary)
     for (let i = 0; i < markets.length; i++) {
       const marketId: ZZMarket = markets[i]
