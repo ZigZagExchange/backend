@@ -29,3 +29,12 @@ export function stringToFelt (text: string) {
   const hexString = `0x${bufferText.toString('hex')}`
   return starknet.number.toFelt(hexString)
 }
+
+export function getNetwork (chainId: number) {
+  switch(chainId) {
+    case 1: return "mainnet"
+    case 1000: return "rinkeby"
+    case 1001: return "goerli"
+    default: throw new Error('No valid chainId')
+  }
+}
