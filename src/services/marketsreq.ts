@@ -5,7 +5,6 @@ export const marketsreq: ZZServiceHandler = async (
   ws,
   [chainId, detailedFlag]
 ) => {  
-  console.time(`service marketsreq: ${chainId}-${detailedFlag}-${ws.uuid}`)
   if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['marketsreq', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
     if (ws) ws.send(JSON.stringify(errorMsg))
@@ -37,6 +36,5 @@ export const marketsreq: ZZServiceHandler = async (
       ws.send(JSON.stringify({ op: 'lastprice', args: [lastPrices] }))
     }
   }
-  console.time(`service marketsreq: ${chainId}-${detailedFlag}-${ws.uuid}`)
   return marketsMsg
 }
