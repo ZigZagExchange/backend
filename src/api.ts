@@ -334,7 +334,6 @@ export default class API extends EventEmitter {
       )
       name = await contract.name()
     } catch (e) {
-      console.error(e)
       name = tokenSymbol
     }
     return name
@@ -2080,22 +2079,22 @@ export default class API extends EventEmitter {
   }
 
   clearDeadConnections = () => {
-    const numberUsers = Object.keys(this.USER_CONNECTIONS).length
-    const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
-    console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
-    ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
-      if (!ws.isAlive) {
-        const userconnkey = `${ws.chainid}:${ws.userid}`
-        delete this.USER_CONNECTIONS[userconnkey]
-        delete this.MAKER_CONNECTIONS[userconnkey]
-        ws.terminate()
-      } else {
-        ws.isAlive = false
-        ws.ping()
-      }
-    })
+    //const numberUsers = Object.keys(this.USER_CONNECTIONS).length
+    //const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
+    //console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
+    //; (this.wss.clients as Set<WSocket>).forEach((ws) => {
+    //  if (!ws.isAlive) {
+    //    const userconnkey = `${ws.chainid}:${ws.userid}`
+    //    delete this.USER_CONNECTIONS[userconnkey]
+    //    delete this.MAKER_CONNECTIONS[userconnkey]
+    //    ws.terminate()
+    //  } else {
+    //    ws.isAlive = false
+    //    ws.ping()
+    //  }
+    //})
 
-    console.log(`${this.wss.clients.size} dead connections cleared.`)
+    console.log(`${this.wss.clients.size} active connections.`)
   }
 
   broadcastLiquidity = async () => {
