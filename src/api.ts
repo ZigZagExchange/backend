@@ -2106,7 +2106,7 @@ export default class API extends EventEmitter {
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
       if (!markets || markets.length === 0) return
       const results: Promise<any>[] = markets.map(async (marketId) => {
-        const liquidity = await this.redis.GET(`bestliquidity:${chainid}:${market}`);
+        const liquidity = await this.redis.GET(`bestliquidity:${chainId}:${marketId}`);
         if (liquidity) {
             this.broadcastMessage(
               chainId,
