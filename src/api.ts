@@ -2157,7 +2157,9 @@ export default class API extends EventEmitter {
     const midPrice = (basePrice && quotePrice)
       ? basePrice / quotePrice
       : 0
-    const minSize = (basePrice) ? (10 / basePrice) : marketInfo.baseFee
+    
+    // $100 min size
+    const minSize = (basePrice) ? (100 / basePrice) : marketInfo.baseFee
 
     const redisKeyLiquidity = `liquidity:${chainId}:${market}`
 
