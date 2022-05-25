@@ -2236,8 +2236,6 @@ export default class API extends EventEmitter {
         console.log(redisMembers)
         throw new Error(`Unexpected error: ${e.message}`)
       }
-    } else {
-      throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
