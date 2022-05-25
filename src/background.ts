@@ -535,6 +535,7 @@ async function removeOldLiquidity() {
 }
 
 async function runDbMigration() {
+    console.log("running db migration");
     const migration = fs.readFileSync(path.join(__dirname, '../schema.sql'), 'utf8')
     db.query(migration).catch(console.error)
 }
@@ -542,7 +543,7 @@ async function runDbMigration() {
 async function start() {
   await redis.connect();
   await publisher.connect();
-  await runDbMigration();
+  //await runDbMigration();
 
   console.log("background.ts: Starting Update Functions")
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
