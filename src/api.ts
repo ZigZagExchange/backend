@@ -702,10 +702,6 @@ export default class API extends EventEmitter {
       `broadcastmsg:all:${chainId}:${market}`,
       JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
     )
-    this.redisPublisher.PUBLISH(
-      `broadcastmsg:user:${chainId}:${userid}`,
-      JSON.stringify({ op: 'userorderack', args: orderreceipt })
-    )
 
     return { op: 'userorderack', args: orderreceipt }
   }
@@ -1244,6 +1240,12 @@ export default class API extends EventEmitter {
     fillOrder: ZZFillOrder,
     wsUUID: string
   ) => {
+    const redisKeyOrder = `orderstatus:${chainId}:${orderId}`
+    const cache = await this.redis.GET(redisKeyOrder)
+    if (cache) {
+      throw new Error(`Order ${orderId} is not open`)
+    }
+    
     const values = [orderId, chainId]
     const select = await this.db.query(
       "SELECT userid, price, base_quantity, quote_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'",
@@ -1289,12 +1291,14 @@ export default class API extends EventEmitter {
     this.redis.ZADD(redisKey, redisMembers)
     if (existingMembers === 0) {
       this.redis.EXPIRE(redisKey, 10)
-      setTimeout(
-        this.senduserordermatch,
-        250,
-        chainId,
-        orderId,
-        selectresult.side)
+      setTimeout(() => {
+        this.redis.SET(redisKeyOrder, 'filled', { EX: 60 })
+        this.senduserordermatch(
+          chainId,
+          orderId,
+          selectresult.side
+        )
+      }, 250)
     }
   }
 
@@ -2218,15 +2222,6 @@ export default class API extends EventEmitter {
       }
     }
 
-    // Turn off  broadcasts
-    //if (errorMsg.length > 0) {
-    //  const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join('. ')}.`
-    //  this.redisPublisher.PUBLISH(
-    //    `broadcastmsg:maker:${chainId}:${clientId}`,
-    //    JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
-    //  )
-    //}
-
     if (redisMembers.length > 0) {
       try {
         await this.redis.ZADD(redisKeyLiquidity, redisMembers)
@@ -2242,6 +2237,7 @@ export default class API extends EventEmitter {
       throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
+    return errorMsg
   }
 
   updatePassiveMM = async () => {

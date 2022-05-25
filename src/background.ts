@@ -1,4 +1,3 @@
-import * as ENV from './env'
 import fetch from 'isomorphic-fetch'
 import * as zksync from 'zksync'
 import fs from 'fs'
@@ -17,36 +16,20 @@ const VALID_CHAINS: number[] = [1, 1000, 1001]
 const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
+let oldLiquidityTime = 0
 
-async function getMarketInfo (market: ZZMarket, chainId: number) {
-  if (
-    !VALID_CHAINS.includes(chainId) ||
-    !market
-  ) {
-    return null
-  }
+async function getMarketInfo(market: ZZMarket, chainId: number) {
+  if (!VALID_CHAINS.includes(chainId) || !market) return null
 
   const redisKeyMarketInfo = `marketinfo:${chainId}`
-  const cache = await redis.HGET(
-    redisKeyMarketInfo,
-    market
-  )
+  const cache = await redis.HGET(redisKeyMarketInfo, market)
+  if (cache) return JSON.parse(cache) as ZZMarketInfo
 
-  if (cache) {
-    return JSON.parse(cache) as ZZMarketInfo
-  }
   return null
 }
 
-async function updatePriceHighLow () {
-  console.time("updatePriceHighLow");
-  // only one dyno needs to update this
-  const redisPriceHighLowKey = 'update:PriceHighLow'
-  const lock = await redis.get(redisPriceHighLowKey)
-  if (lock) {
-    return
-  }
-  await redis.SET(redisPriceHighLowKey, '1', { EX: 300 })
+async function updatePriceHighLow() {
+  console.time("updatePriceHighLow")
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const select = await db.query(
@@ -74,11 +57,12 @@ async function updatePriceHighLow () {
       redis.HDEL(`price:${chainId}:high`, key)
     })
   })
-  console.timeEnd("updatePriceHighLow");
+  console.timeEnd("updatePriceHighLow")
 }
 
-async function updateVolumes () {
-  console.time("updateVolumes");
+async function updateVolumes() {
+  console.time("updateVolumes")
+
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
@@ -132,12 +116,12 @@ async function updateVolumes () {
     console.error(err)
     console.log('Could not remove zero volumes')
   }
-  console.timeEnd("updateVolumes");
-  return true
+  console.timeEnd("updateVolumes")
 }
 
-async function updatePendingOrders () {
-  console.time("updatePendingOrders");
+async function updatePendingOrders() {
+  console.time("updatePendingOrders")
+
   // TODO back to one min, temp 300, starknet is too slow
   const oneMinAgo = new Date(Date.now() - 300 * 1000).toISOString()
   let orderUpdates: string[][] = []
@@ -183,18 +167,12 @@ async function updatePendingOrders () {
       )
     })
   }
-  console.timeEnd("updatePendingOrders");
-  return true
+  console.timeEnd("updatePendingOrders")
 }
 
-async function updateLastPrices () {
-  console.time("updateLastPrices");
-  const redisLastPricesKey = 'update:lastprices'
-  const lock = await redis.get(redisLastPricesKey)
-  if (lock) return
-  await redis.SET(redisLastPricesKey, '1', { EX: 14 })
+async function updateLastPrices() {
+  console.time("updateLastPrices")
 
-  console.time("Updating last prices.")
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
 
@@ -229,10 +207,10 @@ async function updateLastPrices () {
     await Promise.all(results1)
   })
   await Promise.all(results0)
-  console.timeEnd("updateLastPrices");
+  console.timeEnd("updateLastPrices")
 }
 
-async function getBestAskBid (chainId: number, market: ZZMarket) {
+async function getBestAskBid(chainId: number, market: ZZMarket) {
   const redisKeyLiquidity = `liquidity:${chainId}:${market}`
   const liquidityList = await redis.ZRANGEBYSCORE(
     redisKeyLiquidity,
@@ -260,12 +238,8 @@ async function getBestAskBid (chainId: number, market: ZZMarket) {
   }
 }
 
-async function updateMarketSummarys () {
-  console.time("updateMarketSummarys");
-  const redisLiquidityKey = 'update:liquidity'
-  const lock = await redis.get(redisLiquidityKey)
-  if (lock) return
-  await redis.SET(redisLiquidityKey, '1', { EX: 4 })
+async function updateMarketSummarys() {
+  console.time("updateMarketSummarys")
 
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyMarketSummary = `marketsummary:${chainId}`
@@ -334,19 +308,12 @@ async function updateMarketSummarys () {
   })
   await Promise.all(results0)
 
-  console.timeEnd("updateMarketSummarys");
+  console.timeEnd("updateMarketSummarys")
 }
 
-async function updateUsdPrice () {
-  // only one dyno needs to update this
-  const redisUSDPriceKey = 'update:usdprice'
-  const lock = await redis.get(redisUSDPriceKey)
-  if (lock) {
-    return
-  }
-  await redis.SET(redisUSDPriceKey, '1', { EX: 9 })
-
+async function updateUsdPrice() {
   console.time("Updating usd price.")
+
   // use mainnet as price source TODO we should rework the price source to work with multible networks
   const network = await getNetwork(1)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
@@ -405,19 +372,12 @@ async function updateUsdPrice () {
   console.timeEnd("Updating usd price.")
 }
 
-async function updateFeesZkSync () {
-  // only one dyno needs to update this
-  const redisZkSyncFeeKey = 'update:zkSyncFee'
-  const lock = await redis.get(redisZkSyncFeeKey)
-  if (lock) {
-    return
-  }
-  await redis.SET(redisZkSyncFeeKey, '1', { EX: 15 })
-
+async function updateFeesZkSync() {
   console.time("Update fees")
+
   const results0: Promise<any>[] = VALID_CHAINS_ZKSYNC.map(async (chainId: number) => {
     const newFees: any = {}
-    const network = await getNetwork(chainId)
+    const network = getNetwork(chainId)
     // get redis cache
     const tokenInfos: any = await redis.HGETALL(`tokeninfo:${chainId}`)
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
@@ -511,9 +471,10 @@ async function updateFeesZkSync () {
   console.timeEnd("Update fees")
 }
 
-async function removeOldLiquidity () {
-  console.time("removeOldLiquidity");
-  const now = (Date.now() / 1000 | 0 + 5)
+async function removeOldLiquidity() {
+  console.time("removeOldLiquidity")
+
+  const now = (Date.now() / 1000 | 0 + oldLiquidityTime)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
@@ -529,13 +490,13 @@ async function removeOldLiquidity () {
       for (let i = 0; i < liquidityList.length; i++) {
         const liquidityString = liquidityList[i]
         const liquidity = JSON.parse(liquidityString)
-        marketLiquidity.push(liquidity);
+        marketLiquidity.push(liquidity)
         const expiration = Number(liquidity[3])
         if (Number.isNaN(expiration) || expiration < now) {
           redis.ZREM(redisKeyLiquidity, liquidityString)
         }
       }
-      
+
       // Update last price while you're at it
       const asks = marketLiquidity.filter((l) => l[0] === 's')
       const bids = marketLiquidity.filter((l) => l[0] === 'b')
@@ -563,7 +524,7 @@ async function removeOldLiquidity () {
     await Promise.all(results1)
   })
   await Promise.all(results0)
-  console.timeEnd("removeOldLiquidity");
+  console.timeEnd("removeOldLiquidity")
 }
 
 async function runDbMigration() {
@@ -576,20 +537,23 @@ async function start() {
   await publisher.connect();
   await runDbMigration();
 
-  console.log("background.ts: Starting Update Functions");
+  console.log("background.ts: Starting Update Functions")
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
   ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
   SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
 
+  // this set's the interval for the funciton as well [in seconds]
+  oldLiquidityTime = 5
+
   setInterval(updatePriceHighLow, 300000)
-  setInterval(updateVolumes, 120000)
+  setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)
   setInterval(updateLastPrices, 15000)
-  setInterval(updateMarketSummarys, 15000)
-  setInterval(updateUsdPrice, 10000)
-  setInterval(updateFeesZkSync, 18000)
-  setInterval(removeOldLiquidity, 5000)
+  setInterval(updateMarketSummarys, 20000)
+  setInterval(updateUsdPrice, 20000)
+  setInterval(updateFeesZkSync, 25000)
+  setInterval(removeOldLiquidity, (oldLiquidityTime * 1000))
 }
 
 start()
