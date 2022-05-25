@@ -1918,7 +1918,7 @@ export default class API extends EventEmitter {
     if (markets.length === 0) {
       markets = await sFetchRedis(this.redis, `activemarkets:${chainId}`)
     }
-    
+
     const redisMarketSummarys = await hFetchRedis(this.redis, redisKeyMarketSummary)
     for (let i = 0; i < markets.length; i++) {
       const marketId: ZZMarket = markets[i]
@@ -2107,7 +2107,7 @@ export default class API extends EventEmitter {
         COUNT: 20
       }
       // eslint-disable-next-line no-restricted-syntax
-      for await (const marketId of this.redis.sScanIterator(iteratorParams)) {
+      for await (const marketId of this.redis.sScanIterator('set', iteratorParams)) {
         const liquidity = await this.getLiquidity(chainId, marketId)
         if (liquidity.length === 0) {
           await this.redis.SREM(`activemarkets:${chainId}`, marketId)
