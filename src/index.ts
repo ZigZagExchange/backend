@@ -6,7 +6,7 @@ import { redis, subscriber, publisher } from 'src/redisClient'
 import db from 'src/db'
 import API from 'src/api'
 import type { RedisClientType } from 'redis'
-import throng, { WorkerCount } from 'throng'
+import throng from 'throng'
 
 const socketServer = createSocketServer()
 const httpServer = createHttpServer(socketServer)
