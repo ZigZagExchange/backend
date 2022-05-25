@@ -59,7 +59,7 @@ export async function sFetchRedis (redis: any, match: string) {
     COUNT: 20
   }
   // eslint-disable-next-line no-restricted-syntax
-  for await (const member of redis.sScanIterator(iteratorParams)) {
+  for await (const member of redis.sScanIterator('set', iteratorParams)) {
     result.push(member)
   }
   return result

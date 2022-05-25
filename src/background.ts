@@ -190,7 +190,7 @@ async function updateLastPrices() {
       COUNT: 20
     }
     // eslint-disable-next-line no-restricted-syntax
-    for await (const marketId of redis.sScanIterator(iteratorParams)) {
+    for await (const marketId of redis.sScanIterator('set', iteratorParams)) {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(() => null)
       if (!marketInfo) return
       const lastPriceInfo: any = {}
@@ -264,7 +264,7 @@ async function updateMarketSummarys() {
       COUNT: 20
     }
     // eslint-disable-next-line no-restricted-syntax
-    for await (const marketId of redis.sScanIterator(iteratorParams)) {
+    for await (const marketId of redis.sScanIterator('set', iteratorParams)) {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(() => null)
       if (!marketInfo) return
       const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
@@ -503,7 +503,7 @@ async function removeOldLiquidity() {
       COUNT: 20
     }
     // eslint-disable-next-line no-restricted-syntax
-    for await (const marketId of redis.sScanIterator(iteratorParams)) {
+    for await (const marketId of redis.sScanIterator('set', iteratorParams)) {
       const redisKeyLiquidity = `liquidity:${chainId}:${marketId}`
 
       const liquidityList = await redis.ZRANGEBYSCORE(
