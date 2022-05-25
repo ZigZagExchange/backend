@@ -4,7 +4,6 @@ import * as Redis from 'redis'
 const redis_url = process.env.REDIS_URL || 'redis://0.0.0.0:6379'
 const redis_use_tls = redis_url.includes('rediss')
 
-console.log("Connecting to redis");
 export const redis = Redis.createClient({
   url: redis_url,
   socket: {
