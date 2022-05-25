@@ -57,11 +57,18 @@ export const subscribemarket: ZZServiceHandler = async (
     const fills = await api.getfills(chainId, market)
     ws.send(JSON.stringify({ op: 'fills', args: [fills] }))
 
-    // Disable this expensive operation
-    //const liquidity = await api.getLiquidity(chainId, market)
-    //ws.send(
-    //  JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
-    //)
+    // Send a fast snapshot of liquidity
+    const liquidityString = await api.redis.GET(`bestliquidity:${chainId}:${market}`)
+    let liquidity;
+    if (liquidityString) {
+        liquidity = JSON.parse(liquidityString);
+    }
+    else {
+        liquidity = [];
+    }
+    ws.send(
+      JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
+    )
   } catch (e: any) {
     console.error(e.message)
     const errorMsg = { op: 'error', args: ['subscribemarket', e.message] }

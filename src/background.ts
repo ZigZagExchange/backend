@@ -471,6 +471,9 @@ async function updateFeesZkSync() {
   console.timeEnd("Update fees")
 }
 
+// Removes old liquidity
+// Updates lastprice redis map
+// Sets 100 best bids and asks in a JSON for broadcasting
 async function removeOldLiquidity() {
   console.time("removeOldLiquidity")
 
@@ -497,9 +500,10 @@ async function removeOldLiquidity() {
         }
       }
 
-      // Update last price while you're at it
-      const asks = marketLiquidity.filter((l) => l[0] === 's')
-      const bids = marketLiquidity.filter((l) => l[0] === 'b')
+      // Update last price 
+      // Only use 100 best bids and asks
+      const asks = marketLiquidity.filter((l) => l[0] === 's').slice(0,100);
+      const bids = marketLiquidity.filter((l) => l[0] === 'b').slice(-100);
       if (asks.length === 0 || bids.length === 0) return
       let askPrice = 0
       let askVolume = 0
@@ -519,6 +523,10 @@ async function removeOldLiquidity() {
         marketId,
         formatPrice(mid)
       )
+
+      // Store 100 best bids and asks per market
+      const bestLiquidity = [...asks, ...bids];
+      redis.SET(`bestliquidity:${chainId}:${marketId}`, JSON.stringify(bestLiquidity));
 
     })
     await Promise.all(results1)
