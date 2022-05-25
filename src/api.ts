@@ -2222,15 +2222,6 @@ export default class API extends EventEmitter {
       }
     }
 
-    // Turn off  broadcasts
-    //if (errorMsg.length > 0) {
-    //  const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join('. ')}.`
-    //  this.redisPublisher.PUBLISH(
-    //    `broadcastmsg:maker:${chainId}:${clientId}`,
-    //    JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
-    //  )
-    //}
-
     if (redisMembers.length > 0) {
       try {
         await this.redis.ZADD(redisKeyLiquidity, redisMembers)
@@ -2246,6 +2237,7 @@ export default class API extends EventEmitter {
       throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
+    return errorMsg
   }
 
   updatePassiveMM = async () => {
