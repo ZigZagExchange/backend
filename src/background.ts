@@ -15,27 +15,17 @@ const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
 
-async function getMarketInfo (market: ZZMarket, chainId: number) {
-  if (
-    !VALID_CHAINS.includes(chainId) ||
-    !market
-  ) {
-    return null
-  }
+async function getMarketInfo(market: ZZMarket, chainId: number) {
+  if (!VALID_CHAINS.includes(chainId) || !market) return null
 
   const redisKeyMarketInfo = `marketinfo:${chainId}`
-  const cache = await redis.HGET(
-    redisKeyMarketInfo,
-    market
-  )
+  const cache = await redis.HGET(redisKeyMarketInfo, market)
+  if (cache) return JSON.parse(cache) as ZZMarketInfo
 
-  if (cache) {
-    return JSON.parse(cache) as ZZMarketInfo
-  }
   return null
 }
 
-async function updatePriceHighLow () {
+async function updatePriceHighLow() {
   console.time("updatePriceHighLow")
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
@@ -67,7 +57,7 @@ async function updatePriceHighLow () {
   console.timeEnd("updatePriceHighLow")
 }
 
-async function updateVolumes () {
+async function updateVolumes() {
   console.time("updateVolumes")
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
@@ -126,7 +116,7 @@ async function updateVolumes () {
   console.timeEnd("updateVolumes")
 }
 
-async function updatePendingOrders () {
+async function updatePendingOrders() {
   console.time("updatePendingOrders")
 
   // TODO back to one min, temp 300, starknet is too slow
@@ -177,7 +167,7 @@ async function updatePendingOrders () {
   console.timeEnd("updatePendingOrders")
 }
 
-async function updateLastPrices () {
+async function updateLastPrices() {
   console.time("updateLastPrices")
 
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
@@ -217,7 +207,7 @@ async function updateLastPrices () {
   console.timeEnd("updateLastPrices")
 }
 
-async function getBestAskBid (chainId: number, market: ZZMarket) {
+async function getBestAskBid(chainId: number, market: ZZMarket) {
   const redisKeyLiquidity = `liquidity:${chainId}:${market}`
   const liquidityList = await redis.ZRANGEBYSCORE(
     redisKeyLiquidity,
@@ -245,7 +235,7 @@ async function getBestAskBid (chainId: number, market: ZZMarket) {
   }
 }
 
-async function updateMarketSummarys () {
+async function updateMarketSummarys() {
   console.time("updateMarketSummarys")
 
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
@@ -318,7 +308,7 @@ async function updateMarketSummarys () {
   console.timeEnd("updateMarketSummarys")
 }
 
-async function updateUsdPrice () {
+async function updateUsdPrice() {
   console.time("Updating usd price.")
 
   // use mainnet as price source TODO we should rework the price source to work with multible networks
@@ -379,7 +369,7 @@ async function updateUsdPrice () {
   console.timeEnd("Updating usd price.")
 }
 
-async function updateFeesZkSync () {
+async function updateFeesZkSync() {
   console.time("Update fees")
 
   const results0: Promise<any>[] = VALID_CHAINS_ZKSYNC.map(async (chainId: number) => {
@@ -478,7 +468,7 @@ async function updateFeesZkSync () {
   console.timeEnd("Update fees")
 }
 
-async function removeOldLiquidity () {
+async function removeOldLiquidity() {
   console.time("removeOldLiquidity")
 
   const now = (Date.now() / 1000 | 0 + 5)
@@ -503,7 +493,7 @@ async function removeOldLiquidity () {
           redis.ZREM(redisKeyLiquidity, liquidityString)
         }
       }
-      
+
       // Update last price while you're at it
       const asks = marketLiquidity.filter((l) => l[0] === 's')
       const bids = marketLiquidity.filter((l) => l[0] === 'b')
