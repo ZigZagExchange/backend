@@ -14,6 +14,7 @@ const VALID_CHAINS: number[] = [1, 1000, 1001]
 const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
+let oldLiquidityTime = 0
 
 async function getMarketInfo(market: ZZMarket, chainId: number) {
   if (!VALID_CHAINS.includes(chainId) || !market) return null
@@ -471,7 +472,7 @@ async function updateFeesZkSync() {
 async function removeOldLiquidity() {
   console.time("removeOldLiquidity")
 
-  const now = (Date.now() / 1000 | 0 + 5)
+  const now = (Date.now() / 1000 | 0 + oldLiquidityTime)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
@@ -535,14 +536,17 @@ async function start() {
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
   SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
 
+  // this set's the interval for the funciton as well [in seconds]
+  oldLiquidityTime = 5
+
   setInterval(updatePriceHighLow, 300000)
-  setInterval(updateVolumes, 120000)
+  setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)
   setInterval(updateLastPrices, 15000)
-  setInterval(updateMarketSummarys, 15000)
-  setInterval(updateUsdPrice, 10000)
-  setInterval(updateFeesZkSync, 18000)
-  setInterval(removeOldLiquidity, 5000)
+  setInterval(updateMarketSummarys, 20000)
+  setInterval(updateUsdPrice, 20000)
+  setInterval(updateFeesZkSync, 25000)
+  setInterval(removeOldLiquidity, (oldLiquidityTime * 1000))
 }
 
 start()
