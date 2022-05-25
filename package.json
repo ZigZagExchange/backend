@@ -30,6 +30,7 @@
     "@types/pg": "^8.6.4",
     "@types/redis": "^4.0.11",
     "@types/ws": "^8.2.2",
+    "@types/throng": "^5.0.3",
     "better-sqlite3": "^7.4.3",
     "dotenv": "^10.0.0",
     "ethers": "^5.5.4",
@@ -60,7 +61,6 @@
     "src/*": "./src/*"
   },
   "devDependencies": {
-    "@types/throng": "^5.0.3",
     "@typescript-eslint/eslint-plugin": "^5.12.0",
     "@typescript-eslint/parser": "^5.12.0",
     "eslint": "^8.9.0",
