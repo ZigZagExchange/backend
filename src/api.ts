@@ -2079,20 +2079,20 @@ export default class API extends EventEmitter {
   }
 
   clearDeadConnections = () => {
-    //const numberUsers = Object.keys(this.USER_CONNECTIONS).length
-    //const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
-    //console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
-    //; (this.wss.clients as Set<WSocket>).forEach((ws) => {
-    //  if (!ws.isAlive) {
-    //    const userconnkey = `${ws.chainid}:${ws.userid}`
-    //    delete this.USER_CONNECTIONS[userconnkey]
-    //    delete this.MAKER_CONNECTIONS[userconnkey]
-    //    ws.terminate()
-    //  } else {
-    //    ws.isAlive = false
-    //    ws.ping()
-    //  }
-    //})
+    const numberUsers = Object.keys(this.USER_CONNECTIONS).length
+    const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
+    console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
+    ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
+      if (!ws.isAlive) {
+        const userconnkey = `${ws.chainid}:${ws.userid}`
+        delete this.USER_CONNECTIONS[userconnkey]
+        delete this.MAKER_CONNECTIONS[userconnkey]
+        ws.terminate()
+      } else {
+        ws.isAlive = false
+        ws.ping()
+      }
+    })
 
     console.log(`${this.wss.clients.size} active connections.`)
   }
@@ -2113,6 +2113,7 @@ export default class API extends EventEmitter {
           JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
         )
       })
+
       // Broadcast last prices
       const lastprices = (await this.getLastPrices(chainId)).map((l) =>
         l.splice(0, 3)
@@ -2158,25 +2159,26 @@ export default class API extends EventEmitter {
 
     const redisKeyLiquidity = `liquidity:${chainId}:${market}`
 
+    // Turn off this expensive operation
     // Delete old liquidity by same client
-    if (clientId) {
-      const oldLiquidity = await this.redis.ZRANGEBYSCORE(
-        redisKeyLiquidity,
-        '0',
-        '1000000'
-      )
-      const lenght = Object.keys(oldLiquidity).length
-      for (let i = 0; i < lenght; i++) {
-        const liquidityString = oldLiquidity[i]
-        const liquidityPosition = JSON.parse(liquidityString)
-        if (clientId === liquidityPosition[4]?.toString()) {
-          this.redis.ZREM(
-            redisKeyLiquidity,
-            liquidityString
-          )
-        }
-      }
-    }
+    //if (clientId) {
+    //  const oldLiquidity = await this.redis.ZRANGEBYSCORE(
+    //    redisKeyLiquidity,
+    //    '0',
+    //    '1000000'
+    //  )
+    //  const lenght = Object.keys(oldLiquidity).length
+    //  for (let i = 0; i < lenght; i++) {
+    //    const liquidityString = oldLiquidity[i]
+    //    const liquidityPosition = JSON.parse(liquidityString)
+    //    if (clientId === liquidityPosition[4]?.toString()) {
+    //      this.redis.ZREM(
+    //        redisKeyLiquidity,
+    //        liquidityString
+    //      )
+    //    }
+    //  }
+    //}
 
     const errorMsg: string[] = []
     const redisMembers: any[] = []
@@ -2216,13 +2218,14 @@ export default class API extends EventEmitter {
       }
     }
 
-    if (errorMsg.length > 0) {
-      const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join('. ')}.`
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:maker:${chainId}:${clientId}`,
-        JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
-      )
-    }
+    // Turn off  broadcasts
+    //if (errorMsg.length > 0) {
+    //  const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join('. ')}.`
+    //  this.redisPublisher.PUBLISH(
+    //    `broadcastmsg:maker:${chainId}:${clientId}`,
+    //    JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
+    //  )
+    //}
 
     if (redisMembers.length > 0) {
       try {
