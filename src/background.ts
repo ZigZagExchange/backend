@@ -522,14 +522,41 @@ async function removeOldLiquidity () {
         '0',
         '1000000'
       )
+
+      const marketLiquidity = []
       for (let i = 0; i < liquidityList.length; i++) {
         const liquidityString = liquidityList[i]
         const liquidity = JSON.parse(liquidityString)
+        marketLiquidity.push(liquidity);
         const expiration = Number(liquidity[3])
         if (Number.isNaN(expiration) || expiration < now) {
           redis.ZREM(redisKeyLiquidity, liquidityString)
         }
       }
+      
+      // Update last price while you're at it
+      const asks = marketLiquidity.filter((l) => l[0] === 's')
+      const bids = marketLiquidity.filter((l) => l[0] === 'b')
+      if (asks.length === 0 || bids.length === 0) return
+      let askPrice = 0
+      let askVolume = 0
+      let bidPrice = 0
+      let bidVolume = 0
+      asks.forEach(ask => {
+        askPrice += (+ask[1] * +ask[2])
+        askVolume += +ask[2]
+      })
+      bids.forEach(bid => {
+        bidPrice += (+bid[1] * +bid[2])
+        bidVolume += +bid[2]
+      })
+      const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
+      redis.HSET(
+        `lastprices:${chainId}`,
+        marketId,
+        formatPrice(mid)
+      )
+
     })
     await Promise.all(results1)
   })

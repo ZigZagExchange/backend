@@ -174,7 +174,7 @@ export default class API extends EventEmitter {
     this.watchers = [
       setInterval(this.clearDeadConnections, 60000),
       // setInterval(this.updatePassiveMM, 10000),
-      setInterval(this.broadcastLiquidity, 15000),
+      setInterval(this.broadcastLiquidity, 5000),
     ]
 
     // reset redis mm timeouts
@@ -2111,29 +2111,6 @@ export default class API extends EventEmitter {
           chainId,
           marketId,
           JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
-        )
-
-        // Update last price while you're at it
-        const asks = liquidity.filter((l) => l[0] === 's')
-        const bids = liquidity.filter((l) => l[0] === 'b')
-        if (asks.length === 0 || bids.length === 0) return
-        let askPrice = 0
-        let askVolume = 0
-        let bidPrice = 0
-        let bidVolume = 0
-        asks.forEach(ask => {
-          askPrice += (+ask[1] * +ask[2])
-          askVolume += +ask[2]
-        })
-        bids.forEach(bid => {
-          bidPrice += (+bid[1] * +bid[2])
-          bidVolume += +bid[2]
-        })
-        const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
-        this.redis.HSET(
-          `lastprices:${chainId}`,
-          marketId,
-          formatPrice(mid)
         )
       })
       // Broadcast last prices
