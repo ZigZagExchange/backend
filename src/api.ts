@@ -1240,6 +1240,12 @@ export default class API extends EventEmitter {
     fillOrder: ZZFillOrder,
     wsUUID: string
   ) => {
+    const redisKeyOrder = `orderstatus:${chainId}:${orderId}`
+    const cache = await this.redis.GET(redisKeyOrder)
+    if (cache) {
+      throw new Error(`Order ${orderId} is not open`)
+    }
+    
     const values = [orderId, chainId]
     const select = await this.db.query(
       "SELECT userid, price, base_quantity, quote_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'",
@@ -1285,12 +1291,14 @@ export default class API extends EventEmitter {
     this.redis.ZADD(redisKey, redisMembers)
     if (existingMembers === 0) {
       this.redis.EXPIRE(redisKey, 10)
-      setTimeout(
-        this.senduserordermatch,
-        250,
-        chainId,
-        orderId,
-        selectresult.side)
+      setTimeout(() => {
+        this.redis.SET(redisKeyOrder, 'filled', { EX: 60 })
+        this.senduserordermatch(
+          chainId,
+          orderId,
+          selectresult.side
+        )
+      }, 250)
     }
   }
 
