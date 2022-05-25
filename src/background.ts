@@ -1,6 +1,8 @@
 import * as ENV from './env'
 import fetch from 'isomorphic-fetch'
 import * as zksync from 'zksync'
+import fs from 'fs'
+import path from 'path'
 import { redis, publisher } from './redisClient'
 import db from './db'
 import { formatPrice, getNetwork } from './utils'
@@ -564,10 +566,15 @@ async function removeOldLiquidity () {
   console.timeEnd("removeOldLiquidity");
 }
 
+async function runDbMigration() {
+    const migration = fs.readFileSync(path.join(__dirname, '../schema.sql'), 'utf8')
+    db.query(migration).catch(console.error)
+}
 
 async function start() {
   await redis.connect();
   await publisher.connect();
+  await runDbMigration();
 
   console.log("background.ts: Starting Update Functions");
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"

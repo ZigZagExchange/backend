@@ -17,8 +17,4 @@ const db = new Pool({
   max: 10,
 })
 
-const migration = fs.readFileSync(path.join(__dirname, '../schema.sql'), 'utf8')
-
-db.query(migration).catch(console.error)
-
 export default db
