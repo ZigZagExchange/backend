@@ -2155,7 +2155,7 @@ export default class API extends EventEmitter {
     const [baseToken, quoteToken] = market.split('-')
     const basePrice = await this.getUsdPrice(chainId, baseToken)
     const quotePrice = await this.getUsdPrice(chainId, quoteToken)
-    const midPrice = (basePrice && quotePrice)
+    const midPrice = (basePrice > 0 && quotePrice > 0)
       ? basePrice / quotePrice
       : 0
     const minSize = (basePrice) ? (10 / basePrice) : marketInfo.baseFee
