@@ -1,5 +1,12 @@
 import type { ZZServiceHandler, ZZMarketSummary } from 'src/types'
 
+// subscribemarket operations should be very conservative
+// this function gets called like 10k times in 2 seconds on a restart
+// so if any expensive functionality is in here it will result in a 
+// infinite crash loop
+// we disabled lastprice and getLiquidity calls in here because they
+// were too expensive
+// those are run once and broadcast to each user in the background.ts file now
 export const subscribemarket: ZZServiceHandler = async (
   api,
   ws,
@@ -12,16 +19,6 @@ export const subscribemarket: ZZServiceHandler = async (
   }
 
   try {
-    // Prevent DOS attacks. Rate limit one order every 5 seconds.
-    //const redisRateLimitKey = `ratelimit:subscribemarket:${chainId}:${market}:${ws.uuid}`
-    //const ratelimit = await api.redis.get(redisRateLimitKey)
-    //if (ratelimit) throw new Error('Only one marketsubcription per 1 seconds.')
-    //await api.redis.SET(
-    //  redisRateLimitKey,
-    //  '1',
-    //  { EX: 1 }
-    //)
-
     const marketSummary: ZZMarketSummary = (await api.getMarketSummarys(
       chainId,
       [market]
