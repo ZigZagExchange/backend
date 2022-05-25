@@ -38,3 +38,29 @@ export function getNetwork (chainId: number) {
     default: throw new Error('No valid chainId')
   }
 }
+
+export async function hFetchRedis (redis: any, match: string) {
+  const result: any = {}
+  const iteratorParams: any = {
+    MATCH: match,
+    COUNT: 20
+  }
+  // eslint-disable-next-line no-restricted-syntax
+  for await (const { field, value } of redis.hScanIterator('hash', iteratorParams)) {
+    result[field] = value
+  }
+  return result
+}
+
+export async function sFetchRedis (redis: any, match: string) {
+  const result: any = []
+  const iteratorParams: any = {
+    MATCH: match,
+    COUNT: 20
+  }
+  // eslint-disable-next-line no-restricted-syntax
+  for await (const member of redis.sScanIterator('set', iteratorParams)) {
+    result.push(member)
+  }
+  return result
+}

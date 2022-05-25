@@ -23,10 +23,12 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
-import { 
+import {
   formatPrice,
   stringToFelt,
-  getNetwork
+  getNetwork,
+  sFetchRedis,
+  hFetchRedis
 } from 'src/utils'
 
 export default class API extends EventEmitter {
@@ -1875,11 +1877,12 @@ export default class API extends EventEmitter {
         priceInfo.baseVolume
       ]
     }
+        
     // fetch all active markets if none is requested
     if (markets.length === 0) {
-      markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      markets = await sFetchRedis(this.redis, `activemarkets:${chainId}`)
     }
-    const redisPriceInfo = await this.redis.HGETALL(redisKeyPriceInfo)
+    const redisPriceInfo = await hFetchRedis(this.redis, redisKeyPriceInfo)
     const lastprices: any[] = []
     for (let i = 0; i < markets.length; i++) {
       const redisString = redisPriceInfo[markets[i]]
@@ -1917,10 +1920,10 @@ export default class API extends EventEmitter {
 
     // fetch all active markets if none is requested
     if (markets.length === 0) {
-      markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      markets = await sFetchRedis(this.redis, `activemarkets:${chainId}`)
     }
 
-    const redisMarketSummarys = await this.redis.HGETALL(redisKeyMarketSummary)
+    const redisMarketSummarys = await hFetchRedis(this.redis, redisKeyMarketSummary)
     for (let i = 0; i < markets.length; i++) {
       const marketId: ZZMarket = markets[i]
       const redisMarketSummaryString = redisMarketSummarys[marketId]
@@ -2086,26 +2089,29 @@ export default class API extends EventEmitter {
     const numberUsers = Object.keys(this.USER_CONNECTIONS).length
     const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
     console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
-    ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
-      if (!ws.isAlive) {
-        const userconnkey = `${ws.chainid}:${ws.userid}`
-        delete this.USER_CONNECTIONS[userconnkey]
-        delete this.MAKER_CONNECTIONS[userconnkey]
-        ws.terminate()
-      } else {
-        ws.isAlive = false
-        ws.ping()
-      }
-    })
+      ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
+        if (!ws.isAlive) {
+          const userconnkey = `${ws.chainid}:${ws.userid}`
+          delete this.USER_CONNECTIONS[userconnkey]
+          delete this.MAKER_CONNECTIONS[userconnkey]
+          ws.terminate()
+        } else {
+          ws.isAlive = false
+          ws.ping()
+        }
+      })
 
     console.log(`${this.wss.clients.size} active connections.`)
   }
 
   broadcastLiquidity = async () => {
     const result = this.VALID_CHAINS.map(async (chainId) => {
-      const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
-      if (!markets || markets.length === 0) return
-      const results: Promise<any>[] = markets.map(async (marketId) => {
+      const iteratorParams: any = {
+        MATCH: `activemarkets:${chainId}`,
+        COUNT: 20
+      }
+      // eslint-disable-next-line no-restricted-syntax
+      for await (const marketId of this.redis.sScanIterator('set', iteratorParams)) {
         const liquidity = await this.getLiquidity(chainId, marketId)
         if (liquidity.length === 0) {
           await this.redis.SREM(`activemarkets:${chainId}`, marketId)
@@ -2116,20 +2122,17 @@ export default class API extends EventEmitter {
           marketId,
           JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
         )
-      })
 
-      // Broadcast last prices
-      const lastprices = (await this.getLastPrices(chainId)).map((l) =>
-        l.splice(0, 3)
-      )
-      this.broadcastMessage(
-        chainId,
-        'all',
-        JSON.stringify({ op: 'lastprice', args: [lastprices] })
-      )
-
-      // eslint-disable-next-line consistent-return
-      return Promise.all(results)
+        // Broadcast last prices
+        const lastprices = (await this.getLastPrices(chainId)).map((l) =>
+          l.splice(0, 3)
+        )
+        this.broadcastMessage(
+          chainId,
+          'all',
+          JSON.stringify({ op: 'lastprice', args: [lastprices] })
+        )
+      }
     })
 
     return Promise.all(result)
@@ -2156,7 +2159,7 @@ export default class API extends EventEmitter {
     const [baseToken, quoteToken] = market.split('-')
     const basePrice = await this.getUsdPrice(chainId, baseToken)
     const quotePrice = await this.getUsdPrice(chainId, quoteToken)
-    const midPrice = (basePrice && quotePrice)
+    const midPrice = (basePrice > 0 && quotePrice > 0)
       ? basePrice / quotePrice
       : 0
     const minSize = (basePrice) ? (10 / basePrice) : marketInfo.baseFee
@@ -2233,8 +2236,6 @@ export default class API extends EventEmitter {
         console.log(redisMembers)
         throw new Error(`Unexpected error: ${e.message}`)
       }
-    } else {
-      throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
@@ -2321,5 +2322,5 @@ export default class API extends EventEmitter {
       return Number(tokenInfo.usdPrice)
     }
     return 0
-  }  
+  }
 }
