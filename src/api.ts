@@ -702,10 +702,6 @@ export default class API extends EventEmitter {
       `broadcastmsg:all:${chainId}:${market}`,
       JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
     )
-    this.redisPublisher.PUBLISH(
-      `broadcastmsg:user:${chainId}:${userid}`,
-      JSON.stringify({ op: 'userorderack', args: orderreceipt })
-    )
 
     return { op: 'userorderack', args: orderreceipt }
   }
