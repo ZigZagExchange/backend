@@ -530,6 +530,7 @@ async function removeOldLiquidity() {
     })
     await Promise.all(results1)
   })
+  await Promise.all(results0)
   console.timeEnd("removeOldLiquidity")
 }
 
