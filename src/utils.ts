@@ -46,8 +46,8 @@ export async function hFetchRedis (redis: any, match: string) {
     COUNT: 20
   }
   // eslint-disable-next-line no-restricted-syntax
-  for await (const key of redis.hScanIterator(iteratorParams)) {
-    result[key.field] = key.value
+  for await (const { field, value } of redis.hScanIterator('hash', iteratorParams)) {
+    result[field] = value
   }
   return result
 }

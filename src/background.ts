@@ -2,7 +2,7 @@ import fetch from 'isomorphic-fetch'
 import * as zksync from 'zksync'
 import { redis, publisher } from './redisClient'
 import db from './db'
-import { 
+import {
   formatPrice,
   getNetwork,
   hFetchRedis,
@@ -179,9 +179,9 @@ async function updateLastPrices() {
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
 
-    const redisPrices = await hFetchRedis(redis,`lastprices:${chainId}`)
-    const redisPricesQuote = await hFetchRedis(redis,`volume:${chainId}:quote`)
-    const redisVolumesBase = await hFetchRedis(redis,`volume:${chainId}:base`)
+    const redisPrices = await hFetchRedis(redis, `lastprices:${chainId}`)
+    const redisPricesQuote = await hFetchRedis(redis, `volume:${chainId}:quote`)
+    const redisVolumesBase = await hFetchRedis(redis, `volume:${chainId}:base`)
 
     const iteratorParams: any = {
       MATCH: `activemarkets:${chainId}`,
@@ -252,11 +252,11 @@ async function updateMarketSummarys() {
 
     // fetch needed data
     const redisVolumesQuote = await hFetchRedis(redis, `volume:${chainId}:quote`)
-    const redisVolumesBase = await hFetchRedis(redis,`volume:${chainId}:base`)
-    const redisPrices = await hFetchRedis(redis,`lastprices:${chainId}`)
-    const redisPricesLow = await hFetchRedis(redis,`price:${chainId}:low`)
-    const redisPricesHigh = await hFetchRedis(redis,`price:${chainId}:high`)
-    
+    const redisVolumesBase = await hFetchRedis(redis, `volume:${chainId}:base`)
+    const redisPrices = await hFetchRedis(redis, `lastprices:${chainId}`)
+    const redisPricesLow = await hFetchRedis(redis, `price:${chainId}:low`)
+    const redisPricesHigh = await hFetchRedis(redis, `price:${chainId}:high`)
+
     const iteratorParams: any = {
       MATCH: `activemarkets:${chainId}`,
       COUNT: 20
@@ -329,7 +329,7 @@ async function updateUsdPrice() {
     const updatedTokenPrice: any = {}
     // fetch redis 
     const markets = await sFetchRedis(redis, `activemarkets:${chainId}`)
-    const tokenInfos = await hFetchRedis(redis,`tokeninfo:${chainId}`)
+    const tokenInfos = await hFetchRedis(redis, `tokeninfo:${chainId}`)
     // get active tokens once
     let tokenSymbols = markets.join('-').split('-')
     tokenSymbols = tokenSymbols.filter((x: any, i: any) => i === tokenSymbols.indexOf(x))
@@ -360,9 +360,9 @@ async function updateUsdPrice() {
       COUNT: 20
     }
     // eslint-disable-next-line no-restricted-syntax
-    for await (const key of redis.hScanIterator(iteratorParams)) {
-      const marketInfoString = key.value
-      const market = key.field
+    for await (const { field, value } of redis.hScanIterator('hash', iteratorParams)) {
+      const marketInfoString = value
+      const market = field
       if (!marketInfoString || !market) return
       const marketInfo = JSON.parse(marketInfoString)
       marketInfo.baseAsset.usdPrice = Number(
@@ -393,7 +393,7 @@ async function updateFeesZkSync() {
     const newFees: any = {}
     const network = getNetwork(chainId)
     // get redis cache
-    const tokenInfos: any = await hFetchRedis(redis,`tokeninfo:${chainId}`)
+    const tokenInfos: any = await hFetchRedis(redis, `tokeninfo:${chainId}`)
     const markets = await sFetchRedis(redis, `activemarkets:${chainId}`)
     // get every token form activemarkets once
     let tokenSymbols = markets.join('-').split('-')
@@ -458,9 +458,9 @@ async function updateFeesZkSync() {
       COUNT: 20
     }
     // eslint-disable-next-line no-restricted-syntax
-    for await (const key of redis.hScanIterator(iteratorParams)) {
-      const marketInfoString = key.value
-      const market = key.field
+    for await (const { field, value } of redis.hScanIterator('hash', iteratorParams)) {
+      const marketInfoString = value
+      const market = field
       if (!marketInfoString || !market) return
       const marketInfo = JSON.parse(marketInfoString)
       const newBaseFee = newFees[marketInfo.baseAsset.symbol]
