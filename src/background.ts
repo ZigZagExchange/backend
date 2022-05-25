@@ -4,12 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { redis, publisher } from './redisClient'
 import db from './db'
-import {
-  formatPrice,
-  getNetwork,
-  hFetchRedis,
-  sFetchRedis
-} from './utils'
+import { formatPrice, getNetwork } from './utils'
 import type {
   ZZMarketInfo,
   AnyObject,
@@ -50,7 +45,7 @@ async function updatePriceHighLow() {
 
   // delete inactive markets
   VALID_CHAINS.forEach(async (chainId) => {
-    const markets = await sFetchRedis(redis, `activemarkets:${chainId}`)
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const priceKeysLow = await redis.HKEYS(`price:${chainId}:low`)
     const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
     delKeysLow.forEach(async (key) => {
@@ -181,16 +176,12 @@ async function updateLastPrices() {
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
 
-    const redisPrices = await hFetchRedis(redis, `lastprices:${chainId}`)
-    const redisPricesQuote = await hFetchRedis(redis, `volume:${chainId}:quote`)
-    const redisVolumesBase = await hFetchRedis(redis, `volume:${chainId}:base`)
+    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
+    const redisPricesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
+    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
 
-    const iteratorParams: any = {
-      MATCH: `activemarkets:${chainId}`,
-      COUNT: 20
-    }
-    // eslint-disable-next-line no-restricted-syntax
-    for await (const marketId of redis.sScanIterator('set', iteratorParams)) {
+    const results1: Promise<any>[] = markets.map(async (marketId) => {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(() => null)
       if (!marketInfo) return
       const lastPriceInfo: any = {}
@@ -212,7 +203,8 @@ async function updateLastPrices() {
         marketId,
         JSON.stringify(lastPriceInfo)
       )
-    }
+    })
+    await Promise.all(results1)
   })
   await Promise.all(results0)
   console.timeEnd("updateLastPrices")
@@ -253,18 +245,14 @@ async function updateMarketSummarys() {
     const redisKeyMarketSummary = `marketsummary:${chainId}`
 
     // fetch needed data
-    const redisVolumesQuote = await hFetchRedis(redis, `volume:${chainId}:quote`)
-    const redisVolumesBase = await hFetchRedis(redis, `volume:${chainId}:base`)
-    const redisPrices = await hFetchRedis(redis, `lastprices:${chainId}`)
-    const redisPricesLow = await hFetchRedis(redis, `price:${chainId}:low`)
-    const redisPricesHigh = await hFetchRedis(redis, `price:${chainId}:high`)
+    const redisVolumesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
+    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
+    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
+    const redisPricesLow = await redis.HGETALL(`price:${chainId}:low`)
+    const redisPricesHigh = await redis.HGETALL(`price:${chainId}:high`)
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
 
-    const iteratorParams: any = {
-      MATCH: `activemarkets:${chainId}`,
-      COUNT: 20
-    }
-    // eslint-disable-next-line no-restricted-syntax
-    for await (const marketId of redis.sScanIterator('set', iteratorParams)) {
+    const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(() => null)
       if (!marketInfo) return
       const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
@@ -315,7 +303,8 @@ async function updateMarketSummarys() {
         marketId,
         JSON.stringify(marketSummary)
       )
-    }
+    })
+    await Promise.all(results1)
   })
   await Promise.all(results0)
 
@@ -326,15 +315,15 @@ async function updateUsdPrice() {
   console.time("Updating usd price.")
 
   // use mainnet as price source TODO we should rework the price source to work with multible networks
-  const network = getNetwork(1)
+  const network = await getNetwork(1)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const updatedTokenPrice: any = {}
     // fetch redis 
-    const markets = await sFetchRedis(redis, `activemarkets:${chainId}`)
-    const tokenInfos = await hFetchRedis(redis, `tokeninfo:${chainId}`)
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
     // get active tokens once
     let tokenSymbols = markets.join('-').split('-')
-    tokenSymbols = tokenSymbols.filter((x: any, i: any) => i === tokenSymbols.indexOf(x))
+    tokenSymbols = tokenSymbols.filter((x, i) => i === tokenSymbols.indexOf(x))
     const results1: Promise<any>[] = tokenSymbols.map(async (token: string) => {
       const tokenInfoString = tokenInfos[token]
       if (!tokenInfoString) return
@@ -357,16 +346,10 @@ async function updateUsdPrice() {
     })
     await Promise.all(results1)
 
-    const iteratorParams: any = {
-      MATCH: `marketinfo:${chainId}`,
-      COUNT: 20
-    }
-    // eslint-disable-next-line no-restricted-syntax
-    for await (const { field, value } of redis.hScanIterator('hash', iteratorParams)) {
-      const marketInfoString = value
-      const market = field
-      if (!marketInfoString || !market) return
-      const marketInfo = JSON.parse(marketInfoString)
+    const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+    const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+      if (!marketInfos[market]) return
+      const marketInfo = JSON.parse(marketInfos[market])
       marketInfo.baseAsset.usdPrice = Number(
         formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])
       )
@@ -382,7 +365,8 @@ async function updateUsdPrice() {
         `broadcastmsg:all:${chainId}:${market}`,
         JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
       )
-    }
+    })
+    await Promise.all(results2)
   })
   await Promise.all(results0)
   console.timeEnd("Updating usd price.")
@@ -395,11 +379,11 @@ async function updateFeesZkSync() {
     const newFees: any = {}
     const network = getNetwork(chainId)
     // get redis cache
-    const tokenInfos: any = await hFetchRedis(redis, `tokeninfo:${chainId}`)
-    const markets = await sFetchRedis(redis, `activemarkets:${chainId}`)
+    const tokenInfos: any = await redis.HGETALL(`tokeninfo:${chainId}`)
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     // get every token form activemarkets once
     let tokenSymbols = markets.join('-').split('-')
-    tokenSymbols = tokenSymbols.filter((x: any, i: any) => i === tokenSymbols.indexOf(x))
+    tokenSymbols = tokenSymbols.filter((x, i) => i === tokenSymbols.indexOf(x))
     // update fee for each
     const results1: Promise<any>[] = tokenSymbols.map(async (tokenSymbol: string) => {
       let fee = 0
@@ -454,17 +438,10 @@ async function updateFeesZkSync() {
     await Promise.all(results1)
 
     // check if fee's have changed
-
-    const iteratorParams: any = {
-      MATCH: `marketinfo:${chainId}`,
-      COUNT: 20
-    }
-    // eslint-disable-next-line no-restricted-syntax
-    for await (const { field, value } of redis.hScanIterator('hash', iteratorParams)) {
-      const marketInfoString = value
-      const market = field
-      if (!marketInfoString || !market) return
-      const marketInfo = JSON.parse(marketInfoString)
+    const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+    const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+      if (!marketInfos[market]) return
+      const marketInfo = JSON.parse(marketInfos[market])
       const newBaseFee = newFees[marketInfo.baseAsset.symbol]
       const newQuoteFee = newFees[marketInfo.quoteAsset.symbol]
       let updated = false
@@ -487,7 +464,8 @@ async function updateFeesZkSync() {
           JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
         )
       }
-    }
+    })
+    await Promise.all(results2)
   })
   await Promise.all(results0)
   console.timeEnd("Update fees")
@@ -498,12 +476,8 @@ async function removeOldLiquidity() {
 
   const now = (Date.now() / 1000 | 0 + oldLiquidityTime)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
-    const iteratorParams: any = {
-      MATCH: `activemarkets:${chainId}`,
-      COUNT: 20
-    }
-    // eslint-disable-next-line no-restricted-syntax
-    for await (const marketId of redis.sScanIterator('set', iteratorParams)) {
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const results1: Promise<any>[] = markets.map(async (marketId) => {
       const redisKeyLiquidity = `liquidity:${chainId}:${marketId}`
 
       const liquidityList = await redis.ZRANGEBYSCORE(
@@ -545,7 +519,9 @@ async function removeOldLiquidity() {
         marketId,
         formatPrice(mid)
       )
-    }
+
+    })
+    await Promise.all(results1)
   })
   await Promise.all(results0)
   console.timeEnd("removeOldLiquidity")
