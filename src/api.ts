@@ -2211,6 +2211,7 @@ export default class API extends EventEmitter {
       } else if (Number.isNaN(amount)) {
         errorMsg.push('Amount is not a number')
       } else if (amount < minSize) {
+        // don't show this error to users
         // errorMsg.push('Amount to small')
       } else if (
         midPrice &&
@@ -2244,7 +2245,8 @@ export default class API extends EventEmitter {
         throw new Error(`Unexpected error: ${e.message}`)
       }
     } else {
-      throw new Error('No valid liquidity send')
+      // Users don't like seeing that their liquidity isn't working so disable this
+      //throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
