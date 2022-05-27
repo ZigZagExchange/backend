@@ -550,7 +550,11 @@ async function removeOldLiquidity() {
 
       // Store 100 best bids and asks per market
       const bestLiquidity = asks.concat(bids)
-      redis.SET(`bestliquidity:${chainId}:${marketId}`, JSON.stringify(bestLiquidity))
+      redis.SET(
+        `bestliquidity:${chainId}:${marketId}`,
+        JSON.stringify(bestLiquidity),
+        { EX: oldLiquidityTime * 2 }        
+      )
     })
     await Promise.all(results1)
   })
