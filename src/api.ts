@@ -1711,6 +1711,16 @@ export default class API extends EventEmitter {
     return liquidity
   }
 
+  getSnapshotLiquidity = async (
+    chainId: number,
+    market: ZZMarket
+  ) => {
+    const redisKeyLiquidity =`bestliquidity:${chainId}:${market}`
+    const liquidityString = await this.redis.GET(redisKeyLiquidity)
+    const liquidity = liquidityString ? JSON.parse(liquidityString) : []
+    return liquidity
+  }
+
   getopenorders = async (chainId: number, market: string) => {
     chainId = Number(chainId)
     const query = {

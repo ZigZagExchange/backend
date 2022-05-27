@@ -12,6 +12,8 @@ import type {
   ZZMarketSummary
 } from './types'
 
+const NUMBER_OF_SNAPSHOT_POSITIONS = 100
+
 const VALID_CHAINS: number[] = [1, 1000, 1001]
 const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
 const ZKSYNC_BASE_URL: any = {}
@@ -489,35 +491,57 @@ async function removeOldLiquidity() {
         '1000000'
       )
 
-      const marketLiquidity = []
-      for (let i = 0; i < liquidityList.length; i++) {
+      const uniqueAsk: any = {}
+      const uniqueBuy: any = {}
+      for (let i = 0; i < liquidityList.length; i++) {        
         const liquidityString = liquidityList[i]
         const liquidity = JSON.parse(liquidityString)
-        marketLiquidity.push(liquidity)
+        const price = Number(liquidity[1])
+        const amount = Number(liquidity[2])
         const expiration = Number(liquidity[3])
+
+        // remove old liquidty
         if (Number.isNaN(expiration) || expiration < now) {
           redis.ZREM(redisKeyLiquidity, liquidityString)
         }
+
+        // merge positions in object
+        if (liquidity[0] === 'b') {
+          uniqueBuy[price] = (uniqueBuy[price]) ? uniqueBuy[price] + amount : amount
+        } else {
+          uniqueAsk[price] = (uniqueAsk[price]) ? uniqueAsk[price] + amount : amount
+        }
       }
 
+      // sort ask and bid keys
+      const askSet = [...new Set(Object.keys(uniqueAsk))]
+      const buySet = [...new Set(Object.keys(uniqueBuy))]
+      const lenghtAsks = (askSet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
+        ? buySet.length 
+        : NUMBER_OF_SNAPSHOT_POSITIONS
+      const lengthBids = (buySet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
+        ? askSet.length 
+        : NUMBER_OF_SNAPSHOT_POSITIONS
+      const asks = new Array(lenghtAsks)
+      const bids = new Array(lengthBids)
+
       // Update last price 
-      // Only use 100 best bids and asks
-      const asks = marketLiquidity.filter((l) => l[0] === 's').slice(0,100)
-      const bids = marketLiquidity.filter((l) => l[0] === 'b').slice(-100)
-      if (asks.length === 0 || bids.length === 0) return
       let askPrice = 0
-      let askVolume = 0
+      let askAmount = 0
       let bidPrice = 0
-      let bidVolume = 0
-      asks.forEach(ask => {
-        askPrice += (+ask[1] * +ask[2])
-        askVolume += +ask[2]
-      })
-      bids.forEach(bid => {
-        bidPrice += (+bid[1] * +bid[2])
-        bidVolume += +bid[2]
-      })
-      const mid = (askPrice / askVolume + bidPrice / bidVolume) / 2
+      let bidAmount = 0
+      for(let i = 0; i < lenghtAsks; i++) {
+        askPrice += (+askSet[i]) * uniqueAsk[askSet[i]]
+        askAmount += uniqueAsk[askSet[i]]
+        asks[i] = [askSet[i], uniqueAsk[askSet[i]]]
+      }
+      for(let i = 1; i <= lengthBids; i++) { 
+        bidPrice += (+buySet[buySet.length - i]) * uniqueBuy[buySet[buySet.length - i]]
+        bidAmount += uniqueBuy[buySet[buySet.length - i]]
+        bids[i - 1] = [buySet[buySet.length - i], uniqueBuy[buySet[buySet.length - i]]]
+      }
+      const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
+
       redis.HSET(
         `lastprices:${chainId}`,
         marketId,
