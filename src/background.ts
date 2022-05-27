@@ -502,8 +502,8 @@ async function removeOldLiquidity() {
 
       // Update last price 
       // Only use 100 best bids and asks
-      const asks = marketLiquidity.filter((l) => l[0] === 's').slice(0,100);
-      const bids = marketLiquidity.filter((l) => l[0] === 'b').slice(-100);
+      const asks = marketLiquidity.filter((l) => l[0] === 's').slice(0,100)
+      const bids = marketLiquidity.filter((l) => l[0] === 'b').slice(-100)
       if (asks.length === 0 || bids.length === 0) return
       let askPrice = 0
       let askVolume = 0
@@ -535,15 +535,15 @@ async function removeOldLiquidity() {
 }
 
 async function runDbMigration() {
-    console.log("running db migration");
+    console.log("running db migration")
     const migration = fs.readFileSync(path.join(__dirname, '../schema.sql'), 'utf8')
     db.query(migration).catch(console.error)
 }
 
 async function start() {
-  await redis.connect();
-  await publisher.connect();
-  //await runDbMigration();
+  await redis.connect()
+  await publisher.connect()
+  //await runDbMigration()
 
   console.log("background.ts: Starting Update Functions")
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
