@@ -2216,7 +2216,7 @@ export default class API extends EventEmitter {
 
         // Set new liquidity
         redisMembers.push({
-          score: l[1],
+          score: formatPrice(price),
           value: JSON.stringify(l),
         })
       }
