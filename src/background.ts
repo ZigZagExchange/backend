@@ -558,11 +558,14 @@ async function removeOldLiquidity() {
       }
       const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
 
-      redis.HSET(
-        `lastprices:${chainId}`,
-        marketId,
-        formatPrice(mid)
-      )
+      // only update is valid mid price
+      if (!Number.isNaN(mid) && mid > 0) {
+        redis.HSET(
+          `lastprices:${chainId}`,
+          marketId,
+          formatPrice(mid)
+        )
+      }      
 
       // Store 100 best bids and asks per market
       const bestLiquidity = asks.concat(bids)
