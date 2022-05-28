@@ -491,6 +491,12 @@ async function removeOldLiquidity() {
         '1000000'
       )
 
+      // remove from activemarkets if no liquidity exists
+      if (liquidityList.length === 0) { 
+        redis.SREM(`activemarkets:${chainId}`, marketId)
+        return
+      }
+
       const uniqueAsk: any = {}
       const uniqueBuy: any = {}
       for (let i = 0; i < liquidityList.length; i++) {        
