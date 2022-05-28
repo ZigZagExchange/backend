@@ -491,6 +491,12 @@ async function removeOldLiquidity() {
         '1000000'
       )
 
+      // remove from activemarkets if no liquidity exists
+      if (liquidityList.length === 0) { 
+        redis.SREM(`activemarkets:${chainId}`, marketId)
+        return
+      }
+
       const uniqueAsk: any = {}
       const uniqueBuy: any = {}
       for (let i = 0; i < liquidityList.length; i++) {        
@@ -552,11 +558,14 @@ async function removeOldLiquidity() {
       }
       const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
 
-      redis.HSET(
-        `lastprices:${chainId}`,
-        marketId,
-        formatPrice(mid)
-      )
+      // only update is valid mid price
+      if (!Number.isNaN(mid) && mid > 0) {
+        redis.HSET(
+          `lastprices:${chainId}`,
+          marketId,
+          formatPrice(mid)
+        )
+      }      
 
       // Store 100 best bids and asks per market
       const bestLiquidity = asks.concat(bids)
