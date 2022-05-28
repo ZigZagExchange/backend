@@ -535,8 +535,8 @@ async function removeOldLiquidity() {
         askAmount += uniqueAsk[askSet[i]]
         asks[i] = [
           's',
-          askSet[i],
-          uniqueAsk[askSet[i]],
+          Number(askSet[i]),
+          Number(uniqueAsk[askSet[i]]),
           oldLiquidityTime * 2
         ]
       }
@@ -545,8 +545,8 @@ async function removeOldLiquidity() {
         bidAmount += uniqueBuy[bidSet[bidSet.length - i]]
         bids[i - 1] = [
           'b',
-          bidSet[bidSet.length - i],
-          uniqueBuy[bidSet[bidSet.length - i]],
+          Number(bidSet[bidSet.length - i]),
+          Number(uniqueBuy[bidSet[bidSet.length - i]]),
           oldLiquidityTime * 2
         ]
       }
