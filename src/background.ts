@@ -533,12 +533,22 @@ async function removeOldLiquidity() {
       for(let i = 0; i < lenghtAsks; i++) {
         askPrice += (+askSet[i]) * uniqueAsk[askSet[i]]
         askAmount += uniqueAsk[askSet[i]]
-        asks[i] = [askSet[i], uniqueAsk[askSet[i]]]
+        asks[i] = [
+          's',
+          askSet[i],
+          uniqueAsk[askSet[i]],
+          oldLiquidityTime * 2
+        ]
       }
       for(let i = 1; i <= lengthBids; i++) { 
         bidPrice += (+buySet[buySet.length - i]) * uniqueBuy[buySet[buySet.length - i]]
         bidAmount += uniqueBuy[buySet[buySet.length - i]]
-        bids[i - 1] = [buySet[buySet.length - i], uniqueBuy[buySet[buySet.length - i]]]
+        bids[i - 1] = [
+          'b',
+          buySet[buySet.length - i],
+          uniqueBuy[buySet[buySet.length - i]],
+          oldLiquidityTime * 2
+        ]
       }
       const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
 

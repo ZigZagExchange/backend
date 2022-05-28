@@ -58,14 +58,7 @@ export const subscribemarket: ZZServiceHandler = async (
     ws.send(JSON.stringify({ op: 'fills', args: [fills] }))
 
     // Send a fast snapshot of liquidity
-    const liquidityString = await api.redis.GET(`bestliquidity:${chainId}:${market}`)
-    let liquidity;
-    if (liquidityString) {
-        liquidity = JSON.parse(liquidityString);
-    }
-    else {
-        liquidity = [];
-    }
+    const liquidity = await api.getSnapshotLiquidity(chainId, market)
     ws.send(
       JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
     )
