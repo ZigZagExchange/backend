@@ -515,12 +515,12 @@ async function removeOldLiquidity() {
 
       // sort ask and bid keys
       const askSet = [...new Set(Object.keys(uniqueAsk))]
-      const buySet = [...new Set(Object.keys(uniqueBuy))]
+      const bidSet = [...new Set(Object.keys(uniqueBuy))]
       const lenghtAsks = (askSet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
-        ? buySet.length 
-        : NUMBER_OF_SNAPSHOT_POSITIONS
-      const lengthBids = (buySet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
         ? askSet.length 
+        : NUMBER_OF_SNAPSHOT_POSITIONS
+      const lengthBids = (bidSet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
+        ? bidSet.length 
         : NUMBER_OF_SNAPSHOT_POSITIONS
       const asks = new Array(lenghtAsks)
       const bids = new Array(lengthBids)
@@ -541,12 +541,12 @@ async function removeOldLiquidity() {
         ]
       }
       for(let i = 1; i <= lengthBids; i++) { 
-        bidPrice += (+buySet[buySet.length - i]) * uniqueBuy[buySet[buySet.length - i]]
-        bidAmount += uniqueBuy[buySet[buySet.length - i]]
+        bidPrice += (+bidSet[bidSet.length - i]) * uniqueBuy[bidSet[bidSet.length - i]]
+        bidAmount += uniqueBuy[bidSet[bidSet.length - i]]
         bids[i - 1] = [
           'b',
-          buySet[buySet.length - i],
-          uniqueBuy[buySet[buySet.length - i]],
+          bidSet[bidSet.length - i],
+          uniqueBuy[bidSet[bidSet.length - i]],
           oldLiquidityTime * 2
         ]
       }
