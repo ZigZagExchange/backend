@@ -1711,6 +1711,16 @@ export default class API extends EventEmitter {
     return liquidity
   }
 
+  getSnapshotLiquidity = async (
+    chainId: number,
+    market: ZZMarket
+  ) => {
+    const redisKeyLiquidity =`bestliquidity:${chainId}:${market}`
+    const liquidityString = await this.redis.GET(redisKeyLiquidity)
+    const liquidity = liquidityString ? JSON.parse(liquidityString) : []
+    return liquidity
+  }
+
   getopenorders = async (chainId: number, market: string) => {
     chainId = Number(chainId)
     const query = {
@@ -2106,12 +2116,12 @@ export default class API extends EventEmitter {
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
       if (!markets || markets.length === 0) return
       const results: Promise<any>[] = markets.map(async (marketId) => {
-        const liquidity = await this.redis.GET(`bestliquidity:${chainId}:${marketId}`);
+        const liquidity = await this.getSnapshotLiquidity(chainId, marketId)
         if (liquidity) {
             this.broadcastMessage(
               chainId,
               marketId,
-              JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, JSON.parse(liquidity)] })
+              JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
             )
         }
       })
@@ -2202,7 +2212,7 @@ export default class API extends EventEmitter {
         errorMsg.push('Amount is not a number')
       } else if (amount < minSize) {
         // don't show this error to users
-        //errorMsg.push('Amount to small')
+        // errorMsg.push('Amount to small')
       } else if (
         midPrice &&
         (price < midPrice * 0.25 || price > midPrice * 1.75)
@@ -2217,7 +2227,7 @@ export default class API extends EventEmitter {
 
         // Set new liquidity
         redisMembers.push({
-          score: l[1],
+          score: formatPrice(price),
           value: JSON.stringify(l),
         })
       }
