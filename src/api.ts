@@ -93,6 +93,7 @@ export default class API extends EventEmitter {
 
   start = async (port: number) => {
     if (this.started) return
+    this.started = true;
 
     await this.redis.connect()
     await this.redisSubscriber.connect()
