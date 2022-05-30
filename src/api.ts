@@ -172,7 +172,7 @@ export default class API extends EventEmitter {
 
     // some randomness to stagger updates between dynos
     this.watchers = [
-      setInterval(this.clearDeadConnections, 60000),
+      setInterval(this.clearDeadConnections, 30000),
       // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 5000),
     ]
