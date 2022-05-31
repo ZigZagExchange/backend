@@ -2150,7 +2150,7 @@ export default class API extends EventEmitter {
     liquidity: any[],
     clientId: string
   ) => {
-    const FOUR_SECONDS = ((Date.now() / 1000) | 0) + 4
+    const NINE_SECONDS = ((Date.now() / 1000) | 0) + 9
     const marketInfo = await this.getMarketInfo(market, chainId)
 
     const redisKeyPassive = `passivews:${chainId}:${clientId}`
@@ -2221,8 +2221,8 @@ export default class API extends EventEmitter {
         errorMsg.push('Your price is too far from the mid Price')
       } else {
         // Add expirations to liquidity if needed
-        if (!l[3] || Number(l[3]) > FOUR_SECONDS) {
-          l[3] = FOUR_SECONDS
+        if (!l[3] || Number(l[3]) > NINE_SECONDS) {
+          l[3] = NINE_SECONDS
         }
         if (clientId) l[4] = clientId
 
