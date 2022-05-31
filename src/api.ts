@@ -1698,16 +1698,12 @@ export default class API extends EventEmitter {
     chainId: number,
     market: ZZMarket
   ) => {
-    const redisKeyLiquidity = `liquidity:${chainId}:${market}`
-    const liquidityList = await this.redis.ZRANGEBYSCORE(
-      redisKeyLiquidity,
-      '0',
-      '1000000'
-    )
+    const redisKeyLiquidity = `liquidity2:${chainId}:${market}`
+    const liquidityList = await this.redis.HGETALL(redisKeyLiquidity)
     const liquidity: string[] = []
-    for (let i = 0; i < liquidityList.length; i++) {
-      const liquidityPosition = JSON.parse(liquidityList[i])
-      liquidity.push(liquidityPosition)
+    for (let clientId in liquidityList) {
+      const liquidityPosition = JSON.parse(liquidityList[clientId])
+      liquidity.push(...liquidityPosition)
     }
     return liquidity
   }
@@ -2172,28 +2168,7 @@ export default class API extends EventEmitter {
     // $100 min size
     const minSize = (basePrice) ? (100 / basePrice) : marketInfo.baseFee
 
-    const redisKeyLiquidity = `liquidity:${chainId}:${market}`
-
-    // Turn off this expensive operation
-    // Delete old liquidity by same client
-    //if (clientId) {
-    //  const oldLiquidity = await this.redis.ZRANGEBYSCORE(
-    //    redisKeyLiquidity,
-    //    '0',
-    //    '1000000'
-    //  )
-    //  const lenght = Object.keys(oldLiquidity).length
-    //  for (let i = 0; i < lenght; i++) {
-    //    const liquidityString = oldLiquidity[i]
-    //    const liquidityPosition = JSON.parse(liquidityString)
-    //    if (clientId === liquidityPosition[4]?.toString()) {
-    //      this.redis.ZREM(
-    //        redisKeyLiquidity,
-    //        liquidityString
-    //      )
-    //    }
-    //  }
-    //}
+    const redisKeyLiquidity = `liquidity2:${chainId}:${market}`
 
     const errorMsg: string[] = []
     const redisMembers: any[] = []
@@ -2226,17 +2201,14 @@ export default class API extends EventEmitter {
         }
         if (clientId) l[4] = clientId
 
-        // Set new liquidity
-        redisMembers.push({
-          score: formatPrice(price),
-          value: JSON.stringify(l),
-        })
+        // Add to valid liquidity
+        redisMembers.push(l);
       }
     }
 
     if (redisMembers.length > 0) {
       try {
-        await this.redis.ZADD(redisKeyLiquidity, redisMembers)
+        await this.redis.HSET(redisKeyLiquidity, clientId, JSON.stringify(redisMembers))
       } catch (e: any) {
         console.log(`updateLiquidity for ${market}`)
         console.error(e)
