@@ -483,36 +483,29 @@ async function removeOldLiquidity() {
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const redisKeyLiquidity = `liquidity:${chainId}:${marketId}`
-
-      const liquidityList = await redis.ZRANGEBYSCORE(
-        redisKeyLiquidity,
-        '0',
-        '1000000'
-      )
+      const redisKeyLiquidity = `liquidity2:${chainId}:${marketId}`
+      const liquidityList = await redis.HGETALL(redisKeyLiquidity)
+      const liquidity = []
+      for (let clientId in liquidityList) {
+        const liquidityPosition = JSON.parse(liquidityList[clientId])
+        liquidity.push(...liquidityPosition)
+      }
 
       // remove from activemarkets if no liquidity exists
-      if (liquidityList.length === 0) { 
+      if (liquidity.length === 0) { 
         redis.SREM(`activemarkets:${chainId}`, marketId)
         return
       }
 
       const uniqueAsk: any = {}
       const uniqueBuy: any = {}
-      for (let i = 0; i < liquidityList.length; i++) {        
-        const liquidityString = liquidityList[i]
-        const liquidity = JSON.parse(liquidityString)
-        const price = Number(liquidity[1])
-        const amount = Number(liquidity[2])
-        const expiration = Number(liquidity[3])
-
-        // remove old liquidty
-        if (Number.isNaN(expiration) || expiration < now) {
-          redis.ZREM(redisKeyLiquidity, liquidityString)
-        }
+      for (let i = 0; i < liquidity.length; i++) {        
+        const entry = liquidity[i];
+        const price = Number(entry[1])
+        const amount = Number(entry[2])
 
         // merge positions in object
-        if (liquidity[0] === 'b') {
+        if (entry[0] === 'b') {
           uniqueBuy[price] = (uniqueBuy[price]) ? uniqueBuy[price] + amount : amount
         } else {
           uniqueAsk[price] = (uniqueAsk[price]) ? uniqueAsk[price] + amount : amount
@@ -574,6 +567,9 @@ async function removeOldLiquidity() {
         JSON.stringify(bestLiquidity),
         { EX: oldLiquidityTime * 2 }        
       )
+
+      // Clear old liquidity 
+      redis.DEL(redisKeyLiquidity);
     })
     await Promise.all(results1)
   })
