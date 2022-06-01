@@ -1544,7 +1544,7 @@ export default class API extends EventEmitter {
     level = 3
   ) => {
     const timestamp = Date.now()
-    const liquidity = await this.getLiquidity(chainId, market)
+    const liquidity = await this.getSnapshotLiquidity(chainId, market)
     if (liquidity.length === 0) {
       return {
         timestamp,
@@ -1694,6 +1694,9 @@ export default class API extends EventEmitter {
     this.redis.SADD(`activemarkets:${chainId}`, market)
   }
 
+  // The liquidity here gets wiped regularly so it's very unreliable
+  // YOu want to use getSnapshotLiquidity most of the time and it's a 
+  // drop in replacement for this
   getLiquidity = async (
     chainId: number,
     market: ZZMarket
@@ -1985,7 +1988,7 @@ export default class API extends EventEmitter {
       throw new Error('Quantity must be positive')
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const liquidity = await this.getLiquidity(chainId, market)
+    const liquidity = await this.getSnapshotLiquidity(chainId, market)
     if (liquidity.length === 0) throw new Error('No liquidity for pair')
 
     let softQuoteQuantity: any
