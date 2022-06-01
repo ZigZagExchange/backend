@@ -1544,7 +1544,7 @@ export default class API extends EventEmitter {
     level = 3
   ) => {
     const timestamp = Date.now()
-    const liquidity = await this.getSnapshotLiquidity(chainId, market)
+    const liquidity: any[] = await this.getSnapshotLiquidity(chainId, market)
     if (liquidity.length === 0) {
       return {
         timestamp,
@@ -1708,7 +1708,6 @@ export default class API extends EventEmitter {
       const liquidityPosition = JSON.parse(liquidityList[clientId])
       liquidity.push(...liquidityPosition)
     }
-    liquidity.sort((a,b) => a[1] - b[1]);
     return liquidity
   }
 
