@@ -1705,6 +1705,7 @@ export default class API extends EventEmitter {
       const liquidityPosition = JSON.parse(liquidityList[clientId])
       liquidity.push(...liquidityPosition)
     }
+    liquidity.sort((a,b) => a[1] - b[1]);
     return liquidity
   }
 
