@@ -513,8 +513,8 @@ async function removeOldLiquidity() {
       }
 
       // sort ask and bid keys
-      const askSet = [...new Set(Object.keys(uniqueAsk))]
-      const bidSet = [...new Set(Object.keys(uniqueBuy))]
+      const askSet = Object.keys(uniqueAsk).sort((a,b) => Number(a) - Number(b));
+      const bidSet = Object.keys(uniqueBuy).sort((a,b) => Number(b) - Number(a));
       const lenghtAsks = (askSet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
         ? askSet.length 
         : NUMBER_OF_SNAPSHOT_POSITIONS
