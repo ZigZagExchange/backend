@@ -497,6 +497,9 @@ async function removeOldLiquidity() {
         return
       }
 
+      // Sort liquidity
+      liquidity.sort((a,b) => a[1] - b[1]);
+
       const uniqueAsk: any = {}
       const uniqueBuy: any = {}
       for (let i = 0; i < liquidity.length; i++) {        
