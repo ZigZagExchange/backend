@@ -18,7 +18,7 @@ const VALID_CHAINS: number[] = [1, 1000, 1001]
 const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
-const REMOVE_LIQUIDITY_COUNTER: number = 0
+let REMOVE_LIQUIDITY_COUNTER: number = 0
 
 async function getMarketInfo(market: ZZMarket, chainId: number) {
   if (!VALID_CHAINS.includes(chainId) || !market) return null
@@ -214,7 +214,11 @@ async function updateLastPrices() {
 
 async function getBestAskBid(chainId: number, market: ZZMarket) {
   const redisKeyLiquidity = `bestliquidity:${chainId}:${market}`
-  const liquidity = redis.get(redisKeyLiquidity);
+  const liquidityJson = redis.get(redisKeyLiquidity);
+  let liquidity: any[] = []
+  if (!liquidityJson) {
+      liquidity = JSON.parse(liquidityJson);
+  }
 
   // sort for bids and asks
   const bids: number[][] = liquidity
