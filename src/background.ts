@@ -12,13 +12,13 @@ import type {
   ZZMarketSummary
 } from './types'
 
-const NUMBER_OF_SNAPSHOT_POSITIONS = 100
+const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
 const VALID_CHAINS: number[] = [1, 1000, 1001]
 const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
-let oldLiquidityTime = 0
+const REMOVE_LIQUIDITY_COUNTER: number = 0
 
 async function getMarketInfo(market: ZZMarket, chainId: number) {
   if (!VALID_CHAINS.includes(chainId) || !market) return null
@@ -213,17 +213,8 @@ async function updateLastPrices() {
 }
 
 async function getBestAskBid(chainId: number, market: ZZMarket) {
-  const redisKeyLiquidity = `liquidity:${chainId}:${market}`
-  const liquidityList = await redis.ZRANGEBYSCORE(
-    redisKeyLiquidity,
-    '0',
-    '1000000'
-  )
-  const liquidity: string[] = []
-  for (let i = 0; i < liquidityList.length; i++) {
-    const liquidityPosition = JSON.parse(liquidityList[i])
-    liquidity.push(liquidityPosition)
-  }
+  const redisKeyLiquidity = `bestliquidity:${chainId}:${market}`
+  const liquidity = redis.get(redisKeyLiquidity);
 
   // sort for bids and asks
   const bids: number[][] = liquidity
@@ -475,11 +466,10 @@ async function updateFeesZkSync() {
 
 // Removes old liquidity
 // Updates lastprice redis map
-// Sets 100 best bids and asks in a JSON for broadcasting
+// Sets best bids and asks in a JSON for broadcasting
 async function removeOldLiquidity() {
   console.time("removeOldLiquidity")
 
-  const now = (Date.now() / 1000 | 0 + oldLiquidityTime)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
@@ -536,7 +526,6 @@ async function removeOldLiquidity() {
           's',
           Number(askSet[i]),
           Number(uniqueAsk[askSet[i]]),
-          oldLiquidityTime * 2
         ]
       }
       for(let i = 1; i <= lengthBids; i++) { 
@@ -546,7 +535,6 @@ async function removeOldLiquidity() {
           'b',
           Number(bidSet[bidSet.length - i]),
           Number(uniqueBuy[bidSet[bidSet.length - i]]),
-          oldLiquidityTime * 2
         ]
       }
       const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
@@ -560,16 +548,18 @@ async function removeOldLiquidity() {
         )
       }      
 
-      // Store 100 best bids and asks per market
+      // Store best bids and asks per market
       const bestLiquidity = asks.concat(bids)
       redis.SET(
         `bestliquidity:${chainId}:${marketId}`,
         JSON.stringify(bestLiquidity),
-        { EX: oldLiquidityTime * 2 }        
+        { EX: 15 }        
       )
 
-      // Clear old liquidity 
-      redis.DEL(redisKeyLiquidity);
+      // Clear old liquidity every 15 seconds
+      if (++REMOVE_LIQUIDITY_COUNTER % 3 === 0) {
+          redis.DEL(redisKeyLiquidity);
+      }
     })
     await Promise.all(results1)
   })
@@ -594,9 +584,6 @@ async function start() {
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
   SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
 
-  // this set's the interval for the funciton as well [in seconds]
-  oldLiquidityTime = 5
-
   setInterval(updatePriceHighLow, 300000)
   setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)
@@ -604,7 +591,7 @@ async function start() {
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-  setInterval(removeOldLiquidity, (oldLiquidityTime * 1000))
+  setInterval(removeOldLiquidity, 5000);
 }
 
 start()

@@ -194,7 +194,7 @@ export default class API extends EventEmitter {
 
     // reset liquidityKeys
     const removeOldLiquidityPromise: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const liquidityKeys = await this.redis.KEYS(`liquidity:${chainId}:*`)
+      const liquidityKeys = await this.redis.KEYS(`liquidity2:${chainId}:*`)
       liquidityKeys.forEach(async (key) => {
         await this.redis.DEL(key)
       })
