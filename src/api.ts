@@ -1454,6 +1454,7 @@ export default class API extends EventEmitter {
             op: 'error',
             args: [
               'fillrequest',
+              orderId,
               otherMakerAccountId,
               "The Order was filled by better offer"
             ],
