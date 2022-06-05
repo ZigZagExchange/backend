@@ -5,7 +5,6 @@ import { zksyncOrderSchema, ZZMessageSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import * as zksync from 'zksync'
-import { ethers } from 'ethers'
 import * as starknet from 'starknet'
 import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
@@ -42,7 +41,6 @@ export default class API extends EventEmitter {
   VALID_CHAINS: number[] = [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
   VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
-  ERC20_ABI: any
   DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
@@ -93,19 +91,11 @@ export default class API extends EventEmitter {
 
   start = async (port: number) => {
     if (this.started) return
-    this.started = true;
+    this.started = true
 
     await this.redis.connect()
     await this.redisSubscriber.connect()
     await this.redisPublisher.connect()
-
-    // fetch abi's
-    this.ERC20_ABI = JSON.parse(
-      fs.readFileSync(
-        'abi/ERC20.abi',
-        'utf8'
-      )
-    )
 
     const starknetContractABI = JSON.parse(
       fs.readFileSync(
@@ -124,12 +114,6 @@ export default class API extends EventEmitter {
     this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
     this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
-    this.ETHERS_PROVIDER.mainnet =
-      new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
-    this.ETHERS_PROVIDER.rinkeby =
-      new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
-
-    await this.updateTokenInfo()
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string) => {
@@ -171,7 +155,6 @@ export default class API extends EventEmitter {
       }
     })
 
-    // some randomness to stagger updates between dynos
     this.watchers = [
       setInterval(this.clearDeadConnections, 30000),
       // setInterval(this.updatePassiveMM, 10000),
@@ -275,69 +258,6 @@ export default class API extends EventEmitter {
       console.error(`Can't fetch update default marketInfo for ${market}, Error ${err.message}`)
     }
     return marketInfo
-  }
-
-  /**
-   * Used to initialy fetch tokens infos on startup & updated on each recycle
-   * @param chainId 
-   */
-  updateTokenInfo = async (
-    chainId = this.DEFAULT_CHAIN
-  ) => {
-    let index = 0
-    let tokenInfos
-    const network = getNetwork(chainId)
-    do {
-      const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL[network]}tokens?from=${index}&limit=100&direction=newer`).then((r: any) => r.json())
-      tokenInfos = fetchResult.result.list
-      const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
-        const tokenSymbol = tokenInfo.symbol
-        if (!tokenSymbol.includes("ERC20")) {
-          tokenInfo.usdPrice = 0
-          tokenInfo.name = await this.getTokenName(
-            chainId,
-            tokenInfo.address,
-            tokenSymbol
-          )
-          this.redis.HSET(
-            `tokeninfo:${chainId}`,
-            tokenSymbol,
-            JSON.stringify(tokenInfo)
-          )
-        }
-      })
-      await Promise.all(results1)
-      index = tokenInfos[tokenInfos.length - 1].id
-    } while (tokenInfos.length > 99)
-  }
-
-  /**
-   * Get the full token name from L1 ERC20 contract
-   * @param contractAddress 
-   * @param tokenSymbol 
-   * @returns full token name
-   */
-  getTokenName = async (
-    chainId: number,
-    contractAddress: string,
-    tokenSymbol: string
-  ) => {
-    if (tokenSymbol === "ETH") {
-      return "Ethereum"
-    }
-    const network = getNetwork(chainId)
-    let name
-    try {
-      const contract = new ethers.Contract(
-        contractAddress,
-        this.ERC20_ABI,
-        this.ETHERS_PROVIDER[network]
-      )
-      name = await contract.name()
-    } catch (e) {
-      name = tokenSymbol
-    }
-    return name
   }
 
   /**
@@ -1704,7 +1624,8 @@ export default class API extends EventEmitter {
     const redisKeyLiquidity = `liquidity2:${chainId}:${market}`
     const liquidityList = await this.redis.HGETALL(redisKeyLiquidity)
     const liquidity: string[] = []
-    for (let clientId in liquidityList) {
+    // eslint-disable-next-line no-restricted-syntax, guard-for-in
+    for (const clientId in liquidityList) {
       const liquidityPosition = JSON.parse(liquidityList[clientId])
       liquidity.push(...liquidityPosition)
     }
