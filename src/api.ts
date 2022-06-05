@@ -34,7 +34,6 @@ export default class API extends EventEmitter {
   V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDER: AnyObject = {}
-  ZKSYNC_BASE_URL: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   SET_MM_PASSIVE_TIME = 20
@@ -106,9 +105,7 @@ export default class API extends EventEmitter {
     this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
-    )
-    this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
-    this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
+    )    
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
     this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
 
