@@ -1666,6 +1666,19 @@ export default class API extends EventEmitter {
     return order
   }
 
+  getFill = async (chainId: number, orderId: string | string[]) => {
+    chainId = Number(chainId)
+    orderId = typeof orderId === 'string' ? [orderId] : orderId
+    const query = {
+      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND id IN ($2) LIMIT 25',
+      values: [chainId, orderId],
+      rowMode: 'array',
+    }
+    const select = await this.db.query(query)
+    if (select.rows.length === 0) throw new Error('Fill(s) not found')
+    return select.rows
+  }
+
   getuserfills = async (chainId: number, userid: string) => {
     chainId = Number(chainId)
     const query = {
