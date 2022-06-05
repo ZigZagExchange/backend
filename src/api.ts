@@ -1653,17 +1653,17 @@ export default class API extends EventEmitter {
     return select.rows
   }
 
-  getorder = async (chainId: number, orderid: string) => {
+  getOrder = async (chainId: number, orderId: string | string[]) => {
     chainId = Number(chainId)
+    orderId = typeof orderId === 'string' ? [orderId] : orderId
     const query = {
-      text: 'SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND id=$2',
-      values: [chainId, orderid],
+      text: 'SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND id IN ($2) LIMIT 25',
+      values: [chainId, orderId],
       rowMode: 'array',
     }
     const select = await this.db.query(query)
     if (select.rows.length === 0) throw new Error('Order not found')
-    const order = select.rows[0]
-    return order
+    return select.rows
   }
 
   getFill = async (chainId: number, orderId: string | string[]) => {

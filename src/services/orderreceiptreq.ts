@@ -13,10 +13,10 @@ export const orderreceiptreq: ZZServiceHandler = async (
   }
 
   try {
-    const orderreceipt = await api.getorder(chainId, orderId)
-    const msg = { op: 'orderreceipt', args: orderreceipt }
+    const orderreceipt = await api.getOrder(chainId, orderId)
+    const msg = { op: 'orderreceipt', args: orderreceipt[0] }
     if (ws) ws.send(JSON.stringify(msg))
-    return orderreceipt
+    return orderreceipt[0]   
   } catch (err: any) {
     const errorMsg = { op: 'error', args: ['orderreceiptreq', err.message] }
     if (ws) ws.send(JSON.stringify(errorMsg))
