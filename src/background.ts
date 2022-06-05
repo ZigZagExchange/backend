@@ -67,20 +67,17 @@ async function updateVolumes() {
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
-    text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
     values: [oneDayAgo],
   }
   const select = await db.query(query)
   select.rows.forEach(async (row) => {
     try {
-      const price = Number(
-        await redis.HGET(`lastprices:${row.chainid}`, row.market)
-      )
-      let quoteVolume = (row.base_volume * price).toPrecision(6)
+      let quoteVolume = row.quote_volume.toPrecision(6)
       let baseVolume = row.base_volume.toPrecision(6)
       // Prevent exponential notation
       if (quoteVolume.includes('e')) {
-        quoteVolume = (row.base_volume * price).toFixed(0)
+        quoteVolume = row.quote_volume.toFixed(0)
       }
       if (baseVolume.includes('e')) {
         baseVolume = row.base_volume.toFixed(0)
