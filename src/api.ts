@@ -156,29 +156,6 @@ export default class API extends EventEmitter {
       setInterval(this.broadcastLiquidity, 5000),
     ]
 
-    // reset redis mm timeouts
-    this.VALID_CHAINS.map(async (chainId) => {
-      const redisPatternBussy = `bussymarketmaker:${chainId}:*`
-      const keysBussy = await this.redis.keys(redisPatternBussy)
-      keysBussy.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-      const redisPatternPassiv = `passivews:${chainId}:*`
-      const keysPassiv = await this.redis.keys(redisPatternPassiv)
-      keysPassiv.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-    })
-
-    // reset liquidityKeys
-    const removeOldLiquidityPromise: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const liquidityKeys = await this.redis.KEYS(`liquidity2:${chainId}:*`)
-      liquidityKeys.forEach(async (key) => {
-        await this.redis.DEL(key)
-      })
-    })
-    await Promise.all(removeOldLiquidityPromise)
-
     // add valid open orders to Liquidity
     const addLiquidityPromise: Promise<any>[] = this.VALID_SMART_CONTRACT_CHAIN.map(async (chainId) => {
       const query = {
