@@ -41,9 +41,6 @@ export default class API extends EventEmitter {
   VALID_CHAINS: number[] = [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
   VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
-  DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
-    ? Number(process.env.DEFAULT_CHAIN_ID)
-    : 1
 
   watchers: NodeJS.Timer[] = []
   started = false
