@@ -667,7 +667,7 @@ async function start() {
     )
   )
 
-  console.log("background.ts: Starting Update Functions")
+  console.log("background.ts: Run startup")
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
   ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
@@ -676,9 +676,10 @@ async function start() {
   ETHERS_PROVIDER.rinkeby = new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
   // reste some vlaues on start-up
-  VALID_CHAINS_ZKSYNC.forEach(chainId => updateTokenInfo(chainId))
-  VALID_CHAINS_ZKSYNC.forEach(chainId => resetMMTimeouts(chainId))
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfo(chainId))
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => resetMMTimeouts(chainId))
 
+  console.log("background.ts: Starting Update Functions")
   setInterval(updatePriceHighLow, 300000)
   setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)
