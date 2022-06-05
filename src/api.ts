@@ -22,7 +22,7 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
-import { 
+import {
   formatPrice,
   stringToFelt,
   getNetwork
@@ -1166,7 +1166,7 @@ export default class API extends EventEmitter {
     if (cache) {
       throw new Error(`Order ${orderId} is not open`)
     }
-    
+
     const values = [orderId, chainId]
     const select = await this.db.query(
       "SELECT userid, price, base_quantity, quote_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'",
@@ -1636,7 +1636,7 @@ export default class API extends EventEmitter {
     chainId: number,
     market: ZZMarket
   ) => {
-    const redisKeyLiquidity =`bestliquidity:${chainId}:${market}`
+    const redisKeyLiquidity = `bestliquidity:${chainId}:${market}`
     const liquidityString = await this.redis.GET(redisKeyLiquidity)
     const liquidity = liquidityString ? JSON.parse(liquidityString) : []
     return liquidity
@@ -2017,17 +2017,17 @@ export default class API extends EventEmitter {
     const numberUsers = Object.keys(this.USER_CONNECTIONS).length
     const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
     console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
-    ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
-      if (!ws.isAlive) {
-        const userconnkey = `${ws.chainid}:${ws.userid}`
-        delete this.USER_CONNECTIONS[userconnkey]
-        delete this.MAKER_CONNECTIONS[userconnkey]
-        ws.terminate()
-      } else {
-        ws.isAlive = false
-        ws.ping()
-      }
-    })
+      ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
+        if (!ws.isAlive) {
+          const userconnkey = `${ws.chainid}:${ws.userid}`
+          delete this.USER_CONNECTIONS[userconnkey]
+          delete this.MAKER_CONNECTIONS[userconnkey]
+          ws.terminate()
+        } else {
+          ws.isAlive = false
+          ws.ping()
+        }
+      })
 
     console.log(`${this.wss.clients.size} active connections.`)
   }
@@ -2039,11 +2039,11 @@ export default class API extends EventEmitter {
       const results: Promise<any>[] = markets.map(async (marketId) => {
         const liquidity = await this.getSnapshotLiquidity(chainId, marketId)
         if (liquidity) {
-            this.broadcastMessage(
-              chainId,
-              marketId,
-              JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
-            )
+          this.broadcastMessage(
+            chainId,
+            marketId,
+            JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
+          )
         }
       })
 
@@ -2088,7 +2088,7 @@ export default class API extends EventEmitter {
     const midPrice = (basePrice && quotePrice)
       ? basePrice / quotePrice
       : 0
-    
+
     // $100 min size
     const minSize = (basePrice) ? (100 / basePrice) : marketInfo.baseFee
 
@@ -2126,7 +2126,7 @@ export default class API extends EventEmitter {
         if (clientId) l[4] = clientId
 
         // Add to valid liquidity
-        redisMembers.push(l);
+        redisMembers.push(l)
       }
     }
 
@@ -2230,5 +2230,5 @@ export default class API extends EventEmitter {
       return Number(tokenInfo.usdPrice)
     }
     return 0
-  }  
+  }
 }
