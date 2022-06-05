@@ -15,8 +15,8 @@ import type {
 
 const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
-const VALID_CHAINS: number[] = [1, 1000, 1001]
-const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
+const VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
+const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
 let REMOVE_LIQUIDITY_COUNTER = 0

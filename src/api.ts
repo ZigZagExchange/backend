@@ -36,10 +36,11 @@ export default class API extends EventEmitter {
   ETHERS_PROVIDER: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
-  SET_MM_PASSIVE_TIME = 20
-  VALID_CHAINS: number[] = [1, 1000, 1001]
-  VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
-  VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
+  SET_MM_PASSIVE_TIME = 20  
+  VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
+  VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
+  VALID_SMART_CONTRACT_CHAIN: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
+
 
   watchers: NodeJS.Timer[] = []
   started = false
