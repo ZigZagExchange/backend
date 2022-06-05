@@ -36,7 +36,6 @@ export default class API extends EventEmitter {
   ETHERS_PROVIDER: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
-  SET_MM_PASSIVE_TIME = 20  
   VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
   VALID_SMART_CONTRACT_CHAIN: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
@@ -152,7 +151,6 @@ export default class API extends EventEmitter {
 
     this.watchers = [
       setInterval(this.clearDeadConnections, 30000),
-      // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 5000),
     ]
 
@@ -2098,7 +2096,7 @@ export default class API extends EventEmitter {
         if (clientId) l[4] = clientId
 
         // Add to valid liquidity
-        redisMembers.push(l);
+        redisMembers.push(l)
       }
     }
 
@@ -2115,44 +2113,12 @@ export default class API extends EventEmitter {
       }
     } else {
       // Users don't like seeing that their liquidity isn't working so disable this
-      //throw new Error('No valid liquidity send')
+      // throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
   }
-
-  updatePassiveMM = async () => {
-    const orders = this.VALID_CHAINS.map(async (chainId: number) => {
-      const redisPattern = `bussymarketmaker:${chainId}:*`
-      const keys = await this.redis.keys(redisPattern)
-      const results = keys.map(async (key: any) => {
-        const remainingTime = await this.redis.ttl(key)
-        // key is waiting for more than set SET_MM_PASSIVE_TIME
-        if (
-          remainingTime > 0 &&
-          remainingTime < this.MARKET_MAKER_TIMEOUT - this.SET_MM_PASSIVE_TIME
-        ) {
-          const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
-          if (marketmaker) {
-            const redisKey = `passivews:${chainId}:${marketmaker.ws_uuid}`
-            const passivews = await this.redis.get(redisKey)
-            if (!passivews) {
-              this.redis.SET(
-                redisKey,
-                JSON.stringify(marketmaker.orderId),
-                { EX: remainingTime }
-              )
-            }
-          }
-        }
-      })
-
-      return Promise.all(results)
-    })
-
-    return Promise.all(orders)
-  }
-
+  
   populateV1TokenIds = async () => {
     for (let i = 0; ;) {
       const result: any = (await fetch(
