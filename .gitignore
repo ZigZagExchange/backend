@@ -4,6 +4,7 @@ zigzag.db
 .env
 dist/
 tsconfig.tsbuildinfo
+.vscode/
 
 # Using yarn, ignore package-lock.json
 package-lock.json
