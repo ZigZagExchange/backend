@@ -15,8 +15,8 @@ import type {
 
 const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
-const VALID_CHAINS: number[] = [1, 1000, 1001]
-const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
+const VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
+const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
 let REMOVE_LIQUIDITY_COUNTER = 0
@@ -639,21 +639,6 @@ async function updateTokenInfo(chainId: number) {
   } while (tokenInfos.length > 99)
 }
 
-// reset redis mm timeouts
-async function resetMMTimeouts(chainId: number) {
-  const redisPatternBussy = `bussymarketmaker:${chainId}:*`
-  const keysBussy = await redis.keys(redisPatternBussy)
-  keysBussy.forEach(async (key: string) => {
-    redis.del(key)
-  })
-  const redisPatternPassiv = `passivews:${chainId}:*`
-  const keysPassiv = await redis.keys(redisPatternPassiv)
-  keysPassiv.forEach(async (key: string) => {
-    redis.del(key)
-  })
-}
-
-
 async function start() {
   await redis.connect()
   await publisher.connect()
@@ -667,7 +652,7 @@ async function start() {
     )
   )
 
-  console.log("background.ts: Starting Update Functions")
+  console.log("background.ts: Run startup")
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
   ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
@@ -675,10 +660,16 @@ async function start() {
   ETHERS_PROVIDER.mainnet = new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
   ETHERS_PROVIDER.rinkeby = new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
-  // reste some vlaues on start-up
-  VALID_CHAINS_ZKSYNC.forEach(chainId => updateTokenInfo(chainId))
-  VALID_CHAINS_ZKSYNC.forEach(chainId => resetMMTimeouts(chainId))
+  // reste some values on start-up
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => {
+    const keysBussy = await redis.keys(`bussymarketmaker:${chainId}:*`)
+    keysBussy.forEach(async (key: string) => {
+      redis.del(key)
+    })
+  })
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfo(chainId))
 
+  console.log("background.ts: Starting Update Functions")
   setInterval(updatePriceHighLow, 300000)
   setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)

@@ -34,16 +34,12 @@ export default class API extends EventEmitter {
   V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDER: AnyObject = {}
-  ZKSYNC_BASE_URL: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
-  SET_MM_PASSIVE_TIME = 20
-  VALID_CHAINS: number[] = [1, 1000, 1001]
-  VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
-  VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
-  DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
-    ? Number(process.env.DEFAULT_CHAIN_ID)
-    : 1
+  VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
+  VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
+  VALID_SMART_CONTRACT_CHAIN: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
+
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -109,9 +105,7 @@ export default class API extends EventEmitter {
     this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
-    )
-    this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
-    this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
+    )    
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
     this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
 
@@ -157,32 +151,8 @@ export default class API extends EventEmitter {
 
     this.watchers = [
       setInterval(this.clearDeadConnections, 30000),
-      // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 5000),
     ]
-
-    // reset redis mm timeouts
-    this.VALID_CHAINS.map(async (chainId) => {
-      const redisPatternBussy = `bussymarketmaker:${chainId}:*`
-      const keysBussy = await this.redis.keys(redisPatternBussy)
-      keysBussy.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-      const redisPatternPassiv = `passivews:${chainId}:*`
-      const keysPassiv = await this.redis.keys(redisPatternPassiv)
-      keysPassiv.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-    })
-
-    // reset liquidityKeys
-    const removeOldLiquidityPromise: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const liquidityKeys = await this.redis.KEYS(`liquidity2:${chainId}:*`)
-      liquidityKeys.forEach(async (key) => {
-        await this.redis.DEL(key)
-      })
-    })
-    await Promise.all(removeOldLiquidityPromise)
 
     // add valid open orders to Liquidity
     const addLiquidityPromise: Promise<any>[] = this.VALID_SMART_CONTRACT_CHAIN.map(async (chainId) => {
@@ -2143,44 +2113,12 @@ export default class API extends EventEmitter {
       }
     } else {
       // Users don't like seeing that their liquidity isn't working so disable this
-      //throw new Error('No valid liquidity send')
+      // throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
   }
-
-  updatePassiveMM = async () => {
-    const orders = this.VALID_CHAINS.map(async (chainId: number) => {
-      const redisPattern = `bussymarketmaker:${chainId}:*`
-      const keys = await this.redis.keys(redisPattern)
-      const results = keys.map(async (key: any) => {
-        const remainingTime = await this.redis.ttl(key)
-        // key is waiting for more than set SET_MM_PASSIVE_TIME
-        if (
-          remainingTime > 0 &&
-          remainingTime < this.MARKET_MAKER_TIMEOUT - this.SET_MM_PASSIVE_TIME
-        ) {
-          const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
-          if (marketmaker) {
-            const redisKey = `passivews:${chainId}:${marketmaker.ws_uuid}`
-            const passivews = await this.redis.get(redisKey)
-            if (!passivews) {
-              this.redis.SET(
-                redisKey,
-                JSON.stringify(marketmaker.orderId),
-                { EX: remainingTime }
-              )
-            }
-          }
-        }
-      })
-
-      return Promise.all(results)
-    })
-
-    return Promise.all(orders)
-  }
-
+  
   populateV1TokenIds = async () => {
     for (let i = 0; ;) {
       const result: any = (await fetch(
