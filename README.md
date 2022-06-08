@@ -283,6 +283,26 @@ Description: Get an order receipt. Returns a message with the same format as use
 
 ---
 
+###### Operation: **fillreceiptreq**
+
+Arguments: `[chainid,orderid]`
+
+Description: Get an fill receipt. Returns an fillreceipt. That is a message with the same format as fills. OrderId can be an array of up to 25 orderIds.
+
+```json
+{ "op": "fillreceiptreq", "args": [1000, 40] }
+```
+
+---
+
+###### Operation: **fillreceipt**
+
+Arguments: `[chainId,id,market,side,price,baseQuantity,fillstatus,txhash,takeruserid,makeruserid,feeamount,feetoken,timestamp]`
+
+Description: Get an fill receipt. Returns a message with the same format as fills.
+
+---
+
 ###### Operation: **orders**
 
 Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`

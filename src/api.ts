@@ -5,7 +5,6 @@ import { zksyncOrderSchema, ZZMessageSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import * as zksync from 'zksync'
-import { ethers } from 'ethers'
 import * as starknet from 'starknet'
 import type { Pool } from 'pg'
 import type { RedisClientType } from 'redis'
@@ -23,7 +22,7 @@ import type {
   ZZSocketServer,
   ZZMarketSummary,
 } from 'src/types'
-import { 
+import {
   formatPrice,
   stringToFelt,
   getNetwork
@@ -35,17 +34,12 @@ export default class API extends EventEmitter {
   V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDER: AnyObject = {}
-  ZKSYNC_BASE_URL: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
-  SET_MM_PASSIVE_TIME = 20
-  VALID_CHAINS: number[] = [1, 1000, 1001]
-  VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
-  VALID_SMART_CONTRACT_CHAIN: number[] = [1001]
-  ERC20_ABI: any
-  DEFAULT_CHAIN = process.env.DEFAULT_CHAIN_ID
-    ? Number(process.env.DEFAULT_CHAIN_ID)
-    : 1
+  VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
+  VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
+  VALID_SMART_CONTRACT_CHAIN: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
+
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -93,19 +87,11 @@ export default class API extends EventEmitter {
 
   start = async (port: number) => {
     if (this.started) return
-    this.started = true;
+    this.started = true
 
     await this.redis.connect()
     await this.redisSubscriber.connect()
     await this.redisPublisher.connect()
-
-    // fetch abi's
-    this.ERC20_ABI = JSON.parse(
-      fs.readFileSync(
-        'abi/ERC20.abi',
-        'utf8'
-      )
-    )
 
     const starknetContractABI = JSON.parse(
       fs.readFileSync(
@@ -119,17 +105,9 @@ export default class API extends EventEmitter {
     this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
-    )
-    this.ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
-    this.ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
+    )    
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
     this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
-    this.ETHERS_PROVIDER.mainnet =
-      new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
-    this.ETHERS_PROVIDER.rinkeby =
-      new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
-
-    await this.updateTokenInfo()
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE("broadcastmsg:*", (message: string, channel: string) => {
@@ -171,35 +149,10 @@ export default class API extends EventEmitter {
       }
     })
 
-    // some randomness to stagger updates between dynos
     this.watchers = [
       setInterval(this.clearDeadConnections, 30000),
-      // setInterval(this.updatePassiveMM, 10000),
       setInterval(this.broadcastLiquidity, 5000),
     ]
-
-    // reset redis mm timeouts
-    this.VALID_CHAINS.map(async (chainId) => {
-      const redisPatternBussy = `bussymarketmaker:${chainId}:*`
-      const keysBussy = await this.redis.keys(redisPatternBussy)
-      keysBussy.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-      const redisPatternPassiv = `passivews:${chainId}:*`
-      const keysPassiv = await this.redis.keys(redisPatternPassiv)
-      keysPassiv.forEach(async (key: string) => {
-        this.redis.del(key)
-      })
-    })
-
-    // reset liquidityKeys
-    const removeOldLiquidityPromise: Promise<any>[] = this.VALID_CHAINS.map(async (chainId) => {
-      const liquidityKeys = await this.redis.KEYS(`liquidity2:${chainId}:*`)
-      liquidityKeys.forEach(async (key) => {
-        await this.redis.DEL(key)
-      })
-    })
-    await Promise.all(removeOldLiquidityPromise)
 
     // add valid open orders to Liquidity
     const addLiquidityPromise: Promise<any>[] = this.VALID_SMART_CONTRACT_CHAIN.map(async (chainId) => {
@@ -275,69 +228,6 @@ export default class API extends EventEmitter {
       console.error(`Can't fetch update default marketInfo for ${market}, Error ${err.message}`)
     }
     return marketInfo
-  }
-
-  /**
-   * Used to initialy fetch tokens infos on startup & updated on each recycle
-   * @param chainId 
-   */
-  updateTokenInfo = async (
-    chainId = this.DEFAULT_CHAIN
-  ) => {
-    let index = 0
-    let tokenInfos
-    const network = getNetwork(chainId)
-    do {
-      const fetchResult = await fetch(`${this.ZKSYNC_BASE_URL[network]}tokens?from=${index}&limit=100&direction=newer`).then((r: any) => r.json())
-      tokenInfos = fetchResult.result.list
-      const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
-        const tokenSymbol = tokenInfo.symbol
-        if (!tokenSymbol.includes("ERC20")) {
-          tokenInfo.usdPrice = 0
-          tokenInfo.name = await this.getTokenName(
-            chainId,
-            tokenInfo.address,
-            tokenSymbol
-          )
-          this.redis.HSET(
-            `tokeninfo:${chainId}`,
-            tokenSymbol,
-            JSON.stringify(tokenInfo)
-          )
-        }
-      })
-      await Promise.all(results1)
-      index = tokenInfos[tokenInfos.length - 1].id
-    } while (tokenInfos.length > 99)
-  }
-
-  /**
-   * Get the full token name from L1 ERC20 contract
-   * @param contractAddress 
-   * @param tokenSymbol 
-   * @returns full token name
-   */
-  getTokenName = async (
-    chainId: number,
-    contractAddress: string,
-    tokenSymbol: string
-  ) => {
-    if (tokenSymbol === "ETH") {
-      return "Ethereum"
-    }
-    const network = getNetwork(chainId)
-    let name
-    try {
-      const contract = new ethers.Contract(
-        contractAddress,
-        this.ERC20_ABI,
-        this.ETHERS_PROVIDER[network]
-      )
-      name = await contract.name()
-    } catch (e) {
-      name = tokenSymbol
-    }
-    return name
   }
 
   /**
@@ -1246,7 +1136,7 @@ export default class API extends EventEmitter {
     if (cache) {
       throw new Error(`Order ${orderId} is not open`)
     }
-    
+
     const values = [orderId, chainId]
     const select = await this.db.query(
       "SELECT userid, price, base_quantity, quote_quantity, market, zktx, side FROM offers WHERE id=$1 AND chainid=$2 AND order_status='o'",
@@ -1455,7 +1345,7 @@ export default class API extends EventEmitter {
             args: [
               'fillrequest',
               otherMakerAccountId,
-              "The Order was filled by better offer"
+              `Order ${orderId} was filled by better offer`
             ],
           })
         )
@@ -1704,7 +1594,8 @@ export default class API extends EventEmitter {
     const redisKeyLiquidity = `liquidity2:${chainId}:${market}`
     const liquidityList = await this.redis.HGETALL(redisKeyLiquidity)
     const liquidity: string[] = []
-    for (let clientId in liquidityList) {
+    // eslint-disable-next-line no-restricted-syntax, guard-for-in
+    for (const clientId in liquidityList) {
       const liquidityPosition = JSON.parse(liquidityList[clientId])
       liquidity.push(...liquidityPosition)
     }
@@ -1715,7 +1606,7 @@ export default class API extends EventEmitter {
     chainId: number,
     market: ZZMarket
   ) => {
-    const redisKeyLiquidity =`bestliquidity:${chainId}:${market}`
+    const redisKeyLiquidity = `bestliquidity:${chainId}:${market}`
     const liquidityString = await this.redis.GET(redisKeyLiquidity)
     const liquidity = liquidityString ? JSON.parse(liquidityString) : []
     return liquidity
@@ -1732,17 +1623,30 @@ export default class API extends EventEmitter {
     return select.rows
   }
 
-  getorder = async (chainId: number, orderid: string) => {
+  getOrder = async (chainId: number, orderId: string | string[]) => {
     chainId = Number(chainId)
+    orderId = typeof orderId === 'string' ? [orderId] : orderId
     const query = {
-      text: 'SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND id=$2',
-      values: [chainId, orderid],
+      text: 'SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND id IN ($2) LIMIT 25',
+      values: [chainId, orderId],
       rowMode: 'array',
     }
     const select = await this.db.query(query)
     if (select.rows.length === 0) throw new Error('Order not found')
-    const order = select.rows[0]
-    return order
+    return select.rows
+  }
+
+  getFill = async (chainId: number, orderId: string | string[]) => {
+    chainId = Number(chainId)
+    orderId = typeof orderId === 'string' ? [orderId] : orderId
+    const query = {
+      text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND id IN ($2) LIMIT 25',
+      values: [chainId, orderId],
+      rowMode: 'array',
+    }
+    const select = await this.db.query(query)
+    if (select.rows.length === 0) throw new Error('Fill(s) not found')
+    return select.rows
   }
 
   getuserfills = async (chainId: number, userid: string) => {
@@ -2096,17 +2000,17 @@ export default class API extends EventEmitter {
     const numberUsers = Object.keys(this.USER_CONNECTIONS).length
     const numberMMs = Object.keys(this.MAKER_CONNECTIONS).length
     console.log(`Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`)
-    ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
-      if (!ws.isAlive) {
-        const userconnkey = `${ws.chainid}:${ws.userid}`
-        delete this.USER_CONNECTIONS[userconnkey]
-        delete this.MAKER_CONNECTIONS[userconnkey]
-        ws.terminate()
-      } else {
-        ws.isAlive = false
-        ws.ping()
-      }
-    })
+      ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
+        if (!ws.isAlive) {
+          const userconnkey = `${ws.chainid}:${ws.userid}`
+          delete this.USER_CONNECTIONS[userconnkey]
+          delete this.MAKER_CONNECTIONS[userconnkey]
+          ws.terminate()
+        } else {
+          ws.isAlive = false
+          ws.ping()
+        }
+      })
 
     console.log(`${this.wss.clients.size} active connections.`)
   }
@@ -2118,11 +2022,11 @@ export default class API extends EventEmitter {
       const results: Promise<any>[] = markets.map(async (marketId) => {
         const liquidity = await this.getSnapshotLiquidity(chainId, marketId)
         if (liquidity) {
-            this.broadcastMessage(
-              chainId,
-              marketId,
-              JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
-            )
+          this.broadcastMessage(
+            chainId,
+            marketId,
+            JSON.stringify({ op: 'liquidity2', args: [chainId, marketId, liquidity] })
+          )
         }
       })
 
@@ -2167,7 +2071,7 @@ export default class API extends EventEmitter {
     const midPrice = (basePrice && quotePrice)
       ? basePrice / quotePrice
       : 0
-    
+
     // $100 min size
     const minSize = (basePrice) ? (100 / basePrice) : marketInfo.baseFee
 
@@ -2205,7 +2109,7 @@ export default class API extends EventEmitter {
         if (clientId) l[4] = clientId
 
         // Add to valid liquidity
-        redisMembers.push(l);
+        redisMembers.push(l)
       }
     }
 
@@ -2222,44 +2126,12 @@ export default class API extends EventEmitter {
       }
     } else {
       // Users don't like seeing that their liquidity isn't working so disable this
-      //throw new Error('No valid liquidity send')
+      // throw new Error('No valid liquidity send')
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
   }
-
-  updatePassiveMM = async () => {
-    const orders = this.VALID_CHAINS.map(async (chainId: number) => {
-      const redisPattern = `bussymarketmaker:${chainId}:*`
-      const keys = await this.redis.keys(redisPattern)
-      const results = keys.map(async (key: any) => {
-        const remainingTime = await this.redis.ttl(key)
-        // key is waiting for more than set SET_MM_PASSIVE_TIME
-        if (
-          remainingTime > 0 &&
-          remainingTime < this.MARKET_MAKER_TIMEOUT - this.SET_MM_PASSIVE_TIME
-        ) {
-          const marketmaker = JSON.parse(`${await this.redis.get(key)}`)
-          if (marketmaker) {
-            const redisKey = `passivews:${chainId}:${marketmaker.ws_uuid}`
-            const passivews = await this.redis.get(redisKey)
-            if (!passivews) {
-              this.redis.SET(
-                redisKey,
-                JSON.stringify(marketmaker.orderId),
-                { EX: remainingTime }
-              )
-            }
-          }
-        }
-      })
-
-      return Promise.all(results)
-    })
-
-    return Promise.all(orders)
-  }
-
+  
   populateV1TokenIds = async () => {
     for (let i = 0; ;) {
       const result: any = (await fetch(
@@ -2309,5 +2181,5 @@ export default class API extends EventEmitter {
       return Number(tokenInfo.usdPrice)
     }
     return 0
-  }  
+  }
 }

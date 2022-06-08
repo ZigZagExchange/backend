@@ -1,4 +1,5 @@
 import fetch from 'isomorphic-fetch'
+import { ethers } from 'ethers'
 import * as zksync from 'zksync'
 import fs from 'fs'
 import path from 'path'
@@ -14,11 +15,13 @@ import type {
 
 const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
-const VALID_CHAINS: number[] = [1, 1000, 1001]
-const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
+const VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
+const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
-let REMOVE_LIQUIDITY_COUNTER: number = 0
+let REMOVE_LIQUIDITY_COUNTER = 0
+const ETHERS_PROVIDER: any = {}
+let ERC20_ABI: any
 
 async function getMarketInfo(market: ZZMarket, chainId: number) {
   if (!VALID_CHAINS.includes(chainId) || !market) return null
@@ -67,20 +70,17 @@ async function updateVolumes() {
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
-    text: "SELECT chainid, market, SUM(amount) AS base_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
     values: [oneDayAgo],
   }
   const select = await db.query(query)
   select.rows.forEach(async (row) => {
     try {
-      const price = Number(
-        await redis.HGET(`lastprices:${row.chainid}`, row.market)
-      )
-      let quoteVolume = (row.base_volume * price).toPrecision(6)
+      let quoteVolume = row.quote_volume.toPrecision(6)
       let baseVolume = row.base_volume.toPrecision(6)
       // Prevent exponential notation
       if (quoteVolume.includes('e')) {
-        quoteVolume = (row.base_volume * price).toFixed(0)
+        quoteVolume = row.quote_volume.toFixed(0)
       }
       if (baseVolume.includes('e')) {
         baseVolume = row.base_volume.toFixed(0)
@@ -214,10 +214,10 @@ async function updateLastPrices() {
 
 async function getBestAskBid(chainId: number, market: ZZMarket) {
   const redisKeyLiquidity = `bestliquidity:${chainId}:${market}`
-  const liquidityJson = redis.get(redisKeyLiquidity);
+  const liquidityJson = redis.get(redisKeyLiquidity)
   let liquidity: any[] = []
   if (!liquidityJson) {
-      liquidity = JSON.parse(liquidityJson);
+    liquidity = JSON.parse(liquidityJson)
   }
 
   // sort for bids and asks
@@ -480,21 +480,22 @@ async function removeOldLiquidity() {
       const redisKeyLiquidity = `liquidity2:${chainId}:${marketId}`
       const liquidityList = await redis.HGETALL(redisKeyLiquidity)
       const liquidity = []
-      for (let clientId in liquidityList) {
+      // eslint-disable-next-line no-restricted-syntax, guard-for-in
+      for (const clientId in liquidityList) {
         const liquidityPosition = JSON.parse(liquidityList[clientId])
         liquidity.push(...liquidityPosition)
       }
 
       // remove from activemarkets if no liquidity exists
-      if (liquidity.length === 0) { 
+      if (liquidity.length === 0) {
         redis.SREM(`activemarkets:${chainId}`, marketId)
         return
       }
 
       const uniqueAsk: any = {}
       const uniqueBuy: any = {}
-      for (let i = 0; i < liquidity.length; i++) {        
-        const entry = liquidity[i];
+      for (let i = 0; i < liquidity.length; i++) {
+        const entry = liquidity[i]
         const price = Number(entry[1])
         const amount = Number(entry[2])
 
@@ -509,21 +510,21 @@ async function removeOldLiquidity() {
       // sort ask and bid keys
       const askSet = [...new Set(Object.keys(uniqueAsk))]
       const bidSet = [...new Set(Object.keys(uniqueBuy))]
-      const lenghtAsks = (askSet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
-        ? askSet.length 
+      const lenghtAsks = (askSet.length < NUMBER_OF_SNAPSHOT_POSITIONS)
+        ? askSet.length
         : NUMBER_OF_SNAPSHOT_POSITIONS
-      const lengthBids = (bidSet.length < NUMBER_OF_SNAPSHOT_POSITIONS) 
-        ? bidSet.length 
+      const lengthBids = (bidSet.length < NUMBER_OF_SNAPSHOT_POSITIONS)
+        ? bidSet.length
         : NUMBER_OF_SNAPSHOT_POSITIONS
       const asks = new Array(lenghtAsks)
       const bids = new Array(lengthBids)
 
-      // Update last price 
+      // Update last price
       let askPrice = 0
       let askAmount = 0
       let bidPrice = 0
       let bidAmount = 0
-      for(let i = 0; i < lenghtAsks; i++) {
+      for (let i = 0; i < lenghtAsks; i++) {
         askPrice += (+askSet[i]) * uniqueAsk[askSet[i]]
         askAmount += uniqueAsk[askSet[i]]
         asks[i] = [
@@ -532,7 +533,7 @@ async function removeOldLiquidity() {
           Number(uniqueAsk[askSet[i]]),
         ]
       }
-      for(let i = 1; i <= lengthBids; i++) { 
+      for (let i = 1; i <= lengthBids; i++) {
         bidPrice += (+bidSet[bidSet.length - i]) * uniqueBuy[bidSet[bidSet.length - i]]
         bidAmount += uniqueBuy[bidSet[bidSet.length - i]]
         bids[i - 1] = [
@@ -550,19 +551,19 @@ async function removeOldLiquidity() {
           marketId,
           formatPrice(mid)
         )
-      }      
+      }
 
       // Store best bids and asks per market
       const bestLiquidity = asks.concat(bids)
       redis.SET(
         `bestliquidity:${chainId}:${marketId}`,
         JSON.stringify(bestLiquidity),
-        { EX: 15 }        
+        { EX: 15 }
       )
 
       // Clear old liquidity every 15 seconds
       if (++REMOVE_LIQUIDITY_COUNTER % 3 === 0) {
-          redis.DEL(redisKeyLiquidity);
+        redis.DEL(redisKeyLiquidity)
       }
     })
     await Promise.all(results1)
@@ -572,22 +573,103 @@ async function removeOldLiquidity() {
 }
 
 async function runDbMigration() {
-    console.log("running db migration")
-    const migration = fs.readFileSync(path.join(__dirname, '../schema.sql'), 'utf8')
-    db.query(migration).catch(console.error)
+  console.log("running db migration")
+  const migration = fs.readFileSync(path.join(__dirname, '../schema.sql'), 'utf8')
+  db.query(migration).catch(console.error)
+}
+
+/**
+ * Get the full token name from L1 ERC20 contract
+ * @param contractAddress 
+ * @param tokenSymbol 
+ * @returns full token name
+ */
+async function getTokenName(
+  chainId: number,
+  contractAddress: string,
+  tokenSymbol: string
+) {
+  if (tokenSymbol === "ETH") {
+    return "Ethereum"
+  }
+  const network = getNetwork(chainId)
+  let name
+  try {
+    const contract = new ethers.Contract(
+      contractAddress,
+      ERC20_ABI,
+      SYNC_PROVIDER[network]
+    )
+    name = await contract.name()
+  } catch (e) {
+    name = tokenSymbol
+  }
+  return name
+}
+
+/**
+   * Used to initialy fetch tokens infos on startup & updated on each recycle
+   * @param chainId 
+   */
+async function updateTokenInfo(chainId: number) {
+  let index = 0
+  let tokenInfos
+  const network = getNetwork(chainId)
+  do {
+    const fetchResult = await fetch(`${ZKSYNC_BASE_URL[network]}tokens?from=${index}&limit=100&direction=newer`).then((r: any) => r.json())
+    tokenInfos = fetchResult.result.list
+    const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
+      const tokenSymbol = tokenInfo.symbol
+      if (!tokenSymbol.includes("ERC20")) {
+        tokenInfo.usdPrice = 0
+        tokenInfo.name = await getTokenName(
+          chainId,
+          tokenInfo.address,
+          tokenSymbol
+        )
+        redis.HSET(
+          `tokeninfo:${chainId}`,
+          tokenSymbol,
+          JSON.stringify(tokenInfo)
+        )
+      }
+    })
+    await Promise.all(results1)
+    index = tokenInfos[tokenInfos.length - 1].id
+  } while (tokenInfos.length > 99)
 }
 
 async function start() {
   await redis.connect()
   await publisher.connect()
-  //await runDbMigration()
+  // await runDbMigration()
 
-  console.log("background.ts: Starting Update Functions")
+  // fetch abi's
+  ERC20_ABI = JSON.parse(
+    fs.readFileSync(
+      'abi/ERC20.abi',
+      'utf8'
+    )
+  )
+
+  console.log("background.ts: Run startup")
   ZKSYNC_BASE_URL.mainnet = "https://api.zksync.io/api/v0.2/"
   ZKSYNC_BASE_URL.rinkeby = "https://rinkeby-api.zksync.io/api/v0.2/"
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
   SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
+  ETHERS_PROVIDER.mainnet = new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
+  ETHERS_PROVIDER.rinkeby = new ethers.providers.InfuraProvider("rinkeby", process.env.INFURA_PROJECT_ID,)
 
+  // reste some values on start-up
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => {
+    const keysBussy = await redis.keys(`bussymarketmaker:${chainId}:*`)
+    keysBussy.forEach(async (key: string) => {
+      redis.del(key)
+    })
+  })
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfo(chainId))
+
+  console.log("background.ts: Starting Update Functions")
   setInterval(updatePriceHighLow, 300000)
   setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)
@@ -595,7 +677,7 @@ async function start() {
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-  setInterval(removeOldLiquidity, 5000);
+  setInterval(removeOldLiquidity, 5000)
 }
 
 start()
