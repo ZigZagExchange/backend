@@ -18,7 +18,6 @@ const VALID_CHAINS: number[] = [1, 1000, 1001]
 const VALID_CHAINS_ZKSYNC: number[] = [1, 1000]
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
-let REMOVE_LIQUIDITY_COUNTER: number = 0
 
 async function getMarketInfo(market: ZZMarket, chainId: number) {
   if (!VALID_CHAINS.includes(chainId) || !market) return null
@@ -560,10 +559,9 @@ async function removeOldLiquidity() {
         { EX: 15 }        
       )
 
-      // Clear old liquidity every 15 seconds
-      if (++REMOVE_LIQUIDITY_COUNTER % 3 === 0) {
-          redis.DEL(redisKeyLiquidity);
-      }
+      // Clear old liquidity every 10 seconds
+      redis.DEL(redisKeyLiquidity);
+      
     })
     await Promise.all(results1)
   })
@@ -595,7 +593,7 @@ async function start() {
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-  setInterval(removeOldLiquidity, 5000);
+  setInterval(removeOldLiquidity, 10000);
 }
 
 start()
