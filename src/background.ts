@@ -675,11 +675,7 @@ async function start() {
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-<<<<<<< HEAD
   setInterval(removeOldLiquidity, 10000);
-=======
-  setInterval(removeOldLiquidity, 5000)
->>>>>>> 9b627f7872bc3d256c95ddff512a81545deaa133
 }
 
 start()
