@@ -36,10 +36,11 @@ export function stringToFelt (text: string) {
   return starknet.number.toFelt(hexString)
 }
 
-export async function get0xTokenAddress (assetData: string) {
-  // check if ERC20 type
-  const assetProxy = assetData.substring(0, 10)
-  if(assetProxy === OX_ERC20_ASSET_PROXY_ID) throw new Error('No ERC20 asset')
-
- return `0x${assetData.substring(assetData.length - 40)}`
+export function getNetwork (chainId: number) {
+  switch(chainId) {
+    case 1: return "mainnet"
+    case 1000: return "rinkeby"
+    case 1001: return "goerli"
+    default: throw new Error('No valid chainId')
+  }
 }

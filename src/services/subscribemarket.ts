@@ -1,5 +1,12 @@
 import type { ZZServiceHandler, ZZMarketSummary } from 'src/types'
 
+// subscribemarket operations should be very conservative
+// this function gets called like 10k times in 2 seconds on a restart
+// so if any expensive functionality is in here it will result in a 
+// infinite crash loop
+// we disabled lastprice and getLiquidity calls in here because they
+// were too expensive
+// those are run once and broadcast to each user in the background.ts file now
 export const subscribemarket: ZZServiceHandler = async (
   api,
   ws,
@@ -14,7 +21,7 @@ export const subscribemarket: ZZServiceHandler = async (
   try {
     const marketSummary: ZZMarketSummary = (await api.getMarketSummarys(
       chainId,
-      market
+      [market]
     ))[market]
     if (marketSummary) {
       const marketSummaryMsg = {
@@ -43,22 +50,25 @@ export const subscribemarket: ZZServiceHandler = async (
       const errorMsg = { op: 'error', args: ['subscribemarket', `Can not find market ${market}`] }
       ws.send(JSON.stringify(errorMsg))
     }
+
+    const openorders = await api.getopenorders(chainId, market)
+    ws.send(JSON.stringify({ op: 'orders', args: [openorders] }))
+
+    const fills = await api.getfills(chainId, market)
+    ws.send(JSON.stringify({ op: 'fills', args: [fills] }))
+
+    // Send a fast snapshot of liquidity
+    const liquidity = await api.getSnapshotLiquidity(chainId, market)
+    ws.send(
+      JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
+    )
   } catch (e: any) {
     console.error(e.message)
     const errorMsg = { op: 'error', args: ['subscribemarket', e.message] }
     ws.send(JSON.stringify(errorMsg))
   }
 
-  const openorders = await api.getopenorders(chainId, market)
-  ws.send(JSON.stringify({ op: 'orders', args: [openorders] }))
 
-  const fills = await api.getfills(chainId, market)
-  ws.send(JSON.stringify({ op: 'fills', args: [fills] }))
-
-  const liquidity = await api.getLiquidity(chainId, market)
-  ws.send(
-    JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
-  )
   ws.chainid = chainId
   ws.marketSubscriptions.push(market)
 }
