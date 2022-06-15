@@ -21,6 +21,7 @@ import type {
   ZZHttpServer,
   ZZSocketServer,
   ZZMarketSummary,
+  ZZOrder
 } from 'src/types'
 import {
   formatPrice,
@@ -39,7 +40,6 @@ export default class API extends EventEmitter {
   VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
   VALID_SMART_CONTRACT_CHAIN: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
-
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -262,7 +262,7 @@ export default class API extends EventEmitter {
       market.length > 19 &&
       (!marketInfoDefaults || Number(marketInfoDefaults.zigzagChainId) !== chainId)
     ) {
-      return {} as ZZMarketInfo
+      throw new Error(`Can't get marketInfo for market: ${market} and chainId: ${chainId}`)
     }
 
     let baseSymbol: string
@@ -653,14 +653,14 @@ export default class API extends EventEmitter {
     const fillIds = matchquery.rows
       .slice(0, matchquery.rows.length - 1)
       .map((r) => r.id)
-    const offerId = matchquery.rows[matchquery.rows.length - 1].id
+    const orderId = matchquery.rows[matchquery.rows.length - 1].id
 
     const fills = await this.db.query(
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fillIds]
     )
     const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
-      offerId,
+      orderId,
     ])
     const offer = offerquery.rows[0]
 
@@ -786,6 +786,23 @@ export default class API extends EventEmitter {
         [side, price, remainingAmount, expiration, offer.id]
       )
     }
+
+    const orderreceipt = [
+      chainId,
+      orderId,
+      market,
+      side,
+      price,
+      baseQuantity,
+      quoteQuantity,
+      offer.expires,
+      offer.userid.toString(),
+      'o',
+      null,
+      baseQuantity,
+    ]
+
+    return { op: 'userorderack', args: orderreceipt }
   }
 
   relayStarknetMatch = async (
@@ -1035,6 +1052,89 @@ export default class API extends EventEmitter {
         JSON.stringify({ op: 'fillstatus', args: [rejectedFillUpdates] })
       )
     }
+  }
+
+  processOrderZigZag = async(
+    chainId: number,
+    market: ZZMarket,
+    zktx: ZZOrder
+  ) => {
+    const validChainIds = Object.keys(chainData)
+    if (validChainIds.includes(chainId.toString())) throw new Error('Only for 0x style orders')
+    const marketInfo = await this.getMarketInfo(market, chainId)
+    const {
+      operatorAddress,
+      feeAddress,
+      makerFee,
+      takerFee
+    } = chainData[chainId as keyof typeof chainData]
+
+    const assets = [
+      marketInfo.baseAsset.address,
+      marketInfo.quoteAsset.address    
+    ]
+
+    /* validate order */
+    if(!ethers.utils.isAddress(zktx.makerAddress)) throw new Error('Bad makerAddress') 
+    if (zktx.takerAddress !== '0' && !ethers.utils.isAddress(zktx.takerAddress)) throw new Error('Bad takerAddress')
+    if (zktx.senderAddress !== '0' && zktx.senderAddress !== operatorAddress) throw new Error(`Bad senderAddress, use '${operatorAddress}' or '0'`)
+    const orderSellAsset = await get0xTokenAddress(zktx.makerAssetData).catch(e => { throw new Error(`Bad makerAssetData, ${e}`) })
+    if(!assets.includes(orderSellAsset)) throw new Error(`Bad makerAssetData, market ${assets} does not include ${orderSellAsset}`)
+    const orderBuyAsset = await get0xTokenAddress(zktx.takerAssetAmount).catch(e => { throw new Error(`Bad takerAssetAmount, ${e}`) })
+    if(!assets.includes(orderBuyAsset)) throw new Error(`Bad takerAssetAmount, market ${assets} does not include ${orderSellAsset}`)
+    if (orderSellAsset === orderBuyAsset) throw new Error(`Can't buy and sell the same token`)
+    const expiry = Number(zktx.expirationTimeSeconds) * 1000
+    if (expiry < (Date.now() + 15000)) throw new Error("Expiery time too low. Use at least NOW + 15sec")
+    const side = (marketInfo.baseAsset.address === orderBuyAsset) ? 's' : 'b'
+    let baseAssetBN
+    let quoteAssetBN
+    if (side === 's') {
+      baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+      quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+    } else {
+      baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+      quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+    }
+
+    // check fees
+    if (zktx.feeRecipientAddress !== feeAddress) throw new Error(`Bad feeRecipientAddress, use '${feeAddress}'`)
+    if (zktx.makerFeeAssetData !== zktx.makerAssetData) throw new Error(`Bad makerFeeAssetData, use the same as makerAssetData`)
+    if (zktx.takerFeeAssetData !== zktx.makerAssetData)throw new Error(`Bad takerFeeAssetData, use the same as makerAssetData`)
+    const orderMakerFeeAmountBN = ethers.BigNumber.from(zktx.makerFee)
+    const orderTakerFeeAmountBN = ethers.BigNumber.from(zktx.takerFee)
+    const makerFeeBN = baseAssetBN.div(1/makerFee)
+    const takerFeeBN = baseAssetBN.div(1/takerFee) 
+    if(orderMakerFeeAmountBN.lt(makerFeeBN)) throw new Error(`Bad makerFee, minimum is ${makerFee}`)
+    if(orderTakerFeeAmountBN.lt(takerFeeBN)) throw new Error(`Bad takerFee, minimum is ${takerFee}`)
+
+    /* validate order */
+      
+    const baseAmount = baseAssetBN.div(10**marketInfo.baseAsset.decimals).toNumber()
+    const quoteAmount = quoteAssetBN.div(10**marketInfo.quoteAsset.decimals).toNumber()
+    const price = quoteAmount / baseAmount
+
+
+
+    /*
+    TODO return
+    const orderreceipt = [
+      chainId,
+      orderId,
+      market,
+      side,
+      price,
+      baseQuantity,
+      quoteQuantity,
+      offer.expires,
+      offer.userid.toString(),
+      'o',
+      null,
+      baseQuantity,
+    ]
+
+
+    return { op: 'userorderack', args: orderreceipt }
+    */
   }
 
   cancelallorders = async (
@@ -2169,6 +2269,18 @@ export default class API extends EventEmitter {
     await this.redis.SET(redisKey, JSON.stringify(volumes))
     await this.redis.expire(redisKey, 1200)
     return volumes
+  }
+
+  getTokenInfo = async (
+    chainId: number,
+    tokenSymbol: string
+  ): Promise<any> => {
+    const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenSymbol)
+    if (cache) {
+      const tokenInfo = JSON.parse(cache)
+      return tokenInfo
+    }
+    return null
   }
 
   getUsdPrice = async (

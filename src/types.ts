@@ -60,3 +60,21 @@ export type ZZMarketSummary = {
   highestPrice_24h: number,
   lowestPrice_24h: number
 }
+
+
+export type ZZOrder = {
+  makerAddress: string,
+  takerAddress: string,
+  feeRecipientAddress: string,
+  senderAddress: string,
+  makerAssetAmount: string,
+  takerAssetAmount: string,
+  makerFee: string,
+  takerFee: string,
+  expirationTimeSeconds: string,
+  salt: string,
+  makerAssetData: string,
+  takerAssetData: string,
+  makerFeeAssetData: string,
+  takerFeeAssetData: string,
+}
