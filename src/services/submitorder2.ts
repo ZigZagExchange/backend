@@ -15,7 +15,7 @@ export const submitorder2: ZZServiceHandler = async (
         msg = await api.processorderstarknet(chainId, market, zktx)
         break
       case 42161:
-        msg = await api.processOrderZigZag(chainId, market, zktx)
+        msg = await api.processOrderEVM(chainId, market, zktx)
         break
       default:
         msg = { op: 'error', args: ['submitorder3', 'Invalid chainId'] }

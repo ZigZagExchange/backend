@@ -28,6 +28,7 @@ import {
   stringToFelt,
   getNetwork
 } from 'src/utils'
+import Provider from './providers/provider'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -40,6 +41,7 @@ export default class API extends EventEmitter {
   VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
   VALID_SMART_CONTRACT_CHAIN: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
+  EVM_PROVIDER: any
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -88,6 +90,8 @@ export default class API extends EventEmitter {
   start = async (port: number) => {
     if (this.started) return
     this.started = true
+
+    this.EVM_PROVIDER = new Provider()
 
     await this.redis.connect()
     await this.redisSubscriber.connect()
@@ -1054,69 +1058,134 @@ export default class API extends EventEmitter {
     }
   }
 
-  processOrderZigZag = async(
+  processOrderEVM = async(
     chainId: number,
     market: ZZMarket,
     zktx: ZZOrder
   ) => {
-    const validChainIds = Object.keys(chainData)
-    if (validChainIds.includes(chainId.toString())) throw new Error('Only for 0x style orders')
-    const marketInfo = await this.getMarketInfo(market, chainId)
-    const {
-      operatorAddress,
-      feeAddress,
-      makerFee,
-      takerFee
-    } = chainData[chainId as keyof typeof chainData]
+    const marketInfo = await this.getMarketInfo (market, chainId)
+    const [
+      side,
+      price,
+      baseQuantity,
+      quoteQuantity
+    ] = await this.EVM_PROVIDER.validateOrder (
+      chainId,
+      zktx,
+      marketInfo
+    )
 
-    const assets = [
-      marketInfo.baseAsset.address,
-      marketInfo.quoteAsset.address    
+    const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
+    const values = [
+      chainId,
+      zktx.userAddress,
+      market,
+      side,
+      price,
+      baseQuantity,
+      quoteQuantity,
+      zktx.expirationTimeSeconds,
+      JSON.stringify(zktx)
     ]
+    const matchquery = await this.db.query(query, values)
 
-    /* validate order */
-    if(!ethers.utils.isAddress(zktx.makerAddress)) throw new Error('Bad makerAddress') 
-    if (zktx.takerAddress !== '0' && !ethers.utils.isAddress(zktx.takerAddress)) throw new Error('Bad takerAddress')
-    if (zktx.senderAddress !== '0' && zktx.senderAddress !== operatorAddress) throw new Error(`Bad senderAddress, use '${operatorAddress}' or '0'`)
-    const orderSellAsset = await get0xTokenAddress(zktx.makerAssetData).catch(e => { throw new Error(`Bad makerAssetData, ${e}`) })
-    if(!assets.includes(orderSellAsset)) throw new Error(`Bad makerAssetData, market ${assets} does not include ${orderSellAsset}`)
-    const orderBuyAsset = await get0xTokenAddress(zktx.takerAssetAmount).catch(e => { throw new Error(`Bad takerAssetAmount, ${e}`) })
-    if(!assets.includes(orderBuyAsset)) throw new Error(`Bad takerAssetAmount, market ${assets} does not include ${orderSellAsset}`)
-    if (orderSellAsset === orderBuyAsset) throw new Error(`Can't buy and sell the same token`)
-    const expiry = Number(zktx.expirationTimeSeconds) * 1000
-    if (expiry < (Date.now() + 15000)) throw new Error("Expiery time too low. Use at least NOW + 15sec")
-    const side = (marketInfo.baseAsset.address === orderBuyAsset) ? 's' : 'b'
-    let baseAssetBN
-    let quoteAssetBN
-    if (side === 's') {
-      baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
-      quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
-    } else {
-      baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
-      quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+    const fillIds = matchquery.rows
+      .slice(0, matchquery.rows.length - 1)
+      .map((r) => r.id)
+    const orderId = matchquery.rows[matchquery.rows.length - 1].id
+
+    const fills = await this.db.query(
+      'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
+      [fillIds]
+    )
+    const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
+      orderId,
+    ])
+    const offer = offerquery.rows[0]
+
+    const orderupdates: any[] = []
+    const marketFills: any[] = []
+    fills.rows.forEach(async (row) => {
+      if (row.maker_unfilled > 0) {
+        orderupdates.push([
+          chainId,
+          row.maker_offer_id,
+          'pm',
+          row.amount,
+          row.maker_unfilled,
+        ])
+      } else {
+        orderupdates.push([chainId, row.maker_offer_id, 'm'])
+      }
+      marketFills.push([
+        chainId,
+        row.id,
+        market,
+        side,
+        row.price,
+        row.amount,
+        row.fill_status,
+        row.txhash,
+        row.taker_user_id,
+        row.maker_user_id,
+      ])
+
+      let buyer: any
+      let seller: any
+      if (row.maker_side === 'b') {
+        buyer = row.maker_zktx
+        seller = offer.zktx
+      } else if (row.maker_side === 's') {
+        buyer = offer.zktx
+        seller = row.maker_zktx
+      } else {
+        throw new Error('Invalid side')
+      }
+
+      this.EVM_PROVIDER.relayMatch(
+        chainId,
+        market,
+        JSON.parse(buyer),
+        JSON.parse(seller),
+        row.amount,
+        row.price,
+        row.id,
+        row.maker_offer_id,
+        offer.id
+      )
+
+    })
+    const orderMsg = [
+      chainId,
+      offer.id,
+      market,
+      offer.side,
+      offer.price,
+      offer.base_quantity,
+      offer.price * offer.base_quantity,
+      offer.expires,
+      offer.userid,
+      offer.order_status,
+      null,
+      offer.unfilled,
+    ]
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainId}:${market}`,
+      JSON.stringify({ op: 'orders', args: [[orderMsg]] })
+    )
+    if (orderupdates.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderupdates] })
+      )
     }
-
-    // check fees
-    if (zktx.feeRecipientAddress !== feeAddress) throw new Error(`Bad feeRecipientAddress, use '${feeAddress}'`)
-    if (zktx.makerFeeAssetData !== zktx.makerAssetData) throw new Error(`Bad makerFeeAssetData, use the same as makerAssetData`)
-    if (zktx.takerFeeAssetData !== zktx.makerAssetData)throw new Error(`Bad takerFeeAssetData, use the same as makerAssetData`)
-    const orderMakerFeeAmountBN = ethers.BigNumber.from(zktx.makerFee)
-    const orderTakerFeeAmountBN = ethers.BigNumber.from(zktx.takerFee)
-    const makerFeeBN = baseAssetBN.div(1/makerFee)
-    const takerFeeBN = baseAssetBN.div(1/takerFee) 
-    if(orderMakerFeeAmountBN.lt(makerFeeBN)) throw new Error(`Bad makerFee, minimum is ${makerFee}`)
-    if(orderTakerFeeAmountBN.lt(takerFeeBN)) throw new Error(`Bad takerFee, minimum is ${takerFee}`)
-
-    /* validate order */
-      
-    const baseAmount = baseAssetBN.div(10**marketInfo.baseAsset.decimals).toNumber()
-    const quoteAmount = quoteAssetBN.div(10**marketInfo.quoteAsset.decimals).toNumber()
-    const price = quoteAmount / baseAmount
-
-
-
-    /*
-    TODO return
+    if (marketFills.length > 0) {
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'fills', args: [marketFills] })
+      )
+    }
+    
     const orderreceipt = [
       chainId,
       orderId,
@@ -1131,10 +1200,7 @@ export default class API extends EventEmitter {
       null,
       baseQuantity,
     ]
-
-
     return { op: 'userorderack', args: orderreceipt }
-    */
   }
 
   cancelallorders = async (

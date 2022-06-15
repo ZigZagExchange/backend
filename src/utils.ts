@@ -1,10 +1,4 @@
 import * as starknet from 'starknet'
-import {
-  OX_ERC20_ASSET_PROXY_ID
-} from 'src/constants'
-
-
-
 
 export function formatPrice (input: any) {
   const inputNumber = Number(input)

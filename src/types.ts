@@ -62,19 +62,16 @@ export type ZZMarketSummary = {
 }
 
 
-export type ZZOrder = {
-  makerAddress: string,
-  takerAddress: string,
+export type ZZOrder = {  
+  userAddress: string,
+  makerToken: string,
+  takerToken: string,
   feeRecipientAddress: string,
-  senderAddress: string,
   makerAssetAmount: string,
   takerAssetAmount: string,
   makerFee: string,
   takerFee: string,
   expirationTimeSeconds: string,
-  salt: string,
-  makerAssetData: string,
-  takerAssetData: string,
-  makerFeeAssetData: string,
-  takerFeeAssetData: string,
+  feeToken: string,
+  signature: string,
 }
