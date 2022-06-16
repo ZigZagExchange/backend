@@ -9,7 +9,6 @@ import Provider from './provider'
 export default class ArbitrumProvider extends Provider {
   EXCHANGE: any = {}
   CONFIG: any = {}
-  WALLET: any = {}
 
   constructor(chainId: number) {
     super()
@@ -28,10 +27,12 @@ export default class ArbitrumProvider extends Provider {
       infuraProvider
 
     )
-    this.WALLET = new ethers.Wallet(
+    const wallet = new ethers.Wallet(
       process.env.OPERATOR_KEY as string,
       infuraProvider
     )
+
+    this.EXCHANGE.connect(wallet)
   }
 
   validateSignature = async (zktx: ZZOrder): Promise<boolean> => {
