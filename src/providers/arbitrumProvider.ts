@@ -1,39 +1,58 @@
 import { ethers } from 'ethers'
 import fs from 'fs'
+import EVMConfig from '../EVMConfig.json'
 
+import type { ZZOrder, AnyObject } from '../types'
 // eslint-disable-next-line import/no-cycle
-import type { ZZOrder } from '../types'
 import Provider from './provider'
 
 export default class ArbitrumProvider extends Provider {
-  exchangeAddress = '0xaed91038da9121808a95d9de04530c58f0c1a7e8'
-  feeAddress = 'test'
-  makerFee = 0.05
-  takerFee = 0.001
-  feeToken = 'ETH'
-
   EXCHANGE: any = {}
-  ETHERS_PROVIDER: any = {}
+  CONFIG: any = {}
+  WALLET: any = {}
 
-  constructor() {
+  constructor(chainId: number) {
     super()
-    const  exchnageABI = JSON.parse(
+    const exchnageABI = JSON.parse(
       fs.readFileSync('abi/EVM_Exchange.abi', 'utf8')
     )
-    this.ETHERS_PROVIDER = new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
+    const infuraProvider = (chainId === 42161)
+      ? super.INFURA_PROVIDER.rinkeby 
+      : super.INFURA_PROVIDER.rinkeby
+    const chainString = (chainId === 42161) ? "arbitrum" : "arbitrumTest"
+
+    this.CONFIG = EVMConfig[chainString]
     this.EXCHANGE = new ethers.Contract(
-        this.exchangeAddress,
-        exchnageABI,
-        this.ETHERS_PROVIDER
-      )    
+      this.CONFIG.exchangeAddress,
+      exchnageABI,
+      infuraProvider
+
+    )
+    this.WALLET = new ethers.Wallet(
+      process.env.OPERATOR_KEY as string,
+      infuraProvider
+    )
   }
 
   validateSignature = async (zktx: ZZOrder): Promise<boolean> => {
-    // send order
     const orderArray = Object.values(zktx)
-    return this.EXCHANGE.isValidSignature (
-        orderArray.splice(0, -1),
-        orderArray.at(-1)
+    return this.EXCHANGE.isValidSignature(
+      orderArray.splice(0, -1),
+      orderArray.at(-1)
+    )
+  }
+
+  sendMatch = async (
+    makerOrder: ZZOrder,
+    takerOrder: ZZOrder
+  ) => {
+    const makerOrderArray = Object.values(makerOrder)
+    const takerOrderArray = Object.values(takerOrder)
+    await this.EXCHANGE.matchOrders (
+      takerOrderArray.splice(0, -1),      
+      makerOrderArray.splice(0, -1),
+      takerOrderArray.at(-1),
+      makerOrderArray.at(-1)
     )
   }
 }

@@ -9,10 +9,15 @@ import type {
 import ArbitrumProvider from './arbitrumProvider'
 
 export default class Provider {
-  providers: AnyObject = {}
+  INFURA_PROVIDER: AnyObject = {}
+  NETWORK_PROVIDER: AnyObject = {}
 
   constructor() {
-    this.providers[42161] = new ArbitrumProvider()
+    this.INFURA_PROVIDER = new ethers.providers.InfuraProvider("mainnet", process.env.INFURA_PROJECT_ID,)
+
+
+    
+    this.NETWORK_PROVIDER[42161] = new ArbitrumProvider(42161)
   }
 
   validateOrder = async (
@@ -20,8 +25,9 @@ export default class Provider {
     zktx: ZZOrder,
     marketInfo: ZZMarketInfo
   ) => {
-    const networkProvider = this.providers[chainId]
-    if (!networkProvider) throw new Error('Only for EVM style orders')
+    const networkProvider = this.NETWORK_PROVIDER[chainId]
+    const networkProviderConfig = networkProvider.CONFIG
+    if (!networkProvider || Object.keys(networkProviderConfig).length === 0) throw new Error('Only for EVM style orders')
 
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
 
@@ -53,22 +59,22 @@ export default class Provider {
     }
 
     // check fees
-    if (zktx.feeRecipientAddress !== networkProvider.feeAddress)
+    if (zktx.feeRecipientAddress !== networkProviderConfig.feeAddress)
       throw new Error(
-        `Bad feeRecipientAddress, use '${networkProvider.feeAddress}'`
+        `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
       )
-    if (zktx.feeToken !== networkProvider.feeToken)
+    if (zktx.feeToken !== networkProviderConfig.feeToken)
       throw new Error(`Bad makerFeeAssetData, use the same as makerAssetData`)
-    if (zktx.feeToken !== networkProvider.feeToken)
+    if (zktx.feeToken !== networkProviderConfig.feeToken)
       throw new Error(`Bad takerFeeAssetData, use the same as makerAssetData`)
     const orderMakerFeeAmountBN = ethers.BigNumber.from(zktx.makerFee)
     const orderTakerFeeAmountBN = ethers.BigNumber.from(zktx.takerFee)
-    const makerFeeBN = baseAssetBN.div(1 / networkProvider.makerFee)
-    const takerFeeBN = baseAssetBN.div(1 / networkProvider.takerFee)
+    const makerFeeBN = baseAssetBN.div(1 / networkProviderConfig.makerFee)
+    const takerFeeBN = baseAssetBN.div(1 / networkProviderConfig.takerFee)
     if (orderMakerFeeAmountBN.lt(makerFeeBN))
-      throw new Error(`Bad makerFee, minimum is ${networkProvider.makerFee}`)
+      throw new Error(`Bad makerFee, minimum is ${networkProviderConfig.makerFee}`)
     if (orderTakerFeeAmountBN.lt(takerFeeBN))
-      throw new Error(`Bad takerFee, minimum is ${networkProvider.takerFee}`)
+      throw new Error(`Bad takerFee, minimum is ${networkProviderConfig.takerFee}`)
 
     /* validateSignature */
     const valid = await networkProvider.validateSignature(zktx)
@@ -88,18 +94,18 @@ export default class Provider {
   relayMatch = async (
     chainId: number,
     market: ZZMarket,
-    buyer: any,
-    seller: any,
+    buyer: ZZOrder,
+    seller: ZZOrder,
     fillQuantity: number,
     fillPrice: number,
     fillId: number,
     makerOfferId: number,
     takerOfferId: number
   ) => {
-    const networkProvider = this.providers[chainId]
+    const networkProvider = this.NETWORK_PROVIDER[chainId]
     if (!networkProvider) throw new Error('Only for EVM style orders')
 
-    networkProvider.relayMatch(
+    networkProvider.sendMatch (
       market,
       buyer,
       seller,
