@@ -24,8 +24,11 @@ export async function signOrder(privateKey: string, order: Order) {
                 { "name": 'feeRecipientAddress', "type": 'address' },
                 { "name": 'makerAssetAmount', "type": 'uint256' },
                 { "name": 'takerAssetAmount', "type": 'uint256' },
-                { "name": 'makerFee', "type": 'uint256' },
-                { "name": 'takerFee', "type": 'uint256' },
+                { "name": 'makerVolumeFee', "type": 'uint256' },
+                { "name": 'takerVolumeFee', "type": 'uint256' },
+                { "name": 'gasFee', "type": 'uint256' },
+                { "name": 'expirationTimeSeconds', "type": 'uint256' },
+                { "name": 'salt', "type": 'uint256' },
             ]
         },
         "primaryType": 'Order',
@@ -42,8 +45,11 @@ export async function signOrder(privateKey: string, order: Order) {
             "feeRecipientAddress": order.feeRecipientAddress,
             "makerAssetAmount": order.makerAssetAmount,
             "takerAssetAmount": order.takerAssetAmount,
-            "makerFee": order.makerFee,
-            "takerFee": order.takerFee
+            "makerVolumeFee": order.makerVolumeFee,
+            "takerVolumeFee": order.takerVolumeFee,
+            "gasFee": order.gasFee,
+            "expirationTimeSeconds": order.expirationTimeSeconds,
+            "salt": order.salt
         }
     }
 

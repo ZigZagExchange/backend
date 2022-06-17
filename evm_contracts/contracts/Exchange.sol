@@ -108,22 +108,27 @@ contract Exchange is SignatureValidator{
        
         // Left maker asset -> right maker
         IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, rightOrder.makerAddress, matchedFillResults.right.takerAssetFilledAmount);
-        
+
+
+        /*
+            Fees Paid 
+        */
         // Right maker fee -> right fee recipient
         IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, matchedFillResults.right.makerFeePaid);
        
         // Left maker fee -> left fee recipient
         IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, matchedFillResults.left.makerFeePaid);
  
+        //Settle gas Fee from left Order
+        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, leftOrder.gasFee);
+
+
 
         // Settle taker profits.
         IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, takerAddress, matchedFillResults.profitInRightMakerAsset);
         IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, takerAddress, matchedFillResults.profitInLeftMakerAsset);
-       
 
-        // In 0x they transfer taker fee to the fee recipient skipped this for now
-        //IERC20(rightOrder.makerToken).transferFrom(takerAddress, rightOrder.feeRecipientAddress, matchedFillResults.right.takerFeePaid);
-        //IERC20(leftOrder.makerToken).transferFrom(takerAddress, leftOrder.feeRecipientAddress, matchedFillResults.left.takerFeePaid);
+        
     }
 
 
@@ -150,11 +155,11 @@ contract Exchange is SignatureValidator{
             return orderInfo;
         }
 
-        //Not yet implemented
-        // if (block.timestamp >= order.expirationTimeSeconds) {
-        //     orderInfo.orderStatus = LibOrder.OrderStatus.EXPIRED;
-        //     return orderInfo;
-        // }
+       
+        if (block.timestamp >= order.expirationTimeSeconds) {
+            orderInfo.orderStatus = LibOrder.OrderStatus.EXPIRED;
+            return orderInfo;
+        }
 
         if (cancelled[orderInfo.orderHash]) {
             orderInfo.orderStatus = LibOrder.OrderStatus.CANCELLED;

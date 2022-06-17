@@ -17,9 +17,9 @@ library LibOrder{
         )
     ); 
     */
-    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0xfcbd3b8a64f35ab7eb14551d9fecf45fdf57bdae0192b52b1ed580076c7a8a0f;  //    keccak256(
-        //         "Order(address makerAddress,address makerToken,address takerToken,uint256 makerAssetAmount,uint256 takerAssetAmount,uint256 makerFee,uint256 takerFee)"
-        //     ),
+    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0x59455b9c66ec2b7a460dc0794aef21e45f7590b2a870e30ab4cf5e579763f2d9;
+    //keccak256("Order(address makerAddress,address makerToken,address takerToken,address feeRecipientAddress,uint256 makerAssetAmount,uint256 takerAssetAmount,uint256 makerVolumeFee,uint256 takerVolumeFee,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)")
+        // 0x59455b9c66ec2b7a460dc0794aef21e45f7590b2a870e30ab4cf5e579763f2d9
 
     enum OrderStatus {
         INVALID,                     // Default value
@@ -32,16 +32,17 @@ library LibOrder{
     }
 
    struct Order{
-       address makerAddress;
-       address makerToken;
-       address takerToken;
-       address feeRecipientAddress;
-       uint256 makerAssetAmount;
-       uint256 takerAssetAmount;
-       uint256 makerFee;
-       uint256 takerFee;
-        //uint256 expirationTimeSeconds; to be added
-        //uint256 salt; to be added
+        address makerAddress; //address of the Order Creator making the sale
+        address makerToken; // address of the Maker Token the Order Creator wants to sell
+        address takerToken; // address of the Taker Token the Order Creator wants to recive in return
+        address feeRecipientAddress; // address of the protocol owner that recives the fees
+        uint256 makerAssetAmount; // amount of Maker Token that the Order Creator wants to sell
+        uint256 takerAssetAmount; // amount of Taker Token that the Order Creator wants to recive in return
+        uint256 makerVolumeFee; // Fee taken from Order Creator in the form of the Maker Token in propotion to the volume filled, In case of right order should be set to 0
+        uint256 takerVolumeFee;// Fee taken from the taker 
+        uint256 gasFee;// Fee paid by left Order to cover gas fees each time a transaction is made with this order, taken in the form of the makerToken
+        uint256 expirationTimeSeconds; //time after which the order is no longer valid
+        uint256 salt; //to further ensure the order hash is unique, could represent the order created time
    }
 
     struct OrderInfo {
@@ -63,8 +64,11 @@ library LibOrder{
         order.feeRecipientAddress,
         order.makerAssetAmount,
         order.takerAssetAmount,
-        order.makerFee,
-        order.takerFee
+        order.makerVolumeFee,
+        order.takerVolumeFee,
+        order.gasFee,
+        order.expirationTimeSeconds,
+        order.salt
         
        ));
        
