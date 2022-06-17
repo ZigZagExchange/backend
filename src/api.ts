@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
+import { ethers } from 'ethers'
 import fetch from 'isomorphic-fetch'
 import { EventEmitter } from 'events'
 import { zksyncOrderSchema, StarkNetSchema, EVMOrderSchema } from 'src/schemas'
@@ -28,20 +29,20 @@ import {
   stringToFelt,
   getNetwork
 } from 'src/utils'
-import Provider from './providers/provider'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
   V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
-  ETHERS_PROVIDER: AnyObject = {}
+  ETHERS_PROVIDERS: AnyObject = {}
+  EXCHANGE_CONTRACTS: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
-  VALID_SMART_CONTRACT_CHAIN: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
-  EVM_PROVIDER: any
+  VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
+  EVMConfig: any
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -91,18 +92,30 @@ export default class API extends EventEmitter {
     if (this.started) return
     this.started = true
 
-    this.EVM_PROVIDER = new Provider()
-
     await this.redis.connect()
     await this.redisSubscriber.connect()
     await this.redisPublisher.connect()
 
-    const starknetContractABI = JSON.parse(
-      fs.readFileSync(
-        'abi/starknet_v1.abi',
-        'utf8'
+    this.EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
+    const starknetContractABI = JSON.parse(fs.readFileSync('abi/starknet_v1.abi', 'utf8'))
+    const EVMContractABI = JSON.parse(fs.readFileSync('abi/EVM_Exchange.abi', 'utf8'))
+
+
+    // connect infura providers
+    this.VALID_EVM_CHAINS.forEach(chainId => {
+      if (this.ETHERS_PROVIDERS[chainId]) return
+      this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+        getNetwork(chainId),
+        process.env.INFURA_PROJECT_ID
       )
-    )
+      const address = this.EVMConfig[chainId]
+      if (!address) return
+      this.EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
+        address,
+        EVMContractABI,
+        this.ETHERS_PROVIDERS[chainId]
+      )
+    })
 
     // setup provider
     if (!process.env.STARKNET_CONTRACT_ADDRESS) throw new Error('process.env.STARKNET_CONTRACT_ADDRESS not set!')
@@ -157,24 +170,6 @@ export default class API extends EventEmitter {
       setInterval(this.clearDeadConnections, 30000),
       setInterval(this.broadcastLiquidity, 5000),
     ]
-
-    // add valid open orders to Liquidity
-    const addLiquidityPromise: Promise<any>[] = this.VALID_SMART_CONTRACT_CHAIN.map(async (chainId) => {
-      const query = {
-        text: "SELECT chainid,market,side,price,expires,unfilled,id FROM offers WHERE chainid=$1 AND order_status IN ('o', 'pm', 'pf')",
-        values: [chainId]
-      }
-      const select = await this.db.query(query)
-      const rowsPromise: Promise<any>[] = select.rows.map(async (row) => {
-        await this.addLiquidity(
-          row.chainid,
-          row.market,
-          [row.side, row.price, row.unfilled, row.expires, row.id]
-        )
-      })
-      await Promise.all(rowsPromise)
-    })
-    await Promise.all(addLiquidityPromise)
 
     this.started = true
 
@@ -1063,20 +1058,104 @@ export default class API extends EventEmitter {
     market: ZZMarket,
     zktx: ZZOrder
   ) => {
-    const marketInfo = await this.getMarketInfo (market, chainId)
-    const [
-      side,
-      price,
-      baseQuantity,
-      quoteQuantity
-    ] = await this.EVM_PROVIDER.validateOrder (
-      chainId,
-      zktx,
-      marketInfo
+    if(!this.VALID_EVM_CHAINS.includes(chainId))
+      throw new Error(`ChainId ${chainId} is not valid, only ${this.VALID_EVM_CHAINS}`)
+
     const inputValidation = EVMOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
 
+    const marketInfo = await this.getMarketInfo (market, chainId)    
+    const networkProvider = this.ETHERS_PROVIDERS[chainId]
+    const networkProviderConfig = this.EVMConfig[chainId]
+    const exchange = this.EXCHANGE_CONTRACTS[chainId]
+    if (!marketInfo || !networkProvider || !networkProviderConfig || !exchange)
+      throw new Error('Issue connecting to providers')
+
+    const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
+
+    /* validate order */
+    if (!ethers.utils.isAddress(zktx.makerAddress))
+      throw new Error('Bad userAddress')
+
+    if (!assets.includes(zktx.makerToken))
+      throw new Error(
+        `Bad makerToken, market ${assets} does not include ${zktx.makerToken}`
+      )
+
+    if (!assets.includes(zktx.takerToken))
+      throw new Error(
+        `Bad takerToken, market ${assets} does not include ${zktx.takerToken}`
+      )
+
+    if (zktx.makerToken === zktx.takerToken)
+      throw new Error(`Can't buy and sell the same token`)
+
+    const expiry = Number(zktx.expirationTimeSeconds) * 1000
+    if (expiry < Date.now() + 60000)
+      throw new Error('Expiery time too low. Use at least NOW + 60sec')
+
+    const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
+    let baseAssetBN
+    let quoteAssetBN
+    if (side === 's') {
+      baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+      quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+
+      const gasFee = ethers.utils.parseUnits(
+        zktx.gasFee,
+        marketInfo.base.decimals
+      )
+      if (gasFee < marketInfo.baseFee)
+        throw new Error(
+          `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.base.symbol}`
+        )
+    } else {
+      baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+      quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+
+      const gasFee = ethers.utils.parseUnits(
+        zktx.gasFee,
+        marketInfo.quote.decimals
+      )
+      if (gasFee < marketInfo.quoteFee)
+        throw new Error(
+          `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quote.symbol}`
+        )
+    }
+
+    // check fees
+    if (zktx.feeRecipientAddress !== networkProviderConfig.feeAddress)
+      throw new Error(
+        `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
+      )
+
+    if (Number(zktx.makerVolumeFee) < networkProviderConfig.minMakerVolumeFee)
+      throw new Error(
+        `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
+      )
+
+    if (Number(zktx.takerVolumeFee) < networkProviderConfig.minTakerVolumeFee)
+      throw new Error(
+        `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
+      )
+
+    /* validateSignature */
+
+    const orderArray = Object.values(zktx)
+    const sigCheck = await exchange.isValidSignature(
+      orderArray.splice(0, -1),
+      orderArray.at(-1)
     )
+    if (!sigCheck) throw new Error('Order signature incorrect')
+
+    const baseAmount = baseAssetBN
+      .div(10 ** marketInfo.baseAsset.decimals)
+      .toNumber()
+    const quoteAmount = quoteAssetBN
+      .div(10 ** marketInfo.quoteAsset.decimals)
+      .toNumber()
+    const price = quoteAmount / baseAmount
+
 
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
     const values = [
@@ -1085,8 +1164,8 @@ export default class API extends EventEmitter {
       market,
       side,
       price,
-      baseQuantity,
-      quoteQuantity,
+      baseAmount,
+      quoteAmount,
       zktx.expirationTimeSeconds,
       JSON.stringify(zktx)
     ]
@@ -1145,6 +1224,7 @@ export default class API extends EventEmitter {
         throw new Error('Invalid side')
       }
 
+      /*
       this.EVM_PROVIDER.relayMatch(
         chainId,
         market,
@@ -1156,6 +1236,7 @@ export default class API extends EventEmitter {
         row.maker_offer_id,
         offer.id
       )
+      */
 
     })
     const orderMsg = [
@@ -1195,13 +1276,13 @@ export default class API extends EventEmitter {
       market,
       side,
       price,
-      baseQuantity,
-      quoteQuantity,
+      baseAmount,
+      quoteAmount,
       offer.expires,
       offer.userid.toString(),
       'o',
       null,
-      baseQuantity,
+      baseAmount,
     ]
     return { op: 'userorderack', args: orderreceipt }
   }

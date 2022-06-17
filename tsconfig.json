@@ -14,7 +14,6 @@
     "stripInternal": true,
     "incremental": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
     "esModuleInterop": true,
     "importsNotUsedAsValues": "error",
     "baseUrl": ".",

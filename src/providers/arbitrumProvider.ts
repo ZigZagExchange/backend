@@ -1,6 +1,5 @@
 import { ethers } from 'ethers'
 import fs from 'fs'
-import EVMConfig from '../EVMConfig.json'
 
 import type { ZZOrder } from '../types'
 // eslint-disable-next-line import/no-cycle
@@ -21,9 +20,6 @@ export default class ArbitrumProvider extends Provider {
         ? super.INFURA_PROVIDER.rinkeby
         : super.INFURA_PROVIDER.rinkeby
 
-    const chainString = chainId === 42161 ? 'arbitrum' : 'arbitrumTest'
-
-    this.CONFIG = EVMConfig[chainString]
     this.EXCHANGE = new ethers.Contract(
       this.CONFIG.exchangeAddress,
       exchnageABI,
@@ -36,14 +32,6 @@ export default class ArbitrumProvider extends Provider {
     )
 
     this.EXCHANGE.connect(wallet)
-  }
-
-  validateSignature = async (zktx: ZZOrder): Promise<boolean> => {
-    const orderArray = Object.values(zktx)
-    return this.EXCHANGE.isValidSignature(
-      orderArray.splice(0, -1),
-      orderArray.at(-1)
-    )
   }
 
   sendMatch = async (makerOrder: ZZOrder, takerOrder: ZZOrder) => {
