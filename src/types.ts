@@ -47,32 +47,31 @@ export type WSMessage = {
 }
 
 export type ZZMarketSummary = {
-  market: string,
-  baseSymbol: string,
-  quoteSymbol: string,
-  lastPrice: number,
-  lowestAsk: number,
-  highestBid: number,
-  baseVolume: number,
-  quoteVolume: number,
-  priceChange: number,
-  priceChangePercent_24h: number,
-  highestPrice_24h: number,
+  market: string
+  baseSymbol: string
+  quoteSymbol: string
+  lastPrice: number
+  lowestAsk: number
+  highestBid: number
+  baseVolume: number
+  quoteVolume: number
+  priceChange: number
+  priceChangePercent_24h: number
+  highestPrice_24h: number
   lowestPrice_24h: number
 }
 
-
-export type ZZOrder = {  
-  makerAddress: string,
-  makerToken: string,
-  takerToken: string,
-  feeRecipientAddress: string,
-  makerAssetAmount: string,
-  takerAssetAmount: string,
-  makerVolumeFee: string,
-  takerVolumeFee: string,
-  gasFee: string,
-  expirationTimeSeconds: string,
-  salt: string,
-  signature: string,
+export type ZZOrder = {
+  makerAddress: string
+  makerToken: string
+  takerToken: string
+  feeRecipientAddress: string
+  makerAssetAmount: string
+  takerAssetAmount: string
+  makerVolumeFee: string
+  takerVolumeFee: string
+  gasFee: string
+  expirationTimeSeconds: string
+  salt: string
+  signature: string
 }

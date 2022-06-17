@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 import fetch from 'isomorphic-fetch'
 import { EventEmitter } from 'events'
-import { zksyncOrderSchema, ZZMessageSchema } from 'src/schemas'
+import { zksyncOrderSchema, StarkNetSchema, EVMOrderSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import * as zksync from 'zksync'
@@ -607,7 +607,7 @@ export default class API extends EventEmitter {
     ZZMessageString: string
   ) => {
     const ZZMessage = JSON.parse(ZZMessageString)
-    const inputValidation = ZZMessageSchema.validate(ZZMessage)
+    const inputValidation = StarkNetSchema.validate(ZZMessage)
     if (inputValidation.error) throw inputValidation.error
     if (chainId !== 1001) throw new Error("Only for StarkNet")
 
@@ -1073,6 +1073,9 @@ export default class API extends EventEmitter {
       chainId,
       zktx,
       marketInfo
+    const inputValidation = EVMOrderSchema.validate(zktx)
+    if (inputValidation.error) throw inputValidation.error
+
     )
 
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
