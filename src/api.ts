@@ -1180,10 +1180,10 @@ export default class API extends EventEmitter {
       'SELECT fills.*, maker_offer.unfilled AS maker_unfilled, maker_offer.zktx AS maker_zktx, maker_offer.side AS maker_side FROM fills JOIN offers AS maker_offer ON fills.maker_offer_id=maker_offer.id WHERE fills.id = ANY ($1)',
       [fillIds]
     )
-    const offerquery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
+    const takerQuery = await this.db.query('SELECT * FROM offers WHERE id = $1', [
       orderId,
     ])
-    const offer = offerquery.rows[0]
+    const taker = takerQuery.rows[0]
 
     const orderupdates: any[] = []
     const marketFills: any[] = []
@@ -1212,46 +1212,33 @@ export default class API extends EventEmitter {
         row.maker_user_id,
       ])
 
-      let buyer: any
-      let seller: any
-      if (row.maker_side === 'b') {
-        buyer = row.maker_zktx
-        seller = offer.zktx
-      } else if (row.maker_side === 's') {
-        buyer = offer.zktx
-        seller = row.maker_zktx
-      } else {
-        throw new Error('Invalid side')
-      }
-
-      /*
-      this.EVM_PROVIDER.relayMatch(
+      const matchOrderObject = {
         chainId,
         market,
-        JSON.parse(buyer),
-        JSON.parse(seller),
-        row.amount,
-        row.price,
-        row.id,
-        row.maker_offer_id,
-        offer.id
-      )
-      */
+        takerOrder: JSON.parse(taker.zktx),
+        makerOrder: JSON.parse(row.maker_zktx),
+        amount: row.amount,
+        price: row.price,
+        fillId: row.id,
+        makerId: row.maker_offer_id,
+        takerId: taker.id
+      }
+      this.redis.LPUSH(`matchedorders:${chainId}`, JSON.stringify(matchOrderObject))
 
     })
     const orderMsg = [
       chainId,
-      offer.id,
+      taker.id,
       market,
-      offer.side,
-      offer.price,
-      offer.base_quantity,
-      offer.price * offer.base_quantity,
-      offer.expires,
-      offer.userid,
-      offer.order_status,
+      taker.side,
+      taker.price,
+      taker.base_quantity,
+      taker.price * taker.base_quantity,
+      taker.expires,
+      taker.userid,
+      taker.order_status,
       null,
-      offer.unfilled,
+      taker.unfilled,
     ]
     this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainId}:${market}`,
@@ -1278,9 +1265,9 @@ export default class API extends EventEmitter {
       price,
       baseAmount,
       quoteAmount,
-      offer.expires,
-      offer.userid.toString(),
-      'o',
+      taker.expires,
+      taker.userid.toString(),
+      taker.order_status,
       null,
       baseAmount,
     ]
