@@ -45,20 +45,24 @@ export const StarkNetSchema = Joi.object({
 })
 
 export const EVMOrderSchema = Joi.object({
-  makerAddress: Joi.string().required().messages({
+  makerAddress: Joi.string().hex().required().messages({
     'string.base': `"makerAddress" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
     'any.required': `"makerAddress" is a required field`
   }),
-  makerToken: Joi.string().required().messages({
+  makerToken: Joi.string().hex().required().messages({
     'string.base': `"makerToken" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
     'any.required': `"makerToken" is a required field`
   }),
-  takerToken: Joi.string().required().messages({
+  takerToken: Joi.string().hex().required().messages({
     'string.base': `"takerToken" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
     'any.required': `"takerToken" is a required field`
   }),
-  feeRecipientAddress: Joi.string().required().messages({
+  feeRecipientAddress: Joi.string().hex().required().messages({
     'string.base': `"feeRecipientAddress" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
     'any.required': `"feeRecipientAddress" is a required field`
   }),
   makerAssetAmount: Joi.string().required().messages({
