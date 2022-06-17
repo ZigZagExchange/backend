@@ -1078,7 +1078,7 @@ export default class API extends EventEmitter {
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
     const values = [
       chainId,
-      zktx.userAddress,
+      zktx.makerAddress,
       market,
       side,
       price,

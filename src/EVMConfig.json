@@ -1,12 +1,12 @@
 {
-  "arbitrum": {    
+  "arbitrum": {
     "exchangeAddress": "0xaed91038da9121808a95d9de04530c58f0c1a7e8",
     "feeAddress": "test",
-    "makerFee": 0.05,
-    "takerFee": 0.001,
+    "minMakerVolumeFee": 0.05,
+    "minTakerVolumeFee": 0.001,
     "feeToken": "ETH"
   },
-  "arbitrumTest": {    
+  "arbitrumTest": {
     "exchangeAddress": "0xaed91038da9121808a95d9de04530c58f0c1a7e8",
     "feeAddress": "test",
     "makerFee": 0.05,
