@@ -211,29 +211,6 @@ async function updateLastPrices() {
   console.timeEnd("updateLastPrices")
 }
 
-async function getBestAskBid(chainId: number, market: ZZMarket) {
-  const redisKeyLiquidity = `bestliquidity:${chainId}:${market}`
-  const liquidityJson = redis.get(redisKeyLiquidity)
-  let liquidity: any[] = []
-  if (!liquidityJson) {
-    liquidity = JSON.parse(liquidityJson)
-  }
-
-  // sort for bids and asks
-  const bids: number[][] = liquidity
-    .filter((l) => l[0] === 'b')
-    .map((l) => [Number(l[1]), Number(l[2])])
-    .reverse()
-  const asks: number[][] = liquidity
-    .filter((l) => l[0] === 's')
-    .map((l) => [Number(l[1]), Number(l[2])])
-
-  return {
-    bids: [bids[0]],
-    asks: [asks[0]],
-  }
-}
-
 async function updateMarketSummarys() {
   console.time("updateMarketSummarys")
 
@@ -246,6 +223,8 @@ async function updateMarketSummarys() {
     const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
     const redisPricesLow = await redis.HGETALL(`price:${chainId}:low`)
     const redisPricesHigh = await redis.HGETALL(`price:${chainId}:high`)
+    const redisBestAsk = await redis.HGETALL(`bestask:${chainId}`)
+    const redisBestBid = await redis.HGETALL(`bestbid:${chainId}`)
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
 
     const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
@@ -273,9 +252,8 @@ async function updateMarketSummarys() {
       const baseVolume = Number(redisVolumesBase[marketId] || 0)
 
       // get best ask/bid
-      const liquidity = await getBestAskBid(chainId, marketId)
-      const lowestAsk = Number(formatPrice(liquidity.asks[0]?.[0]))
-      const highestBid = Number(formatPrice(liquidity.bids[0]?.[0]))
+      const lowestAsk = Number(redisBestAsk[marketId])
+      const highestBid = Number(redisBestBid[marketId])
 
       const marketSummary: ZZMarketSummary = {
         market: marketId,
@@ -552,6 +530,10 @@ async function removeOldLiquidity() {
         )
       }
 
+      const bestAsk = asks[0]
+      const bestBid = bids[0]
+      redis.HSET(`bestask:${chainId}`, marketId, bestAsk)
+      redis.HSET(`bestbid:${chainId}`, marketId, bestBid)
       // Store best bids and asks per market
       const bestLiquidity = asks.concat(bids)
       redis.SET(
