@@ -19,7 +19,6 @@ const VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env
 const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
 const ZKSYNC_BASE_URL: any = {}
 const SYNC_PROVIDER: any = {}
-let REMOVE_LIQUIDITY_COUNTER = 0
 const ETHERS_PROVIDER: any = {}
 let ERC20_ABI: any
 
@@ -212,29 +211,6 @@ async function updateLastPrices() {
   console.timeEnd("updateLastPrices")
 }
 
-async function getBestAskBid(chainId: number, market: ZZMarket) {
-  const redisKeyLiquidity = `bestliquidity:${chainId}:${market}`
-  const liquidityJson = redis.get(redisKeyLiquidity)
-  let liquidity: any[] = []
-  if (!liquidityJson) {
-    liquidity = JSON.parse(liquidityJson)
-  }
-
-  // sort for bids and asks
-  const bids: number[][] = liquidity
-    .filter((l) => l[0] === 'b')
-    .map((l) => [Number(l[1]), Number(l[2])])
-    .reverse()
-  const asks: number[][] = liquidity
-    .filter((l) => l[0] === 's')
-    .map((l) => [Number(l[1]), Number(l[2])])
-
-  return {
-    bids: [bids[0]],
-    asks: [asks[0]],
-  }
-}
-
 async function updateMarketSummarys() {
   console.time("updateMarketSummarys")
 
@@ -247,6 +223,8 @@ async function updateMarketSummarys() {
     const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
     const redisPricesLow = await redis.HGETALL(`price:${chainId}:low`)
     const redisPricesHigh = await redis.HGETALL(`price:${chainId}:high`)
+    const redisBestAsk = await redis.HGETALL(`bestask:${chainId}`)
+    const redisBestBid = await redis.HGETALL(`bestbid:${chainId}`)
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
 
     const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
@@ -274,9 +252,8 @@ async function updateMarketSummarys() {
       const baseVolume = Number(redisVolumesBase[marketId] || 0)
 
       // get best ask/bid
-      const liquidity = await getBestAskBid(chainId, marketId)
-      const lowestAsk = Number(formatPrice(liquidity.asks[0]?.[0]))
-      const highestBid = Number(formatPrice(liquidity.bids[0]?.[0]))
+      const lowestAsk = Number(formatPrice(redisBestAsk[marketId]))
+      const highestBid = Number(formatPrice(redisBestBid[marketId]))
 
       const marketSummary: ZZMarketSummary = {
         market: marketId,
@@ -554,17 +531,20 @@ async function removeOldLiquidity() {
       }
 
       // Store best bids and asks per market
+      const bestAskPrice = asks[0][1]
+      const bestBidPrice = bids[0][1]
       const bestLiquidity = asks.concat(bids)
+      redis.HSET(`bestask:${chainId}`, marketId, bestAskPrice)
+      redis.HSET(`bestbid:${chainId}`, marketId, bestBidPrice)
       redis.SET(
         `bestliquidity:${chainId}:${marketId}`,
         JSON.stringify(bestLiquidity),
         { EX: 15 }
       )
 
-      // Clear old liquidity every 15 seconds
-      if (++REMOVE_LIQUIDITY_COUNTER % 3 === 0) {
-        redis.DEL(redisKeyLiquidity)
-      }
+      // Clear old liquidity every 10 seconds
+      redis.DEL(redisKeyLiquidity);
+      
     })
     await Promise.all(results1)
   })
@@ -677,7 +657,7 @@ async function start() {
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-  setInterval(removeOldLiquidity, 5000)
+  setInterval(removeOldLiquidity, 10000);
 }
 
 start()
