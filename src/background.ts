@@ -531,11 +531,11 @@ async function removeOldLiquidity() {
       }
 
       // Store best bids and asks per market
-      const bestAsk = asks[0]
-      const bestBid = bids[0]
+      const bestAskPrice = asks[0][1]
+      const bestBidPrice = bids[0][1]
       const bestLiquidity = asks.concat(bids)
-      redis.HSET(`bestask:${chainId}`, marketId, bestAsk)
-      redis.HSET(`bestbid:${chainId}`, marketId, bestBid)
+      redis.HSET(`bestask:${chainId}`, marketId, bestAskPrice)
+      redis.HSET(`bestbid:${chainId}`, marketId, bestBidPrice)
       redis.SET(
         `bestliquidity:${chainId}:${marketId}`,
         JSON.stringify(bestLiquidity),
