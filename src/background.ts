@@ -881,15 +881,16 @@ async function start() {
     )
     const address = EVMConfig[chainId]
     if (!address) return
-    EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
-      address,
-      EVMContractABI,
-      ETHERS_PROVIDERS[chainId]
-    )
 
     const wallet = new ethers.Wallet(
       process.env.OPERATOR_KEY as string,
       ETHERS_PROVIDERS[chainId]
+    ).connect(ETHERS_PROVIDERS[chainId])
+
+    EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
+      address,
+      EVMContractABI,
+      wallet
     )
 
     EXCHANGE_CONTRACTS[chainId].connect(wallet)
