@@ -1434,6 +1434,17 @@ export default class API extends EventEmitter {
     level = 3
   ) => {
     const timestamp = Date.now()
+    if (level === 1) {
+      // Level 1 – Only best bid and ask.
+      const bestAsk = await this.redis.HGET(`bestask:${chainId}`, market)
+      const bestBid = await this.redis.HGET(`bestbid:${chainId}`, market)
+      return {
+        timestamp,
+        bids: bestAsk ? [bestAsk] : [],
+        asks: bestBid ? [bestBid] : [],
+      }
+    }
+
     const liquidity: any[] = await this.getSnapshotLiquidity(chainId, market)
     if (liquidity.length === 0) {
       return {
@@ -1478,14 +1489,6 @@ export default class API extends EventEmitter {
       bids = newBids
     }
 
-    if (level === 1) {
-      // Level 1 – Only best bid and ask.
-      return {
-        timestamp,
-        bids: [bids[0]],
-        asks: [asks[0]],
-      }
-    }
     if (level === 2) {
       // Level 2 – Arranged by best bids and asks.
       let marketInfo: any = {}
