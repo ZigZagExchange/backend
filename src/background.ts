@@ -252,8 +252,8 @@ async function updateMarketSummarys() {
       const baseVolume = Number(redisVolumesBase[marketId] || 0)
 
       // get best ask/bid
-      const lowestAsk = Number(redisBestAsk[marketId])
-      const highestBid = Number(redisBestBid[marketId])
+      const lowestAsk = Number(formatPrice(redisBestAsk[marketId]))
+      const highestBid = Number(formatPrice(redisBestBid[marketId]))
 
       const marketSummary: ZZMarketSummary = {
         market: marketId,
