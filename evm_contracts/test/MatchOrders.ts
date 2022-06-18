@@ -51,8 +51,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("10000"),
             takerAssetAmount: ethers.BigNumber.from("10000"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const rightOrder = {
@@ -62,8 +65,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("10000"),
             takerAssetAmount: ethers.BigNumber.from("20000"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
@@ -84,8 +90,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("10000"),
             takerAssetAmount: ethers.BigNumber.from("10000"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const rightOrder = {
@@ -95,8 +104,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("10000"),
             takerAssetAmount: ethers.BigNumber.from("20000"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
@@ -115,8 +127,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("0"),
             takerAssetAmount: ethers.BigNumber.from("10000"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const rightOrder = {
@@ -126,8 +141,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("10000"),
             takerAssetAmount: ethers.BigNumber.from("20000"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
@@ -146,8 +164,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("120"),
             takerAssetAmount: ethers.BigNumber.from("970"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const rightOrder = {
@@ -157,8 +178,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("890"),
             takerAssetAmount: ethers.BigNumber.from("10"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
@@ -178,8 +202,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("120"),
             takerAssetAmount: ethers.BigNumber.from("970"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const rightOrder = {
@@ -189,14 +216,53 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.BigNumber.from("890"),
             takerAssetAmount: ethers.BigNumber.from("10"),
-            makerFee: ethers.BigNumber.from("0"),
-            takerFee: ethers.BigNumber.from("0")
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
         await exchangeContract.connect(wallets[1]).cancelOrder(Object.values(rightOrder))
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith("right order status not Fillable")
+    });
+
+    it("Should revert when order time is expired", async function () {
+
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.BigNumber.from("120"),
+            takerAssetAmount: ethers.BigNumber.from("970"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.BigNumber.from("890"),
+            takerAssetAmount: ethers.BigNumber.from("10"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) - 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith("right order status not Fillable")
     });
@@ -209,8 +275,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.utils.parseEther("120"),
             takerAssetAmount: ethers.utils.parseEther("970"),
-            makerFee: ethers.utils.parseEther(".10"),
-            takerFee: ethers.utils.parseEther("0")
+            makerVolumeFee: ethers.utils.parseEther(".10"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const rightOrder = {
@@ -220,8 +289,11 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.utils.parseEther("890"),
             takerAssetAmount: ethers.utils.parseEther("10"),
-            makerFee: ethers.utils.parseEther("0.1"),
-            takerFee: ethers.utils.parseEther("0")
+            makerVolumeFee: ethers.utils.parseEther("0.1"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
         }
 
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)

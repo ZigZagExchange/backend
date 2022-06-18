@@ -21,12 +21,15 @@ describe("Exchange contract", function () {
         order = {
             makerAddress: wallet.address,
             makerToken: "0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed",
-            takerToken: "0x2546BcD3c84621e976D8185a91A922aE77ECEc30",
-            feeRecipientAddress: "0xdD2FD4581271e230360230F9337D5c0430Bf44C0",
+            takerToken: "0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed",
+            feeRecipientAddress: "0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed",
             makerAssetAmount: ethers.BigNumber.from("12"),
             takerAssetAmount: ethers.BigNumber.from("13"),
-            makerFee: ethers.BigNumber.from("21"),
-            takerFee: ethers.BigNumber.from("20")
+            makerVolumeFee: ethers.BigNumber.from("21"),
+            takerVolumeFee: ethers.BigNumber.from("20"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from("0"),
+            salt: ethers.BigNumber.from("0")
         }
     });
 
@@ -36,16 +39,9 @@ describe("Exchange contract", function () {
         const signedMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], order)
         //console.log(signedMessage)
 
-        expect(await exchangeContract.isValidSignature([
-            order.makerAddress,
-            order.makerToken,
-            order.takerToken,
-            order.feeRecipientAddress,
-            order.makerAssetAmount,
-            order.takerAssetAmount,
-            order.makerFee,
-            order.takerFee
-        ],
+        expect(await exchangeContract.isValidSignature(
+            Object.values(order)
+            ,
             signedMessage)
         ).to.equal(true);
 
@@ -55,16 +51,9 @@ describe("Exchange contract", function () {
     it("Shouldn't validate signature with different Private Key", async function () {
 
         const incorrenctlySignedMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], order)
-        expect(await exchangeContract.isValidSignature([
-            order.makerAddress,
-            order.makerToken,
-            order.takerToken,
-            order.feeRecipientAddress,
-            order.makerAssetAmount,
-            order.takerAssetAmount,
-            order.makerFee,
-            order.takerFee
-        ],
+        expect(await exchangeContract.isValidSignature(
+            Object.values(order)
+            ,
             incorrenctlySignedMessage)
         ).to.equal(false);
     });

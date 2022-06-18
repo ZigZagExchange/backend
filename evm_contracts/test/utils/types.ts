@@ -7,6 +7,9 @@ export interface Order {
     feeRecipientAddress: string,
     makerAssetAmount: BigNumber,
     takerAssetAmount: BigNumber,
-    makerFee: BigNumber,
-    takerFee: BigNumber
+    makerVolumeFee: BigNumber,
+    takerVolumeFee: BigNumber,
+    gasFee: BigNumber,
+    expirationTimeSeconds: BigNumber,
+    salt: BigNumber
 }

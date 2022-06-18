@@ -54,8 +54,11 @@ async function sign() {
                 { "name": 'feeRecipientAddress', "type": 'address' },
                 { "name": 'makerAssetAmount', "type": 'uint256' },
                 { "name": 'takerAssetAmount', "type": 'uint256' },
-                { "name": 'makerFee', "type": 'uint256' },
-                { "name": 'takerFee', "type": 'uint256' },
+                { "name": 'makerVolumeFee', "type": 'uint256' },
+                { "name": 'takerVolumeFee', "type": 'uint256' },
+                { "name": 'gasFee', "type": 'uint256' },
+                { "name": 'expirationTimeSeconds', "type": 'uint256' },
+                { "name": 'salt', "type": 'uint256' },
             ]
         },
         "primaryType": 'Order',
@@ -72,8 +75,11 @@ async function sign() {
             "feeRecipientAddress": '0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed',
             "makerAssetAmount": ethers.BigNumber.from("0"),
             "takerAssetAmount": ethers.BigNumber.from("0"),
-            "makerFee": ethers.BigNumber.from("0"),
-            "takerFee": ethers.BigNumber.from("0")
+            "makerVolumeFee": ethers.BigNumber.from("0"),
+            "takerVolumeFee": ethers.BigNumber.from("0"),
+            "gasFee": ethers.BigNumber.from("0"),
+            "expirationTimeSeconds": ethers.BigNumber.from("0"),
+            "salt": ethers.BigNumber.from("0")
         }
     }
 
@@ -82,16 +88,16 @@ async function sign() {
     console.log(eip712.encodeType(typedData, 'Order'));
 
 
-    const message = eip712.getMessage(typedData, true);
-    const { r, s, v } = signingKey.signDigest(message);
+    // const message = eip712.getMessage(typedData, true);
+    // const { r, s, v } = signingKey.signDigest(message);
 
-    //console.log(`Message: 0x${bytesToHex(message)}`);
+    // //console.log(`Message: 0x${bytesToHex(message)}`);
 
-    console.log(`Signature: (${r}, ${s}, ${v})`);
-    const signedMessage = [r.slice(0, 2), v.toString(16), r.slice(2, r.length), s.slice(2, s.length)].join('');
-    console.log(signedMessage)
+    // console.log(`Signature: (${r}, ${s}, ${v})`);
+    // const signedMessage = [r.slice(0, 2), v.toString(16), r.slice(2, r.length), s.slice(2, s.length)].join('');
+    // console.log(signedMessage)
 
-    return signedMessage;
+    // return signedMessage;
 }
 
 sign()
