@@ -122,7 +122,7 @@ export default class API extends EventEmitter {
     this.STARKNET_EXCHANGE.goerli = new starknet.Contract(
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
-    )    
+    )
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider("mainnet")
     this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider("rinkeby")
 
@@ -1053,18 +1053,18 @@ export default class API extends EventEmitter {
     }
   }
 
-  processOrderEVM = async(
+  processOrderEVM = async (
     chainId: number,
     market: ZZMarket,
     zktx: ZZOrder
   ) => {
-    if(!this.VALID_EVM_CHAINS.includes(chainId))
+    if (!this.VALID_EVM_CHAINS.includes(chainId))
       throw new Error(`ChainId ${chainId} is not valid, only ${this.VALID_EVM_CHAINS}`)
 
     const inputValidation = EVMOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
 
-    const marketInfo = await this.getMarketInfo (market, chainId)    
+    const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
     const exchange = this.EXCHANGE_CONTRACTS[chainId]
@@ -1095,29 +1095,20 @@ export default class API extends EventEmitter {
       throw new Error('Expiery time too low. Use at least NOW + 60sec')
 
     const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
+    const gasFee = ethers.utils.parseUnits(zktx.gasFee, marketInfo.base.decimals).toNumber()
     let baseAssetBN
     let quoteAssetBN
     if (side === 's') {
       baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
       quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
-
-      const gasFee = ethers.utils.parseUnits(
-        zktx.gasFee,
-        marketInfo.base.decimals
-      )
-      if (gasFee < marketInfo.baseFee)
+      if (gasFee < (marketInfo.baseFee * 2))
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.base.symbol}`
         )
     } else {
       baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
       quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
-
-      const gasFee = ethers.utils.parseUnits(
-        zktx.gasFee,
-        marketInfo.quote.decimals
-      )
-      if (gasFee < marketInfo.quoteFee)
+      if (gasFee < (marketInfo.quoteFee * 2))
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quote.symbol}`
         )
@@ -1140,7 +1131,6 @@ export default class API extends EventEmitter {
       )
 
     /* validateSignature */
-
     const orderArray = Object.values(zktx)
     const sigCheck = await exchange.isValidSignature(
       orderArray.splice(0, -1),
@@ -1256,7 +1246,7 @@ export default class API extends EventEmitter {
         JSON.stringify({ op: 'fills', args: [marketFills] })
       )
     }
-    
+
     const orderreceipt = [
       chainId,
       orderId,
@@ -2368,7 +2358,7 @@ export default class API extends EventEmitter {
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
   }
-  
+
   populateV1TokenIds = async () => {
     for (let i = 0; ;) {
       const result: any = (await fetch(
