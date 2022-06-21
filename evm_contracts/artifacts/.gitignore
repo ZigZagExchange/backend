@@ -1,1 +1,4 @@
 build-info
+*.dbg.json
+contracts/
+hardhat/
