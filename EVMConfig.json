@@ -1,0 +1,8 @@
+{
+  "42161": {
+    "exchangeAddress": "0xaed91038da9121808a95d9de04530c58f0c1a7e8",
+    "feeAddress": "test",
+    "minMakerVolumeFee": 0.005,
+    "minTakerVolumeFee": 0.00
+  }
+}
