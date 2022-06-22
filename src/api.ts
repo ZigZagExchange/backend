@@ -2027,7 +2027,6 @@ export default class API extends EventEmitter {
     if (markets.length === 0) {
       markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
     }
-    console.log(markets);
     const redisPriceInfo = await this.redis.HGETALL(redisKeyPriceInfo)
     const lastprices: any[] = []
     for (let i = 0; i < markets.length; i++) {
