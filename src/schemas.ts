@@ -21,12 +21,12 @@ export const zksyncOrderSchema = Joi.object({
   ethSignature: Joi.any(),
 })
 
-export const ZZMessageSchema = Joi.object({
+export const StarkNetSchema = Joi.object({
   message_prefix: Joi.string().required(),
   domain_prefix: Joi.object({
     name: Joi.string().required(),
     version: Joi.string().required(),
-    chain_id: Joi.string().required()
+    chain_id: Joi.string().required(),
   }),
   sender: Joi.string(),
   order: Joi.object({
@@ -36,10 +36,65 @@ export const ZZMessageSchema = Joi.object({
     base_quantity: Joi.string().required(),
     price: Joi.object({
       numerator: Joi.string().required(),
-      denominator: Joi.string().required()
+      denominator: Joi.string().required(),
     }),
-    expiration: Joi.string().required()    
+    expiration: Joi.string().required(),
   }),
   sig_r: Joi.string(),
-  sig_s: Joi.string()
+  sig_s: Joi.string(),
+})
+
+export const EVMOrderSchema = Joi.object({
+  makerAddress: Joi.string().hex().required().messages({
+    'string.base': `"makerAddress" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
+    'any.required': `"makerAddress" is a required field`
+  }),
+  makerToken: Joi.string().hex().required().messages({
+    'string.base': `"makerToken" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
+    'any.required': `"makerToken" is a required field`
+  }),
+  takerToken: Joi.string().hex().required().messages({
+    'string.base': `"takerToken" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
+    'any.required': `"takerToken" is a required field`
+  }),
+  feeRecipientAddress: Joi.string().hex().required().messages({
+    'string.base': `"feeRecipientAddress" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
+    'any.required': `"feeRecipientAddress" is a required field`
+  }),
+  makerAssetAmount: Joi.string().required().messages({
+    'string.base': `"makerAssetAmount" should be a type of 'string'`,
+    'any.required': `"makerAssetAmount" is a required field`
+  }),
+  takerAssetAmount: Joi.string().required().messages({
+    'string.base': `"takerAssetAmount" should be a type of 'string'`,
+    'any.required': `"takerAssetAmount" is a required field`
+  }),
+  makerVolumeFee: Joi.string().required().messages({
+    'string.base': `"makerVolumeFee" should be a type of 'string'`,
+    'any.required': `"makerVolumeFee" is a required field`
+  }),
+  takerVolumeFee: Joi.string().required().messages({
+    'string.base': `"takerVolumeFee" should be a type of 'string'`,
+    'any.required': `"takerVolumeFee" is a required field`
+  }),
+  gasFee: Joi.string().required().messages({
+    'string.base': `"gasFee" should be a type of 'string'`,
+    'any.required': `"gasFee" is a required field`
+  }),
+  expirationTimeSeconds: Joi.string().required().messages({
+    'string.base': `"expirationTimeSeconds" should be a type of 'string'`,
+    'any.required': `"expirationTimeSeconds" is a required field`
+  }),
+  salt: Joi.string().required().messages({
+    'string.base': `"salt" should be a type of 'string'`,
+    'any.required': `"salt" is a required field`
+  }),
+  signature: Joi.string().required().messages({
+    'string.base': `"signature" should be a type of 'string'`,
+    'any.required': `"signature" is a required field`
+  }),
 })
