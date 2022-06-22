@@ -1820,10 +1820,13 @@ export default class API extends EventEmitter {
 
   getMarketSummarys = async (
     chainId: number,
-    markets: string[] = []
+    markets: string[] = [],
+    UTCFlag = false
   ) => {
     const marketSummarys: any = {}
-    const redisKeyMarketSummary = `marketsummary:${chainId}`
+    const redisKeyMarketSummary = UTCFlag 
+      ? `marketsummary:${chainId}`
+      : `marketsummary:utc:${chainId}`
 
     if (markets.length === 1) {
       const marketId: ZZMarket = markets[0]
