@@ -847,6 +847,47 @@ async function sendMatchedOrders() {
   setTimeout(sendMatchedOrders, 10000)
 }
 
+async function seedArbitrumMarkets() {
+    const marketSummaryEthUsdc = {
+      market: "ETH-USDC",
+      baseSymbol: "ETH",
+      quoteSymbol: "USDC",
+      lastPrice: 1200,
+      lowestAsk: 1201,
+      highestBid: 1999,
+      baseVolume: 0,
+      quoteVolume: 0,
+      priceChange: 0,
+      priceChangePercent_24h: 0,
+      highestPrice_24h: 1250,
+      lowestPrice_24h: 1150
+    }
+    const ethTokenInfo = {
+        "id":"0x0000000000000000000000000000000000000000",
+        "address":"0x0000000000000000000000000000000000000000",
+        "symbol":"ETH",
+        "decimals":18,
+        "enabledForFees":true,
+        "usdPrice":"1081.75",
+        "name":"Ethereum"
+    }
+    const usdcTokenInfo = {
+        "id": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+        "address":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+        "symbol":"ETH",
+        "decimals":18,
+        "enabledForFees":true,
+        "usdPrice":"1",
+        "name":"USD Coin"
+    }
+    redis.HSET("marketsummary:42161", "ETH-USDC", JSON.stringify(marketSummaryEthUsdc));
+    redis.SADD("activemarkets:42161", "ETH-USDC");
+    redis.HSET("tokenfee:42161", "ETH", "0.001");
+    redis.HSET("tokenfee:42161", "USDC", "1");
+    redis.HSET("tokeninfo:42161", "ETH", JSON.stringify(ethTokenInfo));
+    redis.HSET("tokeninfo:42161", "USDC", JSON.stringify(usdcTokenInfo));
+}
+
 async function start() {
   console.log('background.ts: Run startup')
 
@@ -898,6 +939,9 @@ async function start() {
     })
   })
   VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfo(chainId))
+
+  // Seed Arbitrum Markets
+  seedArbitrumMarkets();
 
   console.log('background.ts: Starting Update Functions')
   setInterval(updatePriceHighLow, 300000)

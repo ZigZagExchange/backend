@@ -39,9 +39,9 @@ export default class API extends EventEmitter {
   EXCHANGE_CONTRACTS: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
-  VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001]
+  VALID_CHAINS: number[] = process.env.VALID_CHAINS ? JSON.parse(process.env.VALID_CHAINS) : [1, 1000, 1001, 42161]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter(chainId => [1, 1000].includes(chainId))
-  VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter(chainId => [1001].includes(chainId))
+  VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter(chainId => [42161].includes(chainId))
   EVMConfig: any
 
   watchers: NodeJS.Timer[] = []
@@ -290,8 +290,8 @@ export default class API extends EventEmitter {
       this.redis.HGET(`tokeninfo:${chainId}`, quoteSymbol)
     ])
 
-    if (!baseAssetString) throw new Error('Unkown base asset.')
-    if (!quoteAssetString) throw new Error('Unkown quote asset.')
+    if (!baseAssetString) throw new Error('Unknown base asset.')
+    if (!quoteAssetString) throw new Error('Unknown quote asset.')
     const baseAsset = JSON.parse(baseAssetString) as AnyObject
     const quoteAsset = JSON.parse(quoteAssetString) as AnyObject
 
