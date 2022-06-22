@@ -472,7 +472,7 @@ async function updateFeesZkSync() {
 async function removeOldLiquidity() {
   console.time('removeOldLiquidity')
 
-  const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
+  const results0: Promise<any>[] = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
       const redisKeyLiquidity = `liquidity2:${chainId}:${marketId}`
