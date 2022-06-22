@@ -1,3 +1,5 @@
+/* eslint-disable camelcase */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import fetch from 'isomorphic-fetch'
 import { ethers } from 'ethers'
 import * as zksync from 'zksync'
@@ -35,6 +37,18 @@ async function getMarketInfo(market: ZZMarket, chainId: number) {
 async function updatePriceHighLow() {
   console.time("updatePriceHighLow")
 
+  const midnight = new Date(new Date().setHours(0,0,0,0)).toISOString()
+  const selecUTC = await db.query(
+    "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    [midnight]
+  )
+  selecUTC.rows.forEach(async (row) => {
+    const redisKeyLow = `price:utc:${row.chainid}:low`
+    const redisKeyHigh = `price:utc:${row.chainid}:high`
+    redis.HSET(redisKeyLow, row.market, row.min_price)
+    redis.HSET(redisKeyHigh, row.market, row.max_price)
+  })
+
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const select = await db.query(
     "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
@@ -66,6 +80,35 @@ async function updatePriceHighLow() {
 
 async function updateVolumes() {
   console.time("updateVolumes")
+
+  const midnight = new Date(new Date().setHours(0,0,0,0)).toISOString()
+  const queryUTC = {
+    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    values: [midnight],
+  }
+  const selectUTC = await db.query(queryUTC)
+  selectUTC.rows.forEach(async (row) => {
+    try {
+      let quoteVolume = row.quote_volume.toPrecision(6)
+      let baseVolume = row.base_volume.toPrecision(6)
+      // Prevent exponential notation
+      if (quoteVolume.includes('e')) {
+        quoteVolume = row.quote_volume.toFixed(0)
+      }
+      if (baseVolume.includes('e')) {
+        baseVolume = row.base_volume.toFixed(0)
+      }
+      const redisKeyBase = `volume:utc:${row.chainid}:base`
+      const redisKeyQuote = `volume:utc:${row.chainid}:quote`
+      redis.HSET(redisKeyBase, row.market, baseVolume)
+      redis.HSET(redisKeyQuote, row.market, quoteVolume)
+    } catch (err) {
+      console.error(err)
+      console.log('Could not update volumes')
+    }
+  })
+
+  
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
@@ -216,6 +259,7 @@ async function updateMarketSummarys() {
 
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyMarketSummary = `marketsummary:${chainId}`
+    const redisKeyMarketSummaryUTC = `marketsummary:utc:${chainId}`
 
     // fetch needed data
     const redisVolumesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
@@ -226,6 +270,11 @@ async function updateMarketSummarys() {
     const redisBestAsk = await redis.HGETALL(`bestask:${chainId}`)
     const redisBestBid = await redis.HGETALL(`bestbid:${chainId}`)
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const redisVolumesQuoteUTC = await redis.HGETALL(`volume:utc:${chainId}:quote`)
+    const redisVolumesBaseUTC = await redis.HGETALL(`volume:utc:${chainId}:base`)
+    const redisPricesLowUTC = await redis.HGETALL(`price:utc:${chainId}:low`)
+    const redisPricesHighUTC = await redis.HGETALL(`price:utc:${chainId}:high`)
+
 
     const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(() => null)
@@ -236,20 +285,30 @@ async function updateMarketSummarys() {
           `dailyprice:${chainId}:${marketId}:${yesterday.slice(0, 10)}`
         )
       )
+      const today = new Date(Date.now()).toISOString()
+      const todayPrice = Number(
+        await redis.get(
+          `dailyprice:${chainId}:${marketId}:${today.slice(0, 10)}`
+        )
+      )
+
       const lastPrice = +redisPrices[marketId]
       const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
-      // eslint-disable-next-line camelcase
+      const priceChangeUTC = Number(formatPrice(lastPrice - todayPrice))
       const priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
+      const priceChangePercent_24hUTC = Number(formatPrice(priceChangeUTC / lastPrice))
 
       // get low/high price
-      // eslint-disable-next-line camelcase
       const lowestPrice_24h = Number(redisPricesLow[marketId])
-      // eslint-disable-next-line camelcase
       const highestPrice_24h = Number(redisPricesHigh[marketId])
+      const lowestPrice_24hUTC = Number(redisPricesLowUTC[marketId])
+      const highestPrice_24hUTC = Number(redisPricesHighUTC[marketId])
 
       // get volume
       const quoteVolume = Number(redisVolumesQuote[marketId] || 0)
       const baseVolume = Number(redisVolumesBase[marketId] || 0)
+      const quoteVolumeUTC = Number(redisVolumesQuoteUTC[marketId] || 0)
+      const baseVolumeUTC = Number(redisVolumesBaseUTC[marketId] || 0)
 
       // get best ask/bid
       const lowestAsk = Number(formatPrice(redisBestAsk[marketId]))
@@ -265,18 +324,26 @@ async function updateMarketSummarys() {
         baseVolume,
         quoteVolume,
         priceChange,
-        // eslint-disable-next-line camelcase
         priceChangePercent_24h,
-        // eslint-disable-next-line camelcase
         highestPrice_24h,
-        // eslint-disable-next-line camelcase
         lowestPrice_24h,
       }
-      redis.HSET(
-        redisKeyMarketSummary,
-        marketId,
-        JSON.stringify(marketSummary)
-      )
+      const marketSummaryUTC: ZZMarketSummary = {
+        market: marketId,
+        baseSymbol: marketInfo.baseAsset.symbol,
+        quoteSymbol: marketInfo.quoteAsset.symbol,
+        lastPrice,
+        lowestAsk,
+        highestBid,
+        baseVolume: baseVolumeUTC,
+        quoteVolume: quoteVolumeUTC,
+        priceChange: priceChangeUTC,
+        priceChangePercent_24h: priceChangePercent_24hUTC,
+        highestPrice_24h: highestPrice_24hUTC,
+        lowestPrice_24h: lowestPrice_24hUTC,
+      }
+      redis.HSET(redisKeyMarketSummary, marketId, JSON.stringify(marketSummary))
+      redis.HSET(redisKeyMarketSummaryUTC, marketId, JSON.stringify(marketSummaryUTC))
     })
     await Promise.all(results1)
   })
