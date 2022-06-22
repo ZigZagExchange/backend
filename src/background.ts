@@ -880,12 +880,20 @@ async function seedArbitrumMarkets() {
         "usdPrice":"1",
         "name":"USD Coin"
     }
+    const lastPriceInfoEthUsdc = {
+        "price":1200,
+        "priceChange":-72.18,
+        "quoteVolume":"3945712",
+        "baseVolume":"3584.25"
+    }
     redis.HSET("marketsummary:42161", "ETH-USDC", JSON.stringify(marketSummaryEthUsdc));
     redis.SADD("activemarkets:42161", "ETH-USDC");
     redis.HSET("tokenfee:42161", "ETH", "0.001");
     redis.HSET("tokenfee:42161", "USDC", "1");
     redis.HSET("tokeninfo:42161", "ETH", JSON.stringify(ethTokenInfo));
     redis.HSET("tokeninfo:42161", "USDC", JSON.stringify(usdcTokenInfo));
+    redis.HSET("lastprices:42161", "ETH-USDC", "1200");
+    redis.HSET("lastpriceinfo:42161", "ETH-USDC", JSON.stringify(lastPriceInfoEthUsdc));
 }
 
 async function start() {
