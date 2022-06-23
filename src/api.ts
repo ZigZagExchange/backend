@@ -1323,8 +1323,8 @@ export default class API extends EventEmitter {
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       const url = (chainId === 1)
-        ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}`
-        : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}`
+        ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+        : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
       signerAddress = res.result.accountId
     }
@@ -1435,8 +1435,8 @@ export default class API extends EventEmitter {
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       const url = (chainId === 1)
-        ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}`
-        : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}`
+      ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+      : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
       signerAddress = res.result.accountId
     }
