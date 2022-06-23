@@ -1326,7 +1326,7 @@ export default class API extends EventEmitter {
         ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
         : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
-      signerAddress = res.result.accountId
+      signerAddress = res.result.accountId.toNumber()
     }
     if(signerAddress !== userId) throw new Error('Unauthorized')
 
@@ -1438,7 +1438,7 @@ export default class API extends EventEmitter {
       ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
-      signerAddress = res.result.accountId
+      signerAddress = res.result.accountId.toNumber()
     }
     if(signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
 
