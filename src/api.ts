@@ -1439,7 +1439,7 @@ export default class API extends EventEmitter {
       ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
-      signerAddress = res.result.accountId.toNumber()
+      signerAddress = res.result.accountId
     }
     console.log(signerAddress)
     console.log(select.rows[0].userid)
