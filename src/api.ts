@@ -1322,9 +1322,11 @@ export default class API extends EventEmitter {
     let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-      signerAddress = await this.SYNC_PROVIDER[getNetwork(chainId)]
-        .getAccountId(signerAddress)
-        .toNumber()
+      const url = (chainId === 1)
+        ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}`
+        : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}`
+      const res = await fetch(url).then((r: any) => r.json()) as AnyObject
+      signerAddress = res.result.accountId
     }
     if(signerAddress !== userId) throw new Error('Unauthorized')
 
@@ -1432,7 +1434,11 @@ export default class API extends EventEmitter {
     let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-      signerAddress = await this.SYNC_PROVIDER[getNetwork(chainId)].getAccountId(signerAddress)
+      const url = (chainId === 1)
+        ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}`
+        : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}`
+      const res = await fetch(url).then((r: any) => r.json()) as AnyObject
+      signerAddress = res.result.accountId
     }
 
     if (select.rows[0].order_status !== 'o') {
