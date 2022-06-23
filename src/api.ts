@@ -1309,6 +1309,66 @@ export default class API extends EventEmitter {
     return true
   }
 
+  cancelAllOrders2 = async (
+    chainId: number,
+    userId: string | number,
+    validUntil: number,
+    signedMessage: string
+  ) => {
+    if ((Date.now() / 1000) > validUntil) throw new Error('Request expired')
+
+    // validate if sender is ok to cancel
+    const message = `cancelall2:${chainId}:${validUntil}`
+    let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
+    // for zksync we need to convert the 0x address to the id
+    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      signerAddress = await this.SYNC_PROVIDER[getNetwork(chainId)]
+        .getAccountId(signerAddress)
+        .toNumber()
+    }
+    if(signerAddress !== userId) throw new Error('Unauthorized')
+
+    let orders: any
+    if (chainId) {
+      // cancel for chainId set
+      const values = [userId, chainId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, id, order_status;",
+        values
+      )
+    } else {
+      // cancel for all chainIds - chainId not set
+      const values = [userId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, id, order_status;",
+        values
+      )
+    }
+
+    if (orders.rows.length === 0) throw new Error('No open Orders')
+
+    this.VALID_CHAINS.forEach(async (broadcastChainId) => {
+      const orderStatusUpdate = orders.rows
+        .filter((o: any) => Number(o.chainid) === broadcastChainId)
+        .map((o: any) => [
+          o.chainid,
+          o.id,
+          o.order_status
+        ])
+
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${broadcastChainId}:all`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+      await this.redisPublisher.publish(
+        `broadcastmsg:user:${broadcastChainId}:${userId}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+    })
+
+    return true
+  }
+
   cancelorder = async (
     chainId: number,
     orderId: string,
@@ -1331,6 +1391,55 @@ export default class API extends EventEmitter {
     }
 
     if (this.USER_CONNECTIONS[userconnkey] !== ws) {
+      throw new Error('Unauthorized')
+    }
+
+    const updatevalues = [orderId]
+    const update = await this.db.query(
+      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
+      updatevalues
+    )
+
+    if (update.rows.length > 0) {
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
+        JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
+      )
+    } else {
+      throw new Error('Order not found')
+    }
+
+    return true
+  }
+
+  cancelorder2 = async (
+    chainId: number,
+    orderId: string,
+    signedMessage: string
+  ) => {
+    const values = [orderId, chainId]
+    const select = await this.db.query(
+      'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
+      values
+    )
+
+    if (select.rows.length === 0) {
+      throw new Error('Order not found')
+    }
+
+    // validate if sender is ok to cancel
+    const message = `cancelorder2:${chainId}:${orderId}`
+    let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
+    // for zksync we need to convert the 0x address to the id
+    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      signerAddress = await this.SYNC_PROVIDER[getNetwork(chainId)].getAccountId(signerAddress)
+    }
+
+    if (select.rows[0].order_status !== 'o') {
+      throw new Error('Order is no longer open')
+    }
+
+    if (signerAddress !== select.rows[0].userid) {
       throw new Error('Unauthorized')
     }
 

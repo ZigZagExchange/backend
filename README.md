@@ -619,26 +619,27 @@ No example available
 
 ---
 
-###### Operation: **cancelorder**
+###### Operation: **cancelorder2**
 
-Arguments: `[chainId, orderId]`
+Arguments: `[chainId, orderId, signedMessage]`
 
-Description: Cancel an order
+Description: Cancel an order. To verify the sender is the original user that placed the order, the 'signedMessage' argument is used. The messaged needs to be formated like this: 'cancelorder2:_chainId_:_orderId_' - eg here 'cancelorder2:1000:122'. This needs to be signed by the user.
+
 
 ```json
-{ "op": "cancelorder", "args": [1000, 122] }
+{ "op": "cancelorder2", "args": [1000, 122, "0x6bfd....5a8b4e"] }
 ```
 
 ---
 
-###### Operation: **cancelall**
+###### Operation: **cancelall2**
 
-Arguments: `[chainId,userId]`
+Arguments: `[chainId, userId, validUntil, signedMessage]`
 
-Description: Cancel all orders for a user
+Description: Cancel all orders for a user. To verify the sender is the original user that placed the order, the 'signedMessage' argument is used. Use `chianId = 0` to cancel all orders on every chain. `validUntil` is in UNIX (seconds) and needs to be atlest now + 10sec. The messaged needs to be formated like this: 'cancelall2:_chainId_:_validUntil_' - eg here 'cancelall2:1000:1655990893'. This needs to be signed by the user.
 
 ```json
-{ "op": "cancelall", "args": [1000, "12232"] }
+{ "op": "cancelall2", "args": [1000, "12232", 1655990893, "0x6bfd....5a8b4e"] }
 ```
 
 ---
