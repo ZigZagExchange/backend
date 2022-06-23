@@ -1273,14 +1273,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userid, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, market, id;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, id, order_status;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userid]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, market, id;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, id, order_status;",
         values
       )
     }
@@ -1293,7 +1293,7 @@ export default class API extends EventEmitter {
         .map((o: any) => [
           o.chainid,
           o.id,
-          o.market
+          o.order_status
         ])
 
       await this.redisPublisher.publish(
