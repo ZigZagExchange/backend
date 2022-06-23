@@ -10,7 +10,7 @@ import type { ZZServiceHandler, ZZMarketSummary } from 'src/types'
 export const subscribemarket: ZZServiceHandler = async (
   api,
   ws,
-  [chainId, market]
+  [chainId, market, UTCFlag]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['subscribemarket', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
@@ -21,7 +21,8 @@ export const subscribemarket: ZZServiceHandler = async (
   try {
     const marketSummary: ZZMarketSummary = (await api.getMarketSummarys(
       chainId,
-      [market]
+      [market],
+      UTCFlag
     ))[market]
     if (marketSummary) {
       const marketSummaryMsg = {
