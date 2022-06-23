@@ -9,6 +9,7 @@ export default function zzRoutes(app: ZZHttpServer) {
   app.get('/api/v1/markets', async (req, res) => {
     const markets: string[] = []
     const altMarkets: string[] = []
+    const UTCFlag = req.query.utc === 'true'
 
     if (req.query.market) {
       markets.push((req.query.market as string)
@@ -23,12 +24,14 @@ export default function zzRoutes(app: ZZHttpServer) {
     try {
       let marketSummarys: ZZMarketSummary = await app.api.getMarketSummarys(
         defaultChainId,
-        markets
+        markets,
+        UTCFlag
       )
       if (!marketSummarys && altMarkets) {
         marketSummarys = await app.api.getMarketSummarys(
           defaultChainId,
-          altMarkets
+          altMarkets,
+          UTCFlag
         )
       }
       if (!marketSummarys) {
