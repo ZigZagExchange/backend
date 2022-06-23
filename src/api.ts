@@ -1432,7 +1432,6 @@ export default class API extends EventEmitter {
     // validate if sender is ok to cancel
     const message = `cancelorder2:${chainId}:${orderId}`
     let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
-    console.log(signerAddress)
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       const url = (chainId === 1)
@@ -1442,7 +1441,9 @@ export default class API extends EventEmitter {
       signerAddress = res.result.accountId
     }
     console.log(signerAddress)
+    console.log(typeof (signerAddress))
     console.log(select.rows[0].userid)
+    console.log(typeof (select.rows[0].userid))
     if(signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
 
     if (select.rows[0].order_status !== 'o') {
