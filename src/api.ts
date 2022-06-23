@@ -1379,6 +1379,10 @@ export default class API extends EventEmitter {
       throw new Error(`Selfe-swap is not allowed`)
     }
 
+    if(selectresult.userid === fillOrder.accountId.toString()) {
+      throw new Error(`Selfe-swap is not allowed`)
+    }
+
     // Determine fill price
     const marketInfo = await this.getMarketInfo(selectresult.market, chainId)
     let baseQuantity: number
