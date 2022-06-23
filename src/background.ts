@@ -46,7 +46,7 @@ async function getMarketInfo(market: ZZMarket, chainId: number) {
 async function updatePriceHighLow() {
   console.time('updatePriceHighLow')
 
-  const midnight = new Date(new Date().setHours(0,0,0,0)).toISOString()
+  const midnight = new Date(new Date().setUTCHours(0,0,0,0)).toISOString()
   const selecUTC = await db.query(
     "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
     [midnight]
@@ -90,7 +90,7 @@ async function updatePriceHighLow() {
 async function updateVolumes() {
   console.time('updateVolumes')
 
-  const midnight = new Date(new Date().setHours(0,0,0,0)).toISOString()
+  const midnight = new Date(new Date().setUTCHours(0,0,0,0)).toISOString()
   const queryUTC = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
     values: [midnight],
