@@ -1315,7 +1315,7 @@ export default class API extends EventEmitter {
     validUntil: number,
     signedMessage: string
   ) => {
-    if (Date.now() > validUntil) throw new Error('Request expired')
+    if ((Date.now() / 1000) > validUntil) throw new Error('Request expired')
 
     // validate if sender is ok to cancel
     const message = `cancelall2:${chainId}:${validUntil}`
