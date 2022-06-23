@@ -1311,7 +1311,7 @@ export default class API extends EventEmitter {
 
   cancelAllOrders2 = async (
     chainId: number,
-    userId: string | number,
+    userId: string,
     validUntil: number,
     signedMessage: string
   ) => {
@@ -1326,7 +1326,7 @@ export default class API extends EventEmitter {
         ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
         : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
-      signerAddress = res.result.accountId.toNumber()
+      signerAddress = res.result.accountId
     }
     if(signerAddress !== userId) throw new Error('Unauthorized')
 
@@ -1432,6 +1432,7 @@ export default class API extends EventEmitter {
     // validate if sender is ok to cancel
     const message = `cancelorder2:${chainId}:${orderId}`
     let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
+    console.log(signerAddress)
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       const url = (chainId === 1)
@@ -1440,6 +1441,8 @@ export default class API extends EventEmitter {
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
       signerAddress = res.result.accountId.toNumber()
     }
+    console.log(signerAddress)
+    console.log(select.rows[0].userid)
     if(signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
 
     if (select.rows[0].order_status !== 'o') {
