@@ -14,6 +14,7 @@ export const cancelall2: ZZServiceHandler = async (
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return
   }
+  userId = (typeof userId === 'number') ? userId.toString() : userId
 
   try {
     const cancelResult = await api.cancelAllOrders2(chainId, userId, validUntil, signedMessage)
