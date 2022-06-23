@@ -1092,7 +1092,7 @@ export default class API extends EventEmitter {
 
     const expiry = Number(zktx.expirationTimeSeconds) * 1000
     if (expiry < Date.now() + 60000)
-      throw new Error('Expiery time too low. Use at least NOW + 60sec')
+      throw new Error('Expiry time too low. Use at least NOW + 60sec')
 
     const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
     const gasFee = ethers.utils.parseUnits(zktx.gasFee, marketInfo.base.decimals).toNumber()

@@ -875,8 +875,8 @@ async function seedArbitrumMarkets() {
     const usdcTokenInfo = {
         "id": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
         "address":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-        "symbol":"ETH",
-        "decimals":18,
+        "symbol":"USDC",
+        "decimals":6,
         "enabledForFees":true,
         "usdPrice":"1",
         "name":"USD Coin"
