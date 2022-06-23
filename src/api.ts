@@ -1440,13 +1440,10 @@ export default class API extends EventEmitter {
       const res = await fetch(url).then((r: any) => r.json()) as AnyObject
       signerAddress = res.result.accountId
     }
+    if(signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
 
     if (select.rows[0].order_status !== 'o') {
       throw new Error('Order is no longer open')
-    }
-
-    if (signerAddress !== select.rows[0].userid) {
-      throw new Error('Unauthorized')
     }
 
     const updatevalues = [orderId]
