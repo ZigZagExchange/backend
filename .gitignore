@@ -8,3 +8,9 @@ tsconfig.tsbuildinfo
 
 # Using yarn, ignore package-lock.json
 package-lock.json
+
+# hardhat
+evm_contracts/artifacts
+evm_contracts/cache
+evm_contracts/build-info
+evm_contracts/node_modules

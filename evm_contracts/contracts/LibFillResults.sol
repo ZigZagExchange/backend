@@ -66,24 +66,24 @@ library LibFillResults {
         matchedFillResults.left.makerFeePaid = LibMath.safeGetPartialAmountFloor(
             matchedFillResults.left.makerAssetFilledAmount,
             leftOrder.makerAssetAmount,
-            leftOrder.makerFee
+            leftOrder.makerVolumeFee
         );
         matchedFillResults.left.takerFeePaid = LibMath.safeGetPartialAmountFloor(
             matchedFillResults.left.takerAssetFilledAmount,
             leftOrder.takerAssetAmount,
-            leftOrder.takerFee
+            leftOrder.takerVolumeFee
         );
 
         // Compute fees for right order
         matchedFillResults.right.makerFeePaid = LibMath.safeGetPartialAmountFloor(
             matchedFillResults.right.makerAssetFilledAmount,
             rightOrder.makerAssetAmount,
-            rightOrder.makerFee
+            rightOrder.makerVolumeFee
         );
         matchedFillResults.right.takerFeePaid = LibMath.safeGetPartialAmountFloor(
             matchedFillResults.right.takerAssetFilledAmount,
             rightOrder.takerAssetAmount,
-            rightOrder.takerFee
+            rightOrder.takerVolumeFee
         );
 
     }

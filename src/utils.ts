@@ -1,10 +1,4 @@
 import * as starknet from 'starknet'
-import {
-  OX_ERC20_ASSET_PROXY_ID
-} from 'src/constants'
-
-
-
 
 export function formatPrice (input: any) {
   const inputNumber = Number(input)
@@ -41,6 +35,7 @@ export function getNetwork (chainId: number) {
     case 1: return "mainnet"
     case 1000: return "rinkeby"
     case 1001: return "goerli"
+    case 42161: return "arbitrum"
     default: throw new Error('No valid chainId')
   }
 }
