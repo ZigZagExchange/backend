@@ -1222,7 +1222,8 @@ export default class API extends EventEmitter {
     let fill
     const redisKeyBussy = `bussymarketmaker:${chainId}:${makerAccountId}`
     try {
-      const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
+      // const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
+      const redisBusyMM = ''
       if (redisBusyMM) {
         const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
         const remainingTime = await this.redis.ttl(redisKeyBussy)
