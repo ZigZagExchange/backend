@@ -1273,14 +1273,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userid, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, market, id;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, id, order_status;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userid]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, market, id;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, id, order_status;",
         values
       )
     }
@@ -1293,7 +1293,7 @@ export default class API extends EventEmitter {
         .map((o: any) => [
           o.chainid,
           o.id,
-          o.market
+          o.order_status
         ])
 
       await this.redisPublisher.publish(
@@ -1302,6 +1302,68 @@ export default class API extends EventEmitter {
       )
       await this.redisPublisher.publish(
         `broadcastmsg:user:${broadcastChainId}:${userid}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+    })
+
+    return true
+  }
+
+  cancelAllOrders2 = async (
+    chainId: number,
+    userId: string,
+    validUntil: number,
+    signedMessage: string
+  ) => {
+    if ((Date.now() / 1000) > validUntil) throw new Error('Request expired')
+
+    // validate if sender is ok to cancel
+    const message = `cancelall2:${chainId}:${validUntil}`
+    let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
+    // for zksync we need to convert the 0x address to the id
+    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      const url = (chainId === 1)
+        ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+        : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+      const res = await fetch(url).then((r: any) => r.json()) as AnyObject
+      signerAddress = res.result.accountId.toString()
+    }
+    if(signerAddress !== userId) throw new Error('Unauthorized')
+
+    let orders: any
+    if (chainId) {
+      // cancel for chainId set
+      const values = [userId, chainId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, id, order_status;",
+        values
+      )
+    } else {
+      // cancel for all chainIds - chainId not set
+      const values = [userId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, id, order_status;",
+        values
+      )
+    }
+
+    if (orders.rows.length === 0) throw new Error('No open Orders')
+
+    this.VALID_CHAINS.forEach(async (broadcastChainId) => {
+      const orderStatusUpdate = orders.rows
+        .filter((o: any) => Number(o.chainid) === broadcastChainId)
+        .map((o: any) => [
+          o.chainid,
+          o.id,
+          o.order_status
+        ])
+
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${broadcastChainId}:all`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+      await this.redisPublisher.publish(
+        `broadcastmsg:user:${broadcastChainId}:${userId}`,
         JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
       )
     })
@@ -1352,6 +1414,56 @@ export default class API extends EventEmitter {
     return true
   }
 
+  cancelorder2 = async (
+    chainId: number,
+    orderId: string,
+    signedMessage: string
+  ) => {
+    const values = [orderId, chainId]
+    const select = await this.db.query(
+      'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
+      values
+    )
+
+    if (select.rows.length === 0) {
+      throw new Error('Order not found')
+    }
+
+    // validate if sender is ok to cancel
+    const message = `cancelorder2:${chainId}:${orderId}`
+    let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
+    // for zksync we need to convert the 0x address to the id
+    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      const url = (chainId === 1)
+      ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+      : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+      const res = await fetch(url).then((r: any) => r.json()) as AnyObject
+      signerAddress = res.result.accountId.toString()
+    }
+    if(signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
+
+    if (select.rows[0].order_status !== 'o') {
+      throw new Error('Order is no longer open')
+    }
+
+    const updatevalues = [orderId]
+    const update = await this.db.query(
+      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
+      updatevalues
+    )
+
+    if (update.rows.length > 0) {
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
+        JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
+      )
+    } else {
+      throw new Error('Order not found')
+    }
+
+    return true
+  }
+
   matchorder = async (
     chainId: number,
     orderId: string,
@@ -1375,6 +1487,10 @@ export default class API extends EventEmitter {
 
     const selectresult = select.rows[0]
     
+    if(selectresult.userid === fillOrder.accountId.toString()) {
+      throw new Error(`Selfe-swap is not allowed`)
+    }
+
     if(selectresult.userid === fillOrder.accountId.toString()) {
       throw new Error(`Selfe-swap is not allowed`)
     }
@@ -2047,10 +2163,13 @@ export default class API extends EventEmitter {
 
   getMarketSummarys = async (
     chainId: number,
-    markets: string[] = []
+    markets: string[] = [],
+    UTCFlag = false
   ) => {
     const marketSummarys: any = {}
-    const redisKeyMarketSummary = `marketsummary:${chainId}`
+    const redisKeyMarketSummary = UTCFlag 
+      ? `marketsummary:${chainId}`
+      : `marketsummary:utc:${chainId}`
 
     if (markets.length === 1) {
       const marketId: ZZMarket = markets[0]
