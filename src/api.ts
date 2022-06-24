@@ -2099,11 +2099,6 @@ export default class API extends EventEmitter {
       } else if (amount < minSize) {
         // don't show this error to users
         // errorMsg.push('Amount to small')
-      } else if (
-        midPrice &&
-        (price < midPrice * 0.25 || price > midPrice * 1.75)
-      ) {
-        errorMsg.push('Your price is too far from the mid Price')
       } else {
         // Add expirations to liquidity if needed
         if (!l[3] || Number(l[3]) > NINE_SECONDS) {
