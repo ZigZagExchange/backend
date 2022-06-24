@@ -306,7 +306,8 @@ async function updateUsdPrice() {
       try {
         const fetchResult = await fetch(`${ZKSYNC_BASE_URL[network]}tokens/${token}/priceIn/usd`)
           .then((r: any) => r.json()) as AnyObject
-        const usdPrice = (fetchResult?.result?.price) ? formatPrice(fetchResult?.result?.price) : 0
+        let usdPrice = (fetchResult?.result?.price) ? formatPrice(fetchResult?.result?.price) : 0
+        if (usdPrice == 0) usdPrice = "1.00";
         updatedTokenPrice[token] = usdPrice
         tokenInfo.usdPrice = usdPrice
       } catch (err: any) {
