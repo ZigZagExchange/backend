@@ -776,13 +776,35 @@ async function sendMatchedOrders() {
             takerAssetsDecimals
           )
 
-          const makerOrderArray = Object.values(makerOrder)
-          const takerOrderArray = Object.values(takerOrder)
           const transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
-            takerOrderArray.splice(0, -1),
-            makerOrderArray.splice(0, -1),
-            takerOrderArray.at(-1),
-            makerOrderArray.at(-1)
+            [
+              takerOrder.makerAddress,
+              takerOrder.makerToken,
+              takerOrder.takerToken,
+              takerOrder.feeRecipientAddress,
+              takerOrder.makerAssetAmount,
+              takerOrder.takerAssetAmount,
+              takerOrder.makerVolumeFee,
+              takerOrder.takerVolumeFee,
+              takerOrder.gasFee,
+              takerOrder.expirationTimeSeconds,
+              takerOrder.salt,
+            ],
+            [
+              makerOrder.makerAddress,
+              makerOrder.makerToken,
+              makerOrder.takerToken,
+              makerOrder.feeRecipientAddress,
+              makerOrder.makerAssetAmount,
+              makerOrder.takerAssetAmount,
+              makerOrder.makerVolumeFee,
+              makerOrder.takerVolumeFee,
+              makerOrder.gasFee,
+              makerOrder.expirationTimeSeconds,
+              makerOrder.salt,
+            ],
+            takerOrder.signature,
+            makerOrder.signature
           )
 
           const fillupdateBroadcastPending = await db.query(
