@@ -1095,7 +1095,7 @@ export default class API extends EventEmitter {
       throw new Error('Expiry time too low. Use at least NOW + 60sec')
 
     const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
-    const gasFee = ethers.utils.parseUnits(zktx.gasFee, marketInfo.base.decimals).toNumber()
+    const gasFee = ethers.utils.parseUnits(zktx.gasFee, marketInfo.baseAsset.decimals).toNumber()
     let baseAssetBN
     let quoteAssetBN
     if (side === 's') {
@@ -2168,8 +2168,8 @@ export default class API extends EventEmitter {
   ) => {
     const marketSummarys: any = {}
     const redisKeyMarketSummary = UTCFlag 
-      ? `marketsummary:${chainId}`
-      : `marketsummary:utc:${chainId}`
+      ? `marketsummary:utc:${chainId}`
+      : `marketsummary:${chainId}`
 
     if (markets.length === 1) {
       const marketId: ZZMarket = markets[0]
