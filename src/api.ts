@@ -103,8 +103,8 @@ export default class API extends EventEmitter {
       fs.readFileSync('abi/starknet_v1.abi', 'utf8')
     )
     const SignatureValidatorABI = JSON.parse(
-      fs.readFileSync('evm_contracts/artifacts/SignatureValidator.sol/SignatureValidator.json', 'utf8')
-    )
+      fs.readFileSync('evm_contracts/artifacts/contracts/SignatureValidator.sol/SignatureValidator.json', 'utf8')
+    ).abi
 
     // connect infura providers
     this.VALID_EVM_CHAINS.forEach((chainId) => {
