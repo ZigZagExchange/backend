@@ -1159,12 +1159,12 @@ export default class API extends EventEmitter {
     if (signerAddress !== zktx.makerAddress)
       throw new Error('Order signature incorrect')
 
-    const baseAmount = baseAssetBN
-      .div(10 ** marketInfo.baseAsset.decimals)
-      .toNumber()
-    const quoteAmount = quoteAssetBN
-      .div(10 ** marketInfo.quoteAsset.decimals)
-      .toNumber()
+    const baseAmount = Number(
+      ethers.utils.formatUnits(baseAssetBN, marketInfo.baseAsset.decimals)
+    )
+    const quoteAmount = Number(
+      ethers.utils.formatUnits(quoteAssetBN, marketInfo.quoteAsset.decimals)
+    )
     const price = quoteAmount / baseAmount
 
     const query =
