@@ -39,3 +39,19 @@ export function getNetwork (chainId: number) {
     default: throw new Error('No valid chainId')
   }
 }
+
+export const evmEIP712Types = {
+  "Order": [
+    { "name": 'makerAddress', "type": 'address' },
+    { "name": 'makerToken', "type": 'address' },
+    { "name": 'takerToken', "type": 'address' },
+    { "name": 'feeRecipientAddress', "type": 'address' },
+    { "name": 'makerAssetAmount', "type": 'uint256' },
+    { "name": 'takerAssetAmount', "type": 'uint256' },
+    { "name": 'makerVolumeFee', "type": 'uint256' },
+    { "name": 'takerVolumeFee', "type": 'uint256' },
+    { "name": 'gasFee', "type": 'uint256' },
+    { "name": 'expirationTimeSeconds', "type": 'uint256' },
+    { "name": 'salt', "type": 'uint256' }
+  ]
+}
