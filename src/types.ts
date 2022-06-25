@@ -73,5 +73,5 @@ export type ZZOrder = {
   gasFee: string
   expirationTimeSeconds: string
   salt: string
-  signature: string
+  signature?: string
 }

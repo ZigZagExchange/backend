@@ -24,7 +24,12 @@ import type {
   ZZMarketSummary,
   ZZOrder,
 } from 'src/types'
-import { formatPrice, stringToFelt, getNetwork } from 'src/utils'
+import {
+  formatPrice,
+  stringToFelt,
+  getNetwork,
+  evmEIP712Types,
+} from 'src/utils'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -32,7 +37,6 @@ export default class API extends EventEmitter {
   V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDERS: AnyObject = {}
-  SIGNATURE_VALIDATOR: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS
@@ -102,9 +106,6 @@ export default class API extends EventEmitter {
     const starknetContractABI = JSON.parse(
       fs.readFileSync('abi/starknet_v1.abi', 'utf8')
     )
-    const SignatureValidatorABI = JSON.parse(
-      fs.readFileSync('evm_contracts/artifacts/contracts/SignatureValidator.sol/SignatureValidator.json', 'utf8')
-    ).abi
 
     // connect infura providers
     this.VALID_EVM_CHAINS.forEach((chainId) => {
@@ -112,13 +113,6 @@ export default class API extends EventEmitter {
       this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
         getNetwork(chainId),
         process.env.INFURA_PROJECT_ID
-      )
-      const address = this.EVMConfig[chainId].exchangeAddress
-      if (!address) return
-      this.SIGNATURE_VALIDATOR[chainId] = new ethers.Contract(
-        address,
-        SignatureValidatorABI,
-        this.ETHERS_PROVIDERS[chainId]
       )
     })
 
@@ -1086,8 +1080,7 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
-    const signatureValidator = this.SIGNATURE_VALIDATOR[chainId]
-    if (!marketInfo || !networkProvider || !networkProviderConfig || !signatureValidator)
+    if (!marketInfo || !networkProvider || !networkProviderConfig)
       throw new Error('Issue connecting to providers')
 
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
@@ -1154,23 +1147,17 @@ export default class API extends EventEmitter {
       )
 
     /* validateSignature */
-    const sigCheck = await signatureValidator.isValidSignature(
-      [
-        zktx.makerAddress,
-        zktx.makerToken,
-        zktx.takerToken,
-        zktx.feeRecipientAddress,
-        zktx.makerAssetAmount,
-        zktx.takerAssetAmount,
-        zktx.makerVolumeFee,
-        zktx.takerVolumeFee,
-        zktx.gasFee,
-        zktx.expirationTimeSeconds,
-        zktx.salt,
-      ],
-      zktx.signature
+    const { signature } = zktx
+    if (!signature) throw new Error('Missing order signature')
+    delete zktx.signature
+    const signerAddress = ethers.utils.verifyTypedData(
+      networkProviderConfig.domain,
+      evmEIP712Types,
+      zktx,
+      signature
     )
-    if (!sigCheck) throw new Error('Order signature incorrect')
+    if (signerAddress !== zktx.makerAddress)
+      throw new Error('Order signature incorrect')
 
     const baseAmount = baseAssetBN
       .div(10 ** marketInfo.baseAsset.decimals)
@@ -1751,7 +1738,7 @@ export default class API extends EventEmitter {
    * @param msg JSON.stringify( WSMessage )
    */
   broadcastMessage = async (chainId: number, market: ZZMarket, msg: string) => {
-    ;(this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
+    ; (this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
       if (ws.chainid !== chainId) return
       if (market !== 'all' && !ws.marketSubscriptions.includes(market)) return
@@ -2379,17 +2366,17 @@ export default class API extends EventEmitter {
     console.log(
       `Active WS connections: USER_CONNECTIONS: ${numberUsers}, MAKER_CONNECTIONS: ${numberMMs}`
     )
-    ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
-      if (!ws.isAlive) {
-        const userconnkey = `${ws.chainid}:${ws.userid}`
-        delete this.USER_CONNECTIONS[userconnkey]
-        delete this.MAKER_CONNECTIONS[userconnkey]
-        ws.terminate()
-      } else {
-        ws.isAlive = false
-        ws.ping()
-      }
-    })
+      ; (this.wss.clients as Set<WSocket>).forEach((ws) => {
+        if (!ws.isAlive) {
+          const userconnkey = `${ws.chainid}:${ws.userid}`
+          delete this.USER_CONNECTIONS[userconnkey]
+          delete this.MAKER_CONNECTIONS[userconnkey]
+          ws.terminate()
+        } else {
+          ws.isAlive = false
+          ws.ping()
+        }
+      })
 
     console.log(`${this.wss.clients.size} active connections.`)
   }
@@ -2517,7 +2504,7 @@ export default class API extends EventEmitter {
   }
 
   populateV1TokenIds = async () => {
-    for (let i = 0; ; ) {
+    for (let i = 0; ;) {
       const result: any = (await fetch(
         `https://api.zksync.io/api/v0.2/tokens?from=${i}&limit=100&direction=newer`
       ).then((r: any) => r.json())) as AnyObject
