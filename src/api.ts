@@ -1154,10 +1154,21 @@ export default class API extends EventEmitter {
       )
 
     /* validateSignature */
-    const orderArray = Object.values(zktx)
     const sigCheck = await exchange.isValidSignature(
-      orderArray.splice(0, -1),
-      orderArray.at(-1)
+      [
+        zktx.makerAddress,
+        zktx.makerToken,
+        zktx.takerToken,
+        zktx.feeRecipientAddress,
+        zktx.makerAssetAmount,
+        zktx.takerAssetAmount,
+        zktx.makerVolumeFee,
+        zktx.takerVolumeFee,
+        zktx.gasFee,
+        zktx.expirationTimeSeconds,
+        zktx.salt,
+      ],
+      zktx.signature
     )
     if (!sigCheck) throw new Error('Order signature incorrect')
 
