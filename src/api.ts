@@ -32,7 +32,7 @@ export default class API extends EventEmitter {
   V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDERS: AnyObject = {}
-  EXCHANGE_CONTRACTS: AnyObject = {}
+  SIGNATURE_VALIDATOR: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS
@@ -102,8 +102,8 @@ export default class API extends EventEmitter {
     const starknetContractABI = JSON.parse(
       fs.readFileSync('abi/starknet_v1.abi', 'utf8')
     )
-    const EVMContractABI = JSON.parse(
-      fs.readFileSync('abi/EVM_Exchange.abi', 'utf8')
+    const SignatureValidatorABI = JSON.parse(
+      fs.readFileSync('evm_contracts/evm_contracts/artifacts/SignatureValidator.sol/SignatureValidator.json', 'utf8')
     )
 
     // connect infura providers
@@ -115,9 +115,9 @@ export default class API extends EventEmitter {
       )
       const address = this.EVMConfig[chainId].exchangeAddress
       if (!address) return
-      this.EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
+      this.SIGNATURE_VALIDATOR[chainId] = new ethers.Contract(
         address,
-        EVMContractABI,
+        SignatureValidatorABI,
         this.ETHERS_PROVIDERS[chainId]
       )
     })
@@ -1086,7 +1086,7 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
-    const exchange = this.EXCHANGE_CONTRACTS[chainId]
+    const exchange = this.SIGNATURE_VALIDATOR[chainId]
     if (!marketInfo || !networkProvider || !networkProviderConfig || !exchange)
       throw new Error('Issue connecting to providers')
 
