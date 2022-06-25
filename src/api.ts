@@ -1095,20 +1095,23 @@ export default class API extends EventEmitter {
       throw new Error('Expiry time too low. Use at least NOW + 60sec')
 
     const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
-    const gasFee = ethers.utils.parseUnits(zktx.gasFee, marketInfo.baseAsset.decimals).toNumber()
-    let baseAssetBN
-    let quoteAssetBN
+    const gasFee = (side === 's')
+      ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
+      : ethers.utils.formatUnits(zktx.gasFee, marketInfo.quoteAmount.decimals)
+
+    let baseAssetBN: ethers.BigNumber
+    let quoteAssetBN: ethers.BigNumber
     if (side === 's') {
       baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
       quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
-      if (gasFee < (marketInfo.baseFee * 2))
+      if (Number(gasFee) < (marketInfo.baseFee * 2))
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.base.symbol}`
         )
     } else {
       baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
       quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
-      if (gasFee < (marketInfo.quoteFee * 2))
+      if (Number(gasFee) < (marketInfo.quoteFee * 2))
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quote.symbol}`
         )
