@@ -1018,7 +1018,7 @@ async function start() {
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
   const EVMContractABI = JSON.parse(
-    fs.readFileSync('evm_contracts/evm_contracts/artifacts/Exchange.sol/Exchange.json', 'utf8')
+    fs.readFileSync('evm_contracts/artifacts/Exchange.sol/Exchange.json', 'utf8')
   )
 
   // connect infura providers
