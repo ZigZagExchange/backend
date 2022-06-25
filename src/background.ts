@@ -46,7 +46,7 @@ async function getMarketInfo(market: ZZMarket, chainId: number) {
 async function updatePriceHighLow() {
   console.time('updatePriceHighLow')
 
-  const midnight = new Date(new Date().setUTCHours(0,0,0,0)).toISOString()
+  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
   const selecUTC = await db.query(
     "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
     [midnight]
@@ -90,7 +90,7 @@ async function updatePriceHighLow() {
 async function updateVolumes() {
   console.time('updateVolumes')
 
-  const midnight = new Date(new Date().setUTCHours(0,0,0,0)).toISOString()
+  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
   const queryUTC = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
     values: [midnight],
@@ -116,8 +116,6 @@ async function updateVolumes() {
       console.log('Could not update volumes')
     }
   })
-
-  
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
@@ -280,11 +278,14 @@ async function updateMarketSummarys() {
     const redisBestAsk = await redis.HGETALL(`bestask:${chainId}`)
     const redisBestBid = await redis.HGETALL(`bestbid:${chainId}`)
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const redisVolumesQuoteUTC = await redis.HGETALL(`volume:utc:${chainId}:quote`)
-    const redisVolumesBaseUTC = await redis.HGETALL(`volume:utc:${chainId}:base`)
+    const redisVolumesQuoteUTC = await redis.HGETALL(
+      `volume:utc:${chainId}:quote`
+    )
+    const redisVolumesBaseUTC = await redis.HGETALL(
+      `volume:utc:${chainId}:base`
+    )
     const redisPricesLowUTC = await redis.HGETALL(`price:utc:${chainId}:low`)
     const redisPricesHighUTC = await redis.HGETALL(`price:utc:${chainId}:high`)
-
 
     const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(
@@ -307,7 +308,9 @@ async function updateMarketSummarys() {
       const lastPrice = +redisPrices[marketId]
       const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
       const priceChangeUTC = Number(formatPrice(lastPrice - todayPrice))
-      const priceChangePercent_24hUTC = Number(formatPrice(priceChangeUTC / lastPrice))
+      const priceChangePercent_24hUTC = Number(
+        formatPrice(priceChangeUTC / lastPrice)
+      )
       // eslint-disable-next-line camelcase
       const priceChangePercent_24h = Number(
         formatPrice(priceChange / lastPrice)
@@ -357,7 +360,11 @@ async function updateMarketSummarys() {
         highestPrice_24h: highestPrice_24hUTC,
         lowestPrice_24h: lowestPrice_24hUTC,
       }
-      redis.HSET(redisKeyMarketSummaryUTC, marketId, JSON.stringify(marketSummaryUTC))
+      redis.HSET(
+        redisKeyMarketSummaryUTC,
+        marketId,
+        JSON.stringify(marketSummaryUTC)
+      )
       redis.HSET(redisKeyMarketSummary, marketId, JSON.stringify(marketSummary))
     })
     await Promise.all(results1)
@@ -389,10 +396,11 @@ async function updateUsdPrice() {
         const fetchResult = (await fetch(
           `${ZKSYNC_BASE_URL[network]}tokens/${token}/priceIn/usd`
         ).then((r: any) => r.json())) as AnyObject
-        let usdPrice = fetchResult?.result?.price > 0
-          ? formatPrice(fetchResult?.result?.price)
-          : 1
-        if (usdPrice == 0) usdPrice = formatPrice("1");
+        let usdPrice =
+          fetchResult?.result?.price > 0
+            ? formatPrice(fetchResult?.result?.price)
+            : 1
+        if (usdPrice === 0) usdPrice = formatPrice('1')
         updatedTokenPrice[token] = usdPrice
         tokenInfo.usdPrice = usdPrice
       } catch (err: any) {
@@ -720,255 +728,283 @@ async function updateTokenInfo(chainId: number) {
  * Used to send send matched orders
  */
 async function sendMatchedOrders() {
-  const results: Promise<any>[] = VALID_EVM_CHAINS.map(async (chainId: number) => {
-    const matchChainString = await redis.LPOP(`matchedorders:${chainId}`)
-    if (!matchChainString) return
+  const results: Promise<any>[] = VALID_EVM_CHAINS.map(
+    async (chainId: number) => {
+      const matchChainString = await redis.LPOP(`matchedorders:${chainId}`)
+      if (!matchChainString) return
 
-    const matchChainArray: string[] = JSON.parse(matchChainString)
-    const chainResults: Promise<any>[] = matchChainArray.map(async (matchString: string) => {
-      if (!matchString) return
-      const match = JSON.parse(matchString)
-      const marketInfo = await getMarketInfo(match.market, match.chainID)
+      const matchChainArray: string[] = JSON.parse(matchChainString)
+      const chainResults: Promise<any>[] = matchChainArray.map(
+        async (matchString: string) => {
+          if (!matchString) return
+          const match = JSON.parse(matchString)
+          const marketInfo = await getMarketInfo(match.market, match.chainID)
 
-      if (!marketInfo) return
-      const { makerOrder, takerOrder } = match
+          if (!marketInfo) return
+          const { makerOrder, takerOrder } = match
 
-      /* format amounts */
-      let makerAssetsDecimals: number
-      let takerAssetsDecimals: number
-      let feeAmount: string
-      let feeToken: string
-      if (makerOrder.makerToken === marketInfo.baseAsset.address) {
-        makerAssetsDecimals = marketInfo.baseAsset.decimals
-        takerAssetsDecimals = marketInfo.quoteAsset.decimals
-        feeAmount = marketInfo.baseFee
-        feeToken = marketInfo.baseAsset.symbol
-      } else {
-        makerAssetsDecimals = marketInfo.quoteAsset.decimals
-        takerAssetsDecimals = marketInfo.baseAsset.decimals
-        feeAmount = marketInfo.quoteFee
-        feeToken = marketInfo.quoteAsset.symbol
-      }
-      makerOrder.makerAssetAmount = ethers.utils.parseUnits(
-        makerOrder.makerAssetAmount,
-        makerAssetsDecimals
-      )
-      makerOrder.takerAssetAmount = ethers.utils.parseUnits(
-        makerOrder.takerAssetAmount,
-        takerAssetsDecimals
-      )
-      takerOrder.makerAssetAmount = ethers.utils.parseUnits(
-        makerOrder.makerAssetAmount,
-        makerAssetsDecimals
-      )
-      takerOrder.takerAssetAmount = ethers.utils.parseUnits(
-        makerOrder.takerAssetAmount,
-        takerAssetsDecimals
-      )
+          /* format amounts */
+          let makerAssetsDecimals: number
+          let takerAssetsDecimals: number
+          let feeAmount: string
+          let feeToken: string
+          if (makerOrder.makerToken === marketInfo.baseAsset.address) {
+            makerAssetsDecimals = marketInfo.baseAsset.decimals
+            takerAssetsDecimals = marketInfo.quoteAsset.decimals
+            feeAmount = marketInfo.baseFee
+            feeToken = marketInfo.baseAsset.symbol
+          } else {
+            makerAssetsDecimals = marketInfo.quoteAsset.decimals
+            takerAssetsDecimals = marketInfo.baseAsset.decimals
+            feeAmount = marketInfo.quoteFee
+            feeToken = marketInfo.quoteAsset.symbol
+          }
+          makerOrder.makerAssetAmount = ethers.utils.parseUnits(
+            makerOrder.makerAssetAmount,
+            makerAssetsDecimals
+          )
+          makerOrder.takerAssetAmount = ethers.utils.parseUnits(
+            makerOrder.takerAssetAmount,
+            takerAssetsDecimals
+          )
+          takerOrder.makerAssetAmount = ethers.utils.parseUnits(
+            makerOrder.makerAssetAmount,
+            makerAssetsDecimals
+          )
+          takerOrder.takerAssetAmount = ethers.utils.parseUnits(
+            makerOrder.takerAssetAmount,
+            takerAssetsDecimals
+          )
 
-      const makerOrderArray = Object.values(makerOrder)
-      const takerOrderArray = Object.values(takerOrder)
-      const transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
-        takerOrderArray.splice(0, -1),
-        makerOrderArray.splice(0, -1),
-        takerOrderArray.at(-1),
-        makerOrderArray.at(-1)
-      )
+          const makerOrderArray = Object.values(makerOrder)
+          const takerOrderArray = Object.values(takerOrder)
+          const transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
+            takerOrderArray.splice(0, -1),
+            makerOrderArray.splice(0, -1),
+            takerOrderArray.at(-1),
+            makerOrderArray.at(-1)
+          )
 
-      const fillupdateBroadcastPending = await db.query(
-        "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
-        [transaction.hash, match.id]
-      )
-      const orderUpdateBroadcastPending = await db.query(
-        "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
-        [match.takerId, match.makerId]
-      )
-      const orderUpdatesBroadcastPending = orderUpdateBroadcastPending.rows.map(
-        (row) => [chainId, row.id, row.order_status, row.unfilled]
-      )
-      const fillUpdatesBroadcastPending = fillupdateBroadcastPending.rows.map(
-        (row) => [
-          chainId,
-          row.id,
-          row.fill_status,
-          row.txhash,
-          null, // remaing
-          0,
-          0,
-          Date.now(), // timestamp
-        ]
-      )
+          const fillupdateBroadcastPending = await db.query(
+            "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
+            [transaction.hash, match.id]
+          )
+          const orderUpdateBroadcastPending = await db.query(
+            "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
+            [match.takerId, match.makerId]
+          )
+          const orderUpdatesBroadcastPending =
+            orderUpdateBroadcastPending.rows.map((row) => [
+              chainId,
+              row.id,
+              row.order_status,
+              row.unfilled,
+            ])
+          const fillUpdatesBroadcastPending =
+            fillupdateBroadcastPending.rows.map((row) => [
+              chainId,
+              row.id,
+              row.fill_status,
+              row.txhash,
+              null, // remaing
+              0,
+              0,
+              Date.now(), // timestamp
+            ])
 
-      if (orderUpdatesBroadcastPending.length) {
-        publisher.PUBLISH(
-          `broadcastmsg:all:${chainId}:${match.market}`,
-          JSON.stringify({
-            op: 'orderstatus',
-            args: [orderUpdatesBroadcastPending],
-          })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.makerId}`,
-          JSON.stringify({
-            op: 'orderstatus',
-            args: [orderUpdatesBroadcastPending],
-          })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.takerId}`,
-          JSON.stringify({
-            op: 'orderstatus',
-            args: [orderUpdatesBroadcastPending],
-          })
-        )
-      }
-      if (fillUpdatesBroadcastPending.length) {
-        publisher.PUBLISH(
-          `broadcastmsg:all:${chainId}:${match.market}`,
-          JSON.stringify({
-            op: 'fillstatus',
-            args: [fillUpdatesBroadcastPending],
-          })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.makerId}`,
-          JSON.stringify({
-            op: 'fillstatus',
-            args: [fillUpdatesBroadcastPending],
-          })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.takerId}`,
-          JSON.stringify({
-            op: 'fillstatus',
-            args: [fillUpdatesBroadcastPending],
-          })
-        )
-      }
+          if (orderUpdatesBroadcastPending.length) {
+            publisher.PUBLISH(
+              `broadcastmsg:all:${chainId}:${match.market}`,
+              JSON.stringify({
+                op: 'orderstatus',
+                args: [orderUpdatesBroadcastPending],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.makerId}`,
+              JSON.stringify({
+                op: 'orderstatus',
+                args: [orderUpdatesBroadcastPending],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.takerId}`,
+              JSON.stringify({
+                op: 'orderstatus',
+                args: [orderUpdatesBroadcastPending],
+              })
+            )
+          }
+          if (fillUpdatesBroadcastPending.length) {
+            publisher.PUBLISH(
+              `broadcastmsg:all:${chainId}:${match.market}`,
+              JSON.stringify({
+                op: 'fillstatus',
+                args: [fillUpdatesBroadcastPending],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.makerId}`,
+              JSON.stringify({
+                op: 'fillstatus',
+                args: [fillUpdatesBroadcastPending],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.takerId}`,
+              JSON.stringify({
+                op: 'fillstatus',
+                args: [fillUpdatesBroadcastPending],
+              })
+            )
+          }
 
-      const recipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-        transaction.hash
-      )
-      const txStatus = recipt.status === 1 ? 's' : 'r'
+          const recipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+            transaction.hash
+          )
+          const txStatus = recipt.status === 1 ? 's' : 'r'
 
-      const fillupdateBroadcastMinted = await db.query(
-        'UPDATE fills SET fill_status=$1 WHERE id=$2 RETURNING id, fill_status, txhash',
-        [txStatus, match.id]
-      )
-      const orderUpdateBroadcastMinted = await db.query(
-        'UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE id IN ($2, $3) AND unfilled = 0 RETURNING id, order_status, unfilled',
-        [txStatus, match.takerId, match.makerId]
-      )
-      const orderUpdatesBroadcastMinted = orderUpdateBroadcastMinted.rows.map(
-        (row) => [chainId, row.id, row.order_status, row.unfilled]
-      )
-      const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
-        (row) => [
-          chainId,
-          row.id,
-          row.fill_status,
-          row.txhash,
-          null, // remaing
-          feeAmount,
-          feeToken,
-          Date.now(), // timestamp
-        ]
-      )
+          const fillupdateBroadcastMinted = await db.query(
+            'UPDATE fills SET fill_status=$1 WHERE id=$2 RETURNING id, fill_status, txhash',
+            [txStatus, match.id]
+          )
+          const orderUpdateBroadcastMinted = await db.query(
+            'UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE id IN ($2, $3) AND unfilled = 0 RETURNING id, order_status, unfilled',
+            [txStatus, match.takerId, match.makerId]
+          )
+          const orderUpdatesBroadcastMinted =
+            orderUpdateBroadcastMinted.rows.map((row) => [
+              chainId,
+              row.id,
+              row.order_status,
+              row.unfilled,
+            ])
+          const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
+            (row) => [
+              chainId,
+              row.id,
+              row.fill_status,
+              row.txhash,
+              null, // remaing
+              feeAmount,
+              feeToken,
+              Date.now(), // timestamp
+            ]
+          )
 
-      if (orderUpdatesBroadcastMinted.length) {
-        publisher.PUBLISH(
-          `broadcastmsg:all:${chainId}:${match.market}`,
-          JSON.stringify({
-            op: 'orderstatus',
-            args: [orderUpdatesBroadcastMinted],
-          })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.makerId}`,
-          JSON.stringify({
-            op: 'orderstatus',
-            args: [orderUpdatesBroadcastMinted],
-          })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.takerId}`,
-          JSON.stringify({
-            op: 'orderstatus',
-            args: [orderUpdatesBroadcastMinted],
-          })
-        )
-      }
-      if (fillUpdatesBroadcastMinted.length) {
-        publisher.PUBLISH(
-          `broadcastmsg:all:${chainId}:${match.market}`,
-          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcastMinted] })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.makerId}`,
-          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcastMinted] })
-        )
-        publisher.PUBLISH(
-          `broadcastmsg:user:${chainId}:${match.takerId}`,
-          JSON.stringify({ op: 'fillstatus', args: [fillUpdatesBroadcastMinted] })
-        )
-      }
-    })
-    await Promise.all(chainResults)
-  })
+          if (orderUpdatesBroadcastMinted.length) {
+            publisher.PUBLISH(
+              `broadcastmsg:all:${chainId}:${match.market}`,
+              JSON.stringify({
+                op: 'orderstatus',
+                args: [orderUpdatesBroadcastMinted],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.makerId}`,
+              JSON.stringify({
+                op: 'orderstatus',
+                args: [orderUpdatesBroadcastMinted],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.takerId}`,
+              JSON.stringify({
+                op: 'orderstatus',
+                args: [orderUpdatesBroadcastMinted],
+              })
+            )
+          }
+          if (fillUpdatesBroadcastMinted.length) {
+            publisher.PUBLISH(
+              `broadcastmsg:all:${chainId}:${match.market}`,
+              JSON.stringify({
+                op: 'fillstatus',
+                args: [fillUpdatesBroadcastMinted],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.makerId}`,
+              JSON.stringify({
+                op: 'fillstatus',
+                args: [fillUpdatesBroadcastMinted],
+              })
+            )
+            publisher.PUBLISH(
+              `broadcastmsg:user:${chainId}:${match.takerId}`,
+              JSON.stringify({
+                op: 'fillstatus',
+                args: [fillUpdatesBroadcastMinted],
+              })
+            )
+          }
+        }
+      )
+      await Promise.all(chainResults)
+    }
+  )
 
   await Promise.all(results)
   setTimeout(sendMatchedOrders, 10000)
 }
 
 async function seedArbitrumMarkets() {
-    console.time("seeding arbitrum markets");
-    const marketSummaryEthUsdc = {
-      market: "ETH-USDC",
-      baseSymbol: "ETH",
-      quoteSymbol: "USDC",
-      lastPrice: 1200,
-      lowestAsk: 1201,
-      highestBid: 1999,
-      baseVolume: 0,
-      quoteVolume: 0,
-      priceChange: 0,
-      priceChangePercent_24h: 0,
-      highestPrice_24h: 1250,
-      lowestPrice_24h: 1150
-    }
-    const ethTokenInfo = {
-        "id":"0x0000000000000000000000000000000000000000",
-        "address":"0x0000000000000000000000000000000000000000",
-        "symbol":"ETH",
-        "decimals":18,
-        "enabledForFees":true,
-        "usdPrice":"1081.75",
-        "name":"Ethereum"
-    }
-    const usdcTokenInfo = {
-        "id": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-        "address":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-        "symbol":"USDC",
-        "decimals":6,
-        "enabledForFees":true,
-        "usdPrice":"1",
-        "name":"USD Coin"
-    }
-    const lastPriceInfoEthUsdc = {
-        "price":1200,
-        "priceChange":-72.18,
-        "quoteVolume":"3945712",
-        "baseVolume":"3584.25"
-    }
-    await redis.HSET("marketsummary:42161", "ETH-USDC", JSON.stringify(marketSummaryEthUsdc));
-    await redis.SADD("activemarkets:42161", "ETH-USDC");
-    await redis.HSET("tokenfee:42161", "ETH", "0.001");
-    await redis.HSET("tokenfee:42161", "USDC", "1");
-    await redis.HSET("tokeninfo:42161", "ETH", JSON.stringify(ethTokenInfo));
-    await redis.HSET("tokeninfo:42161", "USDC", JSON.stringify(usdcTokenInfo));
-    await redis.HSET("lastprices:42161", "ETH-USDC", "1200");
-    await redis.HSET("lastpriceinfo:42161", "ETH-USDC", JSON.stringify(lastPriceInfoEthUsdc));
-    console.timeEnd("seeding arbitrum markets");
+  console.time('seeding arbitrum markets')
+  const marketSummaryEthUsdc = {
+    market: 'ETH-USDC',
+    baseSymbol: 'ETH',
+    quoteSymbol: 'USDC',
+    lastPrice: 1200,
+    lowestAsk: 1201,
+    highestBid: 1999,
+    baseVolume: 0,
+    quoteVolume: 0,
+    priceChange: 0,
+    priceChangePercent_24h: 0,
+    highestPrice_24h: 1250,
+    lowestPrice_24h: 1150,
+  }
+  const ethTokenInfo = {
+    id: '0x0000000000000000000000000000000000000000',
+    address: '0x0000000000000000000000000000000000000000',
+    symbol: 'ETH',
+    decimals: 18,
+    enabledForFees: true,
+    usdPrice: '1081.75',
+    name: 'Ethereum',
+  }
+  const usdcTokenInfo = {
+    id: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+    address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+    symbol: 'USDC',
+    decimals: 6,
+    enabledForFees: true,
+    usdPrice: '1',
+    name: 'USD Coin',
+  }
+  const lastPriceInfoEthUsdc = {
+    price: 1200,
+    priceChange: -72.18,
+    quoteVolume: '3945712',
+    baseVolume: '3584.25',
+  }
+  await redis.HSET(
+    'marketsummary:42161',
+    'ETH-USDC',
+    JSON.stringify(marketSummaryEthUsdc)
+  )
+  await redis.SADD('activemarkets:42161', 'ETH-USDC')
+  await redis.HSET('tokenfee:42161', 'ETH', '0.001')
+  await redis.HSET('tokenfee:42161', 'USDC', '1')
+  await redis.HSET('tokeninfo:42161', 'ETH', JSON.stringify(ethTokenInfo))
+  await redis.HSET('tokeninfo:42161', 'USDC', JSON.stringify(usdcTokenInfo))
+  await redis.HSET('lastprices:42161', 'ETH-USDC', '1200')
+  await redis.HSET(
+    'lastpriceinfo:42161',
+    'ETH-USDC',
+    JSON.stringify(lastPriceInfoEthUsdc)
+  )
+  console.timeEnd('seeding arbitrum markets')
 }
 
 async function start() {
@@ -1024,7 +1060,7 @@ async function start() {
   VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfo(chainId))
 
   // Seed Arbitrum Markets
-  seedArbitrumMarkets();
+  seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
   setInterval(updatePriceHighLow, 300000)
@@ -1035,7 +1071,6 @@ async function start() {
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
   setInterval(removeOldLiquidity, 10000)
-
 
   setTimeout(sendMatchedOrders, 15000)
 }
