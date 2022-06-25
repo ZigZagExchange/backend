@@ -1086,8 +1086,8 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
-    const exchange = this.SIGNATURE_VALIDATOR[chainId]
-    if (!marketInfo || !networkProvider || !networkProviderConfig || !exchange)
+    const signatureValidator = this.SIGNATURE_VALIDATOR[chainId]
+    if (!marketInfo || !networkProvider || !networkProviderConfig || !signatureValidator)
       throw new Error('Issue connecting to providers')
 
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
@@ -1154,7 +1154,7 @@ export default class API extends EventEmitter {
       )
 
     /* validateSignature */
-    const sigCheck = await exchange.isValidSignature(
+    const sigCheck = await signatureValidator.isValidSignature(
       [
         zktx.makerAddress,
         zktx.makerToken,
