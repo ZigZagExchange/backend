@@ -950,9 +950,9 @@ async function sendMatchedOrders() {
 
 async function seedArbitrumMarkets() {
   console.time('seeding arbitrum markets')
-  const marketSummaryEthUsdc = {
-    market: 'ETH-USDC',
-    baseSymbol: 'ETH',
+  const marketSummaryWethUsdc = {
+    market: 'WETH-USDC',
+    baseSymbol: 'WETH',
     quoteSymbol: 'USDC',
     lastPrice: 1200,
     lowestAsk: 1201,
@@ -964,14 +964,14 @@ async function seedArbitrumMarkets() {
     highestPrice_24h: 1250,
     lowestPrice_24h: 1150,
   }
-  const ethTokenInfo = {
-    id: '0x0000000000000000000000000000000000000000',
-    address: '0x0000000000000000000000000000000000000000',
-    symbol: 'ETH',
+  const wethTokenInfo = {
+    id: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    symbol: 'WETH',
     decimals: 18,
     enabledForFees: true,
     usdPrice: '1081.75',
-    name: 'Ethereum',
+    name: 'Wrapped Ether',
   }
   const usdcTokenInfo = {
     id: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
@@ -982,7 +982,7 @@ async function seedArbitrumMarkets() {
     usdPrice: '1',
     name: 'USD Coin',
   }
-  const lastPriceInfoEthUsdc = {
+  const lastPriceInfoWethUsdc = {
     price: 1200,
     priceChange: -72.18,
     quoteVolume: '3945712',
@@ -990,19 +990,20 @@ async function seedArbitrumMarkets() {
   }
   await redis.HSET(
     'marketsummary:42161',
-    'ETH-USDC',
-    JSON.stringify(marketSummaryEthUsdc)
+    'WETH-USDC',
+    JSON.stringify(marketSummaryWethUsdc)
   )
-  await redis.SADD('activemarkets:42161', 'ETH-USDC')
-  await redis.HSET('tokenfee:42161', 'ETH', '0.001')
+  await redis.SADD('activemarkets:42161', 'WETH-USDC')
+  await redis.SREM('activemarkets:42161', 'ETH-USDC')
+  await redis.HSET('tokenfee:42161', 'WETH', '0.001')
   await redis.HSET('tokenfee:42161', 'USDC', '1')
-  await redis.HSET('tokeninfo:42161', 'ETH', JSON.stringify(ethTokenInfo))
+  await redis.HSET('tokeninfo:42161', 'WETH', JSON.stringify(wethTokenInfo))
   await redis.HSET('tokeninfo:42161', 'USDC', JSON.stringify(usdcTokenInfo))
-  await redis.HSET('lastprices:42161', 'ETH-USDC', '1200')
+  await redis.HSET('lastprices:42161', 'WETH-USDC', '1200')
   await redis.HSET(
     'lastpriceinfo:42161',
     'ETH-USDC',
-    JSON.stringify(lastPriceInfoEthUsdc)
+    JSON.stringify(lastPriceInfoWethUsdc)
   )
   console.timeEnd('seeding arbitrum markets')
 }
