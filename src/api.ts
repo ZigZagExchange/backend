@@ -1106,14 +1106,14 @@ export default class API extends EventEmitter {
       quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
       if (Number(gasFee) < (marketInfo.baseFee * 2))
         throw new Error(
-          `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.base.symbol}`
+          `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
         )
     } else {
       baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
       quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
       if (Number(gasFee) < (marketInfo.quoteFee * 2))
         throw new Error(
-          `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quote.symbol}`
+          `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAmount.symbol}`
         )
     }
 
