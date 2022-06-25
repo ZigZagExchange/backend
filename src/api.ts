@@ -113,7 +113,7 @@ export default class API extends EventEmitter {
         getNetwork(chainId),
         process.env.INFURA_PROJECT_ID
       )
-      const address = this.EVMConfig[chainId]
+      const address = this.EVMConfig[chainId].exchangeAddress
       if (!address) return
       this.EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
         address,
