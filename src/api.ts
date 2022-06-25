@@ -1534,8 +1534,8 @@ export default class API extends EventEmitter {
         baseQuantity: selectresult.base_quantity,
         quoteQuantity: selectresult.quote_quantity,
         userId: selectresult.userid,
-        fillOrder: fillOrder,
-        wsUUID: wsUUID,
+        fillOrder,
+        wsUUID,
       }),
     }
 
@@ -1678,7 +1678,7 @@ export default class API extends EventEmitter {
 
       this.redis.SET(
         redisKeyBussy,
-        JSON.stringify({ orderId: orderId, ws_uuid: value.wsUUID }),
+        JSON.stringify({ orderId, ws_uuid: value.wsUUID }),
         { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
