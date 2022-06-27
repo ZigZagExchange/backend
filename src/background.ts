@@ -744,37 +744,21 @@ async function sendMatchedOrders() {
           const { makerOrder, takerOrder } = match
 
           /* format amounts */
-          let makerAssetsDecimals: number
-          let takerAssetsDecimals: number
           let feeAmount: string
           let feeToken: string
           if (makerOrder.makerToken === marketInfo.baseAsset.address) {
-            makerAssetsDecimals = marketInfo.baseAsset.decimals
-            takerAssetsDecimals = marketInfo.quoteAsset.decimals
-            feeAmount = marketInfo.baseFee
+            feeAmount = ethers.utils.formatUnits(
+              marketInfo.baseAsset.decimals,
+              marketInfo.quoteAsset.decimals
+            )
             feeToken = marketInfo.baseAsset.symbol
           } else {
-            makerAssetsDecimals = marketInfo.quoteAsset.decimals
-            takerAssetsDecimals = marketInfo.baseAsset.decimals
-            feeAmount = marketInfo.quoteFee
+            feeAmount = ethers.utils.formatUnits(
+              makerOrder.gasFee,
+              marketInfo.quoteAsset.decimals
+            )
             feeToken = marketInfo.quoteAsset.symbol
           }
-          makerOrder.makerAssetAmount = ethers.utils.parseUnits(
-            makerOrder.makerAssetAmount,
-            makerAssetsDecimals
-          )
-          makerOrder.takerAssetAmount = ethers.utils.parseUnits(
-            makerOrder.takerAssetAmount,
-            takerAssetsDecimals
-          )
-          takerOrder.makerAssetAmount = ethers.utils.parseUnits(
-            makerOrder.makerAssetAmount,
-            makerAssetsDecimals
-          )
-          takerOrder.takerAssetAmount = ethers.utils.parseUnits(
-            makerOrder.takerAssetAmount,
-            takerAssetsDecimals
-          )
 
           const transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
             [
