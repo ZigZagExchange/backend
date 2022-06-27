@@ -1024,7 +1024,7 @@ async function seedArbitrumMarkets() {
   await redis.HSET('lastprices:42161', 'WETH-USDC', '1200')
   await redis.HSET(
     'lastpriceinfo:42161',
-    'ETH-USDC',
+    'WETH-USDC',
     JSON.stringify(lastPriceInfoWethUsdc)
   )
   console.timeEnd('seeding arbitrum markets')
