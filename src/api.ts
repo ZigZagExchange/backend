@@ -1110,7 +1110,7 @@ export default class API extends EventEmitter {
     const gasFee =
       side === 's'
         ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
-        : ethers.utils.formatUnits(zktx.gasFee, marketInfo.quoteAmount.decimals)
+        : ethers.utils.formatUnits(zktx.gasFee, marketInfo.quoteAsset.decimals)
 
     let baseAssetBN: ethers.BigNumber
     let quoteAssetBN: ethers.BigNumber
