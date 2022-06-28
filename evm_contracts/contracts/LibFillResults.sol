@@ -25,8 +25,7 @@ library LibFillResults {
         LibOrder.Order memory leftOrder,
         LibOrder.Order memory rightOrder,
         uint256 leftOrderTakerAssetFilledAmount,
-        uint256 rightOrderTakerAssetFilledAmount,
-        bool shouldMaximallyFillOrders
+        uint256 rightOrderTakerAssetFilledAmount
      ) internal pure returns(MatchedFillResults memory matchedFillResults){
 
 
@@ -44,48 +43,17 @@ library LibFillResults {
             rightTakerAssetAmountRemaining
         ) ;
 
-        if(shouldMaximallyFillOrders){
-            matchedFillResults = _calculateMatchedFillResultsWithMaximalFill(leftOrder,
-            rightOrder,
-            leftMakerAssetAmountRemaining,
-            leftTakerAssetAmountRemaining,
-            rightMakerAssetAmountRemaining,
-            rightTakerAssetAmountRemaining);
-        }
-        else{
-            matchedFillResults = _calculateMatchedFillResults(leftOrder,
-            rightOrder,
-            leftMakerAssetAmountRemaining,
-            leftTakerAssetAmountRemaining,
-            rightMakerAssetAmountRemaining,
-            rightTakerAssetAmountRemaining);
-        }
+        matchedFillResults = _calculateMatchedFillResultsWithMaximalFill(leftOrder,
+        rightOrder,
+        leftMakerAssetAmountRemaining,
+        leftTakerAssetAmountRemaining,
+        rightMakerAssetAmountRemaining,
+        rightTakerAssetAmountRemaining);
         
 
-          // Compute fees for left order
-        matchedFillResults.left.makerFeePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.left.makerAssetFilledAmount,
-            leftOrder.makerAssetAmount,
-            leftOrder.makerVolumeFee
-        );
-        matchedFillResults.left.takerFeePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.left.takerAssetFilledAmount,
-            leftOrder.takerAssetAmount,
-            leftOrder.takerVolumeFee
-        );
-
-        // Compute fees for right order
-        matchedFillResults.right.makerFeePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.right.makerAssetFilledAmount,
-            rightOrder.makerAssetAmount,
-            rightOrder.makerVolumeFee
-        );
-        matchedFillResults.right.takerFeePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.right.takerAssetFilledAmount,
-            rightOrder.takerAssetAmount,
-            rightOrder.takerVolumeFee
-        );
-
+        // Set fees
+        matchedFillResults.left.makerFeePaid = leftOrder.makerVolumeFee; 
+        matchedFillResults.right.takerFeePaid = rightOrder.takerVolumeFee;
     }
 
     function _calculateMatchedFillResultsWithMaximalFill(
