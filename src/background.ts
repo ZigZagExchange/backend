@@ -742,7 +742,7 @@ async function sendMatchedOrders() {
       if (!marketInfo) return
       const { makerOrder, takerOrder } = match
 
-      /* format amounts */
+      /* format data */
       let feeAmount: string
       let feeToken: string
       if (makerOrder.makerToken === marketInfo.baseAsset.address) {
@@ -758,6 +758,14 @@ async function sendMatchedOrders() {
         )
         feeToken = marketInfo.quoteAsset.symbol
       }
+      const takerSignatureModified =
+        takerOrder.signature.slice(0, 2) +
+        takerOrder.signature.slice(-2) +
+        takerOrder.signature.slice(2, -2)
+      const makerSignatureModified =
+        makerOrder.signature.slice(0, 2) +
+        makerOrder.signature.slice(-2) +
+        makerOrder.signature.slice(2, -2)
 
       let transaction: any
       try {
@@ -788,8 +796,8 @@ async function sendMatchedOrders() {
             makerOrder.expirationTimeSeconds,
             makerOrder.salt
           ],
-          takerOrder.signature,
-          makerOrder.signature,
+          takerSignatureModified,
+          makerSignatureModified,
           true // shouldMaximallyFillOrders: always set to true for now
         )
       } catch (e: any) {
