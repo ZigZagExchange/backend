@@ -728,6 +728,7 @@ async function updateTokenInfo(chainId: number) {
  * Used to send send matched orders
  */
 async function sendMatchedOrders() {
+  console.time("sendMatchedOrders");
   const results: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
       const matchChainString = await redis.LPOP(`matchedorders:${chainId}`)
@@ -951,7 +952,8 @@ async function sendMatchedOrders() {
   )
 
   await Promise.all(results)
-  setTimeout(sendMatchedOrders, 10000)
+  setTimeout(sendMatchedOrders, 2000)
+  console.time("sendMatchedOrders");
 }
 
 async function seedArbitrumMarkets() {
@@ -1019,7 +1021,7 @@ async function start() {
 
   await redis.connect()
   await publisher.connect()
-  // await runDbMigration()
+  await runDbMigration()
 
   // fetch abi's
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
@@ -1079,7 +1081,7 @@ async function start() {
   setInterval(updateFeesZkSync, 25000)
   setInterval(removeOldLiquidity, 10000)
 
-  setTimeout(sendMatchedOrders, 15000)
+  setTimeout(sendMatchedOrders, 5000)
 }
 
 start()

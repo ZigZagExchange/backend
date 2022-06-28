@@ -1162,6 +1162,7 @@ export default class API extends EventEmitter {
     const baseAmount = Number(
       ethers.utils.formatUnits(baseAssetBN, marketInfo.baseAsset.decimals)
     )
+    console.log(baseAmount);
     const quoteAmount = Number(
       ethers.utils.formatUnits(quoteAssetBN, marketInfo.quoteAsset.decimals)
     )

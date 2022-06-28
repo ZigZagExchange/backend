@@ -73,8 +73,8 @@ CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _m
 AS $$
 DECLARE
   match RECORD;
-  amount_taken NUMERIC(32, 16);
-  amount_remaining NUMERIC(32, 16);
+  amount_taken NUMERIC;
+  amount_remaining NUMERIC;
   _taker_offer_id INTEGER;
 BEGIN
   CREATE TEMPORARY TABLE tmp_ret (
@@ -140,7 +140,7 @@ BEGIN
   -- Update offer with fill and status data 
   UPDATE offers SET 
     order_status=(CASE WHEN amount_remaining = 0 THEN 'm' WHEN amount_remaining != _base_quantity THEN 'pm' ELSE 'o' END),
-    unfilled=amount_remaining
+    unfilled=LEAST(amount_remaining, _base_quantity)
   WHERE offers.id=_taker_offer_id;
 
   INSERT INTO tmp_ret (id) VALUES (_taker_offer_id);
