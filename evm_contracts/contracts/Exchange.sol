@@ -114,21 +114,16 @@ contract Exchange is SignatureValidator{
             Fees Paid 
         */
         // Right maker fee -> right fee recipient
-        IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, matchedFillResults.right.makerFeePaid);
+        if (matchedFillResults.right.makerFeePaid > 0) {
+            IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, matchedFillResults.right.makerFeePaid);
+        }
        
-        // Left maker fee -> left fee recipient
-        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, matchedFillResults.left.makerFeePaid);
- 
-        //Settle gas Fee from left Order
-        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, leftOrder.gasFee);
+        // Left maker fee + gas fee -> left fee recipient
+        uint leftOrderFees = matchedFillResults.left.makerFeePaid + leftOrder.gasFee;
+        if (leftOrderFees > 0) {
+            IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, leftOrderFees);
+        }
 
-
-
-        // Settle taker profits.
-        IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, takerAddress, matchedFillResults.profitInRightMakerAsset);
-        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, takerAddress, matchedFillResults.profitInLeftMakerAsset);
-
-        
     }
 
 
