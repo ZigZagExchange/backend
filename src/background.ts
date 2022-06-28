@@ -92,7 +92,7 @@ async function updateVolumes() {
 
   const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
   const queryUTC = {
-    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
     values: [midnight]
   }
   const selectUTC = await db.query(queryUTC)
@@ -119,7 +119,7 @@ async function updateVolumes() {
 
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
-    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
     values: [oneDayAgo]
   }
   const select = await db.query(query)
