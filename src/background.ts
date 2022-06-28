@@ -411,24 +411,6 @@ async function updateUsdPrice() {
       redis.HSET(`tokeninfo:${chainId}`, token, JSON.stringify(tokenInfo))
     })
     await Promise.all(results1)
-
-    const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
-    const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-      if (!marketInfos[market]) return
-      const marketInfo = JSON.parse(marketInfos[market])
-      marketInfo.baseAsset.usdPrice = Number(
-        formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])
-      )
-      marketInfo.quoteAsset.usdPrice = Number(
-        formatPrice(updatedTokenPrice[marketInfo.quoteAsset.symbol])
-      )
-      redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
-      publisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
-      )
-    })
-    await Promise.all(results2)
   })
   await Promise.all(results0)
   console.timeEnd('Updating usd price.')
