@@ -1114,9 +1114,11 @@ export default class API extends EventEmitter {
 
     let baseAssetBN: ethers.BigNumber
     let quoteAssetBN: ethers.BigNumber
+    let feeToken: string
     if (side === 's') {
       baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
       quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+      feeToken = marketInfo.baseAsset.symbol
       if (Number(gasFee) < marketInfo.baseFee)
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
@@ -1124,6 +1126,7 @@ export default class API extends EventEmitter {
     } else {
       baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
       quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+      feeToken = marketInfo.quoteAsset.symbol
       if (Number(gasFee) < marketInfo.quoteFee)
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAmount.symbol}`
@@ -1208,11 +1211,11 @@ export default class API extends EventEmitter {
           chainId,
           row.maker_offer_id,
           'pm',
-          row.amount,
+          null,
           row.maker_unfilled,
         ])
       } else {
-        orderupdates.push([chainId, row.maker_offer_id, 'm'])
+        orderupdates.push([chainId, row.maker_offer_id, 'm', null, 0])
       }
       marketFills.push([
         chainId,
@@ -1225,6 +1228,8 @@ export default class API extends EventEmitter {
         row.txhash,
         row.taker_user_id,
         row.maker_user_id,
+        feeToken,
+        gasFee
       ])
 
       const matchOrderObject = {
@@ -1237,30 +1242,34 @@ export default class API extends EventEmitter {
         fillId: row.id,
         makerId: row.maker_offer_id,
         takerId: taker.id,
+        feeToken,
+        gasFee
       }
       this.redis.LPUSH(
         `matchedorders:${chainId}`,
         JSON.stringify(matchOrderObject)
       )
     })
-    const orderMsg = [
-      chainId,
-      taker.id,
-      market,
-      taker.side,
-      taker.price,
-      taker.base_quantity,
-      taker.price * taker.base_quantity,
-      taker.expires,
-      taker.userid,
-      taker.order_status,
-      null,
-      taker.unfilled,
-    ]
-    this.redisPublisher.PUBLISH(
-      `broadcastmsg:all:${chainId}:${market}`,
-      JSON.stringify({ op: 'orders', args: [[orderMsg]] })
-    )
+    // only post orders if taker has unfilled amount
+    if (taker.unfilled > 0) {
+      const orderMsg = [
+        chainId,
+        taker.id,
+        market,
+        taker.side,
+        taker.price,
+        taker.base_quantity,
+        taker.price * taker.base_quantity,
+        taker.expires,
+        taker.userid,
+        taker.order_status,
+        taker.unfilled,
+      ]
+      this.redisPublisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'orders', args: [[orderMsg]] })
+      )
+    }
     if (orderupdates.length > 0) {
       this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainId}:${market}`,
