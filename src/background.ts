@@ -19,12 +19,12 @@ const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
 const VALID_CHAINS: number[] = process.env.VALID_CHAINS
   ? JSON.parse(process.env.VALID_CHAINS)
-  : [1, 1000, 1001]
+  : [1, 1000, 1001, 42161]
 const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter((chainId) =>
   [1, 1000].includes(chainId)
 )
 const VALID_EVM_CHAINS: number[] = VALID_CHAINS.filter((chainId) =>
-  [1001].includes(chainId)
+  [42161].includes(chainId)
 )
 const ZKSYNC_BASE_URL: AnyObject = {}
 const SYNC_PROVIDER: AnyObject = {}
@@ -732,36 +732,36 @@ async function sendMatchedOrders() {
   const results: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
       const matchChainString = await redis.LPOP(`matchedorders:${chainId}`)
+      console.log(chainId, matchChainString);
       if (!matchChainString) return
 
-      const matchChainArray: string[] = JSON.parse(matchChainString)
-      const chainResults: Promise<any>[] = matchChainArray.map(
-        async (matchString: string) => {
-          if (!matchString) return
-          const match = JSON.parse(matchString)
-          const marketInfo = await getMarketInfo(match.market, match.chainID)
+      const match = JSON.parse(matchChainString)
+      const marketInfo = await getMarketInfo(match.market, match.chainId)
 
-          if (!marketInfo) return
-          const { makerOrder, takerOrder } = match
+      if (!marketInfo) return
+      const { makerOrder, takerOrder } = match
 
-          /* format amounts */
-          let feeAmount: string
-          let feeToken: string
-          if (makerOrder.makerToken === marketInfo.baseAsset.address) {
-            feeAmount = ethers.utils.formatUnits(
-              marketInfo.baseAsset.decimals,
-              marketInfo.quoteAsset.decimals
-            )
-            feeToken = marketInfo.baseAsset.symbol
-          } else {
-            feeAmount = ethers.utils.formatUnits(
-              makerOrder.gasFee,
-              marketInfo.quoteAsset.decimals
-            )
-            feeToken = marketInfo.quoteAsset.symbol
-          }
+      /* format amounts */
+      let feeAmount: string
+      let feeToken: string
+      if (makerOrder.makerToken === marketInfo.baseAsset.address) {
+        feeAmount = ethers.utils.formatUnits(
+          marketInfo.baseAsset.decimals,
+          marketInfo.quoteAsset.decimals
+        )
+        feeToken = marketInfo.baseAsset.symbol
+      } else {
+        feeAmount = ethers.utils.formatUnits(
+          makerOrder.gasFee,
+          marketInfo.quoteAsset.decimals
+        )
+        feeToken = marketInfo.quoteAsset.symbol
+      }
 
-          const transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
+      console.log(makerOrder, takerOrder);
+      let transaction;
+      try {
+          transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
             [
               takerOrder.makerAddress,
               takerOrder.makerToken,
@@ -789,165 +789,177 @@ async function sendMatchedOrders() {
               makerOrder.salt,
             ],
             takerOrder.signature,
-            makerOrder.signature
+            makerOrder.signature,
+            true // shouldMaximallyFillOrders: always set to true for now
           )
-
-          const fillupdateBroadcastPending = await db.query(
-            "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
-            [transaction.hash, match.id]
-          )
-          const orderUpdateBroadcastPending = await db.query(
-            "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
-            [match.takerId, match.makerId]
-          )
-          const orderUpdatesBroadcastPending =
-            orderUpdateBroadcastPending.rows.map((row) => [
-              chainId,
-              row.id,
-              row.order_status,
-              row.unfilled,
-            ])
-          const fillUpdatesBroadcastPending =
-            fillupdateBroadcastPending.rows.map((row) => [
-              chainId,
-              row.id,
-              row.fill_status,
-              row.txhash,
-              null, // remaing
-              0,
-              0,
-              Date.now(), // timestamp
-            ])
-
-          if (orderUpdatesBroadcastPending.length) {
-            publisher.PUBLISH(
-              `broadcastmsg:all:${chainId}:${match.market}`,
-              JSON.stringify({
-                op: 'orderstatus',
-                args: [orderUpdatesBroadcastPending],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.makerId}`,
-              JSON.stringify({
-                op: 'orderstatus',
-                args: [orderUpdatesBroadcastPending],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.takerId}`,
-              JSON.stringify({
-                op: 'orderstatus',
-                args: [orderUpdatesBroadcastPending],
-              })
-            )
+      } catch (e) {
+          transaction = {
+              hash: null,
           }
-          if (fillUpdatesBroadcastPending.length) {
-            publisher.PUBLISH(
-              `broadcastmsg:all:${chainId}:${match.market}`,
-              JSON.stringify({
-                op: 'fillstatus',
-                args: [fillUpdatesBroadcastPending],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.makerId}`,
-              JSON.stringify({
-                op: 'fillstatus',
-                args: [fillUpdatesBroadcastPending],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.takerId}`,
-              JSON.stringify({
-                op: 'fillstatus',
-                args: [fillUpdatesBroadcastPending],
-              })
-            )
-          }
+      }
 
-          const recipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-            transaction.hash
-          )
-          const txStatus = recipt.status === 1 ? 's' : 'r'
-
-          const fillupdateBroadcastMinted = await db.query(
-            'UPDATE fills SET fill_status=$1 WHERE id=$2 RETURNING id, fill_status, txhash',
-            [txStatus, match.id]
-          )
-          const orderUpdateBroadcastMinted = await db.query(
-            'UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE id IN ($2, $3) AND unfilled = 0 RETURNING id, order_status, unfilled',
-            [txStatus, match.takerId, match.makerId]
-          )
-          const orderUpdatesBroadcastMinted =
-            orderUpdateBroadcastMinted.rows.map((row) => [
-              chainId,
-              row.id,
-              row.order_status,
-              row.unfilled,
-            ])
-          const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
-            (row) => [
-              chainId,
-              row.id,
-              row.fill_status,
-              row.txhash,
-              null, // remaing
-              feeAmount,
-              feeToken,
-              Date.now(), // timestamp
-            ]
-          )
-
-          if (orderUpdatesBroadcastMinted.length) {
-            publisher.PUBLISH(
-              `broadcastmsg:all:${chainId}:${match.market}`,
-              JSON.stringify({
-                op: 'orderstatus',
-                args: [orderUpdatesBroadcastMinted],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.makerId}`,
-              JSON.stringify({
-                op: 'orderstatus',
-                args: [orderUpdatesBroadcastMinted],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.takerId}`,
-              JSON.stringify({
-                op: 'orderstatus',
-                args: [orderUpdatesBroadcastMinted],
-              })
-            )
-          }
-          if (fillUpdatesBroadcastMinted.length) {
-            publisher.PUBLISH(
-              `broadcastmsg:all:${chainId}:${match.market}`,
-              JSON.stringify({
-                op: 'fillstatus',
-                args: [fillUpdatesBroadcastMinted],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.makerId}`,
-              JSON.stringify({
-                op: 'fillstatus',
-                args: [fillUpdatesBroadcastMinted],
-              })
-            )
-            publisher.PUBLISH(
-              `broadcastmsg:user:${chainId}:${match.takerId}`,
-              JSON.stringify({
-                op: 'fillstatus',
-                args: [fillUpdatesBroadcastMinted],
-              })
-            )
-          }
-        }
+      const fillupdateBroadcastPending = await db.query(
+        "UPDATE fills SET fill_status='b', txhash=$1 WHERE id=$2 RETURNING id, fill_status, txhash",
+        [transaction.hash, match.id]
       )
-      await Promise.all(chainResults)
+      const orderUpdateBroadcastPending = await db.query(
+        "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
+        [match.takerId, match.makerId]
+      )
+      const orderUpdatesBroadcastPending =
+        orderUpdateBroadcastPending.rows.map((row) => [
+          chainId,
+          row.id,
+          row.order_status,
+          row.unfilled,
+        ])
+      const fillUpdatesBroadcastPending =
+        fillupdateBroadcastPending.rows.map((row) => [
+          chainId,
+          row.id,
+          row.fill_status,
+          row.txhash,
+          null, // remaing
+          0,
+          0,
+          Date.now(), // timestamp
+        ])
+
+      if (orderUpdatesBroadcastPending.length) {
+        publisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${match.market}`,
+          JSON.stringify({
+            op: 'orderstatus',
+            args: [orderUpdatesBroadcastPending],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.makerId}`,
+          JSON.stringify({
+            op: 'orderstatus',
+            args: [orderUpdatesBroadcastPending],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.takerId}`,
+          JSON.stringify({
+            op: 'orderstatus',
+            args: [orderUpdatesBroadcastPending],
+          })
+        )
+      }
+      if (fillUpdatesBroadcastPending.length) {
+        publisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${match.market}`,
+          JSON.stringify({
+            op: 'fillstatus',
+            args: [fillUpdatesBroadcastPending],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.makerId}`,
+          JSON.stringify({
+            op: 'fillstatus',
+            args: [fillUpdatesBroadcastPending],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.takerId}`,
+          JSON.stringify({
+            op: 'fillstatus',
+            args: [fillUpdatesBroadcastPending],
+          })
+        )
+      }
+
+      const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+        transaction.hash
+      )
+      const txStatus = receipt.status === 1 ? 's' : 'r'
+      //let txStatus;
+      //if (transaction.hash) {
+      //    const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+      //      transaction.hash
+      //    )
+      //    txStatus = receipt.status === 1 ? 's' : 'r'
+      //} else
+      //    txStatus = 'r';
+      //}
+
+      const fillupdateBroadcastMinted = await db.query(
+        'UPDATE fills SET fill_status=$1 WHERE id=$2 RETURNING id, fill_status, txhash',
+        [txStatus, match.id]
+      )
+      const orderUpdateBroadcastMinted = await db.query(
+        'UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE id IN ($2, $3) AND unfilled = 0 RETURNING id, order_status, unfilled',
+        [txStatus, match.takerId, match.makerId]
+      )
+      const orderUpdatesBroadcastMinted =
+        orderUpdateBroadcastMinted.rows.map((row) => [
+          chainId,
+          row.id,
+          row.order_status,
+          row.unfilled,
+        ])
+      const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
+        (row) => [
+          chainId,
+          row.id,
+          row.fill_status,
+          row.txhash,
+          null, // remaing
+          feeAmount,
+          feeToken,
+          Date.now(), // timestamp
+        ]
+      )
+
+      if (orderUpdatesBroadcastMinted.length) {
+        publisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${match.market}`,
+          JSON.stringify({
+            op: 'orderstatus',
+            args: [orderUpdatesBroadcastMinted],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.makerId}`,
+          JSON.stringify({
+            op: 'orderstatus',
+            args: [orderUpdatesBroadcastMinted],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.takerId}`,
+          JSON.stringify({
+            op: 'orderstatus',
+            args: [orderUpdatesBroadcastMinted],
+          })
+        )
+      }
+      if (fillUpdatesBroadcastMinted.length) {
+        publisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${match.market}`,
+          JSON.stringify({
+            op: 'fillstatus',
+            args: [fillUpdatesBroadcastMinted],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.makerId}`,
+          JSON.stringify({
+            op: 'fillstatus',
+            args: [fillUpdatesBroadcastMinted],
+          })
+        )
+        publisher.PUBLISH(
+          `broadcastmsg:user:${chainId}:${match.takerId}`,
+          JSON.stringify({
+            op: 'fillstatus',
+            args: [fillUpdatesBroadcastMinted],
+          })
+        )
+      }
     }
   )
 
@@ -1037,7 +1049,7 @@ async function start() {
       getNetwork(chainId),
       process.env.INFURA_PROJECT_ID
     )
-    const address = EVMConfig[chainId]
+    const address = EVMConfig[chainId].exchangeAddress
     if (!address) return
 
     const wallet = new ethers.Wallet(

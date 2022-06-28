@@ -1158,11 +1158,13 @@ export default class API extends EventEmitter {
     )
     if (signerAddress !== zktx.makerAddress)
       throw new Error('Order signature incorrect')
+    
+    // Re-insert signature after validation
+    zktx.signature = signature;
 
     const baseAmount = Number(
       ethers.utils.formatUnits(baseAssetBN, marketInfo.baseAsset.decimals)
     )
-    console.log(baseAmount);
     const quoteAmount = Number(
       ethers.utils.formatUnits(quoteAssetBN, marketInfo.quoteAsset.decimals)
     )
