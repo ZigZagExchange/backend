@@ -12,7 +12,7 @@ import type {
   ZZMarketInfo,
   AnyObject,
   ZZMarket,
-  ZZMarketSummary,
+  ZZMarketSummary
 } from './types'
 
 const NUMBER_OF_SNAPSHOT_POSITIONS = 200
@@ -93,7 +93,7 @@ async function updateVolumes() {
   const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
   const queryUTC = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [midnight],
+    values: [midnight]
   }
   const selectUTC = await db.query(queryUTC)
   selectUTC.rows.forEach(async (row) => {
@@ -120,7 +120,7 @@ async function updateVolumes() {
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('m', 'f', 'b') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [oneDayAgo],
+    values: [oneDayAgo]
   }
   const select = await db.query(query)
   select.rows.forEach(async (row) => {
@@ -183,7 +183,7 @@ async function updatePendingOrders() {
   let orderUpdates: string[][] = []
   const query = {
     text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
-    values: [oneMinAgo],
+    values: [oneMinAgo]
   }
   const update = await db.query(query)
   if (update.rowCount > 0) {
@@ -195,13 +195,13 @@ async function updatePendingOrders() {
   // Update fills
   const fillsQuery = {
     text: "UPDATE fills SET fill_status='e', feeamount=0 WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
-    values: [oneMinAgo],
+    values: [oneMinAgo]
   }
   await db.query(fillsQuery)
 
   const expiredQuery = {
     text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
-    values: [],
+    values: []
   }
   const updateExpires = await db.query(expiredQuery)
   if (updateExpires.rowCount > 0) {
@@ -344,7 +344,7 @@ async function updateMarketSummarys() {
         priceChange,
         priceChangePercent_24h,
         highestPrice_24h,
-        lowestPrice_24h,
+        lowestPrice_24h
       }
       const marketSummaryUTC: ZZMarketSummary = {
         market: marketId,
@@ -358,7 +358,7 @@ async function updateMarketSummarys() {
         priceChange: priceChangeUTC,
         priceChangePercent_24h: priceChangePercent_24hUTC,
         highestPrice_24h: highestPrice_24hUTC,
-        lowestPrice_24h: lowestPrice_24hUTC,
+        lowestPrice_24h: lowestPrice_24hUTC
       }
       redis.HSET(
         redisKeyMarketSummaryUTC,
@@ -621,7 +621,7 @@ async function removeOldLiquidity() {
         bids[i - 1] = [
           'b',
           Number(bidSet[bidSet.length - i]),
-          Number(uniqueBuy[bidSet[bidSet.length - i]]),
+          Number(uniqueBuy[bidSet[bidSet.length - i]])
         ]
       }
       const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
@@ -728,13 +728,14 @@ async function updateTokenInfo(chainId: number) {
  * Used to send send matched orders
  */
 async function sendMatchedOrders() {
-  console.time("sendMatchedOrders");
   const results: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
       const matchChainString = await redis.LPOP(`matchedorders:${chainId}`)
-      console.log(chainId, matchChainString);
       if (!matchChainString) return
 
+      console.log(
+        `sendMatchedOrders: chainId ==> ${chainId}, matchChainString ==> ${matchChainString}`
+      )
       const match = JSON.parse(matchChainString)
       const marketInfo = await getMarketInfo(match.market, match.chainId)
 
@@ -758,45 +759,45 @@ async function sendMatchedOrders() {
         feeToken = marketInfo.quoteAsset.symbol
       }
 
-      let transaction: any;
+      let transaction: any
       try {
-          transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
-            [
-              takerOrder.makerAddress,
-              takerOrder.makerToken,
-              takerOrder.takerToken,
-              takerOrder.feeRecipientAddress,
-              takerOrder.makerAssetAmount,
-              takerOrder.takerAssetAmount,
-              takerOrder.makerVolumeFee,
-              takerOrder.takerVolumeFee,
-              takerOrder.gasFee,
-              takerOrder.expirationTimeSeconds,
-              takerOrder.salt,
-            ],
-            [
-              makerOrder.makerAddress,
-              makerOrder.makerToken,
-              makerOrder.takerToken,
-              makerOrder.feeRecipientAddress,
-              makerOrder.makerAssetAmount,
-              makerOrder.takerAssetAmount,
-              makerOrder.makerVolumeFee,
-              makerOrder.takerVolumeFee,
-              makerOrder.gasFee,
-              makerOrder.expirationTimeSeconds,
-              makerOrder.salt,
-            ],
-            takerOrder.signature,
-            makerOrder.signature,
-            true // shouldMaximallyFillOrders: always set to true for now
-          )
+        transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
+          [
+            takerOrder.makerAddress,
+            takerOrder.makerToken,
+            takerOrder.takerToken,
+            takerOrder.feeRecipientAddress,
+            takerOrder.makerAssetAmount,
+            takerOrder.takerAssetAmount,
+            takerOrder.makerVolumeFee,
+            takerOrder.takerVolumeFee,
+            takerOrder.gasFee,
+            takerOrder.expirationTimeSeconds,
+            takerOrder.salt
+          ],
+          [
+            makerOrder.makerAddress,
+            makerOrder.makerToken,
+            makerOrder.takerToken,
+            makerOrder.feeRecipientAddress,
+            makerOrder.makerAssetAmount,
+            makerOrder.takerAssetAmount,
+            makerOrder.makerVolumeFee,
+            makerOrder.takerVolumeFee,
+            makerOrder.gasFee,
+            makerOrder.expirationTimeSeconds,
+            makerOrder.salt
+          ],
+          takerOrder.signature,
+          makerOrder.signature,
+          true // shouldMaximallyFillOrders: always set to true for now
+        )
       } catch (e: any) {
-          console.error(e.message);
-          transaction = {
-              hash: null,
-              reason: e.message
-          }
+        console.error(e.message)
+        transaction = {
+          hash: null,
+          reason: e.message
+        }
       }
 
       const fillupdateBroadcastPending = await db.query(
@@ -807,15 +808,11 @@ async function sendMatchedOrders() {
         "UPDATE offers SET order_status='b', update_timestamp=NOW() WHERE id IN ($1, $2) AND unfilled = 0 RETURNING id, order_status, unfilled",
         [match.takerId, match.makerId]
       )
-      const orderUpdatesBroadcastPending =
-        orderUpdateBroadcastPending.rows.map((row) => [
-          chainId,
-          row.id,
-          row.order_status,
-          row.unfilled,
-        ])
-      const fillUpdatesBroadcastPending =
-        fillupdateBroadcastPending.rows.map((row) => [
+      const orderUpdatesBroadcastPending = orderUpdateBroadcastPending.rows.map(
+        (row) => [chainId, row.id, row.order_status, row.unfilled]
+      )
+      const fillUpdatesBroadcastPending = fillupdateBroadcastPending.rows.map(
+        (row) => [
           chainId,
           row.id,
           row.fill_status,
@@ -823,29 +820,30 @@ async function sendMatchedOrders() {
           null, // remaing
           0,
           0,
-          Date.now(), // timestamp
-        ])
+          Date.now() // timestamp
+        ]
+      )
 
       if (orderUpdatesBroadcastPending.length) {
         publisher.PUBLISH(
           `broadcastmsg:all:${chainId}:${match.market}`,
           JSON.stringify({
             op: 'orderstatus',
-            args: [orderUpdatesBroadcastPending],
+            args: [orderUpdatesBroadcastPending]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.makerId}`,
           JSON.stringify({
             op: 'orderstatus',
-            args: [orderUpdatesBroadcastPending],
+            args: [orderUpdatesBroadcastPending]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.takerId}`,
           JSON.stringify({
             op: 'orderstatus',
-            args: [orderUpdatesBroadcastPending],
+            args: [orderUpdatesBroadcastPending]
           })
         )
       }
@@ -854,33 +852,33 @@ async function sendMatchedOrders() {
           `broadcastmsg:all:${chainId}:${match.market}`,
           JSON.stringify({
             op: 'fillstatus',
-            args: [fillUpdatesBroadcastPending],
+            args: [fillUpdatesBroadcastPending]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.makerId}`,
           JSON.stringify({
             op: 'fillstatus',
-            args: [fillUpdatesBroadcastPending],
+            args: [fillUpdatesBroadcastPending]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.takerId}`,
           JSON.stringify({
             op: 'fillstatus',
-            args: [fillUpdatesBroadcastPending],
+            args: [fillUpdatesBroadcastPending]
           })
         )
       }
 
-      let txStatus;
+      let txStatus
       if (transaction.hash) {
-          const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-            transaction.hash
-          )
-          txStatus = receipt.status === 1 ? 's' : 'r'
+        const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+          transaction.hash
+        )
+        txStatus = receipt.status === 1 ? 's' : 'r'
       } else {
-          txStatus = 'r';
+        txStatus = 'r'
       }
 
       const fillupdateBroadcastMinted = await db.query(
@@ -891,13 +889,14 @@ async function sendMatchedOrders() {
         'UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE id IN ($2, $3) AND unfilled = 0 RETURNING id, order_status, unfilled',
         [txStatus, match.takerId, match.makerId]
       )
-      const orderUpdatesBroadcastMinted =
-        orderUpdateBroadcastMinted.rows.map((row) => [
+      const orderUpdatesBroadcastMinted = orderUpdateBroadcastMinted.rows.map(
+        (row) => [
           chainId,
           row.id,
           row.order_status,
           transaction.reason ? transaction.reason : row.unfilled
-        ])
+        ]
+      )
       const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
         (row) => [
           chainId,
@@ -907,7 +906,7 @@ async function sendMatchedOrders() {
           null, // remaing
           feeAmount,
           feeToken,
-          Date.now(), // timestamp
+          Date.now() // timestamp
         ]
       )
 
@@ -916,21 +915,21 @@ async function sendMatchedOrders() {
           `broadcastmsg:all:${chainId}:${match.market}`,
           JSON.stringify({
             op: 'orderstatus',
-            args: [orderUpdatesBroadcastMinted],
+            args: [orderUpdatesBroadcastMinted]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.makerId}`,
           JSON.stringify({
             op: 'orderstatus',
-            args: [orderUpdatesBroadcastMinted],
+            args: [orderUpdatesBroadcastMinted]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.takerId}`,
           JSON.stringify({
             op: 'orderstatus',
-            args: [orderUpdatesBroadcastMinted],
+            args: [orderUpdatesBroadcastMinted]
           })
         )
       }
@@ -939,21 +938,21 @@ async function sendMatchedOrders() {
           `broadcastmsg:all:${chainId}:${match.market}`,
           JSON.stringify({
             op: 'fillstatus',
-            args: [fillUpdatesBroadcastMinted],
+            args: [fillUpdatesBroadcastMinted]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.makerId}`,
           JSON.stringify({
             op: 'fillstatus',
-            args: [fillUpdatesBroadcastMinted],
+            args: [fillUpdatesBroadcastMinted]
           })
         )
         publisher.PUBLISH(
           `broadcastmsg:user:${chainId}:${match.takerId}`,
           JSON.stringify({
             op: 'fillstatus',
-            args: [fillUpdatesBroadcastMinted],
+            args: [fillUpdatesBroadcastMinted]
           })
         )
       }
@@ -962,7 +961,6 @@ async function sendMatchedOrders() {
 
   await Promise.all(results)
   setTimeout(sendMatchedOrders, 2000)
-  console.time("sendMatchedOrders");
 }
 
 async function seedArbitrumMarkets() {
@@ -979,7 +977,7 @@ async function seedArbitrumMarkets() {
     priceChange: 0,
     priceChangePercent_24h: 0,
     highestPrice_24h: 1250,
-    lowestPrice_24h: 1150,
+    lowestPrice_24h: 1150
   }
   const wethTokenInfo = {
     id: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
@@ -988,7 +986,7 @@ async function seedArbitrumMarkets() {
     decimals: 18,
     enabledForFees: true,
     usdPrice: '1081.75',
-    name: 'Wrapped Ether',
+    name: 'Wrapped Ether'
   }
   const usdcTokenInfo = {
     id: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
@@ -997,13 +995,13 @@ async function seedArbitrumMarkets() {
     decimals: 6,
     enabledForFees: true,
     usdPrice: '1',
-    name: 'USD Coin',
+    name: 'USD Coin'
   }
   const lastPriceInfoWethUsdc = {
     price: 1200,
     priceChange: -72.18,
     quoteVolume: '3945712',
-    baseVolume: '3584.25',
+    baseVolume: '3584.25'
   }
   await redis.HSET(
     'marketsummary:42161',
@@ -1036,7 +1034,10 @@ async function start() {
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
   const EVMContractABI = JSON.parse(
-    fs.readFileSync('evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json', 'utf8')
+    fs.readFileSync(
+      'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+      'utf8'
+    )
   ).abi
 
   // connect infura providers
