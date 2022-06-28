@@ -758,8 +758,7 @@ async function sendMatchedOrders() {
         feeToken = marketInfo.quoteAsset.symbol
       }
 
-      console.log(makerOrder, takerOrder);
-      let transaction;
+      let transaction: any;
       try {
           transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
             [
@@ -792,9 +791,11 @@ async function sendMatchedOrders() {
             makerOrder.signature,
             true // shouldMaximallyFillOrders: always set to true for now
           )
-      } catch (e) {
+      } catch (e: any) {
+          console.error(e.message);
           transaction = {
               hash: null,
+              reason: e.message
           }
       }
 
@@ -872,19 +873,15 @@ async function sendMatchedOrders() {
         )
       }
 
-      const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-        transaction.hash
-      )
-      const txStatus = receipt.status === 1 ? 's' : 'r'
-      //let txStatus;
-      //if (transaction.hash) {
-      //    const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-      //      transaction.hash
-      //    )
-      //    txStatus = receipt.status === 1 ? 's' : 'r'
-      //} else
-      //    txStatus = 'r';
-      //}
+      let txStatus;
+      if (transaction.hash) {
+          const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+            transaction.hash
+          )
+          txStatus = receipt.status === 1 ? 's' : 'r'
+      } else {
+          txStatus = 'r';
+      }
 
       const fillupdateBroadcastMinted = await db.query(
         'UPDATE fills SET fill_status=$1 WHERE id=$2 RETURNING id, fill_status, txhash',
@@ -899,7 +896,7 @@ async function sendMatchedOrders() {
           chainId,
           row.id,
           row.order_status,
-          row.unfilled,
+          transaction.reason ? transaction.reason : row.unfilled
         ])
       const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
         (row) => [
