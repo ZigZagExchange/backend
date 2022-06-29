@@ -1181,24 +1181,60 @@ export default class API extends EventEmitter {
         ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
         : ethers.utils.formatUnits(zktx.gasFee, marketInfo.quoteAsset.decimals)
 
-    let baseAssetBN: ethers.BigNumber
-    let quoteAssetBN: ethers.BigNumber
+    let baseAmount: number
+    let quoteAmount: number
     let feeToken: string
     if (side === 's') {
-      baseAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
-      quoteAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
+      baseAmount = Number(
+        ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.baseAsset.decimals)
+      )
+      quoteAmount = Number(
+        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.quoteAsset.decimals)
+      )
+      const makerFee = Number(
+        ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.baseAsset.decimals)
+      )
+      const takerFee = Number(
+        ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.baseAsset.decimals)
+      )
       feeToken = marketInfo.baseAsset.symbol
       if (Number(gasFee) < marketInfo.baseFee)
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
         )
+      if ((makerFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+        throw new Error(
+          `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
+        )
+      if ((takerFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+        throw new Error(
+          `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
+        )
     } else {
-      baseAssetBN = ethers.BigNumber.from(zktx.takerAssetAmount)
-      quoteAssetBN = ethers.BigNumber.from(zktx.makerAssetAmount)
+      baseAmount = Number(
+        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.baseAsset.symbol)
+      )
+      quoteAmount = Number(
+        ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.quoteAsset.decimals)
+      )
+      const makerFee = Number(
+        ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.quoteAsset.symbol)
+      )
+      const takerFee = Number(
+        ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.quoteAsset.symbol)
+      )
       feeToken = marketInfo.quoteAsset.symbol
       if (Number(gasFee) < marketInfo.quoteFee)
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAmount.symbol}`
+        )
+      if ((makerFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+        throw new Error(
+          `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
+        )
+      if ((takerFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+        throw new Error(
+          `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
         )
     }
 
@@ -1206,16 +1242,6 @@ export default class API extends EventEmitter {
     if (zktx.feeRecipientAddress !== networkProviderConfig.feeAddress)
       throw new Error(
         `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
-      )
-
-    if (Number(zktx.makerVolumeFee) < networkProviderConfig.minMakerVolumeFee)
-      throw new Error(
-        `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
-      )
-
-    if (Number(zktx.takerVolumeFee) < networkProviderConfig.minTakerVolumeFee)
-      throw new Error(
-        `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
       )
 
     /* validateSignature */
@@ -1234,12 +1260,6 @@ export default class API extends EventEmitter {
     // Re-insert signature after validation
     zktx.signature = signature
 
-    const baseAmount = Number(
-      ethers.utils.formatUnits(baseAssetBN, marketInfo.baseAsset.decimals)
-    )
-    const quoteAmount = Number(
-      ethers.utils.formatUnits(quoteAssetBN, marketInfo.quoteAsset.decimals)
-    )
     const price = quoteAmount / baseAmount
 
     const query =
