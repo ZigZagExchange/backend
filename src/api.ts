@@ -199,10 +199,7 @@ export default class API extends EventEmitter {
       } else {
         const select = await this.db.query(
           'SELECT marketid FROM marketids WHERE marketAlias = $1 AND chainid = $2',
-          [
-            market,
-            chainId === 1000 ? 1 : chainId
-          ]
+          [ market, chainId ]
         )
         if (select.rows.length === 0) {
           return marketInfo
@@ -326,8 +323,6 @@ export default class API extends EventEmitter {
     // set fee, use arewave fees as fallback
     marketInfo.baseFee = baseFee || Number(marketInfoDefaults?.baseFee)
     marketInfo.quoteFee = quoteFee || Number(marketInfoDefaults?.quoteFee)
-    baseAsset.enabledForFees = !!marketInfo.baseFee
-    quoteAsset.enabledForFees = !!marketInfo.quoteFee
     marketInfo.baseAssetId = baseAsset.id
     marketInfo.quoteAssetId = quoteAsset.id
 
@@ -412,6 +407,7 @@ export default class API extends EventEmitter {
       throw new Error('Bad chainId')
     }
 
+    console.log(tokenInfo)
     // update cache
     await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.symbol, JSON.stringify(tokenInfo))
     await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
