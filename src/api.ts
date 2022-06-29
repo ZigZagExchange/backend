@@ -1319,26 +1319,24 @@ export default class API extends EventEmitter {
         JSON.stringify(matchOrderObject)
       )
     })
-    // only post orders if taker has unfilled amount
-    if (taker.unfilled > 0) {
-      const orderMsg = [
-        chainId,
-        taker.id,
-        market,
-        taker.side,
-        taker.price,
-        taker.base_quantity,
-        taker.price * taker.base_quantity,
-        taker.expires,
-        taker.userid,
-        taker.order_status,
-        taker.unfilled
-      ]
-      this.redisPublisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'orders', args: [[orderMsg]] })
-      )
-    }
+    // post order no matter what
+    const orderMsg = [
+      chainId,
+      taker.id,
+      market,
+      taker.side,
+      taker.price,
+      taker.base_quantity,
+      taker.price * taker.base_quantity,
+      taker.expires,
+      taker.userid,
+      taker.order_status,
+      taker.unfilled
+    ]
+    this.redisPublisher.PUBLISH(
+      `broadcastmsg:all:${chainId}:${market}`,
+      JSON.stringify({ op: 'orders', args: [[orderMsg]] })
+    )
     if (orderupdates.length > 0) {
       this.redisPublisher.PUBLISH(
         `broadcastmsg:all:${chainId}:${market}`,
