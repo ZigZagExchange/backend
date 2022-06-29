@@ -394,6 +394,7 @@ export default class API extends EventEmitter {
     } else if (this.VALID_EVM_CHAINS.includes(chainId)) {
       if (tokenLike.length < 20) throw new Error('Use token address')
 
+      console.log(this.ERC20_ABI)
       tokenInfo = getERC20Info(
         tokenLike,
         this.ERC20_ABI,
