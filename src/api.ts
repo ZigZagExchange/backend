@@ -307,8 +307,6 @@ export default class API extends EventEmitter {
     )
 
     /* update token fee */
-    console.log(baseAsset)
-    console.log(quoteAsset)
     const [baseFee, quoteFee] = await Promise.all([
       Number(this.redis.HGET(`tokenfee:${chainId}`, baseAsset.symbol)),
       Number(this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol))
@@ -394,11 +392,10 @@ export default class API extends EventEmitter {
     } else if (this.VALID_EVM_CHAINS.includes(chainId)) {
       if (tokenLike.length < 20) throw new Error('Use token address')
 
-      console.log(this.ERC20_ABI)
       tokenInfo = getERC20Info(
+        this.ETHERS_PROVIDERS[chainId],
         tokenLike,
-        this.ERC20_ABI,
-        this.ETHERS_PROVIDERS[chainId]
+        this.ERC20_ABI
       ).catch((e: any) => {
         console.log(`Error getting ERC20 infos for ${tokenLike}, error: ${e.message}`)
         throw new Error('Asset no valid ERC20 token')
