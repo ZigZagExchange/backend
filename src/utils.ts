@@ -1,4 +1,5 @@
 import * as starknet from 'starknet'
+import { ethers } from 'ethers'
 
 export function formatPrice (input: any) {
   const inputNumber = Number(input)
@@ -54,4 +55,29 @@ export const evmEIP712Types = {
     { "name": 'expirationTimeSeconds', "type": 'uint256' },
     { "name": 'salt', "type": 'uint256' }
   ]
+}
+
+/**
+ * Get the full token name from L1 ERC20 contract
+ * @param provider
+ * @param contractAddress
+ * @param abi
+ * @returns tokenInfos
+ */
+export async function getERC20Info(
+  provider: any,
+  contractAddress: string,
+  abi: any
+) {
+  const tokenInfos: any = {}
+  const contract = new ethers.Contract(
+    contractAddress,
+    abi,
+    provider
+  )
+  tokenInfos.decimals = await contract.decimals()
+  tokenInfos.name = await contract.name()
+  tokenInfos.symbol = await contract.symbol()
+  tokenInfos.address = contractAddress
+  return tokenInfos
 }
