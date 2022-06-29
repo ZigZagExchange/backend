@@ -570,7 +570,7 @@ async function updateFeesEVM() {
       } else if (feeData.gasPrice) {
         feeAmountWETH = Number(
           ethers.utils.formatEther(
-            feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.25
+            feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.1
           )
         )
       } else {

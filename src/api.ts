@@ -1320,7 +1320,7 @@ export default class API extends EventEmitter {
       )
     })
     // only post orders if taker has unfilled amount
-    if (taker.unfilled > 0) {
+    if (Number(taker.unfilled) > 0) {
       const orderMsg = [
         chainId,
         taker.id,
