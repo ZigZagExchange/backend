@@ -936,6 +936,7 @@ async function sendMatchedOrders() {
           chainId,
           row.id,
           row.order_status,
+          null, // tx hash
           transaction.reason ? transaction.reason : row.unfilled
         ]
       )
