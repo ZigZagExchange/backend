@@ -412,6 +412,24 @@ async function updateUsdPrice() {
       redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
     })
     await Promise.all(results1)
+
+    const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+    const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+      if (!marketInfos[market]) return
+      const marketInfo = JSON.parse(marketInfos[market])
+      marketInfo.baseAsset.usdPrice = Number(
+        formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])
+      )
+      marketInfo.quoteAsset.usdPrice = Number(
+        formatPrice(updatedTokenPrice[marketInfo.quoteAsset.symbol])
+      )
+      redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
+      publisher.PUBLISH(
+        `broadcastmsg:all:${chainId}:${market}`,
+        JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+      )
+    })
+    await Promise.all(results2)
   })
   await Promise.all(results0)
   console.timeEnd('Updating usd price.')
@@ -563,28 +581,30 @@ async function updateFeesEVM() {
 
       // check if fee changed enough to trigger update
       const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
-      if (feeAmountWETH / oldFee < 0.05) return
+      if (feeAmountWETH / oldFee < 0.05) {
+        console.log(`updateFeesEVM: new fee ${feeAmountWETH} close to old fee ${oldFee}`)
+        return
+      }
 
       const newFees: any = []
       const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
       const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
       // get every token form activemarkets once
-      let tokenSymbols = markets.join('-').split('-')
+      let tokenSymbols = markets.join('-').split('-').filter(t => t.length < 20) // filter addresses
       tokenSymbols = tokenSymbols.filter(
         (x, i) => i === tokenSymbols.indexOf(x)
       )
-      const ethPrice = JSON.parse(tokenInfos.WETH).usdPrice
-      const feeAmountUSD = Number(ethPrice) * feeAmountWETH * 1.05 // margin for fee change
+      const wethInfo = JSON.parse(tokenInfos.WETH)
+      const feeAmountUSD = Number(wethInfo.usdPrice) * feeAmountWETH * 1.05 // margin for fee change
       const results1: Promise<any>[] = tokenSymbols.map(
         async (tokenSymbol: string) => {
-          const tokenInfoString = tokenInfos[tokenSymbol]
-          if (!tokenInfoString) return
-          const tokenInfo = JSON.parse(tokenInfoString)
+          if (!tokenInfos[tokenSymbol]) return
+          const tokenInfo = JSON.parse(tokenInfos[tokenSymbol])
           if (!tokenInfo?.usdPrice) return
           const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
           redis.HSET(`tokenfee:${chainId}`, tokenInfo.address, formatPrice(fee))
           redis.HSET(`tokenfee:${chainId}`, tokenInfo.symbol, formatPrice(fee))
-          newFees[tokenSymbol] = fee
+          newFees[tokenSymbol] = formatPrice(fee)
         }
       )
       await Promise.all(results1)
