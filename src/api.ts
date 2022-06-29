@@ -1212,7 +1212,7 @@ export default class API extends EventEmitter {
         )
     } else {
       baseAmount = Number(
-        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.baseAsset.symbol)
+        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.baseAsset.decimals)
       )
       quoteAmount = Number(
         ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.quoteAsset.decimals)
