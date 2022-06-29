@@ -576,7 +576,7 @@ async function updateFeesEVM() {
           const tokenInfo = JSON.parse(tokenInfoString)
           if (!tokenInfo?.usdPrice) return
           const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
-          redis.HSET(`tokenfee:${chainId}`, tokenSymbol, fee)
+          redis.HSET(`tokenfee:${chainId}`, tokenSymbol, formatPrice(fee))
           newFees[tokenSymbol] = fee
       })
       await Promise.all(results1)
