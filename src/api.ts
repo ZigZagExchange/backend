@@ -312,13 +312,12 @@ export default class API extends EventEmitter {
       Number(this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol))
     ])
 
+    console.log(`baseFee ==> ${baseFee}`)
+    console.log(`quoteFee ==> ${quoteFee}`)
+
     // set fee, use arewave fees as fallback
-    marketInfo.baseFee = baseFee
-      ? Number(baseFee)
-      : Number(marketInfoDefaults?.baseFee)
-    marketInfo.quoteFee = quoteFee
-      ? Number(quoteFee)
-      : Number(marketInfoDefaults?.quoteFee)
+    marketInfo.baseFee = baseFee || Number(marketInfoDefaults?.baseFee)
+    marketInfo.quoteFee = quoteFee || Number(marketInfoDefaults?.quoteFee)
     baseAsset.enabledForFees = !!marketInfo.baseFee
     quoteAsset.enabledForFees = !!marketInfo.quoteFee
     marketInfo.baseAssetId = baseAsset.id
