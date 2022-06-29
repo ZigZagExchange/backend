@@ -563,7 +563,8 @@ async function updateFeesEVM() {
       const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
       const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
       // get every token form activemarkets once
-      const tokenSymbols: string[] = markets.join('-').split('-').filter(
+      let tokenSymbols = markets.join('-').split('-')
+      tokenSymbols = tokenSymbols.filter(
         (x, i) => i === tokenSymbols.indexOf(x)
       )
       const ethPrice = JSON.parse(tokenInfos.ETH).usdPrice
