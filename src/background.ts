@@ -534,20 +534,24 @@ async function updateFeesEVM() {
 
   const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
-      const feeData = ETHERS_PROVIDERS[chainId].getFeeData()
-      if(!feeData || (!feeData.gasPrice && !feeData.maxFeePerGas)) {
-        console.error(`No fee data for chainId: ${chainId}`)
+      let feeData: any = {}
+      let feeAmountETH = 0.002 // fallback fee
+      try {
+        feeData = await ETHERS_PROVIDERS[chainId].getFeeData()
+      } catch (e: any) {
+        console.log(`No fee data for chainId: ${chainId}, error: ${e.message}`)
       }
 
-      let feeAmountETH: number
       if (feeData.maxFeePerGas) {
         feeAmountETH = Number(ethers.utils.formatEther(
           feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
         ))
-      } else {
+      } else if (feeData.gasPrice) {
         feeAmountETH = Number(ethers.utils.formatEther(
           feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.25
         ))
+      } else {
+        console.error(`No fee data for chainId: ${chainId}, unsing default ${feeAmountETH} ETH.`)
       }
 
       // check if fee changed enough to trigger update
