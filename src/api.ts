@@ -396,7 +396,8 @@ export default class API extends EventEmitter {
         tokenLike,
         this.ERC20_ABI,
         this.ETHERS_PROVIDERS[chainId]
-      ).catch(() => {
+      ).catch((e: any) => {
+        console.log(`Error getting ERC20 infos for ${tokenLike}, error: ${e.message}`)
         throw new Error('Asset no valid ERC20 token')
       })
       tokenInfo.id = tokenInfo.address
