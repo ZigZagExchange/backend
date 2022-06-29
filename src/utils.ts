@@ -69,7 +69,6 @@ export async function getERC20Info(
   contractAddress: string,
   abi: any
 ) {
-  console.log('start getERC20Info')
   const tokenInfos: any = {}
   const contract = new ethers.Contract(
     contractAddress,
@@ -80,7 +79,5 @@ export async function getERC20Info(
   tokenInfos.name = await contract.name()
   tokenInfos.symbol = await contract.symbol()
   tokenInfos.address = contractAddress
-  console.log(tokenInfos)
-  console.log('end getERC20Info')
   return tokenInfos
 }
