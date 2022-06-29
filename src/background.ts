@@ -879,8 +879,7 @@ async function sendMatchedOrders() {
             makerOrder.salt
           ],
           takerSignatureModified,
-          makerSignatureModified,
-          true // shouldMaximallyFillOrders: always set to true for now
+          makerSignatureModified
         )
       } catch (e: any) {
         console.error(e.message)
