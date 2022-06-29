@@ -572,7 +572,7 @@ async function updateFeesEVM() {
       tokenSymbols = tokenSymbols.filter(
         (x, i) => i === tokenSymbols.indexOf(x)
       )
-      const ethPrice = JSON.parse(tokenInfos.ETH).usdPrice
+      const ethPrice = JSON.parse(tokenInfos.WETH).usdPrice
       const feeAmountUSD = Number(ethPrice) * feeAmountETH * 1.05 // margin for fee change
       const results1: Promise<any>[] = tokenSymbols.map(
         async (tokenSymbol: string) => {
