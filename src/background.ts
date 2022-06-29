@@ -887,6 +887,13 @@ async function sendMatchedOrders() {
       let txStatus: string
       if (transaction.hash) {
         // update user
+        // on arbitrum if the node returns a tx hash, it means it was accepted
+        // on other EVM chains, the result of the transaction needs to be awaited
+        if (chainId === 42161) {
+            txStatus = 'f'
+        } else {
+            txStatus = 'b'
+        }
         sendUpdates(
           chainId,
           match.market,
@@ -896,19 +903,22 @@ async function sendMatchedOrders() {
           [[[
             chainId,
             match.fillId,
-            'b',
+            txStatus,
             transaction.hash,
-            null, // remaing
+            0, // remaining
             0,
             0,
             Date.now() // timestamp
           ]]]
         )
 
-        const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-          transaction.hash
-        )
-        txStatus = receipt.status === 1 ? 's' : 'r'
+        // This is for non-arbitrum EVM chains to confirm the tx status
+        if (chainId !== 42161) {
+            const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+              transaction.hash
+            )
+            txStatus = receipt.status === 1 ? 'f' : 'r'
+        }
       } else {
         txStatus = 'r'
       }
