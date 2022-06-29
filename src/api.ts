@@ -199,7 +199,10 @@ export default class API extends EventEmitter {
       } else {
         const select = await this.db.query(
           'SELECT marketid FROM marketids WHERE marketAlias = $1 AND chainid = $2',
-          [market, chainId]
+          [
+            market,
+            chainId === 1000 ? 1 : chainId
+          ]
         )
         if (select.rows.length === 0) {
           return marketInfo
@@ -296,15 +299,20 @@ export default class API extends EventEmitter {
     }
 
     const baseAsset = await this.getTokenInfo(chainId, baseTokenLike).catch(
-      () => {
+      (e: any) => {
+        console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
         throw new Error('Base asset no valid ERC20 token')
       }
     )
     const quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike).catch(
-      () => {
+      (e: any) => {
+        console.log(`Quote asset ${quoteTokenLike} no valid ERC20 token, error: ${e.message}`)
         throw new Error('Quote asset no valid ERC20 token')
       }
     )
+
+    console.log(baseAsset)
+    console.log(quoteAsset)
 
     /* update token fee */
     const [baseFee, quoteFee] = await Promise.all([
