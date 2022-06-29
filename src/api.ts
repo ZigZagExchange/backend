@@ -250,17 +250,18 @@ export default class API extends EventEmitter {
 
     let marketInfoDefaults: any = {}
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-      marketInfoDefaults = await this.getDefaultValuesFromArweave(chainId, market)
-    }
-
-    if (
-      market.length > 19 &&
-      (!marketInfoDefaults ||
-        Number(marketInfoDefaults.zigzagChainId) !== chainId)
-    ) {
-      throw new Error(
-        `Can't get marketInfo for market: ${market} and chainId: ${chainId}`
+      marketInfoDefaults = await this.getDefaultValuesFromArweave(
+        chainId,
+        market
       )
+      if (
+        !marketInfoDefaults ||
+        Number(marketInfoDefaults.zigzagChainId) !== chainId
+      ) {
+        throw new Error(
+          `Can't get marketInfo for market: ${market} and chainId: ${chainId}`
+        )
+      }
     }
 
     const marketInfo: ZZMarketInfo = {}
