@@ -76,7 +76,7 @@ describe("Exchange contract", function () {
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith('not profitable spread');
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('not profitable spread');
 
 
     });
@@ -114,7 +114,7 @@ describe("Exchange contract", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith("invalid right signature")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("invalid right signature")
 
     });
 
@@ -151,7 +151,7 @@ describe("Exchange contract", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith("left order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("left order status not Fillable")
 
     });
 
@@ -188,9 +188,9 @@ describe("Exchange contract", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
-        await exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)
+        await exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith("right order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("right order status not Fillable")
     });
 
     it("Should revert when right order is canceled", async function () {
@@ -228,7 +228,7 @@ describe("Exchange contract", function () {
 
         await exchangeContract.connect(wallets[1]).cancelOrder(Object.values(rightOrder))
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith("right order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("right order status not Fillable")
     });
 
     it("Should revert when order time is expired", async function () {
@@ -264,7 +264,7 @@ describe("Exchange contract", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)).to.be.revertedWith("right order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("right order status not Fillable")
     });
 
     it("feeRecipient should take Maker Fee", async function () {
@@ -275,7 +275,7 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.utils.parseEther("120"),
             takerAssetAmount: ethers.utils.parseEther("970"),
-            makerVolumeFee: ethers.utils.parseEther(".10"),
+            makerVolumeFee: ethers.utils.parseEther("0.1"),
             takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
@@ -299,7 +299,57 @@ describe("Exchange contract", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
 
-        const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage, false)
+        const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)
+
+        const balance1 = await tokenA.balanceOf(wallets[0].address);
+        const balance2 = await tokenA.balanceOf(wallets[1].address);
+        const balance3 = await tokenA.balanceOf(wallets[2].address);
+        const balance4 = await tokenB.balanceOf(wallets[0].address);
+        const balance5 = await tokenB.balanceOf(wallets[1].address);
+        const balance6 = await tokenB.balanceOf(wallets[2].address);
+        const balance7 = await tokenA.balanceOf(feeRecipientAddress);
+        const balance8 = await tokenB.balanceOf(feeRecipientAddress);
+        console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
+        console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
+        console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
+        console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
+
+        expect(balance7).to.equal(ethers.utils.parseEther("0.1"))
+    });
+
+    it("feeRecipient should take Taker Fee", async function () {
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("120"),
+            takerAssetAmount: ethers.utils.parseEther("970"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0.1"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("890"),
+            takerAssetAmount: ethers.utils.parseEther("10"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0.1"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+        const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)
         //console.log(tx)
 
         const balance1 = await tokenA.balanceOf(wallets[0].address);
