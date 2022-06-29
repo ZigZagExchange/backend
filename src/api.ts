@@ -298,19 +298,23 @@ export default class API extends EventEmitter {
     let baseAsset: any
     let quoteAsset: any
     try {
+      console.log(`chainId ==> ${chainId}`)
+      console.log(`baseTokenLike ==> ${baseTokenLike}`)
       baseAsset = await this.getTokenInfo(chainId, baseTokenLike)
+      console.log(baseAsset)
     } catch(e: any) {
       console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
-    console.log(baseAsset)
     try {
+      console.log(`chainId ==> ${chainId}`)
+      console.log(`quoteAsset ==> ${quoteAsset}`)
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
+      console.log(quoteAsset)
     } catch(e: any) {
-      console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
+      console.log(`Base asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
-    console.log(quoteAsset)
 
     /* update token fee */
     const [baseFee, quoteFee] = await Promise.all([
