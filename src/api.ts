@@ -405,11 +405,8 @@ export default class API extends EventEmitter {
     }
 
     // update cache
-    await this.redis.HSET(
-      `tokeninfo:${chainId}`,
-      tokenLike,
-      JSON.stringify(tokenInfo)
-    )
+    await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.symbol, JSON.stringify(tokenInfo))
+    await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
     return tokenInfo
   }
 
