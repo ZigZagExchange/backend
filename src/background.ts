@@ -740,7 +740,7 @@ async function updateTokenInfoZkSync(chainId: number) {
       const tokenSymbol = tokenInfo.symbol
       if (!tokenSymbol.includes('ERC20')) {
         tokenInfo.usdPrice = 0
-        getERC20Info(SYNC_PROVIDER[network], tokenInfo.address, ERC20_ABI)
+        getERC20Info(ETHERS_PROVIDERS[chainId], tokenInfo.address, ERC20_ABI)
           .then((res: string) => {
             tokenInfo.name = res
           })

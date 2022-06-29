@@ -248,8 +248,10 @@ export default class API extends EventEmitter {
       return JSON.parse(cache) as ZZMarketInfo
     }
 
-    const marketInfoDefaults: ZZMarketInfo =
-      await this.getDefaultValuesFromArweave(chainId, market)
+    let marketInfoDefaults: any = {}
+    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      marketInfoDefaults = await this.getDefaultValuesFromArweave(chainId, market)
+    }
 
     if (
       market.length > 19 &&
