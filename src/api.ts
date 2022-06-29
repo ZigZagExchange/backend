@@ -307,6 +307,8 @@ export default class API extends EventEmitter {
     )
 
     /* update token fee */
+    console.log(baseAsset)
+    console.log(quoteAsset)
     const [baseFee, quoteFee] = await Promise.all([
       Number(this.redis.HGET(`tokenfee:${chainId}`, baseAsset.symbol)),
       Number(this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol))
