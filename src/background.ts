@@ -411,31 +411,13 @@ async function updateUsdPrice() {
       redis.HSET(`tokeninfo:${chainId}`, token, JSON.stringify(tokenInfo))
     })
     await Promise.all(results1)
-
-    const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
-    const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-      if (!marketInfos[market]) return
-      const marketInfo = JSON.parse(marketInfos[market])
-      marketInfo.baseAsset.usdPrice = Number(
-        formatPrice(updatedTokenPrice[marketInfo.baseAsset.symbol])
-      )
-      marketInfo.quoteAsset.usdPrice = Number(
-        formatPrice(updatedTokenPrice[marketInfo.quoteAsset.symbol])
-      )
-      redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
-      publisher.PUBLISH(
-        `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
-      )
-    })
-    await Promise.all(results2)
   })
   await Promise.all(results0)
   console.timeEnd('Updating usd price.')
 }
 
 async function updateFeesZkSync() {
-  console.time('Update fees')
+  console.time('Update fees zkSync')
 
   const results0: Promise<any>[] = VALID_CHAINS_ZKSYNC.map(
     async (chainId: number) => {
@@ -544,7 +526,80 @@ async function updateFeesZkSync() {
     }
   )
   await Promise.all(results0)
-  console.timeEnd('Update fees')
+  console.timeEnd('Update fees zkSync')
+}
+
+async function updateFeesEVM() {
+  console.time('Update fees EVM')
+
+  const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
+    async (chainId: number) => {
+      const feeData = ETHERS_PROVIDERS[chainId].getFeeData()
+      if(!feeData || (!feeData.gasPrice && !feeData.maxFeePerGas)) {
+        console.error(`No fee data for chainId: ${chainId}`)
+      }
+
+      let feeAmountETH: number
+      if (feeData.maxFeePerGas) {
+        feeAmountETH = Number(ethers.utils.formatEther(
+          feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
+        ))
+      } else {
+        feeAmountETH = Number(ethers.utils.formatEther(
+          feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.25
+        ))
+      }
+
+      // check if fee changed enough to trigger update
+      const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'ETH'))
+      if ((feeAmountETH / oldFee) < 0.05) return
+
+
+      const newFees: any = []
+      const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
+      const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+      // get every token form activemarkets once
+      const tokenSymbols: string[] = markets.join('-').split('-').filter(
+        (x, i) => i === tokenSymbols.indexOf(x)
+      )
+      const ethPrice = JSON.parse(tokenInfos.ETH).usdPrice
+      const feeAmountUSD = Number(ethPrice) * feeAmountETH * 1.05 // margin for fee change
+      const results1: Promise<any>[] = tokenSymbols.map(
+        async (tokenSymbol: string) => {
+          const tokenInfoString = tokenInfos[tokenSymbol]
+          if (!tokenInfoString) return
+          const tokenInfo = JSON.parse(tokenInfoString)
+          if (!tokenInfo?.usdPrice) return
+          const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
+          redis.HSET(`tokenfee:${chainId}`, tokenSymbol, fee)
+          newFees[tokenSymbol] = fee
+      })
+      await Promise.all(results1)
+
+      // update marketinfos & broadcastmsg
+      const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        if (!marketInfos[market]) return
+        const marketInfo = JSON.parse(marketInfos[market])
+        marketInfo.baseFee = newFees[marketInfo.baseAsset.symbol]
+        marketInfo.quoteFee = newFees[marketInfo.quoteAsset.symbol]
+        publisher.PUBLISH(
+          `broadcastmsg:all:${chainId}:${market}`,
+          JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+        )
+        // eslint-disable-next-line no-promise-executor-return
+        await new Promise(resolve => setTimeout(resolve, 250))
+        redis.HSET(
+          `marketinfo:${chainId}`,
+          market,
+          JSON.stringify(marketInfo)
+        )
+      })
+      await Promise.all(results2)
+    }
+  )
+  await Promise.all(results0)
+  console.timeEnd('Update fees EVM')
 }
 
 // Removes old liquidity
@@ -694,7 +749,7 @@ async function getTokenName(
  * Used to initialy fetch tokens infos on startup & updated on each recycle
  * @param chainId
  */
-async function updateTokenInfo(chainId: number) {
+async function updateTokenInfoZkSync(chainId: number) {
   let index = 0
   let tokenInfos
   const network = getNetwork(chainId)
@@ -881,6 +936,7 @@ async function sendMatchedOrders() {
           chainId,
           row.id,
           row.order_status,
+          null, // tx hash
           transaction.reason ? transaction.reason : row.unfilled
         ]
       )
@@ -1037,7 +1093,7 @@ async function start() {
       redis.del(key)
     })
   })
-  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfo(chainId))
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
 
   // Seed Arbitrum Markets
   seedArbitrumMarkets()
@@ -1051,6 +1107,7 @@ async function start() {
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
   setInterval(removeOldLiquidity, 10000)
+  setInterval(updateFeesEVM, 20000)
 
   setTimeout(sendMatchedOrders, 5000)
 }
