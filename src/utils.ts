@@ -79,5 +79,6 @@ export async function getERC20Info(
   tokenInfos.name = await contract.name()
   tokenInfos.symbol = await contract.symbol()
   tokenInfos.address = contractAddress
+  console.log(tokenInfos)
   return tokenInfos
 }
