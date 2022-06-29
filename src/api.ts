@@ -295,18 +295,20 @@ export default class API extends EventEmitter {
       throw new Error('Bad chainId')
     }
 
-    const baseAsset = await this.getTokenInfo(chainId, baseTokenLike).catch(
-      (e: any) => {
-        console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
-        throw new Error('Base asset no valid ERC20 token')
-      }
-    )
-    const quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike).catch(
-      (e: any) => {
-        console.log(`Quote asset ${quoteTokenLike} no valid ERC20 token, error: ${e.message}`)
-        throw new Error('Quote asset no valid ERC20 token')
-      }
-    )
+    let baseAsset: any
+    let quoteAsset: any
+    try {
+      baseAsset = await this.getTokenInfo(chainId, baseTokenLike)
+    } catch(e: any) {
+      console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
+      throw new Error('Base asset no valid ERC20 token')
+    }
+    try {
+      quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
+    } catch(e: any) {
+      console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
+      throw new Error('Base asset no valid ERC20 token')
+    }
 
     console.log(baseAsset)
     console.log(quoteAsset)
@@ -358,7 +360,7 @@ export default class API extends EventEmitter {
     )
 
     // return if alias
-    if (market.length < 19) return marketInfo
+    if (market.length < 19 || this.VALID_EVM_CHAINS.includes(chainId)) return marketInfo
 
     // update marketArweaveId in SQL
     try {
@@ -389,25 +391,25 @@ export default class API extends EventEmitter {
       )
 
       if (!assetString) throw new Error('Unknown asset.')
-      if (!assetString) throw new Error('Unknown quote asset.')
       tokenInfo = JSON.parse(assetString) as AnyObject
     } else if (this.VALID_EVM_CHAINS.includes(chainId)) {
       if (tokenLike.length < 20) throw new Error('Use token address')
 
-      tokenInfo = getERC20Info(
-        this.ETHERS_PROVIDERS[chainId],
-        tokenLike,
-        this.ERC20_ABI
-      ).catch((e: any) => {
+      try {
+        tokenInfo = await getERC20Info(
+          this.ETHERS_PROVIDERS[chainId],
+          tokenLike,
+          this.ERC20_ABI
+        )
+      } catch(e: any) {
         console.log(`Error getting ERC20 infos for ${tokenLike}, error: ${e.message}`)
         throw new Error('Asset no valid ERC20 token')
-      })
+      }
       tokenInfo.id = tokenInfo.address
     } else {
       throw new Error('Bad chainId')
     }
 
-    console.log(tokenInfo)
     // update cache
     await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.symbol, JSON.stringify(tokenInfo))
     await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
