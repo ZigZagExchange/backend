@@ -2094,7 +2094,7 @@ export default class API extends EventEmitter {
 
   getuserorders = async (chainId: number, userid: string) => {
     const query = {
-      text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status FROM offers WHERE chainid=$1 AND userid=$2 AND order_status IN ('o','pm','pf') ORDER BY id DESC LIMIT 25",
+      text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND userid=$2 AND order_status IN ('o','pm','pf') ORDER BY id DESC LIMIT 25",
       values: [chainId, userid],
       rowMode: 'array'
     }
