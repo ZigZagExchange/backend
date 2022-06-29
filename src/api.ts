@@ -1218,10 +1218,10 @@ export default class API extends EventEmitter {
         ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.quoteAsset.decimals)
       )
       const makerFee = Number(
-        ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.quoteAsset.symbol)
+        ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.quoteAsset.decimals)
       )
       const takerFee = Number(
-        ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.quoteAsset.symbol)
+        ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.quoteAsset.decimals)
       )
       feeToken = marketInfo.quoteAsset.symbol
       if (Number(gasFee) < marketInfo.quoteFee)
