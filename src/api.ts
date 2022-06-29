@@ -303,28 +303,27 @@ export default class API extends EventEmitter {
       console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
+    console.log(baseAsset)
     try {
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
     } catch(e: any) {
       console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
-
-    console.log(baseAsset)
     console.log(quoteAsset)
 
     /* update token fee */
     const [baseFee, quoteFee] = await Promise.all([
-      Number(this.redis.HGET(`tokenfee:${chainId}`, baseAsset.symbol)),
-      Number(this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol))
+      this.redis.HGET(`tokenfee:${chainId}`, baseAsset.symbol),
+      this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol)
     ])
 
-    console.log(`baseFee ==> ${baseFee}`)
-    console.log(`quoteFee ==> ${quoteFee}`)
+    console.log(`baseFee ==> ${Number(baseFee)}`)
+    console.log(`quoteFee ==> ${Number(quoteFee)}`)
 
     // set fee, use arewave fees as fallback
-    marketInfo.baseFee = baseFee || Number(marketInfoDefaults?.baseFee)
-    marketInfo.quoteFee = quoteFee || Number(marketInfoDefaults?.quoteFee)
+    marketInfo.baseFee = baseFee ? Number(baseFee) : Number(marketInfoDefaults?.baseFee)
+    marketInfo.quoteFee = quoteFee ? Number(quoteFee) : Number(marketInfoDefaults?.quoteFee)
     marketInfo.baseAssetId = baseAsset.id
     marketInfo.quoteAssetId = quoteAsset.id
 
