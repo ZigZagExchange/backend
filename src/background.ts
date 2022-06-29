@@ -7,7 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import { redis, publisher } from './redisClient'
 import db from './db'
-import { formatPrice, getNetwork } from './utils'
+import { formatPrice, getNetwork, getERC20Info } from './utils'
 import type {
   ZZMarketInfo,
   AnyObject,
@@ -543,21 +543,26 @@ async function updateFeesEVM() {
       }
 
       if (feeData.maxFeePerGas) {
-        feeAmountETH = Number(ethers.utils.formatEther(
-          feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
-        ))
+        feeAmountETH = Number(
+          ethers.utils.formatEther(
+            feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
+          )
+        )
       } else if (feeData.gasPrice) {
-        feeAmountETH = Number(ethers.utils.formatEther(
-          feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.25
-        ))
+        feeAmountETH = Number(
+          ethers.utils.formatEther(
+            feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.25
+          )
+        )
       } else {
-        console.error(`No fee data for chainId: ${chainId}, unsing default ${feeAmountETH} ETH.`)
+        console.error(
+          `No fee data for chainId: ${chainId}, unsing default ${feeAmountETH} ETH.`
+        )
       }
 
       // check if fee changed enough to trigger update
       const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'ETH'))
-      if ((feeAmountETH / oldFee) < 0.05) return
-
+      if (feeAmountETH / oldFee < 0.05) return
 
       const newFees: any = []
       const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
@@ -578,7 +583,8 @@ async function updateFeesEVM() {
           const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
           redis.HSET(`tokenfee:${chainId}`, tokenSymbol, formatPrice(fee))
           newFees[tokenSymbol] = fee
-      })
+        }
+      )
       await Promise.all(results1)
 
       // update marketinfos & broadcastmsg
@@ -593,12 +599,8 @@ async function updateFeesEVM() {
           JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
         )
         // eslint-disable-next-line no-promise-executor-return
-        await new Promise(resolve => setTimeout(resolve, 250))
-        redis.HSET(
-          `marketinfo:${chainId}`,
-          market,
-          JSON.stringify(marketInfo)
-        )
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
       await Promise.all(results2)
     }
@@ -722,35 +724,6 @@ async function runDbMigration() {
 }
 
 /**
- * Get the full token name from L1 ERC20 contract
- * @param contractAddress
- * @param tokenSymbol
- * @returns full token name
- */
-async function getTokenName(
-  chainId: number,
-  contractAddress: string,
-  tokenSymbol: string
-) {
-  if (tokenSymbol === 'ETH') {
-    return 'Ethereum'
-  }
-  const network = getNetwork(chainId)
-  let name
-  try {
-    const contract = new ethers.Contract(
-      contractAddress,
-      ERC20_ABI,
-      SYNC_PROVIDER[network]
-    )
-    name = await contract.name()
-  } catch (e) {
-    name = tokenSymbol
-  }
-  return name
-}
-
-/**
  * Used to initialy fetch tokens infos on startup & updated on each recycle
  * @param chainId
  */
@@ -767,11 +740,11 @@ async function updateTokenInfoZkSync(chainId: number) {
       const tokenSymbol = tokenInfo.symbol
       if (!tokenSymbol.includes('ERC20')) {
         tokenInfo.usdPrice = 0
-        tokenInfo.name = await getTokenName(
-          chainId,
-          tokenInfo.address,
-          tokenSymbol
-        )
+        getERC20Info(SYNC_PROVIDER[network], tokenInfo.address, ERC20_ABI)
+          .then((res: string) => {
+            tokenInfo.name = res
+          })
+          .catch((tokenInfo.name = tokenInfo.address))
         redis.HSET(
           `tokeninfo:${chainId}`,
           tokenSymbol,
@@ -909,7 +882,7 @@ async function sendMatchedOrders() {
             Date.now() // timestamp
           ]
         )
-        
+
         const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
           transaction.hash
         )
@@ -921,7 +894,7 @@ async function sendMatchedOrders() {
       const args = [
         txStatus,
         transaction.hash,
-        transaction.hash ? match.gasFee : 0, // no fee if rejected before onchain 
+        transaction.hash ? match.gasFee : 0, // no fee if rejected before onchain
         transaction.hash ? match.gasToken : null,
         Number(makerOrder.makerVolumeFee),
         Number(takerOrder.takerVolumeFee),
