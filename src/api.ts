@@ -318,11 +318,10 @@ export default class API extends EventEmitter {
       : Number(marketInfoDefaults?.quoteFee)
     baseAsset.enabledForFees = !!marketInfo.baseFee
     quoteAsset.enabledForFees = !!marketInfo.quoteFee
+    marketInfo.baseAssetId = baseAsset.id
+    marketInfo.quoteAssetId = quoteAsset.id
 
-    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-      marketInfo.baseAssetId = baseAsset.id
-      marketInfo.quoteAssetId = quoteAsset.id
-    } else if (this.VALID_EVM_CHAINS.includes(chainId)) {
+    if (this.VALID_EVM_CHAINS.includes(chainId)) {
       marketInfo.exchangeAddress = this.EVMConfig[chainId].exchangeAddress
       marketInfo.feeAddress = this.EVMConfig[chainId].feeAddress
       marketInfo.makerVolumeFee = this.EVMConfig[chainId].minMakerVolumeFee
@@ -397,6 +396,7 @@ export default class API extends EventEmitter {
       ).catch(() => {
         throw new Error('Asset no valid ERC20 token')
       })
+      tokenInfo.id = tokenInfo.address
     } else {
       throw new Error('Bad chainId')
     }
