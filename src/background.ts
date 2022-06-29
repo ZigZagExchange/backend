@@ -1095,7 +1095,7 @@ async function start() {
   // VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
 
   // Seed Arbitrum Markets
-  await seedArbitrumMarkets()
+  // await seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
   setInterval(updatePriceHighLow, 300000)
