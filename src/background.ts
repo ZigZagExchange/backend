@@ -408,7 +408,8 @@ async function updateUsdPrice() {
           `Could not update price for ${token}, Error: ${err.message}`
         )
       }
-      redis.HSET(`tokeninfo:${chainId}`, token, JSON.stringify(tokenInfo))
+      redis.HSET(`tokeninfo:${chainId}`, tokenInfo.symbol, JSON.stringify(tokenInfo))
+      redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
     })
     await Promise.all(results1)
   })
@@ -535,7 +536,7 @@ async function updateFeesEVM() {
   const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
       let feeData: any = {}
-      let feeAmountETH = 0.002 // fallback fee
+      let feeAmountWETH = 0.002 // fallback fee
       try {
         feeData = await ETHERS_PROVIDERS[chainId].getFeeData()
       } catch (e: any) {
@@ -543,26 +544,26 @@ async function updateFeesEVM() {
       }
 
       if (feeData.maxFeePerGas) {
-        feeAmountETH = Number(
+        feeAmountWETH = Number(
           ethers.utils.formatEther(
             feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
           )
         )
       } else if (feeData.gasPrice) {
-        feeAmountETH = Number(
+        feeAmountWETH = Number(
           ethers.utils.formatEther(
             feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.25
           )
         )
       } else {
         console.error(
-          `No fee data for chainId: ${chainId}, unsing default ${feeAmountETH} ETH.`
+          `No fee data for chainId: ${chainId}, unsing default ${feeAmountWETH} WETH.`
         )
       }
 
       // check if fee changed enough to trigger update
-      const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'ETH'))
-      if (feeAmountETH / oldFee < 0.05) return
+      const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
+      if (feeAmountWETH / oldFee < 0.05) return
 
       const newFees: any = []
       const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
@@ -573,7 +574,7 @@ async function updateFeesEVM() {
         (x, i) => i === tokenSymbols.indexOf(x)
       )
       const ethPrice = JSON.parse(tokenInfos.WETH).usdPrice
-      const feeAmountUSD = Number(ethPrice) * feeAmountETH * 1.05 // margin for fee change
+      const feeAmountUSD = Number(ethPrice) * feeAmountWETH * 1.05 // margin for fee change
       const results1: Promise<any>[] = tokenSymbols.map(
         async (tokenSymbol: string) => {
           const tokenInfoString = tokenInfos[tokenSymbol]
@@ -581,7 +582,8 @@ async function updateFeesEVM() {
           const tokenInfo = JSON.parse(tokenInfoString)
           if (!tokenInfo?.usdPrice) return
           const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
-          redis.HSET(`tokenfee:${chainId}`, tokenSymbol, formatPrice(fee))
+          redis.HSET(`tokenfee:${chainId}`, tokenInfo.address, formatPrice(fee))
+          redis.HSET(`tokenfee:${chainId}`, tokenInfo.symbol, formatPrice(fee))
           newFees[tokenSymbol] = fee
         }
       )
