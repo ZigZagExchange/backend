@@ -893,7 +893,7 @@ async function sendMatchedOrders() {
           match.makerId,
           match.takerId,
           'fillstatus',
-          [
+          [[[
             chainId,
             match.fillId,
             'b',
@@ -902,7 +902,7 @@ async function sendMatchedOrders() {
             0,
             0,
             Date.now() // timestamp
-          ]
+          ]]]
         )
 
         const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
