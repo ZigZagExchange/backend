@@ -59,9 +59,10 @@ export const evmEIP712Types = {
 
 /**
  * Get the full token name from L1 ERC20 contract
+ * @param provider
  * @param contractAddress
- * @param tokenSymbol
- * @returns full token name
+ * @param abi
+ * @returns tokenInfos
  */
 export async function getERC20Info(
   provider: any,
@@ -76,6 +77,7 @@ export async function getERC20Info(
   )
   tokenInfos.decimals = await contract.decimals()
   tokenInfos.name = await contract.name()
-  tokenInfos.symbol  = await contract.symbol()
+  tokenInfos.symbol = await contract.symbol()
+  tokenInfos.address = contractAddress
   return tokenInfos
 }
