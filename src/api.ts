@@ -237,15 +237,12 @@ export default class API extends EventEmitter {
     market: ZZMarket,
     chainId: number
   ): Promise<ZZMarketInfo> => {
-    console.log(`chainId ==> ${chainId}`)
-    console.log(`market ==> ${market}`)
     if (!this.VALID_CHAINS.includes(chainId))
       throw new Error('No valid chainId')
     if (!market) throw new Error('Bad market')
 
     const redisKeyMarketInfo = `marketinfo:${chainId}`
     const cache = await this.redis.HGET(redisKeyMarketInfo, market)
-    console.log(`cache ==> ${cache}`)
 
     if (cache) {
       return JSON.parse(cache) as ZZMarketInfo
@@ -301,19 +298,13 @@ export default class API extends EventEmitter {
     let baseAsset: any
     let quoteAsset: any
     try {
-      console.log(`chainId ==> ${chainId}`)
-      console.log(`baseTokenLike ==> ${baseTokenLike}`)
       baseAsset = await this.getTokenInfo(chainId, baseTokenLike)
-      console.log(baseAsset)
     } catch(e: any) {
       console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
     try {
-      console.log(`chainId ==> ${chainId}`)
-      console.log(`quoteAsset ==> ${quoteAsset}`)
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
-      console.log(quoteAsset)
     } catch(e: any) {
       console.log(`Base asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
@@ -324,9 +315,6 @@ export default class API extends EventEmitter {
       this.redis.HGET(`tokenfee:${chainId}`, baseAsset.symbol),
       this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol)
     ])
-
-    console.log(`baseFee ==> ${Number(baseFee)}`)
-    console.log(`quoteFee ==> ${Number(quoteFee)}`)
 
     // set fee, use arewave fees as fallback
     marketInfo.baseFee = baseFee ? Number(baseFee) : Number(marketInfoDefaults?.baseFee)
@@ -383,7 +371,6 @@ export default class API extends EventEmitter {
   }
 
   getTokenInfo = async (chainId: number, tokenLike: string) => {
-    console.log('start getTokenInfo')
     let tokenInfo: any
     const cache = await this.redis.HGET(`tokeninfo:${chainId}`, tokenLike)
     if (cache) {
@@ -420,7 +407,6 @@ export default class API extends EventEmitter {
     // update cache
     await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.symbol, JSON.stringify(tokenInfo))
     await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
-    console.log('end getTokenInfo')
     return tokenInfo
   }
 
