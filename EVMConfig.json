@@ -9,6 +9,6 @@
       "version": "2",
       "chainId": "42161"
     },
-    "gasUsed" : 40000
+    "gasUsed" : 200000
   }
 }
