@@ -51,9 +51,18 @@ library LibFillResults {
         rightTakerAssetAmountRemaining);
         
 
-        // Set fees
-        matchedFillResults.left.makerFeePaid = leftOrder.makerVolumeFee; 
-        matchedFillResults.right.takerFeePaid = rightOrder.takerVolumeFee;
+        // Compute fees for left order
+        matchedFillResults.left.makerFeePaid = LibMath.safeGetPartialAmountFloor(
+            matchedFillResults.left.makerAssetFilledAmount,
+            leftOrder.makerAssetAmount,
+            leftOrder.makerVolumeFee
+        );
+        matchedFillResults.right.takerFeePaid = LibMath.safeGetPartialAmountFloor(
+            matchedFillResults.right.takerAssetFilledAmount,
+            rightOrder.takerAssetAmount,
+            rightOrder.takerVolumeFee
+        );
+
     }
 
     function _calculateMatchedFillResultsWithMaximalFill(

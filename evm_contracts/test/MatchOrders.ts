@@ -314,7 +314,7 @@ describe("Exchange contract", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance7).to.equal(ethers.utils.parseEther("0.1"))
+        expect(balance7).to.equal(ethers.utils.parseEther("0.1").mul(890).div(970))
     });
 
     it("feeRecipient should take Taker Fee", async function () {
