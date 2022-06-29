@@ -237,12 +237,15 @@ export default class API extends EventEmitter {
     market: ZZMarket,
     chainId: number
   ): Promise<ZZMarketInfo> => {
+    console.log(`chainId ==> ${chainId}`)
+    console.log(`market ==> ${market}`)
     if (!this.VALID_CHAINS.includes(chainId))
       throw new Error('No valid chainId')
     if (!market) throw new Error('Bad market')
 
     const redisKeyMarketInfo = `marketinfo:${chainId}`
     const cache = await this.redis.HGET(redisKeyMarketInfo, market)
+    console.log(`cache ==> ${cache}`)
 
     if (cache) {
       return JSON.parse(cache) as ZZMarketInfo
