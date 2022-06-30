@@ -986,32 +986,36 @@ async function updateEVMMarketInfo() {
   const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
       const evmConfig = EVMConfig[chainId]
+
+      // check if settings changed
+      const testPairString = await redis.HGET(`marketinfo:${chainId}`, 'WETH-USDC')
+      let updated = false
+      if (testPairString) {
+        const marketInfo = JSON.parse(testPairString)
+        if (marketInfo.exchangeAddress !== evmConfig.exchangeAddress)
+          updated = true
+        if (marketInfo.feeAddress !== evmConfig.feeAddress)
+          updated = true
+        if (marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee)
+          updated = true
+        if (marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee)
+          updated = true
+      }      
+      if(!updated) return
+
+      // update all marketInfo
       const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
       const markets = Object.keys(marketInfos)
-      let updated = false
       const results1: Promise<any>[] = markets.map(
         async (market: ZZMarket) => {
           if (!marketInfos[market]) return
+
           const marketInfo = JSON.parse(marketInfos[market])
-          if (marketInfo.exchangeAddress !== evmConfig.exchangeAddress) {
-            marketInfo.exchangeAddress = evmConfig.exchangeAddress
-            updated = true
-          }
-          if (marketInfo.feeAddress !== evmConfig.feeAddress) {
-            marketInfo.feeAddress = evmConfig.feeAddress
-            updated = true
-          }
-          if (marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee) {
-            marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
-            updated = true
-          }
-          if (marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee) {
-            marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
-            updated = true
-          }
-          if (updated) {
-            redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
-          }
+          marketInfo.exchangeAddress = evmConfig.exchangeAddress
+          marketInfo.feeAddress = evmConfig.feeAddress
+          marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
+          marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
+          redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
         }
       )
       await Promise.all(results1)
