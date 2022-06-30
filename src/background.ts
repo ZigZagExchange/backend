@@ -564,12 +564,12 @@ async function updateFeesEVM() {
       if (feeData.maxFeePerGas) {
         const feeInWei = Math.floor(
           feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
-        ).toFixed(18)
+        )
         feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
       } else if (feeData.gasPrice) {
         const feeInWei = Math.floor(
           feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.1
-        ).toFixed(18)
+        )
         feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
       } else {
         console.error(
