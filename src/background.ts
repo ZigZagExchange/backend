@@ -562,19 +562,15 @@ async function updateFeesEVM() {
       }
 
       if (feeData.maxFeePerGas) {
-        const feeInWei = feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
-        feeAmountWETH = Number(
-          ethers.utils.formatEther(
-            feeInWei.toFixed(18)
-          )
-        )
+        const feeInWei = Math.floor(
+          feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
+        ).toFixed(18)
+        feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
       } else if (feeData.gasPrice) {
-        const feeInWei = feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.1
-        feeAmountWETH = Number(
-          ethers.utils.formatEther(
-            feeInWei.toFixed(18)
-          )
-        )
+        const feeInWei = Math.floor(
+          feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.1
+        ).toFixed(18)
+        feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
       } else {
         console.error(
           `No fee data for chainId: ${chainId}, unsing default ${feeAmountWETH} WETH.`
