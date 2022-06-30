@@ -979,6 +979,48 @@ async function sendMatchedOrders() {
   setTimeout(sendMatchedOrders, 2000)
 }
 
+/* update mm info after chainging the settings in EVMConfig */
+async function updateEVMMarketInfo() {
+  console.time('Update EVM marketinfo')
+
+  const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
+    async (chainId: number) => {
+      const evmConfig = EVMConfig[chainId]
+      const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+      const markets = Object.keys(marketInfos)
+      let updated = false
+      const results1: Promise<any>[] = markets.map(
+        async (market: ZZMarket) => {
+          if (!marketInfos[market]) return
+          const marketInfo = JSON.parse(marketInfos[market])
+          if (marketInfo.exchangeAddress !== evmConfig.exchangeAddress) {
+            marketInfo.exchangeAddress = evmConfig.exchangeAddress
+            updated = true
+          }
+          if (marketInfo.feeAddress !== evmConfig.feeAddress) {
+            marketInfo.feeAddress = evmConfig.feeAddress
+            updated = true
+          }
+          if (marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee) {
+            marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
+            updated = true
+          }
+          if (marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee) {
+            marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
+            updated = true
+          }
+          if (updated) {
+            redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
+          }
+        }
+      )
+      await Promise.all(results1)
+    }
+  )
+  await Promise.all(results0)
+  console.timeEnd('Update EVM marketinfo')
+}
+
 async function seedArbitrumMarkets() {
   console.time('seeding arbitrum markets')
   const marketSummaryWethUsdc = {
@@ -1092,6 +1134,9 @@ async function start() {
       redis.del(key)
     })
   })
+
+  /* startup */
+  await updateEVMMarketInfo()
   // VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
 
   // Seed Arbitrum Markets
