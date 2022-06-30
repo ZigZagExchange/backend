@@ -562,15 +562,17 @@ async function updateFeesEVM() {
       }
 
       if (feeData.maxFeePerGas) {
+        const feeInWei = feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
         feeAmountWETH = Number(
           ethers.utils.formatEther(
-            feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
+            feeInWei.toFixed(18)
           )
         )
       } else if (feeData.gasPrice) {
+        const feeInWei = feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.1
         feeAmountWETH = Number(
           ethers.utils.formatEther(
-            feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.1
+            feeInWei.toFixed(18)
           )
         )
       } else {
@@ -887,30 +889,41 @@ async function sendMatchedOrders() {
       let txStatus: string
       if (transaction.hash) {
         // update user
-        sendUpdates(
-          chainId,
-          match.market,
-          match.makerId,
-          match.takerId,
-          'fillstatus',
-          [[[
-            chainId,
-            match.fillId,
-            'b',
-            transaction.hash,
-            null, // remaing
-            0,
-            0,
-            Date.now() // timestamp
-          ]]]
-        )
+        // on arbitrum if the node returns a tx hash, it means it was accepted
+        // on other EVM chains, the result of the transaction needs to be awaited
+        if (chainId === 42161) {
+            txStatus = 'f'
+        } else {
+            txStatus = 'b'
+            sendUpdates(
+              chainId,
+              match.market,
+              match.makerId,
+              match.takerId,
+              'fillstatus',
+              [[[
+                chainId,
+                match.fillId,
+                txStatus,
+                transaction.hash,
+                0, // remaining
+                0,
+                0,
+                Date.now() // timestamp
+              ]]]
+            )
 
-        const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-          transaction.hash
-        )
-        txStatus = receipt.status === 1 ? 's' : 'r'
+        }
       } else {
         txStatus = 'r'
+      }
+      
+      // This is for non-arbitrum EVM chains to confirm the tx status
+      if (chainId !== 42161) {
+          const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+            transaction.hash
+          )
+          txStatus = receipt.status === 1 ? 'f' : 'r'
       }
 
       const args = [
@@ -920,7 +933,7 @@ async function sendMatchedOrders() {
         transaction.hash ? match.gasToken : null,
         Number(makerOrder.makerVolumeFee),
         Number(takerOrder.takerVolumeFee),
-        match.id
+        match.fillId
       ]
       const fillupdateBroadcastMinted = await db.query(
         'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash',
