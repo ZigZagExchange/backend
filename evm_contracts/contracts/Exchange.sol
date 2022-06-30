@@ -110,7 +110,7 @@ contract Exchange is SignatureValidator{
         // Right maker fee + gas fee -> fee recipient
         uint rightOrderFees = matchedFillResults.right.takerFeePaid + rightOrder.gasFee;
         if (rightOrderFees > 0) {
-            IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, matchedFillResults.right.takerFeePaid);
+            IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, rightOrderFees);
         }
        
         // Left maker fee -> fee recipient
