@@ -76,9 +76,6 @@ library LibFillResults {
         returns (MatchedFillResults memory matchedFillResults)
     {
         
-        bool doesLeftMakerAssetProfitExist = leftMakerAssetAmountRemaining > rightTakerAssetAmountRemaining;
-        bool doesRightMakerAssetProfitExist = rightMakerAssetAmountRemaining > leftTakerAssetAmountRemaining;
-
         // Calculate the maximum fill results for the maker and taker assets. At least one of the orders will be fully filled.
         //
         // The maximum that the left maker can possibly buy is the amount that the right order can sell.
