@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 library LibOrder{
    
    
-    bytes32 constant internal eip712DomainHash = 0x66ca85c73263b5f0115572f82c47128c8611f8c66c1235ea367b67876bc11817;
+    bytes32 constant internal eip712DomainHash = 0x5bc9404d62cba6c5ca0880d208144fe8e267edcf6421f5d276138501312561b7;
     /*
     keccak256(
         abi.encode(
@@ -12,7 +12,7 @@ library LibOrder{
                 "EIP712Domain(string name,string version,uint256 chainId)"
             ),
             keccak256(bytes("ZigZag")),
-            keccak256(bytes("2")),
+            keccak256(bytes("3")),
             uint256(42161)
         )
     ); 
