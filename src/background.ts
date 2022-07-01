@@ -846,31 +846,18 @@ async function sendMatchedOrders() {
         )
         feeToken = marketInfo.quoteAsset.symbol
       }
-      const takerSignatureModified =
-        takerOrder.signature.slice(0, 2) +
-        takerOrder.signature.slice(-2) +
-        takerOrder.signature.slice(2, -2)
       const makerSignatureModified =
         makerOrder.signature.slice(0, 2) +
         makerOrder.signature.slice(-2) +
         makerOrder.signature.slice(2, -2)
+      const takerSignatureModified =
+        takerOrder.signature.slice(0, 2) +
+        takerOrder.signature.slice(-2) +
+        takerOrder.signature.slice(2, -2)
 
       let transaction: any
       try {
-        transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
-          [
-            takerOrder.makerAddress,
-            takerOrder.makerToken,
-            takerOrder.takerToken,
-            takerOrder.feeRecipientAddress,
-            takerOrder.makerAssetAmount,
-            takerOrder.takerAssetAmount,
-            takerOrder.makerVolumeFee,
-            takerOrder.takerVolumeFee,
-            takerOrder.gasFee,
-            takerOrder.expirationTimeSeconds,
-            takerOrder.salt
-          ],
+        transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(          
           [
             makerOrder.makerAddress,
             makerOrder.makerToken,
@@ -884,8 +871,21 @@ async function sendMatchedOrders() {
             makerOrder.expirationTimeSeconds,
             makerOrder.salt
           ],
-          takerSignatureModified,
-          makerSignatureModified
+          [
+            takerOrder.makerAddress,
+            takerOrder.makerToken,
+            takerOrder.takerToken,
+            takerOrder.feeRecipientAddress,
+            takerOrder.makerAssetAmount,
+            takerOrder.takerAssetAmount,
+            takerOrder.makerVolumeFee,
+            takerOrder.takerVolumeFee,
+            takerOrder.gasFee,
+            takerOrder.expirationTimeSeconds,
+            takerOrder.salt
+          ],
+          makerSignatureModified,
+          takerSignatureModified
         )
       } catch (e: any) {
         console.error(e.message)
