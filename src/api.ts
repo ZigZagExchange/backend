@@ -1226,7 +1226,7 @@ export default class API extends EventEmitter {
       feeToken = marketInfo.quoteAsset.symbol
       if (Number(gasFee) < marketInfo.quoteFee)
         throw new Error(
-          `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAmount.symbol}`
+          `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAsset.symbol}`
         )
       if ((makerFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
         throw new Error(
