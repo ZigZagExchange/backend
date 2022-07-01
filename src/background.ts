@@ -833,18 +833,27 @@ async function sendMatchedOrders() {
       /* format data */
       let feeAmount: string
       let feeToken: string
+      let baseAmount: string
       if (makerOrder.makerToken === marketInfo.baseAsset.address) {
         feeAmount = ethers.utils.formatUnits(
-          marketInfo.baseAsset.decimals,
-          marketInfo.quoteAsset.decimals
+          makerOrder.gasFee,
+          marketInfo.baseAsset.decimals
         )
         feeToken = marketInfo.baseAsset.symbol
+        baseAmount = ethers.utils.formatUnits(
+          makerOrder.makerAssetAmount,
+          marketInfo.baseAsset.decimals
+        )
       } else {
         feeAmount = ethers.utils.formatUnits(
           makerOrder.gasFee,
           marketInfo.quoteAsset.decimals
         )
         feeToken = marketInfo.quoteAsset.symbol
+        baseAmount = ethers.utils.formatUnits(
+          makerOrder.makerAssetAmount,
+          marketInfo.quoteAsset.decimals
+        )
       }
       const takerSignatureModified =
         takerOrder.signature.slice(0, 2) +
@@ -895,13 +904,14 @@ async function sendMatchedOrders() {
         }
       }
 
+      /* txStatus: s - success, b - broadcasted (pending), r - rejected */
       let txStatus: string
       if (transaction.hash) {
         // update user
         // on arbitrum if the node returns a tx hash, it means it was accepted
         // on other EVM chains, the result of the transaction needs to be awaited
         if (chainId === 42161) {
-          txStatus = 'f'
+          txStatus = 's'
         } else {
           txStatus = 'b'
           sendUpdates(
@@ -935,13 +945,13 @@ async function sendMatchedOrders() {
         const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
           transaction.hash
         )
-        txStatus = receipt.status === 1 ? 'f' : 'r'
+        txStatus = receipt.status === 1 ? 's' : 'r'
       }
 
       const fillupdateBroadcastMinted = await db.query(
         'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash',
         [
-          txStatus,
+          (txStatus === 's') ? 'f' : 'r', // filled only has f or r
           transaction.hash,
           transaction.hash ? feeAmount : 0,
           transaction.hash ? feeToken : null,
@@ -950,12 +960,28 @@ async function sendMatchedOrders() {
           match.fillId
         ]
       )
-      const orderUpdateBroadcastMinted = await db.query(
-        'UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE id IN ($2, $3) AND unfilled = 0 RETURNING id, order_status, unfilled',
-        [txStatus, match.takerId, match.makerId]
-      )
+      let orderUpdateBroadcastMinted: AnyObject
+      if (txStatus === 's') {
+        orderUpdateBroadcastMinted = await db.query(
+          "UPDATE offers SET unfilled = CASE WHEN unfilled - $1 < $2 THEN 0 ELSE unfilled - $1, order_status = CASE WHEN unfilled - $1 < $2 THEN 'f' ELSE 'pf', update_timestamp=NOW() WHERE id IN ($3, $4) RETURNING id, order_status, unfilled",
+          [
+            Number(baseAmount),
+            marketInfo.baseFee,
+            match.takerId,
+            match.makerId
+          ]
+        )
+      } else {
+        orderUpdateBroadcastMinted = await db.query(
+          "UPDATE offers SET unfilled=0, order_status='c', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
+          [
+            match.takerId,
+            match.makerId
+          ]
+        )
+      }
       const orderUpdatesBroadcastMinted = orderUpdateBroadcastMinted.rows.map(
-        (row) => [
+        (row: any) => [
           chainId,
           row.id,
           row.order_status,
@@ -969,7 +995,7 @@ async function sendMatchedOrders() {
           row.id,
           row.fill_status,
           row.txhash,
-          null, // remaing
+          0, // remaing for fills is always 0
           feeAmount,
           feeToken,
           Date.now() // timestamp
