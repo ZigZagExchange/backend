@@ -81,6 +81,82 @@ describe("Exchange contract", function () {
 
     });
 
+    it("Should revert with 'not profitable spread' ", async function () {
+
+
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.BigNumber.from("10000"),
+            takerAssetAmount: ethers.BigNumber.from("20000"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.BigNumber.from("10000"),
+            takerAssetAmount: ethers.BigNumber.from("10000"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('not profitable spread');
+
+
+    });
+
+    it("Should execute with spread of 0", async function () {
+
+
+        const rightOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.BigNumber.from("100"),
+            takerAssetAmount: ethers.BigNumber.from("100"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const leftOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.BigNumber.from("100"),
+            takerAssetAmount: ethers.BigNumber.from("100"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+    });
+
     it("Should revert with invalid signature from mismatching maker and taker tokens", async function () {
 
         const leftOrder = {

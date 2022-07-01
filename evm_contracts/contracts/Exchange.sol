@@ -58,8 +58,10 @@ contract Exchange is SignatureValidator{
         // AND
         // <rightOrder.makerAssetAmount> / <rightOrder.takerAssetAmount> >= <leftOrder.takerAssetAmount> / <leftOrder.makerAssetAmount>
         // These equations can be combined to get the following:
-        require(!(leftOrder.makerAssetAmount * rightOrder.makerAssetAmount <
-            leftOrder.takerAssetAmount * rightOrder.takerAssetAmount),"not profitable spread");
+        require(
+            leftOrder.makerAssetAmount * rightOrder.makerAssetAmount >= leftOrder.takerAssetAmount * rightOrder.takerAssetAmount, 
+            "not profitable spread"
+        );
 
         matchedFillResults = LibFillResults.calculateMatchedFillResults(
             leftOrder,
