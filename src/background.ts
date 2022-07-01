@@ -408,8 +408,16 @@ async function updateUsdPrice() {
           `Could not update price for ${token}, Error: ${err.message}`
         )
       }
-      redis.HSET(`tokeninfo:${chainId}`, tokenInfo.symbol, JSON.stringify(tokenInfo))
-      redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
+      redis.HSET(
+        `tokeninfo:${chainId}`,
+        tokenInfo.symbol,
+        JSON.stringify(tokenInfo)
+      )
+      redis.HSET(
+        `tokeninfo:${chainId}`,
+        tokenInfo.address,
+        JSON.stringify(tokenInfo)
+      )
     })
     await Promise.all(results1)
 
@@ -580,7 +588,9 @@ async function updateFeesEVM() {
       // check if fee changed enough to trigger update
       const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
       if (feeAmountWETH / oldFee < 0.05) {
-        console.log(`updateFeesEVM: new fee ${feeAmountWETH} close to old fee ${oldFee}`)
+        console.log(
+          `updateFeesEVM: new fee ${feeAmountWETH} close to old fee ${oldFee}`
+        )
         return
       }
 
@@ -588,7 +598,10 @@ async function updateFeesEVM() {
       const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
       const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
       // get every token form activemarkets once
-      let tokenSymbols = markets.join('-').split('-').filter(t => t.length < 20) // filter addresses
+      let tokenSymbols = markets
+        .join('-')
+        .split('-')
+        .filter((t) => t.length < 20) // filter addresses
       tokenSymbols = tokenSymbols.filter(
         (x, i) => i === tokenSymbols.indexOf(x)
       )
@@ -888,52 +901,54 @@ async function sendMatchedOrders() {
         // on arbitrum if the node returns a tx hash, it means it was accepted
         // on other EVM chains, the result of the transaction needs to be awaited
         if (chainId === 42161) {
-            txStatus = 'f'
+          txStatus = 'f'
         } else {
-            txStatus = 'b'
-            sendUpdates(
-              chainId,
-              match.market,
-              match.makerId,
-              match.takerId,
-              'fillstatus',
-              [[[
-                chainId,
-                match.fillId,
-                txStatus,
-                transaction.hash,
-                0, // remaining
-                0,
-                0,
-                Date.now() // timestamp
-              ]]]
-            )
-
+          txStatus = 'b'
+          sendUpdates(
+            chainId,
+            match.market,
+            match.makerId,
+            match.takerId,
+            'fillstatus',
+            [
+              [
+                [
+                  chainId,
+                  match.fillId,
+                  txStatus,
+                  transaction.hash,
+                  0, // remaining
+                  0,
+                  0,
+                  Date.now() // timestamp
+                ]
+              ]
+            ]
+          )
         }
       } else {
         txStatus = 'r'
       }
-      
+
       // This is for non-arbitrum EVM chains to confirm the tx status
       if (chainId !== 42161) {
-          const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-            transaction.hash
-          )
-          txStatus = receipt.status === 1 ? 'f' : 'r'
+        const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
+          transaction.hash
+        )
+        txStatus = receipt.status === 1 ? 'f' : 'r'
       }
 
-      const args = [
-        txStatus,
-        transaction.hash,
-        transaction.hash ? match.gasFee : 0, // no fee if rejected before onchain
-        transaction.hash ? match.gasToken : null,
-        Number(makerOrder.makerVolumeFee),
-        Number(takerOrder.takerVolumeFee),
-        match.fillId
-      ]
       const fillupdateBroadcastMinted = await db.query(
         'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash',
-        args
+        [
+          txStatus,
+          transaction.hash,
+          transaction.hash ? feeAmount : 0,
+          transaction.hash ? feeToken : null,
+          Number(makerOrder.makerVolumeFee),
+          Number(takerOrder.takerVolumeFee),
+          match.fillId
+        ]
       )
       const orderUpdateBroadcastMinted = await db.query(
         'UPDATE offers SET order_status=$1, update_timestamp=NOW() WHERE id IN ($2, $3) AND unfilled = 0 RETURNING id, order_status, unfilled',
@@ -997,36 +1012,36 @@ async function updateEVMMarketInfo() {
       const evmConfig = EVMConfig[chainId]
 
       // check if settings changed
-      const testPairString = await redis.HGET(`marketinfo:${chainId}`, 'WETH-USDC')
+      const testPairString = await redis.HGET(
+        `marketinfo:${chainId}`,
+        'WETH-USDC'
+      )
       let updated = false
       if (testPairString) {
         const marketInfo = JSON.parse(testPairString)
         if (marketInfo.exchangeAddress !== evmConfig.exchangeAddress)
           updated = true
-        if (marketInfo.feeAddress !== evmConfig.feeAddress)
-          updated = true
+        if (marketInfo.feeAddress !== evmConfig.feeAddress) updated = true
         if (marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee)
           updated = true
         if (marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee)
           updated = true
-      }      
-      if(!updated) return
+      }
+      if (!updated) return
 
       // update all marketInfo
       const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
       const markets = Object.keys(marketInfos)
-      const results1: Promise<any>[] = markets.map(
-        async (market: ZZMarket) => {
-          if (!marketInfos[market]) return
+      const results1: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+        if (!marketInfos[market]) return
 
-          const marketInfo = JSON.parse(marketInfos[market])
-          marketInfo.exchangeAddress = evmConfig.exchangeAddress
-          marketInfo.feeAddress = evmConfig.feeAddress
-          marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
-          marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
-          redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
-        }
-      )
+        const marketInfo = JSON.parse(marketInfos[market])
+        marketInfo.exchangeAddress = evmConfig.exchangeAddress
+        marketInfo.feeAddress = evmConfig.feeAddress
+        marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
+        marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
+        redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
+      })
       await Promise.all(results1)
     }
   )
