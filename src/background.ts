@@ -936,7 +936,7 @@ async function sendMatchedOrders() {
       let orderUpdateBroadcastMinted: AnyObject
       if (txStatus === 's') {
         orderUpdateBroadcastMinted = await db.query(
-          "UPDATE offers SET unfilled = (CASE WHEN unfilled - $1 <= $2 THEN 0 ELSE unfilled - $1 END), order_status = (CASE WHEN unfilled - $1 <= $2 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($3, $4) RETURNING id, order_status, unfilled",
+          "UPDATE offers SET order_status = (CASE WHEN unfilled - $1 <= $2 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($3, $4) RETURNING id, order_status, unfilled",
           [
             Number(baseAmount),
             marketInfo?.baseFee ? marketInfo.baseFee : 0,
@@ -946,7 +946,7 @@ async function sendMatchedOrders() {
         )
       } else {
         orderUpdateBroadcastMinted = await db.query(
-          "UPDATE offers SET unfilled=0, order_status='c', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
+          "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
           [
             match.takerId,
             match.makerId
