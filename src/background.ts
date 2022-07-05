@@ -400,7 +400,12 @@ async function updateUsdPrice() {
           fetchResult?.result?.price > 0
             ? formatPrice(fetchResult?.result?.price)
             : 1
-        if (usdPrice === 0) usdPrice = formatPrice('1')
+        if (usdPrice === 0 && token === 'ZZ') {
+          usdPrice = "3.30"
+        } else if (usdPrice === 0) {
+          usdPrice = "1.00"
+        }
+
         updatedTokenPrice[token] = usdPrice
         tokenInfo.usdPrice = usdPrice
       } catch (err: any) {
