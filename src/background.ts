@@ -1178,7 +1178,7 @@ async function start() {
   setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)
   setInterval(updateLastPrices, 15000)
-  setInterval(updateMarketSummarys, 20000)
+  // setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
   setInterval(removeOldLiquidity, 10000)
