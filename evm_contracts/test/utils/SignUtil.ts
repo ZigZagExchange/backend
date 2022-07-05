@@ -4,8 +4,8 @@ import { Order } from "./types"
 
 export async function signOrder(privateKey: string, order: Order) {
 
-    // const provider = ethers.getDefaultProvider()
-    // const wallet = new ethers.Wallet(privateKey, provider)
+    const provider = ethers.getDefaultProvider()
+    const wallet = new ethers.Wallet(privateKey, provider)
 
     const signingKey = new ethers.utils.SigningKey(privateKey);
 
@@ -33,9 +33,9 @@ export async function signOrder(privateKey: string, order: Order) {
         },
         "primaryType": 'Order',
         "domain": {
-            "name": 'SetTest',
-            "version": '1',
-            "chainId": 1,
+            "name": 'ZigZag',
+            "version": '3',
+            "chainId": 42161,
 
         },
         "message": {
@@ -53,9 +53,11 @@ export async function signOrder(privateKey: string, order: Order) {
         }
     }
 
-    const message = getMessage(typedData, true);
-    const { r, s, v } = signingKey.signDigest(message);
-    const signedMessage = [r.slice(0, 2), v.toString(16), r.slice(2, r.length), s.slice(2, s.length)].join('');
+    const signature = await wallet._signTypedData(typedData.domain, {"Order":typedData.types.Order}, typedData.message);
+    const signatureModified = signature.slice(0,2) + signature.slice(-2) + signature.slice(2,-2);
+    //const message = getMessage(typedData, true);
+    //const { r, s, v } = signingKey.signDigest(message);
+    //const signedMessage = [r.slice(0, 2), v.toString(16), r.slice(2, r.length), s.slice(2, s.length)].join('');
 
-    return signedMessage;
+    return signatureModified;
 }

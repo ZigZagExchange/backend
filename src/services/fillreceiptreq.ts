@@ -12,6 +12,12 @@ export const fillreceiptreq: ZZServiceHandler = async (
     return errorMsg
   }
 
+  if(!orderId) {
+    const errorMsg = { op: 'error', args: ['fillreceiptreq', `orderId is not set`] }
+    if (ws) ws.send(JSON.stringify(errorMsg))
+    return errorMsg
+  }
+
   if(typeof orderId === 'object' && orderId.length > 25) {
     const errorMsg = { op: 'error', args: ['fillreceiptreq', `${orderId.length} is not a valid length. Use up to 25`] }
     if (ws) ws.send(JSON.stringify(errorMsg))
