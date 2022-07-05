@@ -1682,23 +1682,22 @@ export default class API extends EventEmitter {
     const redisKeyBussy = `bussymarketmaker:${chainId}:${makerAccountId}`
     try {
       const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
-      if (redisBusyMM) {
-        const processingOrderId: number = (JSON.parse(redisBusyMM) as any)
-          .orderId
-        const remainingTime = await this.redis.ttl(redisKeyBussy)
-        this.redisPublisher.PUBLISH(
-          `broadcastmsg:maker:${chainId}:${value.wsUUID}`,
-          JSON.stringify({
-            op: 'error',
-            args: [
-              'fillrequest',
-              makerAccountId,
-              `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
-            ]
-          })
-        )
-        throw new Error('fillrequest - market maker is timed out.')
-      }
+      //if (redisBusyMM) {
+      //  const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
+      //  const remainingTime = await this.redis.ttl(redisKeyBussy)
+      //  this.redisPublisher.PUBLISH(
+      //    `broadcastmsg:maker:${chainId}:${value.wsUUID}`,
+      //    JSON.stringify({
+      //      op: 'error',
+      //      args: [
+      //        'fillrequest',
+      //        makerAccountId,
+      //        `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
+      //      ]
+      //    })
+      //  )
+      //  throw new Error('fillrequest - market maker is timed out.')
+      //}
 
       let priceWithoutFee: string
       try {
@@ -2562,11 +2561,6 @@ export default class API extends EventEmitter {
       } else if (amount < minSize) {
         // don't show this error to users
         // errorMsg.push('Amount to small')
-      } else if (
-        midPrice &&
-        (price < midPrice * 0.25 || price > midPrice * 1.75)
-      ) {
-        errorMsg.push('Your price is too far from the mid Price')
       } else {
         // Add expirations to liquidity if needed
         if (!l[3] || Number(l[3]) > NINE_SECONDS) {
