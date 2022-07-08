@@ -1356,6 +1356,7 @@ export default class API extends EventEmitter {
       taker.expires,
       taker.userid,
       taker.order_status,
+      null, // txhash
       taker.unfilled
     ]
     this.redisPublisher.PUBLISH(
