@@ -1,5 +1,6 @@
 import * as starknet from 'starknet'
 import { ethers } from 'ethers'
+import { randomBytes } from 'crypto'
 
 export function formatPrice (input: any) {
   const inputNumber = Number(input)
@@ -80,4 +81,8 @@ export async function getERC20Info(
   tokenInfos.symbol = await contract.symbol()
   tokenInfos.address = contractAddress
   return tokenInfos
+}
+
+export function getNewToken() {
+  return randomBytes(64).toString('hex')
 }
