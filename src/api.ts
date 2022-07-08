@@ -1445,14 +1445,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userId, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, id, order_status;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, id, order_status;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status;",
         values
       )
     }
