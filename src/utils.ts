@@ -1,4 +1,5 @@
 import * as starknet from 'starknet'
+import { randomBytes } from 'crypto'
 
 export function formatPrice (input: any) {
   const inputNumber = Number(input)
@@ -38,4 +39,8 @@ export function getNetwork (chainId: number) {
     case 42161: return "arbitrum"
     default: throw new Error('No valid chainId')
   }
+}
+
+export function getNewToken() {
+  return randomBytes(64).toString('hex')
 }
