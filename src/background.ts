@@ -823,7 +823,7 @@ async function sendUpdates(
 async function sendMatchedOrders() {
   const results: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
-      const matchChainString = await redis.LPOP(`matchedorders:${chainId}`)
+      const matchChainString = await redis.RPOP(`matchedorders:${chainId}`)
       if (!matchChainString) return
 
       console.log(
