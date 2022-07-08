@@ -247,7 +247,7 @@ NO EXAMPLE AVAILABLE YET
 
 Arguments: `[chainid,orderid]`
 
-Description: Get an order receipt. Returns an orderreceipt. That is a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
+Description: Get an order receipt. Returns an orderreceipt. That is a message with the same format as userorderack, but with one extra field at the end for the transaction hash, instead of the token.
 
 ```json
 { "op": "orderreceiptreq", "args": [1000, 40] }
@@ -259,7 +259,7 @@ Description: Get an order receipt. Returns an orderreceipt. That is a message wi
 
 Arguments: `[chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,remaining,txhash]`
 
-Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash.
+Description: Get an order receipt. Returns a message with the same format as userorderack, but with one extra field at the end for the transaction hash, instead of the token.
 
 ```json
 { 
@@ -581,7 +581,7 @@ To unsubscibe from all markets, you can leave the args empty: `"args": []`
 
 ###### Operation: **userorderack**
 
-Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining]`
+Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,userid,orderstatus,remaining,token]`
 
 Description: ack message for a submitorder3 message
 
@@ -599,7 +599,8 @@ Description: ack message for a submitorder3 message
     4294967295,
     "23",
     "o",
-    0.1
+    0.1,
+    "23782f238c923b...233e"
   ]
 }
 ```
@@ -631,6 +632,19 @@ Description: Cancel an order. To verify the sender is the original user that pla
 
 ---
 
+###### Operation: **cancelorder3**
+
+Arguments: `[chainId, orderId, token]`
+
+Description: Cancel an order. To verify the sender is the original user that placed the order, the a token is used. The token is send togherther with the 'userorderack'.
+
+
+```json
+{ "op": "cancelorder3", "args": [1000, 122, "6bfd....5a8b4e"] }
+```
+
+---
+
 ###### Operation: **cancelall2**
 
 Arguments: `[chainId, userId, validUntil, signedMessage]`
@@ -639,6 +653,18 @@ Description: Cancel all orders for a user. To verify the sender is the original 
 
 ```json
 { "op": "cancelall2", "args": [1000, "12232", 1655990893, "0x6bfd....5a8b4e"] }
+```
+
+---
+
+###### Operation: **cancelall3**
+
+Arguments: `[chainId, userId, tokenArray]`
+
+Description: Cancel all orders for a user. To verify the sender is the original user that placed the order, the 'tokenArray' argument is used. Use `chianId = 0` to cancel all orders on every chain. The tokenArray is an array contaning the tokens for each open order. if you dont have access to all tokens, use cancelall2. The token is send togherther with the 'userorderack'.
+
+```json
+{ "op": "cancelall3", "args": [1000, "12232", ["0x6bfd....5a8b4e", "...", "a728f982...e232"]] }
 ```
 
 ---

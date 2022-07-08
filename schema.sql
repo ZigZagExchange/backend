@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS offers (
 CREATE INDEX IF NOT EXISTS offers_order_status_by_market_idx ON offers(chainid, market, order_status);
 
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS txhash TEXT;
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS token TEXT; 
 
 CREATE TABLE IF NOT EXISTS fills (
   id                 SERIAL          PRIMARY KEY,
@@ -65,7 +66,7 @@ CREATE TABLE IF NOT EXISTS marketids (
 -- Returns a table of IDs. That list ID in the table is the offer ID. Every other ID in the table is a fill ID.
 -------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _base_quantity NUMERIC, _quote_quantity NUMERIC, _expires BIGINT, _zktx TEXT)
+CREATE OR REPLACE FUNCTION match_limit_order(_chainid  INTEGER, _userid TEXT, _market TEXT, _side CHAR(1), _price NUMERIC, _base_quantity NUMERIC, _quote_quantity NUMERIC, _expires BIGINT, _zktx TEXT, _token TEXT)
   RETURNS TABLE (
     id INTEGER
   )
@@ -82,9 +83,9 @@ BEGIN
   ) ON COMMIT DROP;
 
   -- Insert initial order to get an orderid
-  INSERT INTO offers (chainid , userid, market, side, price, base_quantity, order_status, order_type, quote_quantity, expires, unfilled, zktx, insert_timestamp) 
+  INSERT INTO offers (chainid , userid, market, side, price, base_quantity, order_status, order_type, quote_quantity, expires, unfilled, zktx, insert_timestamp, token) 
   VALUES (
-      _chainid , _userid, _market, _side, _price, _base_quantity, 'o', 'l', _quote_quantity, _expires, _base_quantity, _zktx, NOW()
+      _chainid , _userid, _market, _side, _price, _base_quantity, 'o', 'l', _quote_quantity, _expires, _base_quantity, _zktx, NOW(), _token
   )
   RETURNING offers.id INTO _taker_offer_id;
 

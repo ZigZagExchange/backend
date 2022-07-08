@@ -29,7 +29,8 @@ import {
   stringToFelt,
   getNetwork,
   evmEIP712Types,
-  getERC20Info
+  getERC20Info,
+  getNewToken
 } from 'src/utils'
 
 export default class API extends EventEmitter {
@@ -622,6 +623,7 @@ export default class API extends EventEmitter {
     const orderType = 'limit'
     const expires = zktx.validUntil
     const userid = zktx.accountId
+    const token = getNewToken()
     const queryargs = [
       chainId,
       userid,
@@ -635,11 +637,12 @@ export default class API extends EventEmitter {
       'o',
       expires,
       JSON.stringify(zktx),
-      baseQuantity
+      baseQuantity,
+      token
     ]
     // save order to DB
     const query =
-      'INSERT INTO offers(chainid, userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp, unfilled) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), $13) RETURNING id'
+      'INSERT INTO offers(chainid, userid, nonce, market, side, price, base_quantity, quote_quantity, order_type, order_status, expires, zktx, insert_timestamp, unfilled, token) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), $13, $14) RETURNING id'
     const insert = await this.db.query(query, queryargs)
     const orderId = insert.rows[0].id
     const orderreceipt = [
@@ -663,6 +666,7 @@ export default class API extends EventEmitter {
       JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
     )
 
+    orderreceipt.push(token)
     return { op: 'userorderack', args: orderreceipt }
   }
 
@@ -1262,8 +1266,8 @@ export default class API extends EventEmitter {
 
     const price = quoteAmount / baseAmount
 
-    const query =
-      'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9)'
+    const token = getNewToken()
+    const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)'
     const values = [
       chainId,
       zktx.makerAddress,
@@ -1273,7 +1277,8 @@ export default class API extends EventEmitter {
       baseAmount,
       quoteAmount,
       zktx.expirationTimeSeconds,
-      JSON.stringify(zktx)
+      JSON.stringify(zktx),
+      token
     ]
     const matchquery = await this.db.query(query, values)
 
@@ -1351,6 +1356,7 @@ export default class API extends EventEmitter {
       taker.expires,
       taker.userid,
       taker.order_status,
+      null, // txhash
       taker.unfilled
     ]
     this.redisPublisher.PUBLISH(
@@ -1370,21 +1376,8 @@ export default class API extends EventEmitter {
       )
     }
 
-    const orderreceipt = [
-      chainId,
-      orderId,
-      market,
-      side,
-      price,
-      baseAmount,
-      quoteAmount,
-      taker.expires,
-      taker.userid.toString(),
-      taker.order_status,
-      null,
-      baseAmount
-    ]
-    return { op: 'userorderack', args: orderreceipt }
+    orderMsg.push(token)
+    return { op: 'userorderack', args: orderMsg }
   }
 
   cancelallorders = async (chainId: number, userid: string | number) => {
@@ -1452,14 +1445,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userId, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, id, order_status;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, id, order_status;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status;",
         values
       )
     }
@@ -1483,8 +1476,70 @@ export default class API extends EventEmitter {
 
     return true
   }
+  
+  cancelAllOrders3 = async (
+    chainId: number,
+    userId: string,
+    tokenArray: string[]
+  ) => {
+    // validate if sender is ok to cancel
+    const valuesSelect = [chainId, userId]
+    const select = await this.db.query (
+      "SELECT id, token FROM offers WHERE id=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm)",
+      valuesSelect
+    )
+    // tokenArray should have a token for each open order
+    select.rows.forEach(order => {
+      if (!tokenArray.includes(order.token)) 
+        throw new Error(`Unauthorized to cancel order ${order.id}`)      
+    })
 
-  cancelorder = async (chainId: number, orderId: string, ws?: WSocket) => {
+    let orders: any
+    if (chainId) {
+      // cancel for chainId set
+      const values = [userId, chainId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status;",
+        values
+      )
+    } else {
+      // cancel for all chainIds - chainId not set
+      const values = [userId]
+      orders = await this.db.query(
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status;",
+        values
+      )
+    }
+
+    if (orders.rows.length === 0) throw new Error('No open Orders')
+
+    this.VALID_CHAINS.forEach(async (broadcastChainId) => {
+      const orderStatusUpdate = orders.rows
+        .filter((o: any) => Number(o.chainid) === broadcastChainId)
+        .map((o: any) => [
+          o.chainid,
+          o.id,
+          o.order_status
+        ])
+
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${broadcastChainId}:all`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+      await this.redisPublisher.publish(
+        `broadcastmsg:user:${broadcastChainId}:${userId}`,
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+      )
+    })
+
+    return true
+  }
+
+  cancelorder = async (
+    chainId: number,
+    orderId: string,
+    ws?: WSocket
+  ) => {
     const values = [orderId, chainId]
     const select = await this.db.query(
       'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
@@ -1566,6 +1621,46 @@ export default class API extends EventEmitter {
       await this.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]] })
+      )
+    } else {
+      throw new Error('Order not found')
+    }
+
+    return true
+  }
+
+  cancelorder3 = async (
+    chainId: number,
+    orderId: string,
+    token: string
+  ) => {
+    const values = [orderId, chainId]
+    const select = await this.db.query(
+      'SELECT userid, order_status, token FROM offers WHERE id=$1 AND chainid=$2',
+      values
+    )
+
+    if (select.rows.length === 0) {
+      throw new Error('Order not found')
+    }
+
+    // validate if sender is ok to cancel
+    if(token !== select.rows[0].token) throw new Error('Unauthorized')
+
+    if (select.rows[0].order_status !== 'o') {
+      throw new Error('Order is no longer open')
+    }
+
+    const updatevalues = [orderId]
+    const update = await this.db.query(
+      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW() WHERE id=$1 RETURNING market",
+      updatevalues
+    )
+
+    if (update.rows.length > 0) {
+      await this.redisPublisher.publish(
+        `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
+        JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
       )
     } else {
       throw new Error('Order not found')
