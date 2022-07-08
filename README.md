@@ -664,7 +664,7 @@ Arguments: `[chainId, userId, tokenArray]`
 Description: Cancel all orders for a user. To verify the sender is the original user that placed the order, the 'tokenArray' argument is used. Use `chianId = 0` to cancel all orders on every chain. The tokenArray is an array contaning the tokens for each open order. if you dont have access to all tokens, use cancelall2. The token is send togherther with the 'userorderack'.
 
 ```json
-{ "op": "cancelall3", "args": [1000, "12232", ["0x6bfd....5a8b4e", ..., "a728f982...e232"]] }
+{ "op": "cancelall3", "args": [1000, "12232", ["0x6bfd....5a8b4e", "...", "a728f982...e232"]] }
 ```
 
 ---

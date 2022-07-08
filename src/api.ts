@@ -1632,11 +1632,11 @@ export default class API extends EventEmitter {
   cancelorder3 = async (
     chainId: number,
     orderId: string,
-    secret: string
+    token: string
   ) => {
     const values = [orderId, chainId]
     const select = await this.db.query(
-      'SELECT userid, order_status, secret FROM offers WHERE id=$1 AND chainid=$2',
+      'SELECT userid, order_status, token FROM offers WHERE id=$1 AND chainid=$2',
       values
     )
 
@@ -1645,7 +1645,7 @@ export default class API extends EventEmitter {
     }
 
     // validate if sender is ok to cancel
-    if(secret !== select.rows[0].secret) throw new Error('Unauthorized')
+    if(token !== select.rows[0].token) throw new Error('Unauthorized')
 
     if (select.rows[0].order_status !== 'o') {
       throw new Error('Order is no longer open')
