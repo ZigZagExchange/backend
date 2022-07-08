@@ -436,9 +436,8 @@ Description: A series of order status updates. orderupdate = `[chainId,orderId,s
         1000,
         5,
         "m",
-        4700.23,
         "0x5c633d31817a9b95973670733aed5feb8255d67f36f74517462063659bcd7dd",
-        1
+        12.5
       ],
       [
         1000,

@@ -31,8 +31,7 @@ contract Exchange is SignatureValidator{
        LibOrder.Order memory leftOrder,
        LibOrder.Order memory rightOrder,
        bytes memory leftSignature,
-       bytes memory rightSignature,
-       bool shouldMaximallyFillOrders
+       bytes memory rightSignature
    )
    public returns(LibFillResults.MatchedFillResults memory matchedFillResults){
 
@@ -51,8 +50,6 @@ contract Exchange is SignatureValidator{
         require(_isValidOrderWithHashSignature(rightOrderInfo.orderHash, rightSignature, rightOrder.makerAddress),"invalid right signature");
         require(_isValidOrderWithHashSignature(leftOrderInfo.orderHash, leftSignature, leftOrder.makerAddress),"invalid left signature");
         
-        address takerAddress = msg.sender;
-
         // Make sure there is a profitable spread.
         // There is a profitable spread iff the cost per unit bought (OrderA.MakerAmount/OrderA.TakerAmount) for each order is greater
         // than the profit per unit sold of the matched order (OrderB.TakerAmount/OrderB.MakerAmount).
@@ -61,15 +58,16 @@ contract Exchange is SignatureValidator{
         // AND
         // <rightOrder.makerAssetAmount> / <rightOrder.takerAssetAmount> >= <leftOrder.takerAssetAmount> / <leftOrder.makerAssetAmount>
         // These equations can be combined to get the following:
-        require(!(leftOrder.makerAssetAmount * rightOrder.makerAssetAmount <
-            leftOrder.takerAssetAmount * rightOrder.takerAssetAmount),"not profitable spread");
+        require(
+            leftOrder.makerAssetAmount * rightOrder.makerAssetAmount >= leftOrder.takerAssetAmount * rightOrder.takerAssetAmount, 
+            "not profitable spread"
+        );
 
         matchedFillResults = LibFillResults.calculateMatchedFillResults(
             leftOrder,
             rightOrder,
             leftOrderInfo.orderTakerAssetFilledAmount,
-            rightOrderInfo.orderTakerAssetFilledAmount,
-            shouldMaximallyFillOrders
+            rightOrderInfo.orderTakerAssetFilledAmount
         );
         
         
@@ -86,7 +84,6 @@ contract Exchange is SignatureValidator{
         _settleMatchedOrders(
             leftOrder,
             rightOrder,
-            takerAddress,
             matchedFillResults
         );
 
@@ -96,9 +93,8 @@ contract Exchange is SignatureValidator{
 
 
     function _settleMatchedOrders(
-        LibOrder.Order memory leftOrder,
-        LibOrder.Order memory rightOrder,
-        address takerAddress,
+        LibOrder.Order memory leftOrder,  // maker
+        LibOrder.Order memory rightOrder, // taker
         LibFillResults.MatchedFillResults memory matchedFillResults
     )
     internal{
@@ -113,22 +109,17 @@ contract Exchange is SignatureValidator{
         /*
             Fees Paid 
         */
-        // Right maker fee -> right fee recipient
-        IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, matchedFillResults.right.makerFeePaid);
+        // Right maker fee + gas fee -> fee recipient
+        uint rightOrderFees = matchedFillResults.right.takerFeePaid + rightOrder.gasFee;
+        if (rightOrderFees > 0) {
+            IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, rightOrderFees);
+        }
        
-        // Left maker fee -> left fee recipient
-        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, matchedFillResults.left.makerFeePaid);
- 
-        //Settle gas Fee from left Order
-        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, leftOrder.gasFee);
+        // Left maker fee -> fee recipient
+        if (matchedFillResults.left.makerFeePaid > 0) {
+            IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, matchedFillResults.left.makerFeePaid);
+        }
 
-
-
-        // Settle taker profits.
-        IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, takerAddress, matchedFillResults.profitInRightMakerAsset);
-        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, takerAddress, matchedFillResults.profitInLeftMakerAsset);
-
-        
     }
 
 
