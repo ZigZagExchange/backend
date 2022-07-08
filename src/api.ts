@@ -657,8 +657,7 @@ export default class API extends EventEmitter {
       userid.toString(),
       'o',
       null,
-      baseQuantity,
-      token
+      baseQuantity
     ]
 
     // broadcast new order
@@ -667,6 +666,7 @@ export default class API extends EventEmitter {
       JSON.stringify({ op: 'orders', args: [[orderreceipt]] })
     )
 
+    orderreceipt.push(token)
     return { op: 'userorderack', args: orderreceipt }
   }
 
@@ -1375,22 +1375,8 @@ export default class API extends EventEmitter {
       )
     }
 
-    const orderreceipt = [
-      chainId,
-      orderId,
-      market,
-      side,
-      price,
-      baseAmount,
-      quoteAmount,
-      taker.expires,
-      taker.userid.toString(),
-      taker.order_status,
-      null,
-      baseAmount,
-      token,
-    ]
-    return { op: 'userorderack', args: orderreceipt }
+    orderMsg.push(token)
+    return { op: 'userorderack', args: orderMsg }
   }
 
   cancelallorders = async (chainId: number, userid: string | number) => {
