@@ -1,4 +1,4 @@
-import type { ZZServiceHandler, ZZMarketSummary } from 'src/types'
+import type { ZZServiceHandler, ZZMarketSummary, ZZMarketInfo } from 'src/types'
 
 // subscribemarket operations should be very conservative
 // this function gets called like 10k times in 2 seconds on a restart
@@ -42,14 +42,23 @@ export const subscribemarket: ZZServiceHandler = async (
       const errorMsg = { op: 'error', args: ['subscribemarket', `Can not find marketSummary for ${market}`] }
       ws.send(JSON.stringify(errorMsg))
     }
+    
+    let marketInfo: ZZMarketInfo
+    try {
+      marketInfo = await api.getMarketInfo(market, chainId)
+    } catch (e: any) {      
+      const errorMsg = { op: 'error', args: ['subscribemarket', `Can not get marketinfo for ${market}, ${e.message}`] }
+      ws.send(JSON.stringify(errorMsg))
+      return
+    }
 
-    const marketinfo = await api.getMarketInfo(market, chainId)
-    if (marketinfo) {
-      const marketInfoMsg = { op: 'marketinfo', args: [marketinfo] }
+    if (marketInfo) {
+      const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
       ws.send(JSON.stringify(marketInfoMsg))
     } else {
       const errorMsg = { op: 'error', args: ['subscribemarket', `Can not find market ${market}`] }
       ws.send(JSON.stringify(errorMsg))
+      return
     }
 
     const openorders = await api.getopenorders(chainId, market)
