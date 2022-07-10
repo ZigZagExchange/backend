@@ -927,7 +927,7 @@ async function sendMatchedOrders() {
       }
 
       const fillupdateBroadcastMinted = await db.query(
-        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash',
+        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash, price',
         [
           (txStatus === 's') ? 'f' : 'r', // filled only has f or r
           transaction.hash,
@@ -938,23 +938,26 @@ async function sendMatchedOrders() {
           match.fillId
         ]
       )
+
+      // Update lastprice
+      if (txStatus === 's') {
+        redis.HSET(`lastprices:${chainId}`, match.market, fillupdateBroadcastMinted.rows[0].price);
+      }
+
       let orderUpdateBroadcastMinted: AnyObject
       if (txStatus === 's') {
         orderUpdateBroadcastMinted = await db.query(
-          "UPDATE offers SET order_status = (CASE WHEN unfilled <= $1 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($2, $3) RETURNING id, order_status, unfilled, price",
+          "UPDATE offers SET order_status = (CASE WHEN unfilled <= $1 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($2, $3) RETURNING id, order_status, unfilled",
           [
             marketInfo?.baseFee ? marketInfo.baseFee : 0,
             match.takerId,
             match.makerId
           ]
         )
-
-        // Update lastprice
-        redis.HSET(`lastprices:${chainId}`, match.market, orderUpdateBroadcastMinted[0].price);
         
       } else {
         orderUpdateBroadcastMinted = await db.query(
-          "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
+          "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
           [
             match.takerId,
             match.makerId
