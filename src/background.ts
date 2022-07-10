@@ -941,16 +941,20 @@ async function sendMatchedOrders() {
       let orderUpdateBroadcastMinted: AnyObject
       if (txStatus === 's') {
         orderUpdateBroadcastMinted = await db.query(
-          "UPDATE offers SET order_status = (CASE WHEN unfilled <= $1 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($2, $3) RETURNING id, order_status, unfilled",
+          "UPDATE offers SET order_status = (CASE WHEN unfilled <= $1 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($2, $3) RETURNING id, order_status, unfilled, price",
           [
             marketInfo?.baseFee ? marketInfo.baseFee : 0,
             match.takerId,
             match.makerId
           ]
         )
+
+        // Update lastprice
+        redis.HSET(`lastprices:${chainId}`, match.market, orderUpdateBroadcastMinted[0].price);
+        
       } else {
         orderUpdateBroadcastMinted = await db.query(
-          "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
+          "UPDATE offers SET order_status='r', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
           [
             match.takerId,
             match.makerId
