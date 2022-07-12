@@ -1182,7 +1182,7 @@ async function start() {
 
   console.log('background.ts: Starting Update Functions')
   setInterval(updatePriceHighLow, 300000)
-  setInterval(updateVolumes, 150000)
+  // setInterval(updateVolumes, 150000)
   setInterval(updatePendingOrders, 60000)
   setInterval(updateLastPrices, 15000)
   setInterval(updateMarketSummarys, 20000)
