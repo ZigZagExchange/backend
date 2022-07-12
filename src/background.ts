@@ -1203,8 +1203,8 @@ async function start() {
   //await seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
-  setInterval(updatePriceHighLow, 300000)
-  setInterval(updateVolumes, 300000)
+  setInterval(updatePriceHighLow, 600000)
+  setInterval(updateVolumes, 900000)
   setInterval(updatePendingOrders, 60000)
   setInterval(updateLastPrices, 15000)
   setInterval(updateMarketSummarys, 20000)
