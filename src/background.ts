@@ -740,7 +740,7 @@ async function removeOldLiquidity() {
       redis.SET(
         `bestliquidity:${chainId}:${marketId}`,
         JSON.stringify(bestLiquidity),
-        { EX: 15 }
+        { EX: 45 }
       )
 
       // Clear old liquidity every 10 seconds
