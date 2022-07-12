@@ -1119,6 +1119,28 @@ async function seedArbitrumMarkets() {
   console.timeEnd('seeding arbitrum markets')
 }
 
+
+async function cacheRecentTrades() {
+  console.time('cacheRecentTrades')
+  const results0: Promise<any>[] = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const results1: Promise<any>[] = markets.map(async (marketId) => {
+      const text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id LIMIT 30"
+      const query = {
+        text,
+        values: [chainId, marketId],
+        rowMode: 'array'
+      }
+      const select = await db.query(query)
+      redis.SET(`recenttrades:${chainId}:${marketId}`, JSON.stringify(select.rows))
+    })
+    await Promise.all(results1)
+  })
+  await Promise.all(results0)
+  
+  console.timeEnd('cacheRecentTrades')
+}
+
 async function start() {
   console.log('background.ts: Run startup')
 
@@ -1181,8 +1203,8 @@ async function start() {
   //await seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
-  setInterval(updatePriceHighLow, 300000)
-  // setInterval(updateVolumes, 150000)
+  setInterval(updatePriceHighLow, 600000)
+  setInterval(updateVolumes, 900000)
   setInterval(updatePendingOrders, 60000)
   setInterval(updateLastPrices, 15000)
   setInterval(updateMarketSummarys, 20000)
@@ -1190,6 +1212,7 @@ async function start() {
   setInterval(updateFeesZkSync, 25000)
   setInterval(removeOldLiquidity, 10000)
   setInterval(updateFeesEVM, 20000)
+  setInterval(cacheRecentTrades, 75000)
 
   setTimeout(sendMatchedOrders, 5000)
 }
