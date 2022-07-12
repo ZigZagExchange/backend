@@ -24,6 +24,7 @@ export type WSocket = WebSocket & {
   marketSubscriptions: ZZMarket[]
   chainid: number
   userid: string
+  origin: string
 }
 
 export type ZZAPITransport = { api: API }

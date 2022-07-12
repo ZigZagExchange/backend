@@ -14,6 +14,7 @@ export const createSocketServer = (): ZZSocketServer => {
       marketSubscriptions: [],
       chainid: 1,
       userid: null,
+      origin: req?.headers?.origin,
     })
 
     console.log('New connection', req.socket.remoteAddress)
@@ -33,16 +34,21 @@ export const createSocketServer = (): ZZSocketServer => {
             'submitorder3',
             'ping',
             'fillrequest'
-          ].includes(msg.op)) { console.log('WS: %s', json) }
+          ].includes(msg.op)) { console.log(`WS[${ws.origin}]: %s`, json) }
           else if ([
             'submitorder2',
             'submitorder3',
             'fillrequest'
           ].includes(msg.op)) {
-            console.log(`WS: {"op":${msg.op},"args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`)
+            console.log(`WS[${ws.origin}]: {"op":${msg.op},"args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`)
           }
 
-          if (wss.api) return wss.api.serviceHandler(msg, ws)
+          const debugLog = setTimeout(() => console.log(`Failed to process ${msg.op}, arg: ${msg.args}`), 5000)
+          if (wss.api) {
+            const res = wss.api.serviceHandler(msg, ws)
+            clearTimeout(debugLog)
+            return res
+          }
         }
       } catch (err) {
         console.log(err)
