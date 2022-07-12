@@ -89,12 +89,16 @@ export default class API extends EventEmitter {
       console.error(`Operation failed: ${msg.op}`)
       return false
     }
-
-    return (services as any)[msg.op].apply(this, [
-      this,
-      ws,
-      Array.isArray(msg.args) ? msg.args : []
-    ])
+    try {
+      return (services as any)[msg.op].apply(this, [
+        this,
+        ws,
+        Array.isArray(msg.args) ? msg.args : []
+      ])
+    } catch (e: any) {
+      console.error(`Operation failed: ${msg.op} because ${e.message}`)
+      return false
+    }
   }
 
   start = async (port: number) => {

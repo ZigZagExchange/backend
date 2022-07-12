@@ -17,7 +17,13 @@ export const marketsreq: ZZServiceHandler = async (
     const marketInfo: ZZMarketInfo[] = []
     const activeMarkets = await api.redis.SMEMBERS(`activemarkets:${chainId}`)
     const result = activeMarkets.map(async (market: string) => {
-      const details: ZZMarketInfo = await api.getMarketInfo(market, chainId)
+      let details: ZZMarketInfo
+      try {
+        details = await api.getMarketInfo(market, chainId)
+      } catch (e: any) {
+        console.log(`Error marketsreq: getMarketInfo: ${e.message}`)
+        return
+      }
       if (details) marketInfo.push(details)
     })
     await Promise.all(result)

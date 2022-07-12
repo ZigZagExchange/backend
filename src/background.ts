@@ -927,7 +927,7 @@ async function sendMatchedOrders() {
       }
 
       const fillupdateBroadcastMinted = await db.query(
-        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash',
+        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash, price',
         [
           (txStatus === 's') ? 'f' : 'r', // filled only has f or r
           transaction.hash,
@@ -938,6 +938,12 @@ async function sendMatchedOrders() {
           match.fillId
         ]
       )
+
+      // Update lastprice
+      if (txStatus === 's') {
+        redis.HSET(`lastprices:${chainId}`, match.market, fillupdateBroadcastMinted.rows[0].price);
+      }
+
       let orderUpdateBroadcastMinted: AnyObject
       if (txStatus === 's') {
         orderUpdateBroadcastMinted = await db.query(
@@ -948,6 +954,7 @@ async function sendMatchedOrders() {
             match.makerId
           ]
         )
+        
       } else {
         orderUpdateBroadcastMinted = await db.query(
           "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled",
@@ -1171,7 +1178,7 @@ async function start() {
   // VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
 
   // Seed Arbitrum Markets
-  // await seedArbitrumMarkets()
+  //await seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
   setInterval(updatePriceHighLow, 300000)
