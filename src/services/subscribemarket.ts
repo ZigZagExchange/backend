@@ -64,8 +64,14 @@ export const subscribemarket: ZZServiceHandler = async (
     const openorders = await api.getopenorders(chainId, market)
     ws.send(JSON.stringify({ op: 'orders', args: [openorders] }))
 
-    const fills = await api.getfills(chainId, market)
-    ws.send(JSON.stringify({ op: 'fills', args: [fills] }))
+    try {
+      const fillsString = await api.redis.GET(`recenttrades:${chainId}:${market}`)
+      if (fillsString) ws.send(JSON.stringify({ op: 'fills', args: [JSON.parse(fillsString)] }))
+    } catch (e: any) {      
+      const errorMsg = { op: 'error', args: ['subscribemarket', `Can not get recenttrades for ${market}, ${e.message}`] }
+      ws.send(JSON.stringify(errorMsg))
+      return
+    }
 
     // Send a fast snapshot of liquidity
     const liquidity = await api.getSnapshotLiquidity(chainId, market)
