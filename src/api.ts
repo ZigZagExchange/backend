@@ -2344,13 +2344,17 @@ export default class API extends EventEmitter {
     // fetch all active markets if none is requested
     if (markets.length === 0) {
       markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
+      if (chainId === 42161) console.log("markets", markets);
     }
     const redisPriceInfo = await this.redis.HGETALL(redisKeyPriceInfo)
+    if (chainId === 42161) console.log("redisPriceInfo", redisPriceInfo);
     const lastprices: any[] = []
     for (let i = 0; i < markets.length; i++) {
       const redisString = redisPriceInfo[markets[i]]
+      if (chainId === 42161) console.log("redisString", redisString);
       if (!redisString) return []
       const priceInfo = JSON.parse(redisString)
+      if (chainId === 42161) console.log("priceInfo", priceInfo);
       if (!redisPriceInfo) return []
       lastprices.push([
         markets[i],
@@ -2605,7 +2609,6 @@ export default class API extends EventEmitter {
   }
 
   broadcastLastPrice = async () => {
-    console.log(this.VALID_CHAINS);
     const result = this.VALID_CHAINS.map(async (chainId) => {
       const lastprices = (await this.getLastPrices(chainId)).map((l) =>
         l.splice(0, 3)
