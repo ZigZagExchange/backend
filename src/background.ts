@@ -575,14 +575,16 @@ async function updateFeesEVM() {
         }
   
         if (feeData.maxFeePerGas) {
-          const feeInWei = Math.floor(
-            Number(feeData.maxFeePerGas) * EVMConfig[chainId].gasUsed
+          const factorBN = ethers.BigNumber.from(
+            EVMConfig[chainId].gasUsed
           )
+          const feeInWei = feeData.maxFeePerGas.mul(factorBN)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
         } else if (feeData.gasPrice) {
-          const feeInWei = Math.floor(
-            Number(feeData.gasPrice) * EVMConfig[chainId].gasUsed * 1.1
-          )
+          const factorBN = ethers.BigNumber.from(Math.floor(
+            EVMConfig[chainId].gasUsed * 1.1
+          ))
+          const feeInWei = feeData.maxFeePerGas.mul(factorBN)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
         } else {
           console.error(
@@ -592,9 +594,10 @@ async function updateFeesEVM() {
   
         // check if fee changed enough to trigger update
         const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
-        if (feeAmountWETH / oldFee < 0.05) {
+        const delta = Math.abs(feeAmountWETH - oldFee) / oldFee
+        if (delta < 0.05) {
           console.log(
-            `updateFeesEVM: new fee ${feeAmountWETH} close to old fee ${oldFee}`
+            `updateFeesEVM: ${chainId}: new fee ${feeAmountWETH} close to old fee ${oldFee}`
           )
           return
         }
