@@ -2579,7 +2579,7 @@ export default class API extends EventEmitter {
   }
 
   broadcastLiquidity = async () => {
-    const result = this.VALID_CHAINS.map(async (chainId) => {
+    const result = this.VALID_CHAINS_ZKSYNC.map(async (chainId) => {
       const markets = await this.redis.SMEMBERS(`activemarkets:${chainId}`)
       if (!markets || markets.length === 0) return
       const results: Promise<any>[] = markets.map(async (marketId) => {
