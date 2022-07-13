@@ -563,87 +563,94 @@ async function updateFeesZkSync() {
 
 async function updateFeesEVM() {
   console.time('Update fees EVM')
-
-  const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
-    async (chainId: number) => {
-      let feeData: any = {}
-      let feeAmountWETH = 0.002 // fallback fee
-      try {
-        feeData = await ETHERS_PROVIDERS[chainId].getFeeData()
-      } catch (e: any) {
-        console.log(`No fee data for chainId: ${chainId}, error: ${e.message}`)
-      }
-
-      if (feeData.maxFeePerGas) {
-        const feeInWei = Math.floor(
-          feeData.maxFeePerGas * EVMConfig[chainId].gasUsed
-        )
-        feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
-      } else if (feeData.gasPrice) {
-        const feeInWei = Math.floor(
-          feeData.gasPrice * EVMConfig[chainId].gasUsed * 1.1
-        )
-        feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
-      } else {
-        console.error(
-          `No fee data for chainId: ${chainId}, unsing default ${feeAmountWETH} WETH.`
-        )
-      }
-
-      // check if fee changed enough to trigger update
-      const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
-      if (feeAmountWETH / oldFee < 0.05) {
-        console.log(
-          `updateFeesEVM: new fee ${feeAmountWETH} close to old fee ${oldFee}`
-        )
-        return
-      }
-
-      const newFees: any = []
-      const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
-      const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-      // get every token form activemarkets once
-      let tokenSymbols = markets
-        .join('-')
-        .split('-')
-        .filter((t) => t.length < 20) // filter addresses
-      tokenSymbols = tokenSymbols.filter(
-        (x, i) => i === tokenSymbols.indexOf(x)
-      )
-      const wethInfo = JSON.parse(tokenInfos.WETH)
-      const feeAmountUSD = Number(wethInfo.usdPrice) * feeAmountWETH * 1.05 // margin for fee change
-      const results1: Promise<any>[] = tokenSymbols.map(
-        async (tokenSymbol: string) => {
-          if (!tokenInfos[tokenSymbol]) return
-          const tokenInfo = JSON.parse(tokenInfos[tokenSymbol])
-          if (!tokenInfo?.usdPrice) return
-          const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
-          redis.HSET(`tokenfee:${chainId}`, tokenInfo.address, formatPrice(fee))
-          redis.HSET(`tokenfee:${chainId}`, tokenInfo.symbol, formatPrice(fee))
-          newFees[tokenSymbol] = formatPrice(fee)
+  try {
+    const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
+      async (chainId: number) => {
+        let feeData: any = {}
+        let feeAmountWETH = 0.002 // fallback fee
+        try {
+          feeData = await ETHERS_PROVIDERS[chainId].getFeeData()
+        } catch (e: any) {
+          console.log(`No fee data for chainId: ${chainId}, error: ${e.message}`)
         }
-      )
-      await Promise.all(results1)
-
-      // update marketinfos & broadcastmsg
-      const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
-      const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-        if (!marketInfos[market]) return
-        const marketInfo = JSON.parse(marketInfos[market])
-        marketInfo.baseFee = newFees[marketInfo.baseAsset.symbol]
-        marketInfo.quoteFee = newFees[marketInfo.quoteAsset.symbol]
-        publisher.PUBLISH(
-          `broadcastmsg:all:${chainId}:${market}`,
-          JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+  
+        if (feeData.maxFeePerGas) {
+          const factorBN = ethers.BigNumber.from(
+            EVMConfig[chainId].gasUsed
+          )
+          const feeInWei = feeData.maxFeePerGas.mul(factorBN)
+          feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
+        } else if (feeData.gasPrice) {
+          const factorBN = ethers.BigNumber.from(Math.floor(
+            EVMConfig[chainId].gasUsed * 1.1
+          ))
+          const feeInWei = feeData.gasPrice.mul(factorBN)
+          feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
+        } else {
+          console.error(
+            `No fee data for chainId: ${chainId}, unsing default ${feeAmountWETH} WETH.`
+          )
+        }
+  
+        // check if fee changed enough to trigger update
+        const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
+        const delta = Math.abs(feeAmountWETH - oldFee) / oldFee
+        if (delta < 0.05) {
+          console.log(
+            `updateFeesEVM: ${chainId}: new fee ${feeAmountWETH} close to old fee ${oldFee}`
+          )
+          return
+        }
+  
+        const newFees: any = []
+        const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
+        const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+        // get every token form activemarkets once
+        let tokenSymbols = markets
+          .join('-')
+          .split('-')
+          .filter((t) => t.length < 20) // filter addresses
+        tokenSymbols = tokenSymbols.filter(
+          (x, i) => i === tokenSymbols.indexOf(x)
         )
-        // eslint-disable-next-line no-promise-executor-return
-        await new Promise((resolve) => setTimeout(resolve, 250))
-        redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
-      })
-      await Promise.all(results2)
-    }
-  )
-  await Promise.all(results0)
+        const wethInfo = JSON.parse(tokenInfos.WETH)
+        const feeAmountUSD = Number(wethInfo.usdPrice) * feeAmountWETH * 1.05 // margin for fee change
+        const results1: Promise<any>[] = tokenSymbols.map(
+          async (tokenSymbol: string) => {
+            if (!tokenInfos[tokenSymbol]) return
+            const tokenInfo = JSON.parse(tokenInfos[tokenSymbol])
+            if (!tokenInfo?.usdPrice) return
+            const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
+            redis.HSET(`tokenfee:${chainId}`, tokenInfo.address, formatPrice(fee))
+            redis.HSET(`tokenfee:${chainId}`, tokenInfo.symbol, formatPrice(fee))
+            newFees[tokenSymbol] = formatPrice(fee)
+          }
+        )
+        await Promise.all(results1)
+  
+        // update marketinfos & broadcastmsg
+        const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+        const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
+          if (!marketInfos[market]) return
+          const marketInfo = JSON.parse(marketInfos[market])
+          marketInfo.baseFee = newFees[marketInfo.baseAsset.symbol]
+          marketInfo.quoteFee = newFees[marketInfo.quoteAsset.symbol]
+          publisher.PUBLISH(
+            `broadcastmsg:all:${chainId}:${market}`,
+            JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+          )
+          // eslint-disable-next-line no-promise-executor-return
+          await new Promise((resolve) => setTimeout(resolve, 250))
+          redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
+        })
+        await Promise.all(results2)
+      }
+    )
+    await Promise.all(results0)
+  } catch (err: any) {
+    console.log(`Failed to update EVM fees: ${err}`)
+  }
+  
   console.timeEnd('Update fees EVM')
 }
 
