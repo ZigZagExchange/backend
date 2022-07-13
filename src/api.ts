@@ -169,7 +169,8 @@ export default class API extends EventEmitter {
 
     this.watchers = [
       setInterval(this.clearDeadConnections, 30000),
-      setInterval(this.broadcastLiquidity, 5000)
+      setInterval(this.broadcastLiquidity, 5000),
+      setInterval(this.broadcastLastPrice, 5000)
     ]
 
     this.started = true
@@ -364,7 +365,7 @@ export default class API extends EventEmitter {
     // update marketArweaveId in SQL
     try {
       await this.db.query(
-        'INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid',
+        `INSERT INTO marketids (marketid, chainid, marketalias) VALUES($1, $2, $3) ON CONFLICT (marketalias) DO UPDATE SET marketid = EXCLUDED.marketid`,
         [market, chainId, marketInfo.alias] // market is the id in this case, as market > 19
       )
     } catch (err) {
@@ -2596,7 +2597,15 @@ export default class API extends EventEmitter {
         }
       })
 
-      // Broadcast last prices
+      // eslint-disable-next-line consistent-return
+      return Promise.all(results)
+    })
+
+    return Promise.all(result)
+  }
+
+  broadcastLastPrice = async () => {
+    const result = this.VALID_CHAINS.map(async (chainId) => {
       const lastprices = (await this.getLastPrices(chainId)).map((l) =>
         l.splice(0, 3)
       )
@@ -2605,9 +2614,6 @@ export default class API extends EventEmitter {
         'all',
         JSON.stringify({ op: 'lastprice', args: [lastprices] })
       )
-
-      // eslint-disable-next-line consistent-return
-      return Promise.all(results)
     })
 
     return Promise.all(result)
