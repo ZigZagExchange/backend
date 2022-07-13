@@ -1082,6 +1082,34 @@ async function seedArbitrumMarkets() {
     highestPrice_24h: 1250,
     lowestPrice_24h: 1150
   }
+  const marketSummaryWbtcUsdc = {
+    market: 'WBTC-USDC',
+    baseSymbol: 'WBTC',
+    quoteSymbol: 'USDC',
+    lastPrice: 20000,
+    lowestAsk: 20100,
+    highestBid: 19900,
+    baseVolume: 0,
+    quoteVolume: 0,
+    priceChange: 0,
+    priceChangePercent_24h: 0,
+    highestPrice_24h: 21000,
+    lowestPrice_24h: 19000
+  }
+  const marketSummaryUsdcUsdt = {
+    market: 'USDC-USDT',
+    baseSymbol: 'USDC',
+    quoteSymbol: 'USDT',
+    lastPrice: 1,
+    lowestAsk: 1,
+    highestBid: 1,
+    baseVolume: 0,
+    quoteVolume: 0,
+    priceChange: 0,
+    priceChangePercent_24h: 0,
+    highestPrice_24h: 1,
+    lowestPrice_24h: 1
+  }
   const wethTokenInfo = {
     id: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
     address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
@@ -1100,28 +1128,85 @@ async function seedArbitrumMarkets() {
     usdPrice: '1',
     name: 'USD Coin'
   }
+  const wbtcTokenInfo = {
+    id: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+    address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+    symbol: 'WBTC',
+    decimals: 8,
+    enabledForFees: true,
+    usdPrice: '20000',
+    name: 'Wrapped Bitcoin'
+  }
+  const usdtTokenInfo = {
+    id: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+    symbol: 'USDT',
+    decimals: 6,
+    enabledForFees: true,
+    usdPrice: '1',
+    name: 'Tether'
+  }
   const lastPriceInfoWethUsdc = {
     price: 1200,
     priceChange: -72.18,
     quoteVolume: '3945712',
     baseVolume: '3584.25'
   }
+  const lastPriceInfoWbtcUsdc = {
+    price: 20000,
+    priceChange: -700,
+    quoteVolume: '0',
+    baseVolume: '0'
+  }
+  const lastPriceInfoUsdcUsdt = {
+    price: 1,
+    priceChange: 0,
+    quoteVolume: '0',
+    baseVolume: '0'
+  }
+  //await redis.HSET(
+  //  'marketsummary:42161',
+  //  'WETH-USDC',
+  //  JSON.stringify(marketSummaryWethUsdc)
+  //)
   await redis.HSET(
     'marketsummary:42161',
-    'WETH-USDC',
-    JSON.stringify(marketSummaryWethUsdc)
+    'WBTC-USDC',
+    JSON.stringify(marketSummaryWbtcUsdc)
   )
-  await redis.SADD('activemarkets:42161', 'WETH-USDC')
-  await redis.SREM('activemarkets:42161', 'ETH-USDC')
-  await redis.HSET('tokenfee:42161', 'WETH', '0.001')
-  await redis.HSET('tokenfee:42161', 'USDC', '1')
-  await redis.HSET('tokeninfo:42161', 'WETH', JSON.stringify(wethTokenInfo))
-  await redis.HSET('tokeninfo:42161', 'USDC', JSON.stringify(usdcTokenInfo))
-  await redis.HSET('lastprices:42161', 'WETH-USDC', '1200')
+  await redis.HSET(
+    'marketsummary:42161',
+    'USDC-USDT',
+    JSON.stringify(marketSummaryUsdcUsdt)
+  )
+  //await redis.SADD('activemarkets:42161', 'WETH-USDC')
+  await redis.SADD('activemarkets:42161', 'WBTC-USDC')
+  await redis.SADD('activemarkets:42161', 'USDT-USDC')
+  //await redis.HSET('tokenfee:42161', 'WETH', '0.001')
+  //await redis.HSET('tokenfee:42161', 'USDC', '1')
+  await redis.HSET('tokenfee:42161', 'USDT', '1')
+  await redis.HSET('tokenfee:42161', 'WBTC', '0.00005')
+  //await redis.HSET('tokeninfo:42161', 'WETH', JSON.stringify(wethTokenInfo))
+  //await redis.HSET('tokeninfo:42161', 'USDC', JSON.stringify(usdcTokenInfo))
+  await redis.HSET('tokeninfo:42161', 'WBTC', JSON.stringify(wbtcTokenInfo))
+  await redis.HSET('tokeninfo:42161', 'USDT', JSON.stringify(usdtTokenInfo))
+  //await redis.HSET('lastprices:42161', 'WETH-USDC', '1200')
+  await redis.HSET('lastprices:42161', 'WBTC-USDC', '20000')
+  await redis.HSET('lastprices:42161', 'USDC-USDT', '1')
+  //await redis.HSET(
+  //  'lastpriceinfo:42161',
+  //  'WETH-USDC',
+  //  JSON.stringify(lastPriceInfoWethUsdc)
+  //)
   await redis.HSET(
     'lastpriceinfo:42161',
-    'WETH-USDC',
-    JSON.stringify(lastPriceInfoWethUsdc)
+    'WBTC-USDC',
+    JSON.stringify(lastPriceInfoWbtcUsdc)
+  )
+  await redis.HSET(
+    'lastpriceinfo:42161',
+    'USDC-USDT',
+    JSON.stringify(lastPriceInfoUsdcUsdt)
   )
   console.timeEnd('seeding arbitrum markets')
 }
@@ -1207,7 +1292,7 @@ async function start() {
   // VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
 
   // Seed Arbitrum Markets
-  //await seedArbitrumMarkets()
+  await seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
   setInterval(updatePriceHighLow, 600000)
