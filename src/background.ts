@@ -1169,7 +1169,7 @@ async function start() {
     if (!address) return
 
     const wallet = new ethers.Wallet(
-      process.env.OPERATOR_KEY as string,
+      process.env.ARBITRUM_OPERATOR_KEY as string,
       ETHERS_PROVIDERS[chainId]
     ).connect(ETHERS_PROVIDERS[chainId])
 
