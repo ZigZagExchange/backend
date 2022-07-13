@@ -584,7 +584,7 @@ async function updateFeesEVM() {
           const factorBN = ethers.BigNumber.from(Math.floor(
             EVMConfig[chainId].gasUsed * 1.1
           ))
-          const feeInWei = feeData.maxFeePerGas.mul(factorBN)
+          const feeInWei = feeData.gasPrice.mul(factorBN)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
         } else {
           console.error(
@@ -648,7 +648,7 @@ async function updateFeesEVM() {
     )
     await Promise.all(results0)
   } catch (err: any) {
-    console.log(`Failed to update EVM fees: ${err.message}`)
+    console.log(`Failed to update EVM fees: ${err}`)
   }
   
   console.timeEnd('Update fees EVM')
