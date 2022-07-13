@@ -2609,7 +2609,6 @@ export default class API extends EventEmitter {
       const lastprices = (await this.getLastPrices(chainId)).map((l) =>
         l.splice(0, 3)
       )
-      if (chainId === 42161) console.log(lastprices);
       this.broadcastMessage(
         chainId,
         'all',
