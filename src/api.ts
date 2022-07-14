@@ -1391,14 +1391,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userid, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status='o' RETURNING chainid, id, order_status;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf') RETURNING chainid, id, order_status;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userid]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status='o' RETURNING chainid, id, order_status;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW() WHERE userid=$1 AND order_status IN ('o', 'pm', 'pf') RETURNING chainid, id, order_status;",
         values
       )
     }
@@ -1557,7 +1557,7 @@ export default class API extends EventEmitter {
 
     const userconnkey = `${chainId}:${select.rows[0].userid}`
 
-    if (select.rows[0].order_status !== 'o') {
+    if (!(["o", "pf", "pm"]).includes(select.rows[0].order_status)) {
       throw new Error('Order is no longer open')
     }
 
@@ -1612,7 +1612,7 @@ export default class API extends EventEmitter {
     }
     if (signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
 
-    if (select.rows[0].order_status !== 'o') {
+    if (!(["o", "pf", "pm"]).includes(select.rows[0].order_status)) {
       throw new Error('Order is no longer open')
     }
 
@@ -1652,7 +1652,7 @@ export default class API extends EventEmitter {
     // validate if sender is ok to cancel
     if(token !== select.rows[0].token) throw new Error('Unauthorized')
 
-    if (select.rows[0].order_status !== 'o') {
+    if (!(["o", "pf", "pm"]).includes(select.rows[0].order_status)) {
       throw new Error('Order is no longer open')
     }
 

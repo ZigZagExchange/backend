@@ -1169,40 +1169,40 @@ async function seedArbitrumMarkets() {
   //  'WETH-USDC',
   //  JSON.stringify(marketSummaryWethUsdc)
   //)
-  await redis.HSET(
-    'marketsummary:42161',
-    'WBTC-USDC',
-    JSON.stringify(marketSummaryWbtcUsdc)
-  )
+  //await redis.HSET(
+  //  'marketsummary:42161',
+  //  'WBTC-USDC',
+  //  JSON.stringify(marketSummaryWbtcUsdc)
+  //)
   await redis.HSET(
     'marketsummary:42161',
     'USDC-USDT',
     JSON.stringify(marketSummaryUsdcUsdt)
   )
   //await redis.SADD('activemarkets:42161', 'WETH-USDC')
-  await redis.SADD('activemarkets:42161', 'WBTC-USDC')
+  //await redis.SADD('activemarkets:42161', 'WBTC-USDC')
   await redis.SADD('activemarkets:42161', 'USDT-USDC')
   //await redis.HSET('tokenfee:42161', 'WETH', '0.001')
   //await redis.HSET('tokenfee:42161', 'USDC', '1')
   await redis.HSET('tokenfee:42161', 'USDT', '1')
-  await redis.HSET('tokenfee:42161', 'WBTC', '0.00005')
+  //await redis.HSET('tokenfee:42161', 'WBTC', '0.00005')
   //await redis.HSET('tokeninfo:42161', 'WETH', JSON.stringify(wethTokenInfo))
   //await redis.HSET('tokeninfo:42161', 'USDC', JSON.stringify(usdcTokenInfo))
-  await redis.HSET('tokeninfo:42161', 'WBTC', JSON.stringify(wbtcTokenInfo))
+  //await redis.HSET('tokeninfo:42161', 'WBTC', JSON.stringify(wbtcTokenInfo))
   await redis.HSET('tokeninfo:42161', 'USDT', JSON.stringify(usdtTokenInfo))
   //await redis.HSET('lastprices:42161', 'WETH-USDC', '1200')
-  await redis.HSET('lastprices:42161', 'WBTC-USDC', '20000')
+  //await redis.HSET('lastprices:42161', 'WBTC-USDC', '20000')
   await redis.HSET('lastprices:42161', 'USDC-USDT', '1')
   //await redis.HSET(
   //  'lastpriceinfo:42161',
   //  'WETH-USDC',
   //  JSON.stringify(lastPriceInfoWethUsdc)
   //)
-  await redis.HSET(
-    'lastpriceinfo:42161',
-    'WBTC-USDC',
-    JSON.stringify(lastPriceInfoWbtcUsdc)
-  )
+  //await redis.HSET(
+  //  'lastpriceinfo:42161',
+  //  'WBTC-USDC',
+  //  JSON.stringify(lastPriceInfoWbtcUsdc)
+  //)
   await redis.HSET(
     'lastpriceinfo:42161',
     'USDC-USDT',
