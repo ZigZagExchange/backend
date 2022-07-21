@@ -661,7 +661,6 @@ export default class API extends EventEmitter {
       expires,
       userid.toString(),
       'o',
-      null,
       baseQuantity
     ]
 
@@ -814,7 +813,6 @@ export default class API extends EventEmitter {
       offer.expires,
       offer.userid,
       offer.order_status,
-      null,
       offer.unfilled
     ]
     this.redisPublisher.PUBLISH(
@@ -885,7 +883,6 @@ export default class API extends EventEmitter {
       offer.expires,
       offer.userid.toString(),
       'o',
-      null,
       baseQuantity
     ]
 
@@ -1361,7 +1358,6 @@ export default class API extends EventEmitter {
       taker.expires,
       taker.userid,
       taker.order_status,
-      null, // txhash
       taker.unfilled
     ]
     this.redisPublisher.PUBLISH(
@@ -2349,16 +2345,18 @@ export default class API extends EventEmitter {
     const lastprices: any[] = []
     for (let i = 0; i < markets.length; i++) {
       const redisString = redisPriceInfo[markets[i]]
-      if (!redisString) continue;
+      // eslint-disable-next-line no-continue
+      if (!redisString) continue
       const priceInfo = JSON.parse(redisString)
-      if (!redisPriceInfo) continue;
-      lastprices.push([
-        markets[i],
-        +priceInfo.price,
-        priceInfo.priceChange,
-        priceInfo.quoteVolume,
-        priceInfo.baseVolume
-      ])
+      if (redisPriceInfo) {
+        lastprices.push([
+          markets[i],
+          +priceInfo.price,
+          priceInfo.priceChange,
+          priceInfo.quoteVolume,
+          priceInfo.baseVolume
+        ])
+      }
     }
     return lastprices
   }
