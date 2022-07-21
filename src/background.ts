@@ -248,9 +248,11 @@ async function updateLastPrices() {
         await redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
       )
       lastPriceInfo.price = +redisPrices[marketId]
-      lastPriceInfo.priceChange = Number(
-        formatPrice(lastPriceInfo.price - yesterdayPrice)
-      )
+      lastPriceInfo.priceChange = yesterdayPrice
+        ? lastPriceInfo.priceChange = 
+          Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
+        : lastPriceInfo.priceChange = 0
+      
       lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
       lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
 
@@ -306,16 +308,24 @@ async function updateMarketSummarys() {
       )
 
       const lastPrice = +redisPrices[marketId]
-      const priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
-      const priceChangeUTC = Number(formatPrice(lastPrice - todayPrice))
-      const priceChangePercent_24hUTC = Number(
-        formatPrice(priceChangeUTC / lastPrice)
-      )
-      // eslint-disable-next-line camelcase
-      const priceChangePercent_24h = Number(
-        formatPrice(priceChange / lastPrice)
-      )
 
+      let priceChange = 0
+      let priceChangeUTC = 0
+      let priceChangePercent_24h = 0
+      let priceChangePercent_24hUTC = 0
+      if (yesterdayPrice) {
+        priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
+        priceChangePercent_24h = Number(
+          formatPrice(priceChange / lastPrice)
+        )
+      }
+
+      if (todayPrice) {
+        priceChangeUTC = Number(formatPrice(lastPrice - todayPrice))
+        priceChangePercent_24hUTC = Number(
+          formatPrice(priceChangeUTC / lastPrice)
+        )
+      }
       // get low/high price
       const lowestPrice_24h = Number(redisPricesLow[marketId])
       const highestPrice_24h = Number(redisPricesHigh[marketId])
