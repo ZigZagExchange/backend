@@ -925,7 +925,7 @@ async function sendMatchedOrders() {
                   0, // remaining
                   0,
                   0,
-                  Date.now() // timestamp
+                  new Date().toISOString() // timestamp
                 ]
               ]
             ]
@@ -999,7 +999,7 @@ async function sendMatchedOrders() {
           0, // remaing for fills is always 0
           feeAmount,
           feeToken,
-          Date.now() // timestamp
+          new Date().toISOString() // timestamp
         ]
       )
 
