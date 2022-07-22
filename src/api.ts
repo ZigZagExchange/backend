@@ -2610,7 +2610,7 @@ export default class API extends EventEmitter {
       this.broadcastMessage(
         chainId,
         'all',
-        JSON.stringify({ op: 'lastprice', args: [lastprices] })
+        JSON.stringify({ op: 'lastprice', args: [lastprices, chainId] })
       )
     })
 
