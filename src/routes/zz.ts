@@ -5,6 +5,10 @@ export default function zzRoutes(app: ZZHttpServer) {
   const defaultChainId = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
+  
+  app.get('/api/v1/time', async (req, res) => {
+    res.send({ serverTimestamp: (+ new Date) })
+  })
 
   app.get('/api/v1/markets', async (req, res) => {
     const markets: string[] = []
