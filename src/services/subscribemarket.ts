@@ -73,11 +73,13 @@ export const subscribemarket: ZZServiceHandler = async (
       return
     }
 
-    // Send a fast snapshot of liquidity
-    const liquidity = await api.getSnapshotLiquidity(chainId, market)
-    ws.send(
-      JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
-    )
+    if (api.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      // Send a fast snapshot of liquidity
+      const liquidity = await api.getSnapshotLiquidity(chainId, market)
+      ws.send(
+        JSON.stringify({ op: 'liquidity2', args: [chainId, market, liquidity] })
+      )
+    }    
   } catch (e: any) {
     console.error(e.message)
     const errorMsg = { op: 'error', args: ['subscribemarket', e.message] }
