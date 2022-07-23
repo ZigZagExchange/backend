@@ -1410,10 +1410,6 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${broadcastChainId}:all`,
         JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
       )
-      await this.redisPublisher.publish(
-        `broadcastmsg:user:${broadcastChainId}:${userid}`,
-        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
-      )
     })
 
     return true
@@ -1467,10 +1463,6 @@ export default class API extends EventEmitter {
 
       await this.redisPublisher.publish(
         `broadcastmsg:all:${broadcastChainId}:all`,
-        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
-      )
-      await this.redisPublisher.publish(
-        `broadcastmsg:user:${broadcastChainId}:${userId}`,
         JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
       )
     })
