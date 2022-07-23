@@ -519,7 +519,7 @@ Available over REST.
 
 ###### Operation: **lastprice**
 
-Arguments: `[priceUpdates]`
+Arguments: `[priceUpdates, chainId]`
 
 Description: A group of market price updates. priceUpdate = [market,price,change,quoteVolume]
 
@@ -531,7 +531,8 @@ Description: A group of market price updates. priceUpdate = [market,price,change
       ["ETH-BTC", 0.069431, 0.0023],
       ["ETH-USDT", 2989.19, 43.1],
       ["BTC-USDT", 43048, 2003.2]
-    ]
+    ],
+    1000
   ]
 }
 ```
