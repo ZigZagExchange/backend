@@ -528,9 +528,9 @@ Description: A group of market price updates. priceUpdate = [market,price,change
   "op": "lastprice",
   "args": [
     [
-      ["ETH-BTC", 0.069431, 0.0023],
-      ["ETH-USDT", 2989.19, 43.1],
-      ["BTC-USDT", 43048, 2003.2]
+      ["ETH-BTC", 0.069431, 0.0023, 1.0223],
+      ["ETH-USDT", 2989.19, 43.1, 2343.43],
+      ["BTC-USDT", 43048, 2003.2, 38383.23]
     ],
     1000
   ]
