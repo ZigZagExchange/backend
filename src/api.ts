@@ -2604,9 +2604,7 @@ export default class API extends EventEmitter {
 
   broadcastLastPrice = async () => {
     const result = this.VALID_CHAINS.map(async (chainId) => {
-      const lastprices = (await this.getLastPrices(chainId)).map((l) =>
-        l.splice(0, 3)
-      )
+      const lastprices = await this.getLastPrices(chainId);
       this.broadcastMessage(
         chainId,
         'all',
