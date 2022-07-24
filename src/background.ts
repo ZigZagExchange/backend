@@ -892,7 +892,7 @@ async function sendMatchedOrders() {
           takerSignatureModified
         )
       } catch (e: any) {
-        console.error(e.message)
+        console.error(`Failed EVM transaction: ${e.message}`)
         transaction = {
           hash: null,
           reason: e.message
