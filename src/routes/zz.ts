@@ -6,6 +6,13 @@ export default function zzRoutes(app: ZZHttpServer) {
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
   
+  app.use("/", (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*")
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
+    res.header("Access-Control-Allow-Methods", "GET")
+    next()
+ }) 
+  
   app.get('/api/v1/time', async (req, res) => {
     res.send({ serverTimestamp: (+ new Date) })
   })
@@ -209,13 +216,6 @@ export default function zzRoutes(app: ZZHttpServer) {
       res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
     }
   })
-
-  app.use("/api/v1/marketinfos", (req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*")
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept")
-    res.header("Access-Control-Allow-Methods", "GET")
-    next()
- }) 
 
   app.get("/api/v1/marketinfos", async (req, res) => {
    
