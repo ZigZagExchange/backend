@@ -518,7 +518,7 @@ describe("Exchange contract", function () {
             .to.be.reverted
     });
 
-    it("should fill at maker price - market buy into ask", async function () {
+    it("should fill at maker price - market buy into ask - fill maker fully", async function () {
         // tokenA = ETH
         // tokenB = USDC
         // User 0 starts with all the ETH
@@ -530,6 +530,54 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.utils.parseEther("1"),
             takerAssetAmount: ethers.utils.parseEther("1000"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("4000"),
+            takerAssetAmount: ethers.utils.parseEther("2"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("1")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+        const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)
+        const balance1 = await tokenA.balanceOf(wallets[0].address);
+        const balance2 = await tokenA.balanceOf(wallets[1].address);
+        const balance3 = await tokenB.balanceOf(wallets[0].address);
+        const balance4 = await tokenB.balanceOf(wallets[1].address);
+        console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance2));
+        console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance4));
+
+        expect(balance2).to.equal(ethers.utils.parseEther("1"))
+        expect(balance3).to.equal(ethers.utils.parseEther("1000"))
+    });
+
+    it("should fill at maker price - market buy into ask - fill maker partially", async function () {
+        // tokenA = ETH
+        // tokenB = USDC
+        // User 0 starts with all the ETH
+        // User 1 starts with all the USDC
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("2"),
+            takerAssetAmount: ethers.utils.parseEther("2000"),
             makerVolumeFee: ethers.utils.parseEther("0"),
             takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
@@ -566,7 +614,7 @@ describe("Exchange contract", function () {
         expect(balance3).to.equal(ethers.utils.parseEther("1000"))
     });
 
-    it("should fill at maker price - market sell into bid", async function () {
+    it("should fill at maker price - market sell into bid - fill maker fully", async function () {
         // tokenA = ETH
         // tokenB = USDC
         // User 0 starts with all the ETH
@@ -578,6 +626,54 @@ describe("Exchange contract", function () {
             feeRecipientAddress: feeRecipientAddress,
             makerAssetAmount: ethers.utils.parseEther("1000"),
             takerAssetAmount: ethers.utils.parseEther("1"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("2"),
+            takerAssetAmount: ethers.utils.parseEther("1000"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("1")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], rightOrder)
+
+        const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)
+        const balance1 = await tokenA.balanceOf(wallets[0].address);
+        const balance2 = await tokenA.balanceOf(wallets[1].address);
+        const balance3 = await tokenB.balanceOf(wallets[0].address);
+        const balance4 = await tokenB.balanceOf(wallets[1].address);
+        console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance2));
+        console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance4));
+
+        expect(balance2).to.equal(ethers.utils.parseEther("1"))
+        expect(balance3).to.equal(ethers.utils.parseEther("1000"))
+    });
+
+    it("should fill at maker price - market sell into bid - fill maker partially", async function () {
+        // tokenA = ETH
+        // tokenB = USDC
+        // User 0 starts with all the ETH
+        // User 1 starts with all the USDC
+        const leftOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("2000"),
+            takerAssetAmount: ethers.utils.parseEther("2"),
             makerVolumeFee: ethers.utils.parseEther("0"),
             takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
