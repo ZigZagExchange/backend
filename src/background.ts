@@ -249,9 +249,8 @@ async function updateLastPrices() {
       )
       lastPriceInfo.price = +redisPrices[marketId]
       lastPriceInfo.priceChange = yesterdayPrice
-        ? lastPriceInfo.priceChange = 
-          Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
-        : lastPriceInfo.priceChange = 0
+        ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
+        : 0
       
       lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
       lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
@@ -318,6 +317,9 @@ async function updateMarketSummarys() {
         priceChangePercent_24h = Number(
           formatPrice(priceChange / lastPrice)
         )
+      } else {
+        priceChange = 0
+        priceChangePercent_24h = 0
       }
 
       if (todayPrice) {
@@ -325,7 +327,11 @@ async function updateMarketSummarys() {
         priceChangePercent_24hUTC = Number(
           formatPrice(priceChangeUTC / lastPrice)
         )
+      } else {
+        priceChangeUTC = 0
+        priceChangePercent_24hUTC = 0
       }
+      
       // get low/high price
       const lowestPrice_24h = Number(redisPricesLow[marketId])
       const highestPrice_24h = Number(redisPricesHigh[marketId])
