@@ -121,6 +121,158 @@ describe("Exchange contract", function () {
 
     });
 
+    it("Should revert with 'right order not enough balance' ", async function () {
+
+
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("1"),
+            takerAssetAmount: ethers.utils.parseEther("20000"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("20000"),
+            takerAssetAmount: ethers.utils.parseEther("1"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('right order not enough balance');
+    });
+
+    it("Should revert with 'left order not enough balance' ", async function () {
+
+
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("20000"),
+            takerAssetAmount: ethers.utils.parseEther("1"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("1"),
+            takerAssetAmount: ethers.utils.parseEther("20000"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('left order not enough balance');
+    });
+
+    it("Should revert with 'right order not enough balance for fee' ", async function () {
+
+
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("1"),
+            takerAssetAmount: ethers.utils.parseEther("10000"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("10000"),
+            takerAssetAmount: ethers.utils.parseEther("1"),
+            makerVolumeFee: ethers.BigNumber.from("0"),
+            takerVolumeFee: ethers.BigNumber.from("1000"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('right order not enough balance for fee');
+    });
+
+    it("Should revert with 'left order not enough balance for fee' ", async function () {
+
+
+        const leftOrder = {
+            makerAddress: wallets[0].address,
+            makerToken: tokenA.address,
+            takerToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("10000"),
+            takerAssetAmount: ethers.utils.parseEther("1"),
+            makerVolumeFee: ethers.BigNumber.from("1000"),
+            takerVolumeFee: ethers.BigNumber.from("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const rightOrder = {
+            makerAddress: wallets[1].address,
+            makerToken: tokenB.address,
+            takerToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            makerAssetAmount: ethers.utils.parseEther("1"),
+            takerAssetAmount: ethers.utils.parseEther("10000"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], leftOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], rightOrder)
+
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(leftOrder), Object.values(rightOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('left order not enough balance for fee');
+    });
+
     it("Should execute with spread of 0", async function () {
 
 
@@ -610,8 +762,8 @@ describe("Exchange contract", function () {
         console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance2));
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance4));
 
-        expect(balance2).to.equal(ethers.utils.parseEther("1"))
-        expect(balance3).to.equal(ethers.utils.parseEther("1000"))
+        expect(balance2).to.equal(ethers.utils.parseEther("2"))
+        expect(balance3).to.equal(ethers.utils.parseEther("2000"))
     });
 
     it("should fill at maker price - market sell into bid - fill maker fully", async function () {
