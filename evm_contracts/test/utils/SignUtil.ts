@@ -34,7 +34,7 @@ export async function signOrder(privateKey: string, order: Order) {
         "primaryType": 'Order',
         "domain": {
             "name": 'ZigZag',
-            "version": '3',
+            "version": '4',
             "chainId": 42161,
 
         },

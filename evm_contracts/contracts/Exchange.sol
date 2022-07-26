@@ -28,8 +28,8 @@ contract Exchange is SignatureValidator{
     }
     
    function matchOrders(
-       LibOrder.Order memory leftOrder,
-       LibOrder.Order memory rightOrder,
+       LibOrder.Order memory leftOrder, // maker
+       LibOrder.Order memory rightOrder, // taker
        bytes memory leftSignature,
        bytes memory rightSignature
    )
@@ -98,6 +98,14 @@ contract Exchange is SignatureValidator{
         LibFillResults.MatchedFillResults memory matchedFillResults
     )
     internal{
+        require(
+            IERC20(rightOrder.makerToken).balanceOf(rightOrder.makerAddress) >= matchedFillResults.left.takerAssetFilledAmount,
+            "right order not enough balance"
+        );
+        require(
+            IERC20(leftOrder.makerToken).balanceOf(leftOrder.makerAddress) >= matchedFillResults.right.takerAssetFilledAmount,
+            "left order not enough balance"
+        );
         
         // Right maker asset -> left maker
         IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, leftOrder.makerAddress, matchedFillResults.left.takerAssetFilledAmount);
@@ -112,11 +120,19 @@ contract Exchange is SignatureValidator{
         // Right maker fee + gas fee -> fee recipient
         uint rightOrderFees = matchedFillResults.right.takerFeePaid + rightOrder.gasFee;
         if (rightOrderFees > 0) {
+            require(
+                IERC20(rightOrder.makerToken).balanceOf(rightOrder.makerAddress) >= rightOrderFees,
+                "right order not enough balance for fee"
+            );
             IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, rightOrderFees);
         }
        
         // Left maker fee -> fee recipient
         if (matchedFillResults.left.makerFeePaid > 0) {
+            require(
+                IERC20(leftOrder.makerToken).balanceOf(leftOrder.makerAddress) >= matchedFillResults.left.makerFeePaid,
+                "left order not enough balance for fee"
+            );
             IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, matchedFillResults.left.makerFeePaid);
         }
 
