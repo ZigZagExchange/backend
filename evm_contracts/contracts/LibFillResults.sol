@@ -87,12 +87,9 @@ library LibFillResults {
         //
         // There are three cases to consider:
         // Case 1.
-        //   If the left maker can buy more than the right maker can sell, then the right order is fully filled, but at the price of the left order.
+        //   If the left maker can buy more or the same as the right maker can sell, then the right order is fully filled, but at the price of the left order.
         // Case 2.
-        //   If the right maker can buy more than the left maker can sell, then the left order is fully filled, at the price of the left order.
-        // Case 3.
-        //   If the right maker can sell the max of what the left maker can buy and the left maker can sell the max of
-        //   what the right maker can buy, then both orders are fully filled.
+        //   If the right maker can buy more or the same as the left maker can sell, then the left order is fully filled, at the price of the left order.
 
         if (leftTakerAssetAmountRemaining >= rightMakerAssetAmountRemaining) {
             matchedFillResults.left.takerAssetFilledAmount = rightMakerAssetAmountRemaining;
@@ -114,11 +111,8 @@ library LibFillResults {
             );
             matchedFillResults.right.takerAssetFilledAmount = leftMakerAssetAmountRemaining;
         }
-        else{
-            matchedFillResults.left.makerAssetFilledAmount = leftMakerAssetAmountRemaining;
-            matchedFillResults.left.takerAssetFilledAmount = leftTakerAssetAmountRemaining;
-            matchedFillResults.right.makerAssetFilledAmount = rightMakerAssetAmountRemaining;
-            matchedFillResults.right.takerAssetFilledAmount = rightTakerAssetAmountRemaining;
+        else {
+            require(false, "not profitable spread");
         }
 
         return matchedFillResults;
