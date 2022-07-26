@@ -742,7 +742,7 @@ describe("Exchange contract", function () {
             makerToken: tokenB.address,
             takerToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
-            makerAssetAmount: ethers.utils.parseEther("2000"),
+            makerAssetAmount: ethers.utils.parseEther("1500"),
             takerAssetAmount: ethers.utils.parseEther("1"),
             makerVolumeFee: ethers.utils.parseEther("0"),
             takerVolumeFee: ethers.utils.parseEther("0"),
@@ -762,8 +762,8 @@ describe("Exchange contract", function () {
         console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance2));
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance4));
 
-        expect(balance2).to.equal(ethers.utils.parseEther("2"))
-        expect(balance3).to.equal(ethers.utils.parseEther("2000"))
+        expect(balance2).to.equal(ethers.utils.parseEther("1.5"))
+        expect(balance3).to.equal(ethers.utils.parseEther("1500"))
     });
 
     it("should fill at maker price - market sell into bid - fill maker fully", async function () {
