@@ -1442,14 +1442,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userId, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     }
@@ -1478,7 +1478,7 @@ export default class API extends EventEmitter {
     // validate if sender is ok to cancel
     const valuesSelect = [chainId, userId]
     const select = await this.db.query (
-      "SELECT id, token FROM offers WHERE id=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm)",
+      "SELECT id, token FROM offers WHERE id=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm')",
       valuesSelect
     )
     // tokenArray should have a token for each open order
@@ -1492,14 +1492,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userId, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     }

@@ -47,8 +47,8 @@ contract Exchange is SignatureValidator{
         require(leftOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE, "left order status not Fillable");
 
         //validate signature
-        require(_isValidOrderWithHashSignature(rightOrderInfo.orderHash, rightSignature, rightOrder.makerAddress),"invalid right signature");
-        require(_isValidOrderWithHashSignature(leftOrderInfo.orderHash, leftSignature, leftOrder.makerAddress),"invalid left signature");
+        require(msg.sender == rightOrder.makerAddress || _isValidOrderWithHashSignature(rightOrderInfo.orderHash, rightSignature, rightOrder.makerAddress),"invalid right signature");
+        require(msg.sender == leftOrder.makerAddress || _isValidOrderWithHashSignature(leftOrderInfo.orderHash, leftSignature, leftOrder.makerAddress),"invalid left signature");
         
         // Make sure there is a profitable spread.
         // There is a profitable spread iff the cost per unit bought (OrderA.MakerAmount/OrderA.TakerAmount) for each order is greater
