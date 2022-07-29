@@ -2399,24 +2399,21 @@ export default class API extends EventEmitter {
   // Ladder has to be a sorted 2-D array contaning price and quantity
   // Example: [ [3500,1], [3501,2] ]
   static getQuoteFromLadder(ladder: any[][], qty: number): number {
-    let sum = 0
     let unfilledQuantity = qty
+    let price
 
     for (let i = 0; i < ladder.length; i++) {
-      const orderPrice = ladder[i][0]
+      [price] = ladder[i]
       const orderQuantity = ladder[i][1]
       if (orderQuantity >= unfilledQuantity) {
-        sum += unfilledQuantity * orderPrice
         unfilledQuantity = 0
         break
       } else {
-        sum += orderQuantity * orderPrice
         unfilledQuantity -= orderQuantity
       }
     }
     if (unfilledQuantity > 0) throw new Error('Insufficient liquidity')
-    const avgPrice = sum / qty
-    return avgPrice
+    return price
   }
 
   genquote = async (
