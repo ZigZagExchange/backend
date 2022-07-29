@@ -2460,13 +2460,31 @@ export default class API extends EventEmitter {
       }
 
       if (side === 'b') {
+        console.log(`old_ask: ${liquidity
+          .filter((l: string) => l[0] === 's')
+          .map((l: string) => l.slice(1, 3)) as any[]}`)
+        console.log(`new_ask: ${liquidity
+          .filter((l: string) => l[0] === 's')
+          .sort((a: any[], b: any[]) => b[1] - a[1])
+          .map((l: string) => l.slice(1, 3)) as any[]}`)
         const asks = liquidity
           .filter((l: string) => l[0] === 's')
+          .sort((a: any[], b: any[]) => b[1] - a[1])
           .map((l: string) => l.slice(1, 3)) as any[]
         ladderPrice = API.getQuoteFromLadder(asks, baseQuantity)
       } else {
+        console.log(`old_bid: ${liquidity
+          .filter((l: string) => l[0] === 'b')
+          .map((l: string) => l.slice(1, 3))
+          .reverse() as any[]}`)
+        console.log(`new_bid: ${liquidity
+          .filter((l: string) => l[0] === 'b')
+          .sort((a: any[], b: any[]) => b[1] - a[1])
+          .map((l: string) => l.slice(1, 3))
+          .reverse() as any[]}`)
         const bids = liquidity
           .filter((l: string) => l[0] === 'b')
+          .sort((a: any[], b: any[]) => b[1] - a[1])
           .map((l: string) => l.slice(1, 3))
           .reverse() as any[]
         ladderPrice = API.getQuoteFromLadder(bids, baseQuantity)
