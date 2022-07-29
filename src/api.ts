@@ -2403,15 +2403,15 @@ export default class API extends EventEmitter {
     let unfilledQuantity = qty
 
     for (let i = 0; i < ladder.length; i++) {
-      const askPrice = ladder[i][0]
-      const askQuantity = ladder[i][1]
-      if (askQuantity >= unfilledQuantity) {
-        sum += unfilledQuantity * askPrice
+      const orderPrice = ladder[i][0]
+      const orderQuantity = ladder[i][1]
+      if (orderQuantity >= unfilledQuantity) {
+        sum += unfilledQuantity * orderPrice
         unfilledQuantity = 0
         break
       } else {
-        sum += askQuantity * askPrice
-        unfilledQuantity -= askQuantity
+        sum += orderQuantity * orderPrice
+        unfilledQuantity -= orderQuantity
       }
     }
     if (unfilledQuantity > 0) throw new Error('Insufficient liquidity')
@@ -2465,11 +2465,11 @@ export default class API extends EventEmitter {
           .map((l: string) => l.slice(1, 3)) as any[]}`)
         console.log(`new_ask: ${liquidity
           .filter((l: string) => l[0] === 's')
-          .sort((a: any[], b: any[]) => b[1] - a[1])
+          .sort((a: any[], b: any[]) => a[1] - b[1])
           .map((l: string) => l.slice(1, 3)) as any[]}`)
         const asks = liquidity
           .filter((l: string) => l[0] === 's')
-          .sort((a: any[], b: any[]) => b[1] - a[1])
+          .sort((a: any[], b: any[]) => a[1] - b[1])
           .map((l: string) => l.slice(1, 3)) as any[]
         ladderPrice = API.getQuoteFromLadder(asks, baseQuantity)
       } else {
@@ -2480,13 +2480,11 @@ export default class API extends EventEmitter {
         console.log(`new_bid: ${liquidity
           .filter((l: string) => l[0] === 'b')
           .sort((a: any[], b: any[]) => b[1] - a[1])
-          .map((l: string) => l.slice(1, 3))
-          .reverse() as any[]}`)
+          .map((l: string) => l.slice(1, 3))}`)
         const bids = liquidity
           .filter((l: string) => l[0] === 'b')
           .sort((a: any[], b: any[]) => b[1] - a[1])
           .map((l: string) => l.slice(1, 3))
-          .reverse() as any[]
         ladderPrice = API.getQuoteFromLadder(bids, baseQuantity)
       }
 
