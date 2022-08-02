@@ -182,7 +182,7 @@ async function updatePendingOrders() {
   const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString()
   let orderUpdates: string[][] = []
   const query = {
-    text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
+    text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled <= 0) RETURNING chainid, id, order_status;",
     values: [oneMinAgo]
   }
   const update = await db.query(query)
