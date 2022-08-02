@@ -896,7 +896,6 @@ async function sendMatchedOrders() {
         )
       } catch (e: any) {
         console.error(`Failed EVM transaction: ${e.message}`)
-        console.error(e.message.reason);
         transaction = {
           hash: null,
           reason: e.message
@@ -977,12 +976,24 @@ async function sendMatchedOrders() {
         )
         
       } else {
+        const startIndex = transaction.reason.indexOf("execution reverted")
+        const endIndex = transaction.reason.indexOf("code");
+        const reason = transaction.reason.slice(startIndex, endIndex);
+        console.log(reason);
+        const cancelOrderIds = [];
+        if (reason.includes('right')) {
+          cancelOrderIds.push(match.takerId);
+        }
+        else if (reason.includes('left')) {
+          cancelOrderIds.push(match.makerId);
+        }
+        else {
+          cancelOrderIds.push(match.makerId);
+          cancelOrderIds.push(match.takerId);
+        }
         orderUpdateBroadcastMinted = await db.query(
-          `UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id IN ($1, $2) RETURNING id, order_status, unfilled`,
-          [
-            match.takerId,
-            match.makerId
-          ]
+          `UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
+          [ cancelOrderIds ]
         )
       }
       const orderUpdatesBroadcastMinted = orderUpdateBroadcastMinted.rows.map(
