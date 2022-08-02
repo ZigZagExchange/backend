@@ -132,7 +132,8 @@ export default class API extends EventEmitter {
       process.env.STARKNET_CONTRACT_ADDRESS
     )
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-    this.SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider('rinkeby')
+    // TODO: Figure out what this URL should be . it's crashing
+    //this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE(
