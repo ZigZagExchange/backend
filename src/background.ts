@@ -896,6 +896,7 @@ async function sendMatchedOrders() {
         )
       } catch (e: any) {
         console.error(`Failed EVM transaction: ${e.message}`)
+        console.error(e.message.reason);
         transaction = {
           hash: null,
           reason: e.message
