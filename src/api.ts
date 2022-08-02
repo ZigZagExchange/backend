@@ -1153,6 +1153,10 @@ export default class API extends EventEmitter {
     const inputValidation = EVMOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
 
+    // amount validations
+    if (Number(zktx.makerAssetAmount) <= 0) throw new Error("makerAssetAmount must be positive");
+    if (Number(zktx.takerAssetAmount) <= 0) throw new Error("takerAssetAmount must be positive");
+
     const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
