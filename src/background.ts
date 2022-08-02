@@ -179,7 +179,7 @@ async function updatePendingOrders() {
   console.time('updatePendingOrders')
 
   // TODO back to one min, temp 300, starknet is too slow
-  const oneMinAgo = new Date(Date.now() - 300 * 1000).toISOString()
+  const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString()
   let orderUpdates: string[][] = []
   const query = {
     text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled = 0) RETURNING chainid, id, order_status;",
@@ -1356,7 +1356,7 @@ async function start() {
   console.log('background.ts: Starting Update Functions')
   setInterval(updatePriceHighLow, 600000)
   setInterval(updateVolumes, 900000)
-  setInterval(updatePendingOrders, 60000)
+  setInterval(updatePendingOrders, 5000)
   setInterval(updateLastPrices, 15000)
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
