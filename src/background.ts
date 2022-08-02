@@ -777,11 +777,8 @@ async function removeOldLiquidity() {
 
 async function runDbMigration() {
   console.log('running db migration')
-  const migration = fs.readFileSync(
-    path.join(__dirname, '../schema.sql'),
-    'utf8'
-  )
-  db.query(migration).catch(console.error)
+  const migration = fs.readFileSync('schema.sql', 'utf8')
+  await db.query(migration).catch(console.error)
 }
 
 /**

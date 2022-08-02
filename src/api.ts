@@ -1178,8 +1178,8 @@ export default class API extends EventEmitter {
       throw new Error(`Can't buy and sell the same token`)
 
     const expiry = Number(zktx.expirationTimeSeconds) * 1000
-    if (expiry < Date.now() + 60000)
-      throw new Error('Expiry time too low. Use at least NOW + 60sec')
+    if (expiry < Date.now() + 20000)
+      throw new Error('Expiry time too low. Use at least NOW + 20sec')
 
     const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
     const gasFee =
@@ -1442,14 +1442,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userId, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     }
@@ -1478,7 +1478,7 @@ export default class API extends EventEmitter {
     // validate if sender is ok to cancel
     const valuesSelect = [chainId, userId]
     const select = await this.db.query (
-      "SELECT id, token FROM offers WHERE id=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm)",
+      "SELECT id, token FROM offers WHERE id=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm')",
       valuesSelect
     )
     // tokenArray should have a token for each open order
@@ -1492,14 +1492,14 @@ export default class API extends EventEmitter {
       // cancel for chainId set
       const values = [userId, chainId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     } else {
       // cancel for all chainIds - chainId not set
       const values = [userId]
       orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm) RETURNING chainid, id, order_status, unfilled;",
+        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pf', 'pm') RETURNING chainid, id, order_status, unfilled;",
         values
       )
     }
@@ -2399,24 +2399,21 @@ export default class API extends EventEmitter {
   // Ladder has to be a sorted 2-D array contaning price and quantity
   // Example: [ [3500,1], [3501,2] ]
   static getQuoteFromLadder(ladder: any[][], qty: number): number {
-    let sum = 0
     let unfilledQuantity = qty
+    let price
 
     for (let i = 0; i < ladder.length; i++) {
-      const askPrice = ladder[i][0]
-      const askQuantity = ladder[i][1]
-      if (askQuantity >= unfilledQuantity) {
-        sum += unfilledQuantity * askPrice
+      [price] = ladder[i]
+      const orderQuantity = ladder[i][1]
+      if (orderQuantity >= unfilledQuantity) {
         unfilledQuantity = 0
         break
       } else {
-        sum += askQuantity * askPrice
-        unfilledQuantity -= askQuantity
+        unfilledQuantity -= orderQuantity
       }
     }
     if (unfilledQuantity > 0) throw new Error('Insufficient liquidity')
-    const avgPrice = sum / qty
-    return avgPrice
+    return price
   }
 
   genquote = async (
@@ -2462,13 +2459,14 @@ export default class API extends EventEmitter {
       if (side === 'b') {
         const asks = liquidity
           .filter((l: string) => l[0] === 's')
+          .sort((a: any[], b: any[]) => a[1] - b[1])
           .map((l: string) => l.slice(1, 3)) as any[]
         ladderPrice = API.getQuoteFromLadder(asks, baseQuantity)
       } else {
         const bids = liquidity
           .filter((l: string) => l[0] === 'b')
+          .sort((a: any[], b: any[]) => b[1] - a[1])
           .map((l: string) => l.slice(1, 3))
-          .reverse() as any[]
         ladderPrice = API.getQuoteFromLadder(bids, baseQuantity)
       }
 

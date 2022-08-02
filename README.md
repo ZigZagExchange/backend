@@ -60,7 +60,7 @@ Currently a user can only receive order updates on one connection at a time per 
 
 ## Pings
 
-The server sends a ping message every 10 seconds to assure the connection is alive. A pong response is expected in return.
+The server sends a ping message every 30 seconds to assure the connection is alive. A pong response is expected in return.
 
 Most websocket clients handle the ping message automatically, so no extra work should be required on your part.
 
