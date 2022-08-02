@@ -1030,7 +1030,7 @@ async function sendMatchedOrders() {
   )
 
   await Promise.all(results)
-  setTimeout(sendMatchedOrders, 2000)
+  setTimeout(sendMatchedOrders, 200)
 }
 
 /* update mm info after chainging the settings in EVMConfig */
