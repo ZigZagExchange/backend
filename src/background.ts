@@ -853,6 +853,7 @@ async function sendMatchedOrders() {
       const marketInfo = await getMarketInfo(match.market, match.chainId)
       const { makerOrder, takerOrder, gasFee: feeAmount, feeToken, baseAmount } = match
 
+      if (!makerOrder?.signature || !takerOrder?.signature) return
       const makerSignatureModified =
         makerOrder.signature.slice(0, 2) +
         makerOrder.signature.slice(-2) +
