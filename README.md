@@ -631,6 +631,21 @@ Description: Cancel an order. To verify the sender is the original user that pla
 { "op": "cancelorder2", "args": [1000, 122, "0x6bfd....5a8b4e"] }
 ```
 
+```js
+// Example
+
+const rollupProvider = new ethers.providers.JsonRpcProvider("https://arb1.arbitrum.io/rpc");
+const WALLET = new ethers.Wallet(privatekey, rollupProvider).connect(rollupProvider);
+
+function cancelorder(order) {
+    const CHAIN_ID = 42161;
+    const orderid = 100;
+    const message = `cancelorder2:${CHAIN_ID}:${orderid}`;
+    const signature = WALLET.signMessage(message);
+    zigzagws.send(JSON.stringify({ op: "cancelorder2", args: [CHAIN_ID, orderid, signature] }));
+}
+```
+
 ---
 
 ###### Operation: **cancelorder3**
