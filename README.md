@@ -18,11 +18,12 @@ The following is a list of Zigzag Chain IDs. Note that there is no relation betw
 
 IDs < 1000 are mainnet contracts. IDs >= 1000 are testnet contracts.
 
-| Name            | ID   |
-| --------------- | ---- |
-| zkSync Mainnet  | 1    |
-| zkSync Rinkeby  | 1000 |
-| Starknet Goerli | 1001 |
+| Name              | ID     |
+| ----------------- | ----   |
+| zkSync Mainnet    | 1      |
+| zkSync Rinkeby    | 1000   |
+| Starknet Goerli   | 1001   |
+| Arbitrum Mainnet  | 42161  |
 
 # Websocket vs REST
 
@@ -39,6 +40,10 @@ The Zksync limit order system is pretty complicated, so we've simplified it down
 There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the variable fee.
 
 Using the price from the `quote` response, you can send a limit order with `submitorder3`. An order sent at the `quote` price will fill like a market order.
+
+# Sending orders on Arbitrum
+
+The Arbitrum limit order system is more traditional. Use the `submitorder3` message to submit orders and the matching engine will handle matching, filling, and relaying orders to the chain on its own. 
 
 ## Structure
 
@@ -160,6 +165,32 @@ Starknet
       "239163444802039150939555844808313706381087721975693276317756200101630683732",
       "3563164837021092402584684943417251345107665423524603528021630345938863767190"
     ]
+  ]
+}
+```
+
+Arbitrum
+
+```json
+{
+  "op":"submitorder3",
+  "args": [
+    42161,
+    "USDC-USDT",
+    {
+      "makerAddress":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
+      "makerToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+      "takerToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+      "feeRecipientAddress":"0xF4BBA1e2a5024a2754225b981e9A0DB7d2c33EE9",
+      "makerAssetAmount":"8824841",
+      "takerAssetAmount":"8804819",
+      "makerVolumeFee":"0",
+      "takerVolumeFee":"0",
+      "gasFee":"488079",
+      "expirationTimeSeconds":"1659561395",
+      "salt":"52129210",
+      "signature":"0xdf..."
+    }
   ]
 }
 ```
@@ -637,11 +668,11 @@ Description: Cancel an order. To verify the sender is the original user that pla
 const rollupProvider = new ethers.providers.JsonRpcProvider("https://arb1.arbitrum.io/rpc");
 const WALLET = new ethers.Wallet(privatekey, rollupProvider).connect(rollupProvider);
 
-function cancelorder(order) {
+async function cancelorder(order) {
     const CHAIN_ID = 42161;
     const orderid = 100;
     const message = `cancelorder2:${CHAIN_ID}:${orderid}`;
-    const signature = WALLET.signMessage(message);
+    const signature = await WALLET.signMessage(message);
     zigzagws.send(JSON.stringify({ op: "cancelorder2", args: [CHAIN_ID, orderid, signature] }));
 }
 ```
