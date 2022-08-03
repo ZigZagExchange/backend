@@ -200,7 +200,7 @@ async function updatePendingOrders() {
   await db.query(fillsQuery)
 
   const expiredQuery = {
-    text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status = 'o' AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
+    text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status IN ('o', 'pm', 'pf') AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
     values: []
   }
   const updateExpires = await db.query(expiredQuery)
