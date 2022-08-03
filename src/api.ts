@@ -1483,7 +1483,7 @@ export default class API extends EventEmitter {
     // validate if sender is ok to cancel
     const valuesSelect = [chainId, userId]
     const select = await this.db.query (
-      "SELECT id, token FROM offers WHERE id=$1 AND chainid=$2 AND order_status IN ('o', 'pf', 'pm')",
+      "SELECT id, token FROM offers WHERE chainid=$1 AND userid=$2 AND order_status IN ('o', 'pf', 'pm')",
       valuesSelect
     )
     // tokenArray should have a token for each open order
