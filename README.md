@@ -632,7 +632,7 @@ Description: Cancel an order. To verify the sender is the original user that pla
 ```
 
 ```js
-// Example
+// Javascript
 
 const rollupProvider = new ethers.providers.JsonRpcProvider("https://arb1.arbitrum.io/rpc");
 const WALLET = new ethers.Wallet(privatekey, rollupProvider).connect(rollupProvider);
