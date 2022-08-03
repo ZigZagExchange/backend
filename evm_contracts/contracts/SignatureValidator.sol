@@ -12,7 +12,7 @@ contract SignatureValidator{
     function isValidSignature(LibOrder.Order memory order, bytes memory signature) public pure returns (bool isValid){
         bytes32 orderHash = order.getOrderHash();
 
-        address signerAddress = order.makerAddress;
+        address signerAddress = order.user;
 
            uint8 v = uint8(signature[0]);
            bytes32 r = signature.readBytes32(1);

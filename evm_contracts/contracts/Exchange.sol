@@ -20,7 +20,7 @@ contract Exchange is SignatureValidator{
         LibOrder.Order memory order
     ) public{   
 
-        require(msg.sender == order.makerAddress, "only maker may cancel order");
+        require(msg.sender == order.user, "only user may cancel order");
 
         LibOrder.OrderInfo memory orderInfo = getOrderInfo(order);
 
@@ -28,62 +28,62 @@ contract Exchange is SignatureValidator{
     }
     
    function matchOrders(
-       LibOrder.Order memory leftOrder, // maker
-       LibOrder.Order memory rightOrder, // taker
-       bytes memory leftSignature,
-       bytes memory rightSignature
+       LibOrder.Order memory makerOrder, 
+       LibOrder.Order memory takerOrder,
+       bytes memory makerSignature,
+       bytes memory takerSignature
    )
    public returns(LibFillResults.MatchedFillResults memory matchedFillResults){
 
         //check that tokens address match, will fail in signature check if false
-        rightOrder.makerToken = leftOrder.takerToken;
-        rightOrder.takerToken = leftOrder.makerToken;
+        takerOrder.sellToken = makerOrder.buyToken;
+        takerOrder.buyToken = makerOrder.sellToken;
 
-        LibOrder.OrderInfo memory leftOrderInfo = getOrderInfo(leftOrder);
-        LibOrder.OrderInfo memory rightOrderInfo = getOrderInfo(rightOrder);
+        LibOrder.OrderInfo memory makerOrderInfo = getOrderInfo(makerOrder);
+        LibOrder.OrderInfo memory takerOrderInfo = getOrderInfo(takerOrder);
        
      
-        require(rightOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE, "right order status not Fillable");
-        require(leftOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE, "left order status not Fillable");
+        require(takerOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE, "taker order status not Fillable");
+        require(makerOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE, "maker order status not Fillable");
 
         //validate signature
-        require(msg.sender == rightOrder.makerAddress || _isValidOrderWithHashSignature(rightOrderInfo.orderHash, rightSignature, rightOrder.makerAddress),"invalid right signature");
-        require(msg.sender == leftOrder.makerAddress || _isValidOrderWithHashSignature(leftOrderInfo.orderHash, leftSignature, leftOrder.makerAddress),"invalid left signature");
+        require(msg.sender == takerOrder.user || _isValidOrderWithHashSignature(takerOrderInfo.orderHash, takerSignature, takerOrder.user), "invalid taker signature");
+        require(msg.sender == makerOrder.user || _isValidOrderWithHashSignature(makerOrderInfo.orderHash, makerSignature, makerOrder.user),"invalid maker signature");
         
         // Make sure there is a profitable spread.
-        // There is a profitable spread iff the cost per unit bought (OrderA.MakerAmount/OrderA.TakerAmount) for each order is greater
-        // than the profit per unit sold of the matched order (OrderB.TakerAmount/OrderB.MakerAmount).
+        // There is a profitable spread iff the cost per unit bought (OrderA.SellAmount/OrderA.BuyAmount) for each order is greater
+        // than the profit per unit sold of the matched order (OrderB.BuyAmount/OrderB.SellAmount).
         // This is satisfied by the equations below:
-        // <leftOrder.makerAssetAmount> / <leftOrder.takerAssetAmount> >= <rightOrder.takerAssetAmount> / <rightOrder.makerAssetAmount>
+        // <makerOrder.sellAmount> / <makerOrder.buyAmount> >= <takerOrder.buyAmount> / <takerOrder.sellAmount>
         // AND
-        // <rightOrder.makerAssetAmount> / <rightOrder.takerAssetAmount> >= <leftOrder.takerAssetAmount> / <leftOrder.makerAssetAmount>
+        // <takerOrder.sellAmount> / <takerOrder.buyAmount> >= <makerOrder.buyAmount> / <makerOrder.sellAmount>
         // These equations can be combined to get the following:
         require(
-            leftOrder.makerAssetAmount * rightOrder.makerAssetAmount >= leftOrder.takerAssetAmount * rightOrder.takerAssetAmount, 
+            makerOrder.sellAmount * takerOrder.sellAmount >= makerOrder.buyAmount * takerOrder.buyAmount, 
             "not profitable spread"
         );
 
         matchedFillResults = LibFillResults.calculateMatchedFillResults(
-            leftOrder,
-            rightOrder,
-            leftOrderInfo.orderTakerAssetFilledAmount,
-            rightOrderInfo.orderTakerAssetFilledAmount
+            makerOrder,
+            takerOrder,
+            makerOrderInfo.orderBuyFilledAmount,
+            takerOrderInfo.orderBuyFilledAmount
         );
         
         
         _updateFilledState(
-            leftOrderInfo.orderHash,
-            matchedFillResults.left.takerAssetFilledAmount
+            makerOrderInfo.orderHash,
+            matchedFillResults.maker.buyFilledAmount
         );
 
         _updateFilledState(
-            rightOrderInfo.orderHash,
-            matchedFillResults.right.takerAssetFilledAmount
+            takerOrderInfo.orderHash,
+            matchedFillResults.taker.buyFilledAmount
         );
 
         _settleMatchedOrders(
-            leftOrder,
-            rightOrder,
+            makerOrder,
+            takerOrder,
             matchedFillResults
         );
 
@@ -93,71 +93,71 @@ contract Exchange is SignatureValidator{
 
 
     function _settleMatchedOrders(
-        LibOrder.Order memory leftOrder,  // maker
-        LibOrder.Order memory rightOrder, // taker
+        LibOrder.Order memory makerOrder,
+        LibOrder.Order memory takerOrder,
         LibFillResults.MatchedFillResults memory matchedFillResults
     )
     internal{
         require(
-            IERC20(rightOrder.makerToken).balanceOf(rightOrder.makerAddress) >= matchedFillResults.left.takerAssetFilledAmount,
-            "right order not enough balance"
+            IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= matchedFillResults.maker.buyFilledAmount,
+            "taker order not enough balance"
         );
         require(
-            IERC20(leftOrder.makerToken).balanceOf(leftOrder.makerAddress) >= matchedFillResults.right.takerAssetFilledAmount,
-            "left order not enough balance"
+            IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.taker.buyFilledAmount,
+            "maker order not enough balance"
         );
         
-        // Right maker asset -> left maker
-        IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, leftOrder.makerAddress, matchedFillResults.left.takerAssetFilledAmount);
+        // Right maker asset -> maker maker
+        IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, makerOrder.user, matchedFillResults.maker.buyFilledAmount);
        
-        // Left maker asset -> right maker
-        IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, rightOrder.makerAddress, matchedFillResults.right.takerAssetFilledAmount);
+        // Left maker asset -> taker maker
+        IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, takerOrder.user, matchedFillResults.taker.buyFilledAmount);
 
 
         /*
             Fees Paid 
         */
-        // Right maker fee + gas fee -> fee recipient
-        uint rightOrderFees = matchedFillResults.right.takerFeePaid + rightOrder.gasFee;
-        if (rightOrderFees > 0) {
+        // Taker fee + gas fee -> fee recipient
+        uint takerOrderFees = matchedFillResults.taker.feePaid + takerOrder.gasFee;
+        if (takerOrderFees > 0) {
             require(
-                IERC20(rightOrder.makerToken).balanceOf(rightOrder.makerAddress) >= rightOrderFees,
-                "right order not enough balance for fee"
+                IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= takerOrderFees,
+                "taker order not enough balance for fee"
             );
-            IERC20(rightOrder.makerToken).transferFrom(rightOrder.makerAddress, rightOrder.feeRecipientAddress, rightOrderFees);
+            IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, takerOrder.feeRecipientAddress, takerOrderFees);
         }
        
-        // Left maker fee -> fee recipient
-        if (matchedFillResults.left.makerFeePaid > 0) {
+        // Maker fee -> fee recipient
+        if (matchedFillResults.maker.feePaid > 0) {
             require(
-                IERC20(leftOrder.makerToken).balanceOf(leftOrder.makerAddress) >= matchedFillResults.left.makerFeePaid,
-                "left order not enough balance for fee"
+                IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.maker.feePaid,
+                "maker order not enough balance for fee"
             );
-            IERC20(leftOrder.makerToken).transferFrom(leftOrder.makerAddress, leftOrder.feeRecipientAddress, matchedFillResults.left.makerFeePaid);
+            IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, makerOrder.feeRecipientAddress, matchedFillResults.maker.feePaid);
         }
 
     }
 
 
-    function _updateFilledState(bytes32 orderHash, uint256 orderTakerAssetFilledAmount) internal{
+    function _updateFilledState(bytes32 orderHash, uint256 orderBuyFilledAmount) internal{
        
-        filled[orderHash] += orderTakerAssetFilledAmount;
+        filled[orderHash] += orderBuyFilledAmount;
     }
 
     function getOrderInfo(LibOrder.Order memory order) public view returns(LibOrder.OrderInfo memory orderInfo){
-        (orderInfo.orderHash, orderInfo.orderTakerAssetFilledAmount) = _getOrderHashAndFilledAmount(order);
+        (orderInfo.orderHash, orderInfo.orderBuyFilledAmount) = _getOrderHashAndFilledAmount(order);
         
-        if (order.makerAssetAmount == 0) {
+        if (order.sellAmount == 0) {
             orderInfo.orderStatus = LibOrder.OrderStatus.INVALID_MAKER_ASSET_AMOUNT;
             return orderInfo;
         }
 
-        if (order.takerAssetAmount == 0) {
+        if (order.buyAmount == 0) {
             orderInfo.orderStatus = LibOrder.OrderStatus.INVALID_TAKER_ASSET_AMOUNT;
             return orderInfo;
         }
 
-        if (orderInfo.orderTakerAssetFilledAmount >= order.takerAssetAmount) {
+        if (orderInfo.orderBuyFilledAmount >= order.buyAmount) {
             orderInfo.orderStatus = LibOrder.OrderStatus.FULLY_FILLED;
             return orderInfo;
         }
@@ -180,11 +180,11 @@ contract Exchange is SignatureValidator{
     function _getOrderHashAndFilledAmount(LibOrder.Order memory order)
         internal
         view
-        returns (bytes32 orderHash, uint256 orderTakerAssetFilledAmount)
+        returns (bytes32 orderHash, uint256 orderBuyFilledAmount)
     {
         orderHash = order.getOrderHash();
-        orderTakerAssetFilledAmount = filled[orderHash];
-        return (orderHash, orderTakerAssetFilledAmount);
+        orderBuyFilledAmount = filled[orderHash];
+        return (orderHash, orderBuyFilledAmount);
     }
 
 }

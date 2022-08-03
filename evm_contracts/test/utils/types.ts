@@ -1,12 +1,12 @@
 import { BigNumber } from "ethers";
 
 export interface Order {
-    makerAddress: string,
-    makerToken: string,
-    takerToken: string,
+    user: string,
+    sellToken: string,
+    buyToken: string,
     feeRecipientAddress: string,
-    makerAssetAmount: BigNumber,
-    takerAssetAmount: BigNumber,
+    sellAmount: BigNumber,
+    buyAmount: BigNumber,
     makerVolumeFee: BigNumber,
     takerVolumeFee: BigNumber,
     gasFee: BigNumber,
