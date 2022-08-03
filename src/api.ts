@@ -1178,8 +1178,8 @@ export default class API extends EventEmitter {
       throw new Error(`Can't buy and sell the same token`)
 
     const expiry = Number(zktx.expirationTimeSeconds) * 1000
-    if (expiry < Date.now() + 20000)
-      throw new Error('Expiry time too low. Use at least NOW + 20sec')
+    if (expiry < Date.now() + 10000)
+      throw new Error('Expiry time too low. Use at least NOW + 10sec')
 
     const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
     const gasFee =
