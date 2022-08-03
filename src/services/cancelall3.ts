@@ -20,6 +20,7 @@ export const cancelall3: ZZServiceHandler = async (
     const cancelResult = await api.cancelAllOrders3(chainId, userId, tokenArray)
     if (!cancelResult) throw new Error('Unexpected error')
   } catch (e: any) {
+    console.error(e);
     ws.send(
       JSON.stringify({ op: 'error', args: ['cancelall3', e.message, userId] })
     )
