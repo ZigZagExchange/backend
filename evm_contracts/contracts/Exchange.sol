@@ -40,8 +40,8 @@ contract Exchange is SignatureValidator{
         require(takerOrder.buyToken == makerOrder.sellToken, "mismatched tokens");
   
         // check the relayer field
-        require(makerOrder.relayerAddress == address(0) || makerOrder.relayerAddress == msg.sender, "relayer mismatch");
-        require(takerOrder.relayerAddress == address(0) || takerOrder.relayerAddress == msg.sender, "relayer mismatch");
+        require(makerOrder.relayerAddress == address(0) || makerOrder.relayerAddress == msg.sender, "maker relayer mismatch");
+        require(takerOrder.relayerAddress == address(0) || takerOrder.relayerAddress == msg.sender, "taker relayer mismatch");
 
         LibOrder.OrderInfo memory makerOrderInfo = getOrderInfo(makerOrder);
         LibOrder.OrderInfo memory takerOrderInfo = getOrderInfo(takerOrder);
