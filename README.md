@@ -1050,7 +1050,7 @@ Returns a JSON containing the last trades in decending order.
 
 ```
 
-###### /api/v1/trades/
+###### /api/v1/marketinfos/
 
 Example: `/api/v1/marketinfos?chain_id=1&market=ETH-USDC`
 
