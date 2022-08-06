@@ -5,6 +5,7 @@ export interface Order {
     sellToken: string,
     buyToken: string,
     feeRecipientAddress: string,
+    relayerAddress: string,
     sellAmount: BigNumber,
     buyAmount: BigNumber,
     makerVolumeFee: BigNumber,

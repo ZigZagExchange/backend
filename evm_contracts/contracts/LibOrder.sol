@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 library LibOrder{
    
    
-    bytes32 constant internal eip712DomainHash = 0x7f099256bb4d936a0b3b09e7cb96e71e41b0996d296332c06b4f3f164e38c7fc;
+    bytes32 constant internal eip712DomainHash = 0xfc93c018bfb4eebf549119e02ea2ca9b4382693560b70ab3e293d5dc2df75291;
     /*
     keccak256(
         abi.encode(
@@ -12,14 +12,14 @@ library LibOrder{
                 "EIP712Domain(string name,string version,uint256 chainId)"
             ),
             keccak256(bytes("ZigZag")),
-            keccak256(bytes("4")),
+            keccak256(bytes("5")),
             uint256(42161)
         )
     ); 
     */
-    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0xa6a7ff8f47484bba2f433ea670b18ac7c8fc762b493da28809ccef8ec5386910;
-    //keccak256("Order(address user,address sellToken,address buyToken,address feeRecipientAddress,uint256 sellAmount,uint256 buyAmount,uint256 makerVolumeFee,uint256 takerVolumeFee,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)")
-        // 0xa6a7ff8f47484bba2f433ea670b18ac7c8fc762b493da28809ccef8ec5386910
+
+    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0x0b86e5560a722da94769313c9690e24ca4925d085b3cdbd5a1240ba1bcc92a95;
+    //keccak256("Order(address user,address sellToken,address buyToken,address feeRecipientAddress,address relayerAddress,uint256 sellAmount,uint256 buyAmount,uint256 makerVolumeFee,uint256 takerVolumeFee,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)")
 
     enum OrderStatus {
         INVALID,                     // Default value
@@ -36,6 +36,7 @@ library LibOrder{
         address sellToken; // address of the Token the Order Creator wants to sell
         address buyToken; // address of the Token the Order Creator wants to receive in return
         address feeRecipientAddress; // address of the protocol owner that recives the fees
+        address relayerAddress; // if specified, only the specified address can relay the order. setting it to the zero address will allow anyone to relay
         uint256 sellAmount; // amount of Token that the Order Creator wants to sell
         uint256 buyAmount; // amount of Token that the Order Creator wants to receive in return
         uint256 makerVolumeFee; // Fee taken from an order if it is filled in the maker position
@@ -53,29 +54,39 @@ library LibOrder{
 
    function getOrderHash(Order memory order) internal pure returns (bytes32){
 
+      
+      // Why does this clusterfuck of bad code have to exist?
+      // Trying to encode the entire order struct at once leads to a "stack too deep" error,
+      // so it has to be split into two pieces to be encoded, then recombined
+      bytes memory encodedOrderAbi = bytes.concat(encodeFirstHalfOrderAbi(order), encodeSecondHalfOrderAbi(order));
+      bytes32 orderHash = keccak256(encodedOrderAbi);
 
-
-       bytes32 orderHash = keccak256(abi.encode(
-
-        _EIP712_ORDER_SCHEMA_HASH,
-        order.user,
-        order.sellToken,
-        order.buyToken,
-        order.feeRecipientAddress,
-        order.sellAmount,
-        order.buyAmount,
-        order.makerVolumeFee,
-        order.takerVolumeFee,
-        order.gasFee,
-        order.expirationTimeSeconds,
-        order.salt
-        
-       ));
        
-        bytes32 result = hashEIP712Message(orderHash);
-        //bytes32 result = keccak256(abi.encodePacked("\x19\x01",eip712DomainHash,orderHash));
+      //return hashEIP712Message(orderHash);
+      return keccak256(abi.encodePacked("\x19\x01",eip712DomainHash,orderHash));
+   }
 
-       return result;
+   function encodeFirstHalfOrderAbi(Order memory order) internal pure returns (bytes memory){
+       return abi.encode(
+          _EIP712_ORDER_SCHEMA_HASH,
+          order.user,
+          order.sellToken,
+          order.buyToken,
+          order.feeRecipientAddress,
+          order.relayerAddress
+       );
+   }
+
+   function encodeSecondHalfOrderAbi(Order memory order) internal pure returns (bytes memory){
+       return abi.encode(
+          order.sellAmount,
+          order.buyAmount,
+          order.makerVolumeFee,
+          order.takerVolumeFee,
+          order.gasFee,
+          order.expirationTimeSeconds,
+          order.salt
+       );
    }
 
     function hashEIP712Message( bytes32 hashStruct)

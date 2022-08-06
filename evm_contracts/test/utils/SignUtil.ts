@@ -22,6 +22,7 @@ export async function signOrder(privateKey: string, order: Order) {
                 { "name": 'sellToken', "type": 'address' },
                 { "name": 'buyToken', "type": 'address' },
                 { "name": 'feeRecipientAddress', "type": 'address' },
+                { "name": 'relayerAddress', "type": 'address' },
                 { "name": 'sellAmount', "type": 'uint256' },
                 { "name": 'buyAmount', "type": 'uint256' },
                 { "name": 'makerVolumeFee', "type": 'uint256' },
@@ -34,7 +35,7 @@ export async function signOrder(privateKey: string, order: Order) {
         "primaryType": 'Order',
         "domain": {
             "name": 'ZigZag',
-            "version": '4',
+            "version": '5',
             "chainId": 42161,
 
         },
@@ -43,6 +44,7 @@ export async function signOrder(privateKey: string, order: Order) {
             "sellToken": order.sellToken,
             "buyToken": order.buyToken,
             "feeRecipientAddress": order.feeRecipientAddress,
+            "relayerAddress": order.relayerAddress,
             "sellAmount": order.sellAmount,
             "buyAmount": order.buyAmount,
             "makerVolumeFee": order.makerVolumeFee,

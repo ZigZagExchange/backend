@@ -23,6 +23,7 @@ describe("Signature Validation", function () {
             sellToken: "0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed",
             buyToken: "0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed",
             feeRecipientAddress: "0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed",
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("12"),
             buyAmount: ethers.BigNumber.from("13"),
             makerVolumeFee: ethers.BigNumber.from("21"),
