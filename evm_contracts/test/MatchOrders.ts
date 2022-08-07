@@ -49,6 +49,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("10000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -63,6 +64,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -89,6 +91,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -103,6 +106,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("10000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -129,6 +133,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("20000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -143,6 +148,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("20000"),
             buyAmount: ethers.utils.parseEther("1"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -167,6 +173,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("20000"),
             buyAmount: ethers.utils.parseEther("1"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -181,6 +188,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("20000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -205,6 +213,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("10000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -219,6 +228,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("10000"),
             buyAmount: ethers.utils.parseEther("1"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -243,6 +253,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("10000"),
             buyAmount: ethers.utils.parseEther("1"),
             makerVolumeFee: ethers.BigNumber.from("1000"),
@@ -257,6 +268,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("10000"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -281,6 +293,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("100"),
             buyAmount: ethers.BigNumber.from("100"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -295,6 +308,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("100"),
             buyAmount: ethers.BigNumber.from("100"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -309,13 +323,14 @@ describe("Order Matching", function () {
 
     });
 
-    it("Should revert with invalid signature from mismatching maker and taker tokens", async function () {
+    it("Should revert with mismatched tokens from mismatching maker and taker tokens", async function () {
 
         const makerOrder = {
             user: wallets[0].address,
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("10000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -330,6 +345,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -342,7 +358,7 @@ describe("Order Matching", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("invalid taker signature")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("mismatched tokens")
 
     });
 
@@ -353,6 +369,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("0"),
             buyAmount: ethers.BigNumber.from("10000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -364,9 +381,10 @@ describe("Order Matching", function () {
 
         const takerOrder = {
             user: wallets[1].address,
-            sellToken: tokenA.address,
-            buyToken: tokenB.address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -390,6 +408,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("120"),
             buyAmount: ethers.BigNumber.from("970"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -404,6 +423,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("890"),
             buyAmount: ethers.BigNumber.from("10"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -428,6 +448,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("120"),
             buyAmount: ethers.BigNumber.from("970"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -442,6 +463,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("890"),
             buyAmount: ethers.BigNumber.from("10"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -466,6 +488,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("120"),
             buyAmount: ethers.BigNumber.from("970"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -480,6 +503,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("890"),
             buyAmount: ethers.BigNumber.from("10"),
             makerVolumeFee: ethers.BigNumber.from("0"),
@@ -501,6 +525,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("120"),
             buyAmount: ethers.utils.parseEther("970"),
             makerVolumeFee: ethers.utils.parseEther("0.1"),
@@ -515,6 +540,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("890"),
             buyAmount: ethers.utils.parseEther("10"),
             makerVolumeFee: ethers.utils.parseEther("0.1"),
@@ -551,6 +577,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("120"),
             buyAmount: ethers.utils.parseEther("970"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -565,6 +592,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("890"),
             buyAmount: ethers.utils.parseEther("10"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -604,6 +632,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("100"),
             buyAmount: ethers.utils.parseEther("200"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -618,6 +647,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("200"),
             buyAmount: ethers.utils.parseEther("100"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -639,6 +669,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("100"),
             buyAmount: ethers.utils.parseEther("200"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -653,6 +684,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("200"),
             buyAmount: ethers.utils.parseEther("100"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -680,6 +712,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("1000"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -694,6 +727,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("4000"),
             buyAmount: ethers.utils.parseEther("2"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -728,6 +762,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("2"),
             buyAmount: ethers.utils.parseEther("2000"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -742,6 +777,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1500"),
             buyAmount: ethers.utils.parseEther("1"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -776,6 +812,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1000"),
             buyAmount: ethers.utils.parseEther("1"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -790,6 +827,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("2"),
             buyAmount: ethers.utils.parseEther("1000"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -824,6 +862,7 @@ describe("Order Matching", function () {
             sellToken: tokenB.address,
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("2000"),
             buyAmount: ethers.utils.parseEther("2"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -838,6 +877,7 @@ describe("Order Matching", function () {
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("500"),
             makerVolumeFee: ethers.utils.parseEther("0"),
@@ -860,6 +900,117 @@ describe("Order Matching", function () {
 
         expect(balance2).to.equal(ethers.utils.parseEther("1"))
         expect(balance3).to.equal(ethers.utils.parseEther("1000"))
+    });
+
+    it("should pass with proper relayer addresses", async function () {
+        const makerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: wallets[2].address,
+            sellAmount: ethers.utils.parseEther("2000"),
+            buyAmount: ethers.utils.parseEther("2"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const takerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: wallets[2].address,
+            sellAmount: ethers.utils.parseEther("1"),
+            buyAmount: ethers.utils.parseEther("500"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("1")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+
+        const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
+    });
+
+    it("should fail with improper maker relayer address", async function () {
+        const makerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: wallets[1].address,
+            sellAmount: ethers.utils.parseEther("2000"),
+            buyAmount: ethers.utils.parseEther("2"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const takerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: wallets[2].address,
+            sellAmount: ethers.utils.parseEther("1"),
+            buyAmount: ethers.utils.parseEther("500"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("1")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("maker relayer mismatch")
+    });
+
+    it("should fail with improper taker relayer address", async function () {
+        const makerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: wallets[2].address,
+            sellAmount: ethers.utils.parseEther("2000"),
+            buyAmount: ethers.utils.parseEther("2"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const takerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: wallets[1].address,
+            sellAmount: ethers.utils.parseEther("1"),
+            buyAmount: ethers.utils.parseEther("500"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("1")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("taker relayer mismatch")
     });
 
 });
