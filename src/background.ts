@@ -1025,9 +1025,13 @@ async function sendMatchedOrders() {
 
       // wait for tx to be processed before sending the result
       if (transaction.hash) {
-        await ETHERS_PROVIDERS[chainId].waitForTransaction(
-          transaction.hash
-        )
+        try {
+          await ETHERS_PROVIDERS[chainId].waitForTransaction(
+            transaction.hash
+          )
+        } catch (e: any) {
+          console.error(`Failed to wait for tx ${transaction.hash} because ${e.message}`)
+        }
       }
       
       if (orderUpdatesBroadcastMinted.length) {
