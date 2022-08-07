@@ -978,23 +978,23 @@ async function sendMatchedOrders() {
         
       } else {
         const startIndex = transaction.reason.indexOf("execution reverted")
-        const endIndex = transaction.reason.indexOf("code");
-        const reason = transaction.reason.slice(startIndex, endIndex);
-        console.log(reason);
-        const cancelOrderIds = [];
+        const endIndex = transaction.reason.indexOf("code")
+        const reason = transaction.reason.slice(startIndex, endIndex)
+        console.log(reason)
+        const cancelOrderIds = []
         if (reason.includes('right')) {
-          cancelOrderIds.push(match.takerId);
+          cancelOrderIds.push(match.takerId)
         }
         else if (reason.includes('left')) {
-          cancelOrderIds.push(match.makerId);
+          cancelOrderIds.push(match.makerId)
         }
         else if (reason.includes('not profitable spread')) {
           // ignore. nothing needs to be canceled
         }
         else {
           // default: cancel both
-          cancelOrderIds.push(match.makerId);
-          cancelOrderIds.push(match.takerId);
+          cancelOrderIds.push(match.makerId)
+          cancelOrderIds.push(match.takerId)
         }
         orderUpdateBroadcastMinted = await db.query(
           `UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
