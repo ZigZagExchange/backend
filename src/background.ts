@@ -997,7 +997,7 @@ async function sendMatchedOrders() {
           cancelOrderIds.push(match.takerId)
         }
         orderUpdateBroadcastMinted = await db.query(
-          `UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
+          `UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
           [ cancelOrderIds ]
         )
       }
