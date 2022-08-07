@@ -1023,6 +1023,13 @@ async function sendMatchedOrders() {
         ]
       )
 
+      // wait for tx to be processed before sending the result
+      if (transaction.hash) {
+        await ETHERS_PROVIDERS[chainId].waitForTransaction(
+          transaction.hash
+        )
+      }
+      
       if (orderUpdatesBroadcastMinted.length) {
         sendUpdates(
           chainId,
