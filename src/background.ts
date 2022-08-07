@@ -779,6 +779,13 @@ async function runDbMigration() {
   console.log('running db migration')
   const migration = fs.readFileSync('schema.sql', 'utf8')
   await db.query(migration).catch(console.error)
+
+  const fourWeeksAgo = new Date(Date.now() - 2419200000).toISOString() // 4 * 7 * 24 * 60 * 60 * 1000
+  const query = {
+    text: "DELETE FROM offers WHERE insert_timestamp < $1",
+    values: [fourWeeksAgo]
+  }
+  await db.query(query).catch(console.error)
 }
 
 /**
@@ -962,7 +969,7 @@ async function sendMatchedOrders() {
 
       // Update lastprice
       if (txStatus === 's') {
-        redis.HSET(`lastprices:${chainId}`, match.market, fillupdateBroadcastMinted.rows[0].price);
+        redis.HSET(`lastprices:${chainId}`, match.market, fillupdateBroadcastMinted.rows[0].price)
       }
 
       let orderUpdateBroadcastMinted: AnyObject
