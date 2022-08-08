@@ -1359,10 +1359,9 @@ async function start() {
   })
 
   ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
-  ZKSYNC_BASE_URL.rinkeby = 'https://rinkeby-api.zksync.io/api/v0.2/'
+  ZKSYNC_BASE_URL.goerli = 'https://goerli-api.zksync.io/api/v0.2/'
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-  // TODO: Replace this with Goerli
-  //SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider('rinkeby')
+  SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
 
   // reste some values on start-up
   VALID_CHAINS_ZKSYNC.forEach(async (chainId) => {
