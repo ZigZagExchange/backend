@@ -35,8 +35,7 @@ export function stringToFelt (text: string) {
 export function getNetwork (chainId: number) {
   switch(chainId) {
     case 1: return "mainnet"
-    case 1000: return "rinkeby"
-    case 1001: return "goerli"
+    case 1000: case 1001: return "goerli"
     case 42161: return "arbitrum"
     default: throw new Error('No valid chainId')
   }

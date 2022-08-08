@@ -132,8 +132,7 @@ export default class API extends EventEmitter {
       process.env.STARKNET_CONTRACT_ADDRESS
     )
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-    // TODO: Figure out what this URL should be . it's crashing
-    //this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+    this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE(
@@ -1436,7 +1435,7 @@ export default class API extends EventEmitter {
       const url =
         chainId === 1
           ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
-          : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+          : `https://goerli-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = (await fetch(url).then((r: any) => r.json())) as AnyObject
       signerAddress = res.result.accountId.toString()
     }
@@ -1596,7 +1595,7 @@ export default class API extends EventEmitter {
       const url =
         chainId === 1
           ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
-          : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+          : `https://goerli-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = (await fetch(url).then((r: any) => r.json())) as AnyObject
       signerAddress = res.result.accountId.toString()
     }
@@ -1968,7 +1967,7 @@ export default class API extends EventEmitter {
 
   /**
    * Returns the liquidity for a given market.
-   * @param {number} chainId The reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+   * @param {number} chainId The reqested chain (1->zkSync, 1000->zkSync_goerli)
    * @param {ZZMarket} market The reqested market
    * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
    * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
@@ -2213,7 +2212,7 @@ export default class API extends EventEmitter {
 
   /**
    * Returns fills for a given market.
-   * @param {number} chainId reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+   * @param {number} chainId reqested chain (1->zkSync, 1000->zkSync_goerli)
    * @param {ZZMarket} market reqested market
    * @param {number} limit number of trades returnd (MAX 25)
    * @param {number} orderId orderId to start at
