@@ -2,6 +2,7 @@
   "42161": {
     "exchangeAddress": "0xE808Db285071f9fA023241db241fE342507cD2c6",
     "feeAddress": "0xF4BBA1e2a5024a2754225b981e9A0DB7d2c33EE9",
+    "relayerAddress": "0x1375fa71dfd8e2bed4bf6072a4a550618ceff91c",
     "minMakerVolumeFee": 0.00,
     "minTakerVolumeFee": 0.00,
     "domain": {

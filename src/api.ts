@@ -1154,8 +1154,8 @@ export default class API extends EventEmitter {
     if (inputValidation.error) throw inputValidation.error
 
     // amount validations
-    if (Number(zktx.makerAssetAmount) <= 0) throw new Error("makerAssetAmount must be positive");
-    if (Number(zktx.takerAssetAmount) <= 0) throw new Error("takerAssetAmount must be positive");
+    if (Number(zktx.sellAmount) <= 0) throw new Error("sellAmount must be positive")
+    if (Number(zktx.buyAmount) <= 0) throw new Error("buyAmount must be positive")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProvider = this.ETHERS_PROVIDERS[chainId]
@@ -1166,27 +1166,27 @@ export default class API extends EventEmitter {
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
 
     /* validate order */
-    if (!ethers.utils.isAddress(zktx.makerAddress))
+    if (!ethers.utils.isAddress(zktx.user))
       throw new Error('Bad userAddress')
 
-    if (!assets.includes(zktx.makerToken))
+    if (!assets.includes(zktx.sellToken))
       throw new Error(
-        `Bad makerToken, market ${assets} does not include ${zktx.makerToken}`
+        `Bad sellToken, market ${assets} does not include ${zktx.sellToken}`
       )
 
-    if (!assets.includes(zktx.takerToken))
+    if (!assets.includes(zktx.buyToken))
       throw new Error(
-        `Bad takerToken, market ${assets} does not include ${zktx.takerToken}`
+        `Bad buyToken, market ${assets} does not include ${zktx.buyToken}`
       )
 
-    if (zktx.makerToken === zktx.takerToken)
+    if (zktx.sellToken === zktx.buyToken)
       throw new Error(`Can't buy and sell the same token`)
 
     const expiry = Number(zktx.expirationTimeSeconds) * 1000
     if (expiry < Date.now() + 10000)
       throw new Error('Expiry time too low. Use at least NOW + 10sec')
 
-    const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
+    const side = marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
     const gasFee =
       side === 's'
         ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
@@ -1197,10 +1197,10 @@ export default class API extends EventEmitter {
     let feeToken: string
     if (side === 's') {
       baseAmount = Number(
-        ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.baseAsset.decimals)
+        ethers.utils.formatUnits(zktx.sellAmount, marketInfo.baseAsset.decimals)
       )
       quoteAmount = Number(
-        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.quoteAsset.decimals)
+        ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
       const makerFee = Number(
         ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.baseAsset.decimals)
@@ -1223,10 +1223,10 @@ export default class API extends EventEmitter {
         )
     } else {
       baseAmount = Number(
-        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.baseAsset.decimals)
+        ethers.utils.formatUnits(zktx.buyAmount, marketInfo.baseAsset.decimals)
       )
       quoteAmount = Number(
-        ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.quoteAsset.decimals)
+        ethers.utils.formatUnits(zktx.sellAmount, marketInfo.quoteAsset.decimals)
       )
       const makerFee = Number(
         ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.quoteAsset.decimals)
@@ -1254,6 +1254,11 @@ export default class API extends EventEmitter {
       throw new Error(
         `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
       )
+    
+    if (zktx.relayerAddress !== networkProviderConfig.relayerAddress)
+      throw new Error(
+        `Bad relayerAddress, use '${networkProviderConfig.relayerAddress}'`
+      )
 
     /* validateSignature */
     const { signature } = zktx
@@ -1265,7 +1270,7 @@ export default class API extends EventEmitter {
       zktx,
       signature
     )
-    if (signerAddress !== zktx.makerAddress)
+    if (signerAddress !== zktx.user)
       throw new Error('Order signature incorrect')
 
     // Re-insert signature after validation
@@ -1277,7 +1282,7 @@ export default class API extends EventEmitter {
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)'
     const values = [
       chainId,
-      zktx.makerAddress,
+      zktx.user,
       market,
       side,
       price,
