@@ -44,12 +44,13 @@ export function getNetwork (chainId: number) {
 
 export const evmEIP712Types = {
   "Order": [
-    { "name": 'makerAddress', "type": 'address' },
-    { "name": 'makerToken', "type": 'address' },
-    { "name": 'takerToken', "type": 'address' },
+    { "name": 'user', "type": 'address' },
+    { "name": 'sellToken', "type": 'address' },
+    { "name": 'buyToken', "type": 'address' },
     { "name": 'feeRecipientAddress', "type": 'address' },
-    { "name": 'makerAssetAmount', "type": 'uint256' },
-    { "name": 'takerAssetAmount', "type": 'uint256' },
+    { "name": 'relayerAddress', "type": 'address' },
+    { "name": 'sellAmount', "type": 'uint256' },
+    { "name": 'buyAmount', "type": 'uint256' },
     { "name": 'makerVolumeFee', "type": 'uint256' },
     { "name": 'takerVolumeFee', "type": 'uint256' },
     { "name": 'gasFee', "type": 'uint256' },
