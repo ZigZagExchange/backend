@@ -1376,7 +1376,7 @@ async function start() {
 
   /* startup */
   await updateEVMMarketInfo()
-  // VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
+  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
 
   // Seed Arbitrum Markets
   await seedArbitrumMarkets()
