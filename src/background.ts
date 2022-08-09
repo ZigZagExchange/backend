@@ -795,17 +795,24 @@ async function updateTokenInfoZkSync(chainId: number) {
     ).then((r: any) => r.json())
     tokenInfos = fetchResult.result.list
     const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
-      const tokenSymbol = tokenInfo.symbol
-      if (!tokenSymbol.includes('ERC20')) {
+      const { symbol, address } = tokenInfo
+      if (!symbol || !address || address === '0x0000000000000000000000000000000000000000') return
+      if (!symbol.includes('ERC20')) {
         tokenInfo.usdPrice = 0
-        getERC20Info(ETHERS_PROVIDERS[chainId], tokenInfo.address, ERC20_ABI)
-          .then((res: string) => {
-            tokenInfo.name = res
-          })
-          .catch((tokenInfo.name = tokenInfo.address))
+        try {
+          const contract = new ethers.Contract(
+            address,
+            ERC20_ABI,
+            ETHERS_PROVIDERS[chainId]
+          )
+          tokenInfo.name = await contract.name()
+        } catch (e: any) {
+          console.warn(e.message)
+          tokenInfo.name = tokenInfo.address
+        }
         redis.HSET(
           `tokeninfo:${chainId}`,
-          tokenSymbol,
+          symbol,
           JSON.stringify(tokenInfo)
         )
       }
@@ -1338,27 +1345,30 @@ async function start() {
   ).abi
 
   // connect infura providers
-  VALID_EVM_CHAINS.forEach((chainId: number) => {
+  VALID_CHAINS.forEach((chainId: number) => {
     if (ETHERS_PROVIDERS[chainId]) return
     ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
       getNetwork(chainId),
       process.env.INFURA_PROJECT_ID
     )
-    const address = EVMConfig[chainId].exchangeAddress
-    if (!address) return
-
-    const wallet = new ethers.Wallet(
-      process.env.ARBITRUM_OPERATOR_KEY as string,
-      ETHERS_PROVIDERS[chainId]
-    ).connect(ETHERS_PROVIDERS[chainId])
-
-    EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
-      address,
-      EVMContractABI,
-      wallet
-    )
-
-    EXCHANGE_CONTRACTS[chainId].connect(wallet)
+    
+    if (VALID_EVM_CHAINS.includes(chainId)) {
+      const address = EVMConfig[chainId].exchangeAddress
+      if (!address) return
+  
+      const wallet = new ethers.Wallet(
+        process.env.ARBITRUM_OPERATOR_KEY as string,
+        ETHERS_PROVIDERS[chainId]
+      ).connect(ETHERS_PROVIDERS[chainId])
+  
+      EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
+        address,
+        EVMContractABI,
+        wallet
+      )
+  
+      EXCHANGE_CONTRACTS[chainId].connect(wallet)
+    }
   })
 
   ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
@@ -1367,16 +1377,19 @@ async function start() {
   SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
 
   // reste some values on start-up
-  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => {
+  const resetResult = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
     const keysBussy = await redis.keys(`bussymarketmaker:${chainId}:*`)
     keysBussy.forEach(async (key: string) => {
       redis.del(key)
     })
   })
+  await Promise.all(resetResult)
 
   /* startup */
   await updateEVMMarketInfo()
-  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
+  const updateReult = VALID_CHAINS_ZKSYNC.map(async (chainId) => updateTokenInfoZkSync(chainId))
+  await Promise.all(updateReult)
+
 
   // Seed Arbitrum Markets
   await seedArbitrumMarkets()
