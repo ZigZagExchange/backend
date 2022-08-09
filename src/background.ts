@@ -997,7 +997,7 @@ async function sendMatchedOrders() {
           cancelOrderIds.push(match.takerId)
         }
         orderUpdateBroadcastMinted = await db.query(
-          `UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
+          `UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
           [ cancelOrderIds ]
         )
       }
@@ -1077,13 +1077,13 @@ async function updateEVMMarketInfo() {
       let updated = false
       if (testPairString) {
         const marketInfo = JSON.parse(testPairString)
-        if (marketInfo.exchangeAddress !== evmConfig.exchangeAddress)
-          updated = true
-        if (marketInfo.feeAddress !== evmConfig.feeAddress) updated = true
-        if (marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee)
-          updated = true
-        if (marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee)
-          updated = true
+        if (
+          marketInfo.exchangeAddress !== evmConfig.exchangeAddress ||
+          marketInfo.feeAddress !== evmConfig.feeAddress ||
+          marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
+          marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
+          marketInfo.contractVersion !== evmConfig.domain.version
+        ) updated = true
       }
       if (!updated) return
 
@@ -1098,6 +1098,7 @@ async function updateEVMMarketInfo() {
         marketInfo.feeAddress = evmConfig.feeAddress
         marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
         marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
+        marketInfo.contractVersion = evmConfig.domain.version
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
       await Promise.all(results1)
@@ -1359,10 +1360,9 @@ async function start() {
   })
 
   ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
-  ZKSYNC_BASE_URL.rinkeby = 'https://rinkeby-api.zksync.io/api/v0.2/'
+  ZKSYNC_BASE_URL.goerli = 'https://goerli-api.zksync.io/api/v0.2/'
   SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-  // TODO: Replace this with Goerli
-  //SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider('rinkeby')
+  SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
 
   // reste some values on start-up
   VALID_CHAINS_ZKSYNC.forEach(async (chainId) => {
