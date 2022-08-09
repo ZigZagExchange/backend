@@ -1201,10 +1201,10 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
-      const makerFee = Number(
+      const buyFee = Number(
         ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.baseAsset.decimals)
       )
-      const takerFee = Number(
+      const sellFee = Number(
         ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.baseAsset.decimals)
       )
       feeToken = marketInfo.baseAsset.symbol
@@ -1212,11 +1212,11 @@ export default class API extends EventEmitter {
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
         )
-      if ((makerFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+      if ((buyFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
         throw new Error(
           `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
         )
-      if ((takerFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+      if ((sellFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
         throw new Error(
           `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
         )
@@ -1227,10 +1227,10 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(zktx.sellAmount, marketInfo.quoteAsset.decimals)
       )
-      const makerFee = Number(
+      const buyFee = Number(
         ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.quoteAsset.decimals)
       )
-      const takerFee = Number(
+      const sellFee = Number(
         ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.quoteAsset.decimals)
       )
       feeToken = marketInfo.quoteAsset.symbol
@@ -1238,11 +1238,11 @@ export default class API extends EventEmitter {
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAsset.symbol}`
         )
-      if ((makerFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+      if ((buyFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
         throw new Error(
           `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
         )
-      if ((takerFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+      if ((sellFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
         throw new Error(
           `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
         )
