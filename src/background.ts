@@ -1080,9 +1080,10 @@ async function updateEVMMarketInfo() {
         if (
           marketInfo.exchangeAddress !== evmConfig.exchangeAddress ||
           marketInfo.feeAddress !== evmConfig.feeAddress ||
+          marketInfo.relayerAddress !== evmConfig.relayerAddress ||
           marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
           marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
-          marketInfo.contractVersion !== evmConfig.domain.version
+          marketInfo.contractVersion !== evmConfig.domain.version          
         ) updated = true
       }
       if (!updated) return
@@ -1096,6 +1097,7 @@ async function updateEVMMarketInfo() {
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.exchangeAddress = evmConfig.exchangeAddress
         marketInfo.feeAddress = evmConfig.feeAddress
+        marketInfo.relayerAddress = evmConfig.relayerAddress
         marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
         marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
         marketInfo.contractVersion = evmConfig.domain.version
