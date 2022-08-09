@@ -4,7 +4,6 @@ import fetch from 'isomorphic-fetch'
 import { ethers } from 'ethers'
 import * as zksync from 'zksync'
 import fs from 'fs'
-import path from 'path'
 import { redis, publisher } from './redisClient'
 import db from './db'
 import { formatPrice, getNetwork, getERC20Info } from './utils'
@@ -19,9 +18,9 @@ const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
 const VALID_CHAINS: number[] = process.env.VALID_CHAINS
   ? JSON.parse(process.env.VALID_CHAINS)
-  : [1, 1000, 1001, 42161]
+  : [1, 1002, 1001, 42161]
 const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter((chainId) =>
-  [1, 1000].includes(chainId)
+  [1, 1002].includes(chainId)
 )
 const VALID_EVM_CHAINS: number[] = VALID_CHAINS.filter((chainId) =>
   [42161].includes(chainId)

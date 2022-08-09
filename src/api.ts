@@ -43,9 +43,9 @@ export default class API extends EventEmitter {
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS
     ? JSON.parse(process.env.VALID_CHAINS)
-    : [1, 1000, 1001, 42161]
+    : [1, 1002, 1001, 42161]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter((chainId) =>
-    [1, 1000].includes(chainId)
+    [1, 1002].includes(chainId)
   )
   VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter((chainId) =>
     [42161].includes(chainId)
@@ -565,7 +565,7 @@ export default class API extends EventEmitter {
 
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
-    if (chainId !== 1 && chainId !== 1000) throw new Error('Only for zkSync')
+    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId)) throw new Error('Only for zkSync')
     if (zktx.validUntil * 1000 < Date.now())
       throw new Error(
         'Wrong expiry: sync your PC clock to the correct time to fix this error'
@@ -1972,7 +1972,7 @@ export default class API extends EventEmitter {
 
   /**
    * Returns the liquidity for a given market.
-   * @param {number} chainId The reqested chain (1->zkSync, 1000->zkSync_goerli)
+   * @param {number} chainId The reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market The reqested market
    * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
    * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
@@ -2217,7 +2217,7 @@ export default class API extends EventEmitter {
 
   /**
    * Returns fills for a given market.
-   * @param {number} chainId reqested chain (1->zkSync, 1000->zkSync_goerli)
+   * @param {number} chainId reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market reqested market
    * @param {number} limit number of trades returnd (MAX 25)
    * @param {number} orderId orderId to start at
@@ -2434,7 +2434,7 @@ export default class API extends EventEmitter {
   ) => {
     if (baseQuantity && quoteQuantity)
       throw new Error('Only one of baseQuantity or quoteQuantity should be set')
-    if (![1, 1000].includes(chainId))
+    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId))
       throw new Error('Quotes not supported for this chain')
     if (!['b', 's'].includes(side)) throw new Error('Invalid side')
 

@@ -5,7 +5,7 @@ export const requestquote: ZZServiceHandler = async (
   ws,
   [chainId, market, side, baseQuantity = null, quoteQuantity = null]
 ): Promise<any> => {
-  if (!api.VALID_CHAINS.includes(chainId)) {
+  if (!api.VALID_CHAINS_ZKSYNC.includes(chainId)) {
     const errorMsg = { op: 'error', args: ['requestquote', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
     if (ws) ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
