@@ -37,6 +37,7 @@ export function getNetwork (chainId: number) {
     case 1: return "mainnet"
     case 1002: case 1001: return "goerli"
     case 42161: return "arbitrum"
+    case 421611: return "arbitrum-rinkeby"
     default: throw new Error('No valid chainId')
   }
 }

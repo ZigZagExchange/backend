@@ -18,12 +18,12 @@ const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
 const VALID_CHAINS: number[] = process.env.VALID_CHAINS
   ? JSON.parse(process.env.VALID_CHAINS)
-  : [1, 1002, 1001, 42161]
+  : [1, 1002, 1001, 42161, 421611]
 const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter((chainId) =>
   [1, 1002].includes(chainId)
 )
 const VALID_EVM_CHAINS: number[] = VALID_CHAINS.filter((chainId) =>
-  [42161].includes(chainId)
+  [42161, 421611].includes(chainId)
 )
 const ZKSYNC_BASE_URL: AnyObject = {}
 const SYNC_PROVIDER: AnyObject = {}
@@ -917,7 +917,7 @@ async function sendMatchedOrders() {
         // update user
         // on arbitrum if the node returns a tx hash, it means it was accepted
         // on other EVM chains, the result of the transaction needs to be awaited
-        if (chainId === 42161) {
+        if ([42161, 421611].includes(chainId)) {
           txStatus = 's'
         } else {
           txStatus = 'b'
@@ -948,7 +948,7 @@ async function sendMatchedOrders() {
       }
 
       // This is for non-arbitrum EVM chains to confirm the tx status
-      if (chainId !== 42161) {
+      if (![42161, 421611].includes(chainId)) {
         const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
           transaction.hash
         )

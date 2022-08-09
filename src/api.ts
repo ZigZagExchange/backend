@@ -43,12 +43,12 @@ export default class API extends EventEmitter {
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS
     ? JSON.parse(process.env.VALID_CHAINS)
-    : [1, 1002, 1001, 42161]
+    : [1, 1002, 1001, 42161, 421611]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter((chainId) =>
     [1, 1002].includes(chainId)
   )
   VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter((chainId) =>
-    [42161].includes(chainId)
+    [42161, 421611].includes(chainId)
   )
   EVMConfig: any
   ERC20_ABI: any
