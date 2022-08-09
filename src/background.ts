@@ -1083,7 +1083,7 @@ async function updateEVMMarketInfo() {
           marketInfo.relayerAddress !== evmConfig.relayerAddress ||
           marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
           marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
-          marketInfo.contractVersion !== evmConfig.domain.version          
+          Number(marketInfo.contractVersion) !== Number(evmConfig.domain.version)          
         ) updated = true
       }
       if (!updated) return
@@ -1100,7 +1100,7 @@ async function updateEVMMarketInfo() {
         marketInfo.relayerAddress = evmConfig.relayerAddress
         marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
         marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
-        marketInfo.contractVersion = evmConfig.domain.version
+        marketInfo.contractVersion = Number(evmConfig.domain.version)
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
       await Promise.all(results1)
