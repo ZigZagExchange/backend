@@ -1077,13 +1077,13 @@ async function updateEVMMarketInfo() {
       let updated = false
       if (testPairString) {
         const marketInfo = JSON.parse(testPairString)
-        if (marketInfo.exchangeAddress !== evmConfig.exchangeAddress)
-          updated = true
-        if (marketInfo.feeAddress !== evmConfig.feeAddress) updated = true
-        if (marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee)
-          updated = true
-        if (marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee)
-          updated = true
+        if (
+          marketInfo.exchangeAddress !== evmConfig.exchangeAddress ||
+          marketInfo.feeAddress !== evmConfig.feeAddress ||
+          marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
+          marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
+          marketInfo.contractVersion !== evmConfig.domain.version
+        ) updated = true
       }
       if (!updated) return
 
@@ -1098,6 +1098,7 @@ async function updateEVMMarketInfo() {
         marketInfo.feeAddress = evmConfig.feeAddress
         marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
         marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
+        marketInfo.contractVersion = evmConfig.domain.version
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
       await Promise.all(results1)
