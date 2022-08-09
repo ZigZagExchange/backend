@@ -8,7 +8,7 @@ export const submitorder2: ZZServiceHandler = async (
   let msg = { op: 'error', args: ['submitorder3'] }
   try {
     switch (chainId) {
-      case 1: case 1000:
+      case 1: case 1002:
         msg = await api.processorderzksync(chainId, market, zktx)
         break
       case 1001:

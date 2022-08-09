@@ -35,8 +35,7 @@ export function stringToFelt (text: string) {
 export function getNetwork (chainId: number) {
   switch(chainId) {
     case 1: return "mainnet"
-    case 1000: return "rinkeby"
-    case 1001: return "goerli"
+    case 1002: case 1001: return "goerli"
     case 42161: return "arbitrum"
     default: throw new Error('No valid chainId')
   }
@@ -44,12 +43,13 @@ export function getNetwork (chainId: number) {
 
 export const evmEIP712Types = {
   "Order": [
-    { "name": 'makerAddress', "type": 'address' },
-    { "name": 'makerToken', "type": 'address' },
-    { "name": 'takerToken', "type": 'address' },
+    { "name": 'user', "type": 'address' },
+    { "name": 'sellToken', "type": 'address' },
+    { "name": 'buyToken', "type": 'address' },
     { "name": 'feeRecipientAddress', "type": 'address' },
-    { "name": 'makerAssetAmount', "type": 'uint256' },
-    { "name": 'takerAssetAmount', "type": 'uint256' },
+    { "name": 'relayerAddress', "type": 'address' },
+    { "name": 'sellAmount', "type": 'uint256' },
+    { "name": 'buyAmount', "type": 'uint256' },
     { "name": 'makerVolumeFee', "type": 'uint256' },
     { "name": 'takerVolumeFee', "type": 'uint256' },
     { "name": 'gasFee', "type": 'uint256' },

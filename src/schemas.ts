@@ -45,33 +45,38 @@ export const StarkNetSchema = Joi.object({
 })
 
 export const EVMOrderSchema = Joi.object({
-  makerAddress: Joi.string().required().messages({
-    'string.base': `"makerAddress" should be a type of 'string'`,
-    'string.hex': `"feeRecipientAddress" should be a hex string`,
-    'any.required': `"makerAddress" is a required field`
+  user: Joi.string().required().messages({
+    'string.base': `"user" should be a type of 'string'`,
+    'string.hex': `"user" should be a hex string`,
+    'any.required': `"user" is a required field`
   }),
-  makerToken: Joi.string().required().messages({
-    'string.base': `"makerToken" should be a type of 'string'`,
-    'string.hex': `"feeRecipientAddress" should be a hex string`,
-    'any.required': `"makerToken" is a required field`
+  sellToken: Joi.string().required().messages({
+    'string.base': `"sellToken" should be a type of 'string'`,
+    'string.hex': `"sellToken" should be a hex string`,
+    'any.required': `"sellToken" is a required field`
   }),
-  takerToken: Joi.string().required().messages({
-    'string.base': `"takerToken" should be a type of 'string'`,
-    'string.hex': `"feeRecipientAddress" should be a hex string`,
-    'any.required': `"takerToken" is a required field`
+  buyToken: Joi.string().required().messages({
+    'string.base': `"buyToken" should be a type of 'string'`,
+    'string.hex': `"buyToken" should be a hex string`,
+    'any.required': `"buyToken" is a required field`
   }),
   feeRecipientAddress: Joi.string().required().messages({
     'string.base': `"feeRecipientAddress" should be a type of 'string'`,
     'string.hex': `"feeRecipientAddress" should be a hex string`,
     'any.required': `"feeRecipientAddress" is a required field`
   }),
-  makerAssetAmount: Joi.string().required().messages({
-    'string.base': `"makerAssetAmount" should be a type of 'string'`,
-    'any.required': `"makerAssetAmount" is a required field`
+  relayerAddress: Joi.string().required().messages({
+    'string.base': `"relayerAddress" should be a type of 'string'`,
+    'string.hex': `"relayerAddress" should be a hex string`,
+    'any.required': `"relayerAddress" is a required field`
   }),
-  takerAssetAmount: Joi.string().required().messages({
-    'string.base': `"takerAssetAmount" should be a type of 'string'`,
-    'any.required': `"takerAssetAmount" is a required field`
+  sellAmount: Joi.string().required().messages({
+    'string.base': `"sellAmount" should be a type of 'string'`,
+    'any.required': `"sellAmount" is a required field`
+  }),
+  buyAmount: Joi.string().required().messages({
+    'string.base': `"buyAmount" should be a type of 'string'`,
+    'any.required': `"buyAmount" is a required field`
   }),
   makerVolumeFee: Joi.string().required().messages({
     'string.base': `"makerVolumeFee" should be a type of 'string'`,

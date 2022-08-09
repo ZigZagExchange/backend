@@ -43,9 +43,9 @@ export default class API extends EventEmitter {
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS
     ? JSON.parse(process.env.VALID_CHAINS)
-    : [1, 1000, 1001, 42161]
+    : [1, 1002, 1001, 42161]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter((chainId) =>
-    [1, 1000].includes(chainId)
+    [1, 1002].includes(chainId)
   )
   VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter((chainId) =>
     [42161].includes(chainId)
@@ -132,8 +132,7 @@ export default class API extends EventEmitter {
       process.env.STARKNET_CONTRACT_ADDRESS
     )
     this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-    // TODO: Figure out what this URL should be . it's crashing
-    //this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+    this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE(
@@ -566,7 +565,7 @@ export default class API extends EventEmitter {
 
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
-    if (chainId !== 1 && chainId !== 1000) throw new Error('Only for zkSync')
+    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId)) throw new Error('Only for zkSync')
     if (zktx.validUntil * 1000 < Date.now())
       throw new Error(
         'Wrong expiry: sync your PC clock to the correct time to fix this error'
@@ -1154,8 +1153,8 @@ export default class API extends EventEmitter {
     if (inputValidation.error) throw inputValidation.error
 
     // amount validations
-    if (Number(zktx.makerAssetAmount) <= 0) throw new Error("makerAssetAmount must be positive");
-    if (Number(zktx.takerAssetAmount) <= 0) throw new Error("takerAssetAmount must be positive");
+    if (Number(zktx.sellAmount) <= 0) throw new Error("sellAmount must be positive")
+    if (Number(zktx.buyAmount) <= 0) throw new Error("buyAmount must be positive")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProvider = this.ETHERS_PROVIDERS[chainId]
@@ -1166,27 +1165,27 @@ export default class API extends EventEmitter {
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
 
     /* validate order */
-    if (!ethers.utils.isAddress(zktx.makerAddress))
+    if (!ethers.utils.isAddress(zktx.user))
       throw new Error('Bad userAddress')
 
-    if (!assets.includes(zktx.makerToken))
+    if (!assets.includes(zktx.sellToken))
       throw new Error(
-        `Bad makerToken, market ${assets} does not include ${zktx.makerToken}`
+        `Bad sellToken, market ${assets} does not include ${zktx.sellToken}`
       )
 
-    if (!assets.includes(zktx.takerToken))
+    if (!assets.includes(zktx.buyToken))
       throw new Error(
-        `Bad takerToken, market ${assets} does not include ${zktx.takerToken}`
+        `Bad buyToken, market ${assets} does not include ${zktx.buyToken}`
       )
 
-    if (zktx.makerToken === zktx.takerToken)
+    if (zktx.sellToken === zktx.buyToken)
       throw new Error(`Can't buy and sell the same token`)
 
     const expiry = Number(zktx.expirationTimeSeconds) * 1000
     if (expiry < Date.now() + 10000)
       throw new Error('Expiry time too low. Use at least NOW + 10sec')
 
-    const side = marketInfo.baseAsset.address === zktx.makerToken ? 's' : 'b'
+    const side = marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
     const gasFee =
       side === 's'
         ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
@@ -1197,15 +1196,15 @@ export default class API extends EventEmitter {
     let feeToken: string
     if (side === 's') {
       baseAmount = Number(
-        ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.baseAsset.decimals)
+        ethers.utils.formatUnits(zktx.sellAmount, marketInfo.baseAsset.decimals)
       )
       quoteAmount = Number(
-        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.quoteAsset.decimals)
+        ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
-      const makerFee = Number(
+      const buyFee = Number(
         ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.baseAsset.decimals)
       )
-      const takerFee = Number(
+      const sellFee = Number(
         ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.baseAsset.decimals)
       )
       feeToken = marketInfo.baseAsset.symbol
@@ -1213,25 +1212,25 @@ export default class API extends EventEmitter {
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
         )
-      if ((makerFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+      if ((buyFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
         throw new Error(
           `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
         )
-      if ((takerFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+      if ((sellFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
         throw new Error(
           `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
         )
     } else {
       baseAmount = Number(
-        ethers.utils.formatUnits(zktx.takerAssetAmount, marketInfo.baseAsset.decimals)
+        ethers.utils.formatUnits(zktx.buyAmount, marketInfo.baseAsset.decimals)
       )
       quoteAmount = Number(
-        ethers.utils.formatUnits(zktx.makerAssetAmount, marketInfo.quoteAsset.decimals)
+        ethers.utils.formatUnits(zktx.sellAmount, marketInfo.quoteAsset.decimals)
       )
-      const makerFee = Number(
+      const buyFee = Number(
         ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.quoteAsset.decimals)
       )
-      const takerFee = Number(
+      const sellFee = Number(
         ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.quoteAsset.decimals)
       )
       feeToken = marketInfo.quoteAsset.symbol
@@ -1239,11 +1238,11 @@ export default class API extends EventEmitter {
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAsset.symbol}`
         )
-      if ((makerFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+      if ((buyFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
         throw new Error(
           `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
         )
-      if ((takerFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+      if ((sellFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
         throw new Error(
           `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
         )
@@ -1253,6 +1252,11 @@ export default class API extends EventEmitter {
     if (zktx.feeRecipientAddress !== networkProviderConfig.feeAddress)
       throw new Error(
         `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
+      )
+    
+    if (zktx.relayerAddress !== networkProviderConfig.relayerAddress)
+      throw new Error(
+        `Bad relayerAddress, use '${networkProviderConfig.relayerAddress}'`
       )
 
     /* validateSignature */
@@ -1265,7 +1269,7 @@ export default class API extends EventEmitter {
       zktx,
       signature
     )
-    if (signerAddress !== zktx.makerAddress)
+    if (signerAddress !== zktx.user)
       throw new Error('Order signature incorrect')
 
     // Re-insert signature after validation
@@ -1277,7 +1281,7 @@ export default class API extends EventEmitter {
     const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)'
     const values = [
       chainId,
-      zktx.makerAddress,
+      zktx.user,
       market,
       side,
       price,
@@ -1436,7 +1440,7 @@ export default class API extends EventEmitter {
       const url =
         chainId === 1
           ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
-          : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+          : `https://goerli-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = (await fetch(url).then((r: any) => r.json())) as AnyObject
       signerAddress = res.result.accountId.toString()
     }
@@ -1596,7 +1600,7 @@ export default class API extends EventEmitter {
       const url =
         chainId === 1
           ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
-          : `https://rinkeby-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
+          : `https://goerli-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = (await fetch(url).then((r: any) => r.json())) as AnyObject
       signerAddress = res.result.accountId.toString()
     }
@@ -1968,7 +1972,7 @@ export default class API extends EventEmitter {
 
   /**
    * Returns the liquidity for a given market.
-   * @param {number} chainId The reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+   * @param {number} chainId The reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market The reqested market
    * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
    * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
@@ -2213,7 +2217,7 @@ export default class API extends EventEmitter {
 
   /**
    * Returns fills for a given market.
-   * @param {number} chainId reqested chain (1->zkSync, 1000->zkSync_rinkeby)
+   * @param {number} chainId reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market reqested market
    * @param {number} limit number of trades returnd (MAX 25)
    * @param {number} orderId orderId to start at
@@ -2430,7 +2434,7 @@ export default class API extends EventEmitter {
   ) => {
     if (baseQuantity && quoteQuantity)
       throw new Error('Only one of baseQuantity or quoteQuantity should be set')
-    if (![1, 1000].includes(chainId))
+    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId))
       throw new Error('Quotes not supported for this chain')
     if (!['b', 's'].includes(side)) throw new Error('Invalid side')
 
