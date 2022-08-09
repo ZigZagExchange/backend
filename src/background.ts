@@ -874,12 +874,13 @@ async function sendMatchedOrders() {
       try {
         transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(          
           [
-            makerOrder.makerAddress,
-            makerOrder.makerToken,
-            makerOrder.takerToken,
+            makerOrder.user,
+            makerOrder.sellToken,
+            makerOrder.buyToken,
             makerOrder.feeRecipientAddress,
-            makerOrder.makerAssetAmount,
-            makerOrder.takerAssetAmount,
+            makerOrder.relayerAddress,
+            makerOrder.sellAmount,
+            makerOrder.buyAmount,
             makerOrder.makerVolumeFee,
             makerOrder.takerVolumeFee,
             makerOrder.gasFee,
@@ -887,12 +888,13 @@ async function sendMatchedOrders() {
             makerOrder.salt
           ],
           [
-            takerOrder.makerAddress,
-            takerOrder.makerToken,
-            takerOrder.takerToken,
+            takerOrder.user,
+            takerOrder.sellToken,
+            takerOrder.buyToken,
             takerOrder.feeRecipientAddress,
-            takerOrder.makerAssetAmount,
-            takerOrder.takerAssetAmount,
+            takerOrder.relayerAddress,
+            takerOrder.sellAmount,
+            takerOrder.buyAmount,
             takerOrder.makerVolumeFee,
             takerOrder.takerVolumeFee,
             takerOrder.gasFee,
