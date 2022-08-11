@@ -1329,6 +1329,10 @@ async function cacheRecentTrades() {
 }
 
 async function start() {
+  console.log('background.ts: Run checks')
+  if (!process.env.INFURA_PROJECT_ID)
+    throw new Error('NO INFURA KEY SET')
+
   console.log('background.ts: Run startup')
 
   await redis.connect()
@@ -1346,6 +1350,10 @@ async function start() {
   ).abi
 
   // connect infura providers
+  const operatorKeysString = process.env.OPERATOR_KEY as any
+  if (!operatorKeysString && VALID_EVM_CHAINS.length) 
+    throw new Error("MISSING ENV VAR 'OPERATOR_KEY'")
+  const operatorKeys = JSON.parse(operatorKeysString)
   VALID_CHAINS.forEach((chainId: number) => {
     if (ETHERS_PROVIDERS[chainId]) return
     ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
@@ -1353,12 +1361,16 @@ async function start() {
       process.env.INFURA_PROJECT_ID
     )
     
-    if (VALID_EVM_CHAINS.includes(chainId)) {
+    if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
       const address = EVMConfig[chainId].exchangeAddress
-      if (!address) return
-  
+      const key = operatorKeys[chainId]
+      if (!address || !key) {
+        throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
+        return
+      }
+
       const wallet = new ethers.Wallet(
-        process.env.ARBITRUM_OPERATOR_KEY as string,
+        key,
         ETHERS_PROVIDERS[chainId]
       ).connect(ETHERS_PROVIDERS[chainId])
   
