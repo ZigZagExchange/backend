@@ -22,6 +22,10 @@ export default {
       arbitrumRinkeby: {
         url: "https://rinkeby.arbitrum.io/rpc",
         accounts: []
+      },
+      arbitrumGoerli: {
+        url: "https://goerli-rollup.arbitrum.io/rpc",
+        accounts: []
       }
   }
 }
