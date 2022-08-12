@@ -1387,7 +1387,7 @@ async function start() {
   if (!operatorKeysString && VALID_EVM_CHAINS.length) 
     throw new Error("MISSING ENV VAR 'OPERATOR_KEY'")
   const operatorKeys = JSON.parse(operatorKeysString)
-  const results: Promise<any>[] = VALID_CHAINS.forEach(async (chainId: number) => {
+  const results: Promise<any>[] = VALID_CHAINS.map(async (chainId: number) => {
     if (ETHERS_PROVIDERS[chainId]) return    
     try {
       ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
