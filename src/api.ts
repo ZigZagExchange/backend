@@ -136,9 +136,9 @@ export default class API extends EventEmitter {
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
         const indexA = this.VALID_CHAINS.findIndex(id => id === 1)
-        this.VALID_CHAINS.slice(indexA, 1)
+        this.VALID_CHAINS.splice(indexA, 1)
         const indexB = this.VALID_EVM_CHAINS.findIndex(id => id === 1)
-        this.VALID_EVM_CHAINS.slice(indexB, 1)
+        this.VALID_EVM_CHAINS.splice(indexB, 1)
       }
     })
 
@@ -149,24 +149,24 @@ export default class API extends EventEmitter {
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
     )
-    
+
     try {
       this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
     } catch (e: any) {
       console.log('Failed to setup 1. Disabling...')
       const indexA = this.VALID_CHAINS.findIndex(id => id === 1)
-      this.VALID_CHAINS.slice(indexA, 1)
+      this.VALID_CHAINS.splice(indexA, 1)
       const indexB = this.VALID_CHAINS_ZKSYNC.findIndex(id => id === 1)
-      this.VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+      this.VALID_CHAINS_ZKSYNC.splice(indexB, 1)
     }
     try {
       this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
     } catch (e: any) {
       console.log('Failed to setup 1003. Disabling...')
       const indexA = this.VALID_CHAINS.findIndex(id => id === 1003)
-      this.VALID_CHAINS.slice(indexA, 1)
+      this.VALID_CHAINS.splice(indexA, 1)
       const indexB = this.VALID_CHAINS_ZKSYNC.findIndex(id => id === 1003)
-      this.VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+      this.VALID_CHAINS_ZKSYNC.splice(indexB, 1)
     }
 
     // setup redisSubscriber

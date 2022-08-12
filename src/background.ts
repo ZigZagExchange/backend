@@ -1426,9 +1426,9 @@ async function start() {
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
         const indexA = VALID_CHAINS.findIndex(id => id === 1)
-        VALID_CHAINS.slice(indexA, 1)
+        VALID_CHAINS.splice(indexA, 1)
         const indexB = VALID_EVM_CHAINS.findIndex(id => id === 1)
-        VALID_EVM_CHAINS.slice(indexB, 1)
+        VALID_EVM_CHAINS.splice(indexB, 1)
       }
     }
     if (chainId === 1) {
@@ -1437,9 +1437,9 @@ async function start() {
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
         const indexA = VALID_CHAINS.findIndex(id => id === 1)
-        VALID_CHAINS.slice(indexA, 1)
+        VALID_CHAINS.splice(indexA, 1)
         const indexB = VALID_CHAINS_ZKSYNC.findIndex(id => id === 1)
-        VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+        VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
     if (chainId === 1003) {
@@ -1448,9 +1448,9 @@ async function start() {
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
         const indexA = VALID_CHAINS.findIndex(id => id === 1003)
-        VALID_CHAINS.slice(indexA, 1)
+        VALID_CHAINS.splice(indexA, 1)
         const indexB = VALID_CHAINS_ZKSYNC.findIndex(id => id === 1003)
-        VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+        VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
   })
