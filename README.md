@@ -21,9 +21,9 @@ IDs < 1000 are mainnet contracts. IDs >= 1000 are testnet contracts.
 | Name              | ID     |
 | ----------------- | ----   |
 | zkSync Mainnet    | 1      |
-| zkSync Rinkeby    | 1000   |
-| Starknet Goerli   | 1001   |
+| zkSync Goerli     | 1002   |
 | Arbitrum Mainnet  | 42161  |
+| Arbitrum Goerli   | 421613 |
 
 # Websocket vs REST
 
@@ -56,7 +56,7 @@ All messages the Zigzag Websocket API have the following structure
 Messages to the HTTP POST API have a similar structure. An example curl command is found below.
 
 ```
-curl -X POST "https://zigzag-exchange.herokuapp.com/" --header "Content-Type: application/json" -d '{"op":"requestquote", "args": [1000, "ETH-USDT", "b", "0.232"]}'
+curl -X POST "https://zigzag-exchange.herokuapp.com/" --header "Content-Type: application/json" -d '{"op":"requestquote", "args": [1002, "ETH-USDT", "b", "0.232"]}'
 ```
 
 ## Limitations
@@ -94,7 +94,7 @@ Arguments: `[chainId, userId]`
 Description: Associate userId with connection. Note that userId is a **string**, not an integer, even though zkSync represents account IDs as integers. This is to maintain compatibility with other chains that might use string fields (ETH addresses, ENS account names, etc) for account IDs.
 
 ```json
-{ "op": "login", "args": [1000, "27334"] }
+{ "op": "login", "args": [1002, "27334"] }
 ```
 
 ---
@@ -119,7 +119,7 @@ Zksync
 {
   "op": "submitorder3",
   "args": [
-    1000,
+    1002,
     "ETH-DAI",
     {
       "accountId": 202976,
@@ -178,12 +178,13 @@ Arbitrum
     42161,
     "USDC-USDT",
     {
-      "makerAddress":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
-      "makerToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-      "takerToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+      "user":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
+      "sellToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+      "buyToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
       "feeRecipientAddress":"0xF4BBA1e2a5024a2754225b981e9A0DB7d2c33EE9",
-      "makerAssetAmount":"8824841",
-      "takerAssetAmount":"8804819",
+      "relayerAddress":"0xE743c1C553cb6473732DF81524839beF11C67d10",
+      "sellAmount":"8824841",
+      "buyAmount":"8804819",
       "makerVolumeFee":"0",
       "takerVolumeFee":"0",
       "gasFee":"488079",
@@ -211,7 +212,7 @@ Expiration is a UNIX timestamp in seconds. If an expiration is not set or is set
 {
   "op": "indicateliq2",
   "args": [
-    1000,
+    1002,
     "ETH-USDT",
     [
       ["b", 3100, 1.2322, 1642677967],
@@ -235,7 +236,7 @@ Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrd
 {
   "op": "fillrequest",
   "args": [
-    1000,
+    1002,
     123332,
     {
       "accountId": 202976,
@@ -281,7 +282,7 @@ Arguments: `[chainid,orderid]`
 Description: Get an order receipt. Returns an orderreceipt. That is a message with the same format as userorderack, but with one extra field at the end for the transaction hash, instead of the token.
 
 ```json
-{ "op": "orderreceiptreq", "args": [1000, 40] }
+{ "op": "orderreceiptreq", "args": [1002, 40] }
 ```
 
 ---
@@ -296,7 +297,7 @@ Description: Get an order receipt. Returns a message with the same format as use
 { 
   "op": "orderreceipt", 
   "args": [
-    1000,
+    1002,
     40,
     "ETH-USDT",
     "s",
@@ -321,7 +322,7 @@ Arguments: `[chainid,orderid]`
 Description: Get an fill receipt. Returns an fillreceipt. That is a message with the same format as fills. OrderId can be an array of up to 25 orderIds.
 
 ```json
-{ "op": "fillreceiptreq", "args": [1000, 40] }
+{ "op": "fillreceiptreq", "args": [1002, 40] }
 ```
 
 ---
@@ -344,7 +345,7 @@ Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,use
   "args": [
     [
       [
-        1000,
+        1002,
         5,
         "ETH-USDT",
         "s",
@@ -357,7 +358,7 @@ Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,use
         0.1
       ],
       [
-        1000,
+        1002,
         6,
         "ETH-USDT",
         "s",
@@ -370,7 +371,7 @@ Arguments: `[chainId,id,market,side,price,baseQuantity,quoteQuantity,expires,use
         0.05
       ],
       [
-        1000,
+        1002,
         7,
         "ETH-USDT",
         "b",
@@ -464,14 +465,14 @@ Description: A series of order status updates. orderupdate = `[chainId,orderId,s
   "args": [
     [
       [
-        1000,
+        1002,
         5,
         "m",
         "0x5c633d31817a9b95973670733aed5feb8255d67f36f74517462063659bcd7dd",
         12.5
       ],
       [
-        1000,
+        1002,
         890013,
         "f",
         "0x51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",
@@ -494,7 +495,7 @@ Description: An update about the fill status of an active order. fillstatus = `[
   "args": [
     [
       [
-        1000,
+        1002,
         9258,
         "f",
         "51c23f8bcb7aa2cc64c8da28827df6906b8bdc53818eaf398f5198a6850310f0",
@@ -520,7 +521,7 @@ Description: Indications of market maker interest. liquidity = [side,price,baseQ
 {
   "op": "liquidity2",
   "args": [
-    1000,
+    1002,
     "ETH-USDT",
     [
       ["b", 3100, 1.2322],
@@ -543,7 +544,7 @@ Description: Liquidity is usually sent out every 3-5 seconds. If you want it mor
 Available over REST.
 
 ```json
-{ "op": "refreshliquidity", "args": [1000, "ETH-USDT"] }
+{ "op": "refreshliquidity", "args": [1002, "ETH-USDT"] }
 ```
 
 ---
@@ -563,7 +564,7 @@ Description: A group of market price updates. priceUpdate = [market,price,change
       ["ETH-USDT", 2989.19, 43.1, 2343.43],
       ["BTC-USDT", 43048, 2003.2, 38383.23]
     ],
-    1000
+    1002
   ]
 }
 ```
@@ -592,7 +593,7 @@ Arguments: `[chainId,market]`
 Description: Subscribe to orderbook and price data for a market
 
 ```json
-{ "op": "subscribemarket", "args": [1000, "ETH-USDT"] }
+{ "op": "subscribemarket", "args": [1002, "ETH-USDT"] }
 ```
 
 ---
@@ -606,7 +607,7 @@ Description: Unsubscribe from a market
 To unsubscibe from all markets, you can leave the args empty: `"args": []`
 
 ```json
-{ "op": "unsubscribemarket", "args": [1000, "ETH-USDT"] }
+{ "op": "unsubscribemarket", "args": [1002, "ETH-USDT"] }
 ```
 
 ---
@@ -621,7 +622,7 @@ Description: ack message for a submitorder3 message
 {
   "op": "userorderack",
   "args": [
-    1000,
+    1002,
     5,
     "ETH-USDT",
     "s",
@@ -655,11 +656,11 @@ No example available
 
 Arguments: `[chainId, orderId, signedMessage]`
 
-Description: Cancel an order. To verify the sender is the original user that placed the order, the 'signedMessage' argument is used. The messaged needs to be formated like this: 'cancelorder2:_chainId_:_orderId_' - eg here 'cancelorder2:1000:122'. This needs to be signed by the user.
+Description: Cancel an order. To verify the sender is the original user that placed the order, the 'signedMessage' argument is used. The messaged needs to be formated like this: 'cancelorder2:_chainId_:_orderId_' - eg here 'cancelorder2:1002:122'. This needs to be signed by the user.
 
 
 ```json
-{ "op": "cancelorder2", "args": [1000, 122, "0x6bfd....5a8b4e"] }
+{ "op": "cancelorder2", "args": [1002, 122, "0x6bfd....5a8b4e"] }
 ```
 
 ```js
@@ -687,7 +688,7 @@ Description: Cancel an order. To verify the sender is the original user that pla
 
 
 ```json
-{ "op": "cancelorder3", "args": [1000, 122, "6bfd....5a8b4e"] }
+{ "op": "cancelorder3", "args": [1002, 122, "6bfd....5a8b4e"] }
 ```
 
 ---
@@ -696,10 +697,10 @@ Description: Cancel an order. To verify the sender is the original user that pla
 
 Arguments: `[chainId, userId, validUntil, signedMessage]`
 
-Description: Cancel all orders for a user. To verify the sender is the original user that placed the order, the 'signedMessage' argument is used. Use `chianId = 0` to cancel all orders on every chain. `validUntil` is in UNIX (seconds) and needs to be atlest now + 10sec. The messaged needs to be formated like this: 'cancelall2:_chainId_:_validUntil_' - eg here 'cancelall2:1000:1655990893'. This needs to be signed by the user.
+Description: Cancel all orders for a user. To verify the sender is the original user that placed the order, the 'signedMessage' argument is used. Use `chianId = 0` to cancel all orders on every chain. `validUntil` is in UNIX (seconds) and needs to be atlest now + 10sec. The messaged needs to be formated like this: 'cancelall2:_chainId_:_validUntil_' - eg here 'cancelall2:1002:1655990893'. This needs to be signed by the user.
 
 ```json
-{ "op": "cancelall2", "args": [1000, "12232", 1655990893, "0x6bfd....5a8b4e"] }
+{ "op": "cancelall2", "args": [1002, "12232", 1655990893, "0x6bfd....5a8b4e"] }
 ```
 
 ---
@@ -711,7 +712,7 @@ Arguments: `[chainId, userId, tokenArray]`
 Description: Cancel all orders for a user. To verify the sender is the original user that placed the order, the 'tokenArray' argument is used. Use `chianId = 0` to cancel all orders on every chain. The tokenArray is an array contaning the tokens for each open order. if you dont have access to all tokens, use cancelall2. The token is send togherther with the 'userorderack'.
 
 ```json
-{ "op": "cancelall3", "args": [1000, "12232", ["0x6bfd....5a8b4e", "...", "a728f982...e232"]] }
+{ "op": "cancelall3", "args": [1002, "12232", ["0x6bfd....5a8b4e", "...", "a728f982...e232"]] }
 ```
 
 ---
@@ -719,6 +720,8 @@ Description: Cancel all orders for a user. To verify the sender is the original 
 ###### Operation: **requestquote**
 
 Arguments: `[chainid, market, side, baseQuantity, quoteQuantity]`
+
+Note: Only for zkSync chains.
 
 Description: Request a quote for a purchase. Quotes are all in prices including gas fees, so they may differ from the market price substantially.
 
@@ -858,11 +861,11 @@ Description: Request daily volumes by pairs.
 Available over HTTP.
 
 ```json
-{ "op": "dailyvolumereq", "args": [1000] }
+{ "op": "dailyvolumereq", "args": [1002] }
 ```
 
 ```bash
-curl "https://zigzag-exchange.herokuapp.com/" -H 'Content-Type:application/json' -d '{"op":"dailyvolumereq", "args":[1000]}'
+curl "https://zigzag-exchange.herokuapp.com/" -H 'Content-Type:application/json' -d '{"op":"dailyvolumereq", "args":[1002]}'
 ```
 
 ---
@@ -885,7 +888,7 @@ Description: Daily volume by pair.
         14.5387724,
         63882.260941443
       ],
-      [1000, "USDC-USDT", "2022-01-16T18:30:00.000Z", 115, 119.99047],
+      [1002, "USDC-USDT", "2022-01-16T18:30:00.000Z", 115, 119.99047],
       [1, "WBTC-USDT", "2021-12-05T18:30:00.000Z", 1.927e-5, 1.93041]
     ]
   ]
@@ -1028,7 +1031,7 @@ Returns a JSON containing the last trades in decending order.
 ```
 [
   {
-    "chainId":1000,
+    "chainId":1002,
     "orderId":4162,
     "market":"ETH-USDC",
     "price":2914.15,
@@ -1043,7 +1046,7 @@ Returns a JSON containing the last trades in decending order.
     "feeToken":"ETH"
   },
   {
-    "chainId":1000,
+    "chainId":1002,
     ....
   }
 ]

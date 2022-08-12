@@ -4,10 +4,9 @@ import fetch from 'isomorphic-fetch'
 import { ethers } from 'ethers'
 import * as zksync from 'zksync'
 import fs from 'fs'
-import path from 'path'
 import { redis, publisher } from './redisClient'
 import db from './db'
-import { formatPrice, getNetwork, getERC20Info } from './utils'
+import { formatPrice, getNetwork, getRPCURL } from './utils'
 import type {
   ZZMarketInfo,
   AnyObject,
@@ -19,12 +18,12 @@ const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
 const VALID_CHAINS: number[] = process.env.VALID_CHAINS
   ? JSON.parse(process.env.VALID_CHAINS)
-  : [1, 1000, 1001, 42161]
+  : [1, 1002, 1001, 42161, 421613]
 const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter((chainId) =>
-  [1, 1000].includes(chainId)
+  [1, 1002].includes(chainId)
 )
 const VALID_EVM_CHAINS: number[] = VALID_CHAINS.filter((chainId) =>
-  [42161].includes(chainId)
+  [42161, 421613].includes(chainId)
 )
 const ZKSYNC_BASE_URL: AnyObject = {}
 const SYNC_PROVIDER: AnyObject = {}
@@ -394,7 +393,7 @@ async function updateUsdPrice() {
   console.time('Updating usd price.')
 
   // use mainnet as price source TODO we should rework the price source to work with multible networks
-  const network = await getNetwork(1)
+  const network = getNetwork(1)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const updatedTokenPrice: any = {}
     // fetch redis
@@ -637,9 +636,9 @@ async function updateFeesEVM() {
             const tokenInfo = JSON.parse(tokenInfos[tokenSymbol])
             if (!tokenInfo?.usdPrice) return
             const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
-            redis.HSET(`tokenfee:${chainId}`, tokenInfo.address, formatPrice(fee))
-            redis.HSET(`tokenfee:${chainId}`, tokenInfo.symbol, formatPrice(fee))
-            newFees[tokenSymbol] = formatPrice(fee)
+            redis.HSET(`tokenfee:${chainId}`, tokenInfo.address, fee.toFixed(tokenInfo.decimals))
+            redis.HSET(`tokenfee:${chainId}`, tokenInfo.symbol, fee.toFixed(tokenInfo.decimals))
+            newFees[tokenSymbol] = fee.toFixed(tokenInfo.decimals)
           }
         )
         await Promise.all(results1)
@@ -795,17 +794,24 @@ async function updateTokenInfoZkSync(chainId: number) {
     ).then((r: any) => r.json())
     tokenInfos = fetchResult.result.list
     const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
-      const tokenSymbol = tokenInfo.symbol
-      if (!tokenSymbol.includes('ERC20')) {
+      const { symbol, address } = tokenInfo
+      if (!symbol || !address || address === '0x0000000000000000000000000000000000000000') return
+      if (!symbol.includes('ERC20')) {
         tokenInfo.usdPrice = 0
-        getERC20Info(ETHERS_PROVIDERS[chainId], tokenInfo.address, ERC20_ABI)
-          .then((res: string) => {
-            tokenInfo.name = res
-          })
-          .catch((tokenInfo.name = tokenInfo.address))
+        try {
+          const contract = new ethers.Contract(
+            address,
+            ERC20_ABI,
+            ETHERS_PROVIDERS[chainId]
+          )
+          tokenInfo.name = await contract.name()
+        } catch (e: any) {
+          console.warn(e.message)
+          tokenInfo.name = tokenInfo.address
+        }
         redis.HSET(
           `tokeninfo:${chainId}`,
-          tokenSymbol,
+          symbol,
           JSON.stringify(tokenInfo)
         )
       }
@@ -867,12 +873,13 @@ async function sendMatchedOrders() {
       try {
         transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(          
           [
-            makerOrder.makerAddress,
-            makerOrder.makerToken,
-            makerOrder.takerToken,
+            makerOrder.user,
+            makerOrder.sellToken,
+            makerOrder.buyToken,
             makerOrder.feeRecipientAddress,
-            makerOrder.makerAssetAmount,
-            makerOrder.takerAssetAmount,
+            makerOrder.relayerAddress,
+            makerOrder.sellAmount,
+            makerOrder.buyAmount,
             makerOrder.makerVolumeFee,
             makerOrder.takerVolumeFee,
             makerOrder.gasFee,
@@ -880,12 +887,13 @@ async function sendMatchedOrders() {
             makerOrder.salt
           ],
           [
-            takerOrder.makerAddress,
-            takerOrder.makerToken,
-            takerOrder.takerToken,
+            takerOrder.user,
+            takerOrder.sellToken,
+            takerOrder.buyToken,
             takerOrder.feeRecipientAddress,
-            takerOrder.makerAssetAmount,
-            takerOrder.takerAssetAmount,
+            takerOrder.relayerAddress,
+            takerOrder.sellAmount,
+            takerOrder.buyAmount,
             takerOrder.makerVolumeFee,
             takerOrder.takerVolumeFee,
             takerOrder.gasFee,
@@ -909,7 +917,7 @@ async function sendMatchedOrders() {
         // update user
         // on arbitrum if the node returns a tx hash, it means it was accepted
         // on other EVM chains, the result of the transaction needs to be awaited
-        if (chainId === 42161) {
+        if ([42161, 421613].includes(chainId)) {
           txStatus = 's'
         } else {
           txStatus = 'b'
@@ -940,7 +948,7 @@ async function sendMatchedOrders() {
       }
 
       // This is for non-arbitrum EVM chains to confirm the tx status
-      if (chainId !== 42161) {
+      if (![42161, 421613].includes(chainId)) {
         const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
           transaction.hash
         )
@@ -997,7 +1005,7 @@ async function sendMatchedOrders() {
           cancelOrderIds.push(match.takerId)
         }
         orderUpdateBroadcastMinted = await db.query(
-          `UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
+          `UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
           [ cancelOrderIds ]
         )
       }
@@ -1025,9 +1033,13 @@ async function sendMatchedOrders() {
 
       // wait for tx to be processed before sending the result
       if (transaction.hash) {
-        await ETHERS_PROVIDERS[chainId].waitForTransaction(
-          transaction.hash
-        )
+        try {
+          await ETHERS_PROVIDERS[chainId].waitForTransaction(
+            transaction.hash
+          )
+        } catch (e: any) {
+          console.error(`Failed to wait for tx ${transaction.hash} because ${e.message}`)
+        }
       }
       
       if (orderUpdatesBroadcastMinted.length) {
@@ -1073,13 +1085,14 @@ async function updateEVMMarketInfo() {
       let updated = false
       if (testPairString) {
         const marketInfo = JSON.parse(testPairString)
-        if (marketInfo.exchangeAddress !== evmConfig.exchangeAddress)
-          updated = true
-        if (marketInfo.feeAddress !== evmConfig.feeAddress) updated = true
-        if (marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee)
-          updated = true
-        if (marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee)
-          updated = true
+        if (
+          marketInfo.exchangeAddress !== evmConfig.exchangeAddress ||
+          marketInfo.feeAddress !== evmConfig.feeAddress ||
+          marketInfo.relayerAddress !== evmConfig.relayerAddress ||
+          marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
+          marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
+          Number(marketInfo.contractVersion) !== Number(evmConfig.domain.version)          
+        ) updated = true
       }
       if (!updated) return
 
@@ -1092,8 +1105,10 @@ async function updateEVMMarketInfo() {
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.exchangeAddress = evmConfig.exchangeAddress
         marketInfo.feeAddress = evmConfig.feeAddress
+        marketInfo.relayerAddress = evmConfig.relayerAddress
         marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
         marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
+        marketInfo.contractVersion = Number(evmConfig.domain.version)
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
       await Promise.all(results1)
@@ -1105,6 +1120,7 @@ async function updateEVMMarketInfo() {
 
 async function seedArbitrumMarkets() {
   console.time('seeding arbitrum markets')
+  /*
   const marketSummaryWethUsdc = {
     market: 'WETH-USDC',
     baseSymbol: 'WETH',
@@ -1288,6 +1304,48 @@ async function seedArbitrumMarkets() {
     'ZZ-USDC',
     JSON.stringify(lastPriceInfoZzUsdc)
   )
+  */
+  const wbtcTokenInfo = {
+    id: '0x4cdfA8137455123723851349d705a0023F73896A',
+    address: '0x4cdfA8137455123723851349d705a0023F73896A',
+    symbol: 'WBTC',
+    decimals: 8,
+    enabledForFees: true,
+    usdPrice: '25000',
+    name: 'Wrapped Bitcoin (goerli)'
+  }
+  const usdcTokenInfo = {
+    id: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
+    address: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
+    symbol: 'USDC',
+    decimals: 6,
+    enabledForFees: true,
+    usdPrice: '1',
+    name: 'USD COIN (goerli)'
+  }
+  const daiTokenInfo = {
+    id: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
+    address: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
+    symbol: 'DAI',
+    decimals: 18,
+    enabledForFees: true,
+    usdPrice: '1',
+    name: 'DAI (goerli)'
+  }
+  const wethTokenInfo = {
+    id: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
+    address: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
+    symbol: 'WETH',
+    decimals: 18,
+    enabledForFees: true,
+    usdPrice: '2000',
+    name: 'WETH (goerli)'
+  }
+  await redis.HSET('tokeninfo:421613', 'WBTC', JSON.stringify(wbtcTokenInfo))
+  await redis.HSET('tokeninfo:421613', 'USDC', JSON.stringify(usdcTokenInfo))
+  await redis.HSET('tokeninfo:421613', 'DAI', JSON.stringify(daiTokenInfo))
+  await redis.HSET('tokeninfo:421613', 'WETH', JSON.stringify(wethTokenInfo))
+  
   console.timeEnd('seeding arbitrum markets')
 }
 
@@ -1314,6 +1372,10 @@ async function cacheRecentTrades() {
 }
 
 async function start() {
+  console.log('background.ts: Run checks')
+  if (!process.env.INFURA_PROJECT_ID)
+    throw new Error('NO INFURA KEY SET')
+
   console.log('background.ts: Run startup')
 
   await redis.connect()
@@ -1331,46 +1393,100 @@ async function start() {
   ).abi
 
   // connect infura providers
-  VALID_EVM_CHAINS.forEach((chainId: number) => {
-    if (ETHERS_PROVIDERS[chainId]) return
-    ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
-      getNetwork(chainId),
-      process.env.INFURA_PROJECT_ID
-    )
-    const address = EVMConfig[chainId].exchangeAddress
-    if (!address) return
-
-    const wallet = new ethers.Wallet(
-      process.env.ARBITRUM_OPERATOR_KEY as string,
-      ETHERS_PROVIDERS[chainId]
-    ).connect(ETHERS_PROVIDERS[chainId])
-
-    EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
-      address,
-      EVMContractABI,
-      wallet
-    )
-
-    EXCHANGE_CONTRACTS[chainId].connect(wallet)
+  const operatorKeysString = process.env.OPERATOR_KEY as any
+  if (!operatorKeysString && VALID_EVM_CHAINS.length) 
+    throw new Error("MISSING ENV VAR 'OPERATOR_KEY'")
+  const operatorKeys = JSON.parse(operatorKeysString)
+  const results: Promise<any>[] = VALID_CHAINS.map(async (chainId: number) => {
+    if (ETHERS_PROVIDERS[chainId]) return    
+    try {
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+        getNetwork(chainId),
+        process.env.INFURA_PROJECT_ID
+      )
+      console.log(`Connected InfuraProvider for ${chainId}`)
+    } catch (e: any) {
+      console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+        getRPCURL(chainId)
+      )
+      console.log(`Connected JsonRpcProvider for ${chainId}`)
+    } 
+    
+    if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
+      const address = EVMConfig[chainId].exchangeAddress
+      const key = operatorKeys[chainId]
+      try {
+        if (!address || !key) {
+          throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
+        }
+  
+        const wallet = new ethers.Wallet(
+          key,
+          ETHERS_PROVIDERS[chainId]
+        ).connect(ETHERS_PROVIDERS[chainId])
+    
+        EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
+          address,
+          EVMContractABI,
+          wallet
+        )
+    
+        EXCHANGE_CONTRACTS[chainId].connect(wallet)
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = VALID_CHAINS.indexOf(chainId)
+        VALID_CHAINS.splice(indexA, 1)
+        const indexB = VALID_EVM_CHAINS.indexOf(chainId)
+        VALID_EVM_CHAINS.splice(indexB, 1)
+      }
+    }
+    if (chainId === 1) {
+      try {
+        SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = VALID_CHAINS.indexOf(1)
+        VALID_CHAINS.splice(indexA, 1)
+        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1)
+        VALID_CHAINS_ZKSYNC.splice(indexB, 1)
+      }
+    }
+    if (chainId === 1003) {
+      try {
+        SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = VALID_CHAINS.indexOf(1003)
+        VALID_CHAINS.splice(indexA, 1)
+        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1003)
+        VALID_CHAINS_ZKSYNC.splice(indexB, 1)
+      }
+    }
   })
+  Promise.all(results)
 
   ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
-  ZKSYNC_BASE_URL.rinkeby = 'https://rinkeby-api.zksync.io/api/v0.2/'
-  SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-  // TODO: Replace this with Goerli
-  //SYNC_PROVIDER.rinkeby = await zksync.getDefaultRestProvider('rinkeby')
+  ZKSYNC_BASE_URL.goerli = 'https://goerli-api.zksync.io/api/v0.2/'
 
   // reste some values on start-up
-  VALID_CHAINS_ZKSYNC.forEach(async (chainId) => {
+  const resetResult = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
     const keysBussy = await redis.keys(`bussymarketmaker:${chainId}:*`)
     keysBussy.forEach(async (key: string) => {
       redis.del(key)
     })
   })
+  await Promise.all(resetResult)
 
   /* startup */
   await updateEVMMarketInfo()
-  // VALID_CHAINS_ZKSYNC.forEach(async (chainId) => updateTokenInfoZkSync(chainId))
+  try {
+    const updateReult = VALID_CHAINS_ZKSYNC.map(async (chainId) => updateTokenInfoZkSync(chainId))
+    await Promise.all(updateReult)
+  } catch (e: any) {
+    console.error(`Failed to updateTokenInfoZkSync: ${e}`)
+  }
+
 
   // Seed Arbitrum Markets
   await seedArbitrumMarkets()
