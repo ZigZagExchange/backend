@@ -28,6 +28,7 @@ import {
   formatPrice,
   stringToFelt,
   getNetwork,
+  getRPCURL,
   evmEIP712Types,
   getERC20Info,
   getNewToken
@@ -43,12 +44,12 @@ export default class API extends EventEmitter {
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS
     ? JSON.parse(process.env.VALID_CHAINS)
-    : [1, 1002, 1001, 42161]
+    : [1, 1002, 1001, 42161, 421613]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter((chainId) =>
     [1, 1002].includes(chainId)
   )
   VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter((chainId) =>
-    [42161].includes(chainId)
+    [42161, 421613].includes(chainId)
   )
   EVMConfig: any
   ERC20_ABI: any
@@ -117,11 +118,28 @@ export default class API extends EventEmitter {
 
     // connect infura providers
     this.VALID_EVM_CHAINS.forEach((chainId) => {
-      if (this.ETHERS_PROVIDERS[chainId]) return
-      this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
-        getNetwork(chainId),
-        process.env.INFURA_PROJECT_ID
-      )
+      try {
+        if (this.ETHERS_PROVIDERS[chainId]) return
+        try {
+          this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+            getNetwork(chainId),
+            process.env.INFURA_PROJECT_ID
+          )
+          console.log(`Connected InfuraProvider for ${chainId}`)
+        } catch (e: any) {
+          console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+          this.ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+            getRPCURL(chainId)
+          )
+          console.log(`Connected JsonRpcProvider for ${chainId}`)
+        } 
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = this.VALID_CHAINS.indexOf(chainId)
+        this.VALID_CHAINS.splice(indexA, 1)
+        const indexB = this.VALID_EVM_CHAINS.indexOf(chainId)
+        this.VALID_EVM_CHAINS.splice(indexB, 1)
+      }
     })
 
     // setup provider
@@ -131,8 +149,25 @@ export default class API extends EventEmitter {
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
     )
-    this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-    this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+
+    try {
+      this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
+    } catch (e: any) {
+      console.log('Failed to setup 1. Disabling...')
+      const indexA = this.VALID_CHAINS.indexOf(1)
+      this.VALID_CHAINS.splice(indexA, 1)
+      const indexB = this.VALID_CHAINS_ZKSYNC.indexOf(1)
+      this.VALID_CHAINS_ZKSYNC.splice(indexB, 1)
+    }
+    try {
+      this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+    } catch (e: any) {
+      console.log('Failed to setup 1003. Disabling...')
+      const indexA = this.VALID_CHAINS.indexOf(1003)
+      this.VALID_CHAINS.splice(indexA, 1)
+      const indexB = this.VALID_CHAINS_ZKSYNC.indexOf(1003)
+      this.VALID_CHAINS_ZKSYNC.splice(indexB, 1)
+    }
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE(
@@ -312,7 +347,7 @@ export default class API extends EventEmitter {
     try {
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
     } catch(e: any) {
-      console.log(`Base asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
+      console.log(`Quote asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
 
@@ -674,6 +709,7 @@ export default class API extends EventEmitter {
     return { op: 'userorderack', args: orderreceipt }
   }
 
+  /*
   processorderstarknet = async (
     chainId: number,
     market: string,
@@ -1138,6 +1174,7 @@ export default class API extends EventEmitter {
       )
     }
   }
+  */
 
   processOrderEVM = async (
     chainId: number,
@@ -1157,9 +1194,8 @@ export default class API extends EventEmitter {
     if (Number(zktx.buyAmount) <= 0) throw new Error("buyAmount must be positive")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
-    if (!marketInfo || !networkProvider || !networkProviderConfig)
+    if (!marketInfo || !networkProviderConfig)
       throw new Error('Issue connecting to providers')
 
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]

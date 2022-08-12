@@ -41,6 +41,14 @@ export function getNetwork (chainId: number) {
   }
 }
 
+export function getRPCURL (chainId: number) {
+  switch(chainId) {
+    case 42161: return "https://arb1.arbitrum.io/rpc"
+    case 421613: return "https://goerli-rollup.arbitrum.io/rpc"
+    default: throw new Error('No valid chainId')
+  }
+}
+
 export const evmEIP712Types = {
   "Order": [
     { "name": 'user', "type": 'address' },

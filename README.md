@@ -23,6 +23,7 @@ IDs < 1000 are mainnet contracts. IDs >= 1000 are testnet contracts.
 | zkSync Mainnet    | 1      |
 | zkSync Goerli     | 1002   |
 | Arbitrum Mainnet  | 42161  |
+| Arbitrum Goerli   | 421613 |
 
 # Websocket vs REST
 
