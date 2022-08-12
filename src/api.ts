@@ -124,11 +124,13 @@ export default class API extends EventEmitter {
           getNetwork(chainId),
           process.env.INFURA_PROJECT_ID
         )
+        console.log(`Connected InfuraProvider for ${chainId}`)
       } catch (e: any) {
         console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
         this.ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
           getRPCURL(chainId)
-        ) 
+        )
+        console.log(`Connected JsonRpcProvider for ${chainId}`)
       }  
     })
 
@@ -320,7 +322,7 @@ export default class API extends EventEmitter {
     try {
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
     } catch(e: any) {
-      console.log(`Base asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
+      console.log(`Quote asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
 
@@ -1167,9 +1169,8 @@ export default class API extends EventEmitter {
     if (Number(zktx.buyAmount) <= 0) throw new Error("buyAmount must be positive")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
-    if (!marketInfo || !networkProvider || !networkProviderConfig)
+    if (!marketInfo || !networkProviderConfig)
       throw new Error('Issue connecting to providers')
 
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
