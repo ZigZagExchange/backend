@@ -37,7 +37,14 @@ export function getNetwork (chainId: number) {
     case 1: return "mainnet"
     case 1002: case 1001: return "goerli"
     case 42161: return "arbitrum"
-    case 421611: return "arbitrum-rinkeby"
+    default: throw new Error('No valid chainId')
+  }
+}
+
+export function getRPCURL (chainId: number) {
+  switch(chainId) {
+    case 42161: return "https://arb1.arbitrum.io/rpc"
+    case 421613: return "https://goerli-rollup.arbitrum.io/rpc"
     default: throw new Error('No valid chainId')
   }
 }

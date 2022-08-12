@@ -28,6 +28,7 @@ import {
   formatPrice,
   stringToFelt,
   getNetwork,
+  getRPCURL,
   evmEIP712Types,
   getERC20Info,
   getNewToken
@@ -118,10 +119,17 @@ export default class API extends EventEmitter {
     // connect infura providers
     this.VALID_EVM_CHAINS.forEach((chainId) => {
       if (this.ETHERS_PROVIDERS[chainId]) return
-      this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
-        getNetwork(chainId),
-        process.env.INFURA_PROJECT_ID
-      )
+      try {
+        this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+          getNetwork(chainId),
+          process.env.INFURA_PROJECT_ID
+        )
+      } catch (e: any) {
+        console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+        this.ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+          getRPCURL(chainId)
+        ) 
+      }  
     })
 
     // setup provider
@@ -674,6 +682,7 @@ export default class API extends EventEmitter {
     return { op: 'userorderack', args: orderreceipt }
   }
 
+  /*
   processorderstarknet = async (
     chainId: number,
     market: string,
@@ -1138,6 +1147,7 @@ export default class API extends EventEmitter {
       )
     }
   }
+  */
 
   processOrderEVM = async (
     chainId: number,

@@ -6,7 +6,7 @@ import * as zksync from 'zksync'
 import fs from 'fs'
 import { redis, publisher } from './redisClient'
 import db from './db'
-import { formatPrice, getNetwork, getERC20Info } from './utils'
+import { formatPrice, getNetwork, getRPCURL } from './utils'
 import type {
   ZZMarketInfo,
   AnyObject,
@@ -18,12 +18,12 @@ const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
 const VALID_CHAINS: number[] = process.env.VALID_CHAINS
   ? JSON.parse(process.env.VALID_CHAINS)
-  : [1, 1002, 1001, 42161, 421611]
+  : [1, 1002, 1001, 42161, 421613]
 const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter((chainId) =>
   [1, 1002].includes(chainId)
 )
 const VALID_EVM_CHAINS: number[] = VALID_CHAINS.filter((chainId) =>
-  [42161, 421611].includes(chainId)
+  [42161, 421613].includes(chainId)
 )
 const ZKSYNC_BASE_URL: AnyObject = {}
 const SYNC_PROVIDER: AnyObject = {}
@@ -393,7 +393,7 @@ async function updateUsdPrice() {
   console.time('Updating usd price.')
 
   // use mainnet as price source TODO we should rework the price source to work with multible networks
-  const network = await getNetwork(1)
+  const network = getNetwork(1)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const updatedTokenPrice: any = {}
     // fetch redis
@@ -917,7 +917,7 @@ async function sendMatchedOrders() {
         // update user
         // on arbitrum if the node returns a tx hash, it means it was accepted
         // on other EVM chains, the result of the transaction needs to be awaited
-        if ([42161, 421611].includes(chainId)) {
+        if ([42161, 421613].includes(chainId)) {
           txStatus = 's'
         } else {
           txStatus = 'b'
@@ -948,7 +948,7 @@ async function sendMatchedOrders() {
       }
 
       // This is for non-arbitrum EVM chains to confirm the tx status
-      if (![42161, 421611].includes(chainId)) {
+      if (![42161, 421613].includes(chainId)) {
         const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
           transaction.hash
         )
@@ -1355,11 +1355,18 @@ async function start() {
     throw new Error("MISSING ENV VAR 'OPERATOR_KEY'")
   const operatorKeys = JSON.parse(operatorKeysString)
   VALID_CHAINS.forEach((chainId: number) => {
-    if (ETHERS_PROVIDERS[chainId]) return
-    ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
-      getNetwork(chainId),
-      process.env.INFURA_PROJECT_ID
-    )
+    if (ETHERS_PROVIDERS[chainId]) return    
+    try {
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+        getNetwork(chainId),
+        process.env.INFURA_PROJECT_ID
+      )
+    } catch (e: any) {
+      console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+        getRPCURL(chainId)
+      ) 
+    } 
     
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
       const address = EVMConfig[chainId].exchangeAddress
