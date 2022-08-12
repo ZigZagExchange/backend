@@ -1332,9 +1332,19 @@ async function seedArbitrumMarkets() {
     usdPrice: '1',
     name: 'DAI (goerli)'
   }
+  const wethTokenInfo = {
+    id: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
+    address: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
+    symbol: 'WETH',
+    decimals: 18,
+    enabledForFees: true,
+    usdPrice: '2000',
+    name: 'WETH (goerli)'
+  }
   await redis.HSET('tokeninfo:421613', 'WBTC', JSON.stringify(wbtcTokenInfo))
   await redis.HSET('tokeninfo:421613', 'USDC', JSON.stringify(usdcTokenInfo))
   await redis.HSET('tokeninfo:421613', 'DAI', JSON.stringify(daiTokenInfo))
+  await redis.HSET('tokeninfo:421613', 'WETH', JSON.stringify(wethTokenInfo))
   
   console.timeEnd('seeding arbitrum markets')
 }
@@ -1470,8 +1480,12 @@ async function start() {
 
   /* startup */
   await updateEVMMarketInfo()
-  const updateReult = VALID_CHAINS_ZKSYNC.map(async (chainId) => updateTokenInfoZkSync(chainId))
-  await Promise.all(updateReult)
+  try {
+    const updateReult = VALID_CHAINS_ZKSYNC.map(async (chainId) => updateTokenInfoZkSync(chainId))
+    await Promise.all(updateReult)
+  } catch (e: any) {
+    console.error(`Failed to updateTokenInfoZkSync: ${e}`)
+  }
 
 
   // Seed Arbitrum Markets
