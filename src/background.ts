@@ -1120,6 +1120,7 @@ async function updateEVMMarketInfo() {
 
 async function seedArbitrumMarkets() {
   console.time('seeding arbitrum markets')
+  /*
   const marketSummaryWethUsdc = {
     market: 'WETH-USDC',
     baseSymbol: 'WETH',
@@ -1303,6 +1304,7 @@ async function seedArbitrumMarkets() {
     'ZZ-USDC',
     JSON.stringify(lastPriceInfoZzUsdc)
   )
+  */
   console.timeEnd('seeding arbitrum markets')
 }
 
