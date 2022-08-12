@@ -6,7 +6,7 @@ import * as zksync from 'zksync'
 import fs from 'fs'
 import { redis, publisher } from './redisClient'
 import db from './db'
-import { formatPrice, getNetwork, getERC20Info } from './utils'
+import { formatPrice, getNetwork, getRPCURL } from './utils'
 import type {
   ZZMarketInfo,
   AnyObject,
@@ -18,12 +18,12 @@ const NUMBER_OF_SNAPSHOT_POSITIONS = 200
 
 const VALID_CHAINS: number[] = process.env.VALID_CHAINS
   ? JSON.parse(process.env.VALID_CHAINS)
-  : [1, 1002, 1001, 42161]
+  : [1, 1002, 1001, 42161, 421613]
 const VALID_CHAINS_ZKSYNC: number[] = VALID_CHAINS.filter((chainId) =>
   [1, 1002].includes(chainId)
 )
 const VALID_EVM_CHAINS: number[] = VALID_CHAINS.filter((chainId) =>
-  [42161].includes(chainId)
+  [42161, 421613].includes(chainId)
 )
 const ZKSYNC_BASE_URL: AnyObject = {}
 const SYNC_PROVIDER: AnyObject = {}
@@ -393,7 +393,7 @@ async function updateUsdPrice() {
   console.time('Updating usd price.')
 
   // use mainnet as price source TODO we should rework the price source to work with multible networks
-  const network = await getNetwork(1)
+  const network = getNetwork(1)
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const updatedTokenPrice: any = {}
     // fetch redis
@@ -917,7 +917,7 @@ async function sendMatchedOrders() {
         // update user
         // on arbitrum if the node returns a tx hash, it means it was accepted
         // on other EVM chains, the result of the transaction needs to be awaited
-        if (chainId === 42161) {
+        if ([42161, 421613].includes(chainId)) {
           txStatus = 's'
         } else {
           txStatus = 'b'
@@ -948,7 +948,7 @@ async function sendMatchedOrders() {
       }
 
       // This is for non-arbitrum EVM chains to confirm the tx status
-      if (chainId !== 42161) {
+      if (![42161, 421613].includes(chainId)) {
         const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
           transaction.hash
         )
@@ -1329,6 +1329,10 @@ async function cacheRecentTrades() {
 }
 
 async function start() {
+  console.log('background.ts: Run checks')
+  if (!process.env.INFURA_PROJECT_ID)
+    throw new Error('NO INFURA KEY SET')
+
   console.log('background.ts: Run startup')
 
   await redis.connect()
@@ -1346,19 +1350,34 @@ async function start() {
   ).abi
 
   // connect infura providers
+  const operatorKeysString = process.env.OPERATOR_KEY as any
+  if (!operatorKeysString && VALID_EVM_CHAINS.length) 
+    throw new Error("MISSING ENV VAR 'OPERATOR_KEY'")
+  const operatorKeys = JSON.parse(operatorKeysString)
   VALID_CHAINS.forEach((chainId: number) => {
-    if (ETHERS_PROVIDERS[chainId]) return
-    ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
-      getNetwork(chainId),
-      process.env.INFURA_PROJECT_ID
-    )
+    if (ETHERS_PROVIDERS[chainId]) return    
+    try {
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+        getNetwork(chainId),
+        process.env.INFURA_PROJECT_ID
+      )
+    } catch (e: any) {
+      console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+        getRPCURL(chainId)
+      ) 
+    } 
     
-    if (VALID_EVM_CHAINS.includes(chainId)) {
+    if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
       const address = EVMConfig[chainId].exchangeAddress
-      if (!address) return
-  
+      const key = operatorKeys[chainId]
+      if (!address || !key) {
+        throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
+        return
+      }
+
       const wallet = new ethers.Wallet(
-        process.env.ARBITRUM_OPERATOR_KEY as string,
+        key,
         ETHERS_PROVIDERS[chainId]
       ).connect(ETHERS_PROVIDERS[chainId])
   
