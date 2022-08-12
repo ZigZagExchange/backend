@@ -1425,9 +1425,9 @@ async function start() {
         EXCHANGE_CONTRACTS[chainId].connect(wallet)
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
-        const indexA = VALID_CHAINS.findIndex(id => id === 1)
+        const indexA = VALID_CHAINS.indexOf(chainId)
         VALID_CHAINS.splice(indexA, 1)
-        const indexB = VALID_EVM_CHAINS.findIndex(id => id === 1)
+        const indexB = VALID_EVM_CHAINS.indexOf(chainId)
         VALID_EVM_CHAINS.splice(indexB, 1)
       }
     }
@@ -1436,9 +1436,9 @@ async function start() {
         SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
-        const indexA = VALID_CHAINS.findIndex(id => id === 1)
+        const indexA = VALID_CHAINS.indexOf(1)
         VALID_CHAINS.splice(indexA, 1)
-        const indexB = VALID_CHAINS_ZKSYNC.findIndex(id => id === 1)
+        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1)
         VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
@@ -1447,9 +1447,9 @@ async function start() {
         SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
-        const indexA = VALID_CHAINS.findIndex(id => id === 1003)
+        const indexA = VALID_CHAINS.indexOf(1003)
         VALID_CHAINS.splice(indexA, 1)
-        const indexB = VALID_CHAINS_ZKSYNC.findIndex(id => id === 1003)
+        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1003)
         VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
