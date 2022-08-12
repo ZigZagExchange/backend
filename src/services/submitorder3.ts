@@ -14,9 +14,9 @@ export const submitorder3: ZZServiceHandler = async (
       case 1: case 1002:
         msg = await api.processorderzksync(chainId, market, zktx)
         break
-      case 1001:
-        msg = await api.processorderstarknet(chainId, market, zktx)
-        break
+      // case 1001:
+      //   msg = await api.processorderstarknet(chainId, market, zktx)
+      //   break
       case 42161: case 421611:
         msg = await api.processOrderEVM(chainId, market, zktx)
         break
