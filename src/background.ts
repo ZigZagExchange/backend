@@ -1332,6 +1332,9 @@ async function seedArbitrumMarkets() {
     usdPrice: '1',
     name: 'DAI (goerli)'
   }
+  await redis.HSET('tokeninfo:421613', 'WBTC', JSON.stringify(wbtcTokenInfo))
+  await redis.HSET('tokeninfo:421613', 'USDC', JSON.stringify(usdcTokenInfo))
+  await redis.HSET('tokeninfo:421613', 'DAI', JSON.stringify(daiTokenInfo))
   
   console.timeEnd('seeding arbitrum markets')
 }
