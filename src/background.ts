@@ -1387,7 +1387,7 @@ async function start() {
   if (!operatorKeysString && VALID_EVM_CHAINS.length) 
     throw new Error("MISSING ENV VAR 'OPERATOR_KEY'")
   const operatorKeys = JSON.parse(operatorKeysString)
-  VALID_CHAINS.forEach((chainId: number) => {
+  const results: Promise<any>[] = VALID_CHAINS.map(async (chainId: number) => {
     if (ETHERS_PROVIDERS[chainId]) return    
     try {
       ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
@@ -1406,30 +1406,58 @@ async function start() {
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
       const address = EVMConfig[chainId].exchangeAddress
       const key = operatorKeys[chainId]
-      if (!address || !key) {
-        throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
-        return
+      try {
+        if (!address || !key) {
+          throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
+        }
+  
+        const wallet = new ethers.Wallet(
+          key,
+          ETHERS_PROVIDERS[chainId]
+        ).connect(ETHERS_PROVIDERS[chainId])
+    
+        EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
+          address,
+          EVMContractABI,
+          wallet
+        )
+    
+        EXCHANGE_CONTRACTS[chainId].connect(wallet)
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = VALID_CHAINS.findIndex(id => id === 1)
+        VALID_CHAINS.slice(indexA, 1)
+        const indexB = VALID_EVM_CHAINS.findIndex(id => id === 1)
+        VALID_EVM_CHAINS.slice(indexB, 1)
       }
-
-      const wallet = new ethers.Wallet(
-        key,
-        ETHERS_PROVIDERS[chainId]
-      ).connect(ETHERS_PROVIDERS[chainId])
-  
-      EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
-        address,
-        EVMContractABI,
-        wallet
-      )
-  
-      EXCHANGE_CONTRACTS[chainId].connect(wallet)
+    }
+    if (chainId === 1) {
+      try {
+        SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = VALID_CHAINS.findIndex(id => id === 1)
+        VALID_CHAINS.slice(indexA, 1)
+        const indexB = VALID_CHAINS_ZKSYNC.findIndex(id => id === 1)
+        VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+      }
+    }
+    if (chainId === 1003) {
+      try {
+        SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = VALID_CHAINS.findIndex(id => id === 1003)
+        VALID_CHAINS.slice(indexA, 1)
+        const indexB = VALID_CHAINS_ZKSYNC.findIndex(id => id === 1003)
+        VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+      }
     }
   })
+  Promise.all(results)
 
   ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
   ZKSYNC_BASE_URL.goerli = 'https://goerli-api.zksync.io/api/v0.2/'
-  SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-  SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
 
   // reste some values on start-up
   const resetResult = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
