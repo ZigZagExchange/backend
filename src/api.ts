@@ -118,20 +118,28 @@ export default class API extends EventEmitter {
 
     // connect infura providers
     this.VALID_EVM_CHAINS.forEach((chainId) => {
-      if (this.ETHERS_PROVIDERS[chainId]) return
       try {
-        this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
-          getNetwork(chainId),
-          process.env.INFURA_PROJECT_ID
-        )
-        console.log(`Connected InfuraProvider for ${chainId}`)
+        if (this.ETHERS_PROVIDERS[chainId]) return
+        try {
+          this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+            getNetwork(chainId),
+            process.env.INFURA_PROJECT_ID
+          )
+          console.log(`Connected InfuraProvider for ${chainId}`)
+        } catch (e: any) {
+          console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+          this.ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+            getRPCURL(chainId)
+          )
+          console.log(`Connected JsonRpcProvider for ${chainId}`)
+        } 
       } catch (e: any) {
-        console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
-        this.ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
-          getRPCURL(chainId)
-        )
-        console.log(`Connected JsonRpcProvider for ${chainId}`)
-      }  
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = this.VALID_CHAINS.findIndex(id => id === 1)
+        this.VALID_CHAINS.slice(indexA, 1)
+        const indexB = this.VALID_EVM_CHAINS.findIndex(id => id === 1)
+        this.VALID_EVM_CHAINS.slice(indexB, 1)
+      }
     })
 
     // setup provider
@@ -141,8 +149,25 @@ export default class API extends EventEmitter {
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
     )
-    this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-    this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+    
+    try {
+      this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
+    } catch (e: any) {
+      console.log('Failed to setup 1. Disabling...')
+      const indexA = this.VALID_CHAINS.findIndex(id => id === 1)
+      this.VALID_CHAINS.slice(indexA, 1)
+      const indexB = this.VALID_CHAINS_ZKSYNC.findIndex(id => id === 1)
+      this.VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+    }
+    try {
+      this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+    } catch (e: any) {
+      console.log('Failed to setup 1003. Disabling...')
+      const indexA = this.VALID_CHAINS.findIndex(id => id === 1003)
+      this.VALID_CHAINS.slice(indexA, 1)
+      const indexB = this.VALID_CHAINS_ZKSYNC.findIndex(id => id === 1003)
+      this.VALID_CHAINS_ZKSYNC.slice(indexB, 1)
+    }
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE(
