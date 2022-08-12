@@ -1305,6 +1305,34 @@ async function seedArbitrumMarkets() {
     JSON.stringify(lastPriceInfoZzUsdc)
   )
   */
+  const wbtcTokenInfo = {
+    id: '0x4cdfA8137455123723851349d705a0023F73896A',
+    address: '0x4cdfA8137455123723851349d705a0023F73896A',
+    symbol: 'WBTC',
+    decimals: 8,
+    enabledForFees: true,
+    usdPrice: '25000',
+    name: 'Wrapped Bitcoin (goerli)'
+  }
+  const usdcTokenInfo = {
+    id: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
+    address: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
+    symbol: 'USDC',
+    decimals: 6,
+    enabledForFees: true,
+    usdPrice: '1',
+    name: 'USD COIN (goerli)'
+  }
+  const daiTokenInfo = {
+    id: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
+    address: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
+    symbol: 'DAI',
+    decimals: 18,
+    enabledForFees: true,
+    usdPrice: '1',
+    name: 'DAI (goerli)'
+  }
+  
   console.timeEnd('seeding arbitrum markets')
 }
 
@@ -1363,11 +1391,13 @@ async function start() {
         getNetwork(chainId),
         process.env.INFURA_PROJECT_ID
       )
+      console.log(`Connected InfuraProvider for ${chainId}`)
     } catch (e: any) {
       console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
       ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
         getRPCURL(chainId)
-      ) 
+      )
+      console.log(`Connected JsonRpcProvider for ${chainId}`)
     } 
     
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
