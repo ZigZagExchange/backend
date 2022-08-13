@@ -2033,34 +2033,40 @@ export default class API extends EventEmitter {
       }
     }
 
-    let orderBook: any[]
+    let bids: number[][] = []
+    let asks: number[][] = []
     if(this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-      orderBook = (await this.getSnapshotLiquidity(chainId, market))
+      const liquidity: any[] = await this.getSnapshotLiquidity(chainId, market)
+      bids = liquidity
+        .filter((l) => l[0] === 'b')
         .map((l: any[]) => [Number(l[1]), Number(l[2])])
+        .sort((a: any[], b: any[]) => b[0] - a[0])
+      asks = liquidity
+        .filter((l) => l[0] === 's')
+        .map((l: any[]) => [Number(l[1]), Number(l[2])])
+        .sort((a: any[], b: any[]) => a[0] - b[0])
     } else {
       const rawOrderBook = await this.getopenorders(chainId, market)
       console.log('raw:')
       console.log(rawOrderBook)
-      orderBook = (await this.getopenorders(chainId, market))
+      const orderBook: any[] = await this.getopenorders(chainId, market)
+      bids = orderBook
+        .filter((o) => o[3] === 'b')
         .map((o: any[]) => [Number(o[4]), Number(o[5])])
-      console.log('mapped:')
-      console.log(orderBook)
+        .sort((a: any[], b: any[]) => b[0] - a[0])
+      asks = orderBook
+        .filter((o) => o[3] === 's')
+        .map((o: any[]) => [Number(o[4]), Number(o[5])])
+        .sort((a: any[], b: any[]) => a[0] - b[0])
     }
-    if (orderBook.length === 0) {
+    
+    if (bids.length === 0 && asks.length === 0) {
       return {
         timestamp,
         bids: [],
         asks: []
       }
     }
-
-    // sort for bids and asks
-    let bids: number[][] = orderBook
-      .filter((l) => l[0] === 'b')
-      .sort((a: any[], b: any[]) => b[0] - a[0])
-    let asks: number[][] = orderBook
-      .filter((l) => l[0] === 's')
-      .sort((a: any[], b: any[]) => a[0] - b[0])
 
     // if depth is set, only used every n entrys
     if (depth > 1) {
