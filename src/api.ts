@@ -2007,14 +2007,14 @@ export default class API extends EventEmitter {
   }
 
   /**
-   * Returns the liquidity for a given market.
+   * Returns the orderBook for a given market.
    * @param {number} chainId The reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market The reqested market
-   * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
-   * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
-   * @return {number} The resulting liquidity -> {"timestamp": _, "bids": _, "asks": _}
+   * @param {number} depth Depth of returned orderBook (depth/2 buckets per return)
+   * @param {number} level Level of returned orderBook (1->best ask/bid, 2->0.05% steps, 3->all)
+   * @return {number} The resulting orderBook -> {"timestamp": _, "bids": _, "asks": _}
    */
-  getLiquidityPerSide = async (
+  getOrderBook = async (
     chainId: number,
     market: ZZMarket,
     depth = 0,
@@ -2032,8 +2032,15 @@ export default class API extends EventEmitter {
       }
     }
 
-    const liquidity: any[] = await this.getSnapshotLiquidity(chainId, market)
-    if (liquidity.length === 0) {
+    let orderBook: any[]
+    if(this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      orderBook = (await this.getSnapshotLiquidity(chainId, market))
+        .map((l: any[]) => [Number(l[1]), Number(l[2])])
+    } else {
+      orderBook = (await this.getopenorders(chainId, market))
+        .map((o: any[]) => [Number(o[4]), Number(o[5])])
+    }
+    if (orderBook.length === 0) {
       return {
         timestamp,
         bids: [],
@@ -2042,13 +2049,12 @@ export default class API extends EventEmitter {
     }
 
     // sort for bids and asks
-    let bids: number[][] = liquidity
+    let bids: number[][] = orderBook
       .filter((l) => l[0] === 'b')
-      .map((l) => [Number(l[1]), Number(l[2])])
-      .reverse()
-    let asks: number[][] = liquidity
+      .sort((a: any[], b: any[]) => b[0] - a[0])
+    let asks: number[][] = orderBook
       .filter((l) => l[0] === 's')
-      .map((l) => [Number(l[1]), Number(l[2])])
+      .sort((a: any[], b: any[]) => a[0] - b[0])
 
     // if depth is set, only used every n entrys
     if (depth > 1) {
@@ -2153,7 +2159,7 @@ export default class API extends EventEmitter {
       }
     }
     throw new Error(
-      `level': ${level} is not supported for getLiquidityPerSide. Use 1, 2 or 3`
+      `level': ${level} is not supported for getOrderBook. Use 1, 2 or 3`
     )
   }
 
@@ -2636,7 +2642,7 @@ export default class API extends EventEmitter {
 
   broadcastLastPrice = async () => {
     const result = this.VALID_CHAINS.map(async (chainId) => {
-      const lastprices = await this.getLastPrices(chainId);
+      const lastprices = await this.getLastPrices(chainId)
       this.broadcastMessage(
         chainId,
         'all',
@@ -2665,11 +2671,8 @@ export default class API extends EventEmitter {
       )
     }
 
-    const [baseToken, quoteToken] = market.split('-')
+    const baseToken = market.split('-')[0]
     const basePrice = await this.getUsdPrice(chainId, baseToken)
-    const quotePrice = await this.getUsdPrice(chainId, quoteToken)
-    const midPrice = basePrice && quotePrice ? basePrice / quotePrice : 0
-
     // $100 min size
     const minSize = basePrice ? 100 / basePrice : marketInfo.baseFee
 
