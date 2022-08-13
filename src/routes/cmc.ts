@@ -6,7 +6,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
 
-  app.get('/api/coinmarketcap/v1/:chainid/markets', async (req, res) => {
+  app.get('/api/coinmarketcap/v1/markets/:chainid', async (req, res) => {
     try {
       const chainId = req.params.chainid
         ? Number(req.params.chainid)
@@ -49,7 +49,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coinmarketcap/v1/:chainid/ticker', async (req, res) => {
+  app.get('/api/coinmarketcap/v1/ticker/:chainid', async (req, res) => {
     try {
       const chainId = req.params.chainid
         ? Number(req.params.chainid)
@@ -86,7 +86,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
   })
 
   app.get(
-    '/api/coinmarketcap/v1/:chainid/orderbook/:market_pair',
+    '/api/coinmarketcap/v1/orderbook/:chainid/:market_pair',
     async (req, res) => {
       const chainId = req.params.chainid
         ? Number(req.params.chainid)
@@ -146,7 +146,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
   )
 
   app.get(
-    '/api/coinmarketcap/v1/:chainid/trades/:market_pair',
+    '/api/coinmarketcap/v1/trades/:chainid/:market_pair',
     async (req, res) => {
       const chainId = req.params.chainid
         ? Number(req.params.chainid)

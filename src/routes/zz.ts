@@ -25,7 +25,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     res.send({ serverTimestamp: +new Date() })
   })
 
-  app.get('/api/v1/:chainid/markets', async (req, res) => {
+  app.get('/api/v1/markets/:chainid', async (req, res) => {
     const chainId = req.params.chainid
       ? Number(req.params.chainid)
       : defaultChainId
@@ -87,7 +87,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/:chainid/ticker', async (req, res) => {
+  app.get('/api/v1/ticker/:chainid', async (req, res) => {
     const chainId = req.params.chainid
       ? Number(req.params.chainid)
       : defaultChainId
@@ -144,7 +144,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/:chainid/orderbook/:market_pair', async (req, res) => {
+  app.get('/api/v1/orderbook/:chainid/:market_pair', async (req, res) => {
     const chainId = req.params.chainid
       ? Number(req.params.chainid)
       : defaultChainId
@@ -194,7 +194,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/:chainid/trades/', async (req, res) => {
+  app.get('/api/v1/trades/:chainid', async (req, res) => {
     const chainId = req.params.chainid
       ? Number(req.params.chainid)
       : defaultChainId
@@ -290,7 +290,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/marketinfos', async (req, res) => {
+  app.get('/api/v1/marketinfos/:chainId', async (req, res) => {
     const chainId = req.query.chain_id
       ? Number(req.query.chain_id)
       : defaultChainId

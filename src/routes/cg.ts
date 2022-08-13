@@ -6,7 +6,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
 
-  app.get('/api/coingecko/v1/:chainid/pairs', async (req, res) => {
+  app.get('/api/coingecko/v1/pairs/:chainid', async (req, res) => {
     try {
       const chainId = req.params.chainid
         ? Number(req.params.chainid)
@@ -40,7 +40,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/:chainid/tickers', async (req, res) => {
+  app.get('/api/coingecko/v1/tickers/:chainid', async (req, res) => {
     try {
       const chainId = req.params.chainid
         ? Number(req.params.chainid)
@@ -82,7 +82,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/:chainid/orderbook', async (req, res) => {
+  app.get('/api/coingecko/v1/orderbook/:chainid', async (req, res) => {
     const chainId = req.params.chainid
       ? Number(req.params.chainid)
       : defaultChainId
@@ -132,7 +132,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/:chainid/historical_trades', async (req, res) => {
+  app.get('/api/coingecko/v1/historical_trades/:chainid', async (req, res) => {
     const chainId = req.params.chainid
       ? Number(req.params.chainid)
       : defaultChainId
