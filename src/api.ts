@@ -2038,8 +2038,13 @@ export default class API extends EventEmitter {
       orderBook = (await this.getSnapshotLiquidity(chainId, market))
         .map((l: any[]) => [Number(l[1]), Number(l[2])])
     } else {
+      const rawOrderBook = await this.getopenorders(chainId, market)
+      console.log('raw:')
+      console.log(rawOrderBook)
       orderBook = (await this.getopenorders(chainId, market))
         .map((o: any[]) => [Number(o[4]), Number(o[5])])
+      console.log('mapped:')
+      console.log(orderBook)
     }
     if (orderBook.length === 0) {
       return {
