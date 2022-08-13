@@ -2007,6 +2007,7 @@ export default class API extends EventEmitter {
   }
 
   /**
+   * Returns the liquidity for a given market.
    * Returns the orderBook for a given market.
    * @param {number} chainId The reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market The reqested market
