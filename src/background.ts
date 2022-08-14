@@ -1333,7 +1333,7 @@ async function cacheRecentTrades() {
 async function updateBestAskBidEVM() {
   console.time('updateBestAskBidEVM')
   const query = {
-    text: "SELECT market, chainid, MAX(price) AS best_bid, MIN(price) AS best_ask FROM offers WHERE chainid IN ($1) AND order_status IN ('o', 'pm', 'pf') AND side = 'b' GROUP BY market, chainid;",
+    text: "SELECT market, chainid, MAX(price) AS best_bid, MIN(price) AS best_ask FROM offers WHERE chainid = ANY($1::int[]) AND order_status IN ('o', 'pm', 'pf') AND side = 'b' GROUP BY market, chainid;",
     values: [VALID_EVM_CHAINS]
   }
   const select = await db.query(query)
