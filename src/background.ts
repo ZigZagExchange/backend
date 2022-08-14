@@ -1304,48 +1304,7 @@ async function seedArbitrumMarkets() {
     'ZZ-USDC',
     JSON.stringify(lastPriceInfoZzUsdc)
   )
-  */
-  const wbtcTokenInfo = {
-    id: '0x4cdfA8137455123723851349d705a0023F73896A',
-    address: '0x4cdfA8137455123723851349d705a0023F73896A',
-    symbol: 'WBTC',
-    decimals: 8,
-    enabledForFees: true,
-    usdPrice: '25000',
-    name: 'Wrapped Bitcoin (goerli)'
-  }
-  const usdcTokenInfo = {
-    id: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
-    address: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
-    symbol: 'USDC',
-    decimals: 6,
-    enabledForFees: true,
-    usdPrice: '1',
-    name: 'USD COIN (goerli)'
-  }
-  const daiTokenInfo = {
-    id: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
-    address: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
-    symbol: 'DAI',
-    decimals: 18,
-    enabledForFees: true,
-    usdPrice: '1',
-    name: 'DAI (goerli)'
-  }
-  const wethTokenInfo = {
-    id: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
-    address: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
-    symbol: 'WETH',
-    decimals: 18,
-    enabledForFees: true,
-    usdPrice: '2000',
-    name: 'WETH (goerli)'
-  }
-  await redis.HSET('tokeninfo:421613', 'WBTC', JSON.stringify(wbtcTokenInfo))
-  await redis.HSET('tokeninfo:421613', 'USDC', JSON.stringify(usdcTokenInfo))
-  await redis.HSET('tokeninfo:421613', 'DAI', JSON.stringify(daiTokenInfo))
-  await redis.HSET('tokeninfo:421613', 'WETH', JSON.stringify(wethTokenInfo))
-  
+  */  
   console.timeEnd('seeding arbitrum markets')
 }
 
@@ -1369,6 +1328,22 @@ async function cacheRecentTrades() {
   await Promise.all(results0)
   
   console.timeEnd('cacheRecentTrades')
+}
+
+async function updateBestAskBidEVM() {
+  console.time('updateBestAskBidEVM')
+  const query = {
+    text: "SELECT market, chainid, MAX(price) AS best_bid, MIN(price) AS best_ask FROM offers WHERE chainid IN ($1) AND order_status IN ('o', 'pm', 'pf') AND side = 'b' GROUP BY market, chainid;",
+    values: [VALID_EVM_CHAINS]
+  }
+  const select = await db.query(query)
+  const results: Promise<any>[] = select.rows.map(async (row: any) => {
+    redis.HSET(`bestask:${row.chainid}`, row.market, row.best_ask)
+    redis.HSET(`bestbid:${row.chainid}`, row.market, row.best_bid)
+  })
+  await Promise.all(results)
+    
+  console.timeEnd('updateBestAskBidEVM')  
 }
 
 async function start() {
@@ -1492,16 +1467,17 @@ async function start() {
   await seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
-  setInterval(updatePriceHighLow, 600000)
-  setInterval(updateVolumes, 900000)
+  setInterval(updateBestAskBidEVM, 5000)
   setInterval(updatePendingOrders, 5000)
+  setInterval(cacheRecentTrades, 5500)
+  setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
+  setInterval(updateFeesEVM, 20000)
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-  setInterval(removeOldLiquidity, 10000)
-  setInterval(updateFeesEVM, 20000)
-  setInterval(cacheRecentTrades, 75000)
+  setInterval(updatePriceHighLow, 600000)
+  setInterval(updateVolumes, 900000)
 
   setTimeout(sendMatchedOrders, 5000)
 }
