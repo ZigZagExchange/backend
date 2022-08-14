@@ -6,13 +6,20 @@ export default function cmcRoutes(app: ZZHttpServer) {
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
 
-  app.get('/api/coinmarketcap/v1/markets/:chainid', async (req, res) => {
-    try {
-      const chainId = req.params.chainid
-        ? Number(req.params.chainid)
-        : defaultChainId
+  function getChainId(req: any, res: any, next: any) {
+    const chainId = req.params.chainId
+      ? Number(req.params.chainId)
+      : defaultChainId
 
-      if (!app.api.VALID_CHAINS.includes(chainId)) {
+    req.chainId = chainId
+    next()
+  }
+
+  app.get('/api/coinmarketcap/v1/markets/:chainid?', getChainId, async (req, res) => {
+    try {
+      const {chainId} = req
+
+      if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
         res
           .status(400)
           .send({
@@ -49,13 +56,11 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coinmarketcap/v1/ticker/:chainid', async (req, res) => {
+  app.get('/api/coinmarketcap/v1/ticker/:chainid?', getChainId, async (req, res) => {
     try {
-      const chainId = req.params.chainid
-        ? Number(req.params.chainid)
-        : defaultChainId
+      const {chainId} = req
 
-      if (!app.api.VALID_CHAINS.includes(chainId)) {
+      if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
         res
           .status(400)
           .send({
@@ -85,14 +90,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get(
-    '/api/coinmarketcap/v1/orderbook/:chainid/:market_pair',
-    async (req, res) => {
-      const chainId = req.params.chainid
-        ? Number(req.params.chainid)
-        : defaultChainId
-
-      if (!app.api.VALID_CHAINS.includes(chainId)) {
+  app.get('/api/coinmarketcap/v1/orderbook/:market_pair/:chainid?', getChainId, async (req, res) => {
+      const {chainId} = req
+  
+      if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
         res
           .status(400)
           .send({
@@ -145,14 +146,10 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   )
 
-  app.get(
-    '/api/coinmarketcap/v1/trades/:chainid/:market_pair',
-    async (req, res) => {
-      const chainId = req.params.chainid
-        ? Number(req.params.chainid)
-        : defaultChainId
-        
-      if (!app.api.VALID_CHAINS.includes(chainId)) {
+  app.get('/api/coinmarketcap/v1/trades/:market_pair/:chainid?', getChainId, async (req, res) => {
+      const {chainId} = req
+  
+      if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
         res
           .status(400)
           .send({

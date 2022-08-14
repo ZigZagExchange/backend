@@ -6,13 +6,20 @@ export default function cgRoutes(app: ZZHttpServer) {
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
 
-  app.get('/api/coingecko/v1/pairs/:chainid', async (req, res) => {
-    try {
-      const chainId = req.params.chainid
-        ? Number(req.params.chainid)
-        : defaultChainId
+  function getChainId(req: any, res: any, next: any) {
+    const chainId = req.params.chainId
+      ? Number(req.params.chainId)
+      : defaultChainId
 
-      if (!app.api.VALID_CHAINS.includes(chainId)) {
+    req.chainId = chainId
+    next()
+  }
+
+  app.get('/api/coingecko/v1/pairs/:chainid?', getChainId, async (req, res) => {
+    try {
+      const {chainId} = req
+
+      if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
         res
           .status(400)
           .send({
@@ -40,13 +47,11 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/tickers/:chainid', async (req, res) => {
+  app.get('/api/coingecko/v1/tickers/:chainid?', getChainId, async (req, res) => {
     try {
-      const chainId = req.params.chainid
-        ? Number(req.params.chainid)
-        : defaultChainId
+      const {chainId} = req
 
-      if (!app.api.VALID_CHAINS.includes(chainId)) {
+      if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
         res
           .status(400)
           .send({
@@ -82,12 +87,10 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/orderbook/:chainid', async (req, res) => {
-    const chainId = req.params.chainid
-      ? Number(req.params.chainid)
-      : defaultChainId
+  app.get('/api/coingecko/v1/orderbook/:chainid?', getChainId, async (req, res) => {
+    const {chainId} = req
 
-    if (!app.api.VALID_CHAINS.includes(chainId)) {
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
@@ -132,12 +135,10 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/historical_trades/:chainid', async (req, res) => {
-    const chainId = req.params.chainid
-      ? Number(req.params.chainid)
-      : defaultChainId
-      
-    if (!app.api.VALID_CHAINS.includes(chainId)) {
+  app.get('/api/coingecko/v1/historical_trades/:chainid?', getChainId, async (req, res) => {
+    const {chainId} = req
+
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
