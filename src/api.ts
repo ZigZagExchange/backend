@@ -2046,9 +2046,6 @@ export default class API extends EventEmitter {
         .map((l: any[]) => [Number(l[1]), Number(l[2])])
         .sort((a: any[], b: any[]) => a[0] - b[0])
     } else {
-      const rawOrderBook = await this.getopenorders(chainId, market)
-      console.log('raw:')
-      console.log(rawOrderBook)
       const orderBook: any[] = await this.getopenorders(chainId, market)
       bids = orderBook
         .filter((o) => o[3] === 'b')
@@ -2059,7 +2056,7 @@ export default class API extends EventEmitter {
         .map((o: any[]) => [Number(o[4]), Number(o[5])])
         .sort((a: any[], b: any[]) => a[0] - b[0])
     }
-    
+
     if (bids.length === 0 && asks.length === 0) {
       return {
         timestamp,

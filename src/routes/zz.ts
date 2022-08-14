@@ -11,6 +11,15 @@ export default function zzRoutes(app: ZZHttpServer) {
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
 
+  function getChainId(req: any, res: any, next: any) {
+    const chainId = req.params.chainId
+      ? Number(req.params.chainId)
+      : defaultChainId
+
+    req.chainId = chainId
+    next()
+  }
+
   app.use('/', (req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*')
     res.header(
@@ -25,18 +34,10 @@ export default function zzRoutes(app: ZZHttpServer) {
     res.send({ serverTimestamp: +new Date() })
   })
 
-  app.get('/api/v1/markets/:chainId', async (req, res, next) => {
-    const {chainId} = req.params
-    req.chainId = Number(chainId)
-    next()
-  })
+  app.get('/api/v1/markets/:chainId?', getChainId, async (req, res) => {
+    const {chainId} = req
 
-  app.get('/api/v1/markets/', async (req, res) => {
-    const chainId = req.chainId
-      ? Number(req.chainId)
-      : defaultChainId
-
-    if (!app.api.VALID_CHAINS.includes(chainId)) {
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
@@ -93,18 +94,10 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/ticker/:chainId', async (req, res, next) => {
-    const {chainId} = req.params
-    req.chainId = Number(chainId)
-    next()
-  })
+  app.get('/api/v1/ticker/:chainId?', getChainId, async (req, res) => {
+    const {chainId} = req
 
-  app.get('/api/v1/ticker/:chainId', async (req, res) => {
-    const chainId = req.chainId
-      ? Number(req.chainId)
-      : defaultChainId
-
-    if (!app.api.VALID_CHAINS.includes(chainId)) {
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
@@ -156,18 +149,10 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/orderbook/:market_pair/:chainId', async (req, res, next) => {
-    const {chainId} = req.params
-    req.chainId = Number(chainId)
-    next()
-  })
+  app.get('/api/v1/orderbook/:market_pair/:chainId?', getChainId, async (req, res) => {
+    const {chainId} = req
 
-  app.get('/api/v1/orderbook/:market_pair', async (req, res) => {
-    const chainId = req.chainId
-      ? Number(req.chainId)
-      : defaultChainId
-
-    if (!app.api.VALID_CHAINS.includes(chainId)) {
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
@@ -212,18 +197,10 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/trades/:chainId', async (req, res, next) => {
-    const {chainId} = req.params
-    req.chainId = Number(chainId)
-    next()
-  })
+  app.get('/api/v1/trades/:chainId?', getChainId, async (req, res) => {
+    const {chainId} = req
 
-  app.get('/api/v1/trades/', async (req, res) => {
-    const chainId = req.chainId
-      ? Number(req.chainId)
-      : defaultChainId
-
-    if (!app.api.VALID_CHAINS.includes(chainId)) {
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
@@ -314,18 +291,10 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/marketinfos/:chainId', async (req, res, next) => {
-    const {chainId} = req.params
-    req.chainId = Number(chainId)
-    next()
-  })
+  app.get('/api/v1/marketinfos/:chainId?', getChainId, async (req, res) => {
+    const {chainId} = req
 
-  app.get('/api/v1/marketinfos/', async (req, res) => {
-    const chainId = req.chainId
-      ? Number(req.chainId)
-      : defaultChainId
-
-    if (!app.api.VALID_CHAINS.includes(chainId)) {
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
