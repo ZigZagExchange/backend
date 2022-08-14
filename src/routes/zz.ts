@@ -25,9 +25,15 @@ export default function zzRoutes(app: ZZHttpServer) {
     res.send({ serverTimestamp: +new Date() })
   })
 
-  app.get('/api/v1/markets/:chainid', async (req, res) => {
-    const chainId = req.params.chainid
-      ? Number(req.params.chainid)
+  app.get('/api/v1/markets/:chainId', async (req, res, next) => {
+    const {chainId} = req.params
+    req.chainId = Number(chainId)
+    next()
+  })
+
+  app.get('/api/v1/markets/', async (req, res) => {
+    const chainId = req.chainId
+      ? Number(req.chainId)
       : defaultChainId
 
     if (!app.api.VALID_CHAINS.includes(chainId)) {
@@ -35,7 +41,7 @@ export default function zzRoutes(app: ZZHttpServer) {
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
@@ -87,9 +93,15 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/ticker/:chainid', async (req, res) => {
-    const chainId = req.params.chainid
-      ? Number(req.params.chainid)
+  app.get('/api/v1/ticker/:chainId', async (req, res, next) => {
+    const {chainId} = req.params
+    req.chainId = Number(chainId)
+    next()
+  })
+
+  app.get('/api/v1/ticker/:chainId', async (req, res) => {
+    const chainId = req.chainId
+      ? Number(req.chainId)
       : defaultChainId
 
     if (!app.api.VALID_CHAINS.includes(chainId)) {
@@ -97,7 +109,7 @@ export default function zzRoutes(app: ZZHttpServer) {
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
@@ -144,9 +156,15 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/orderbook/:chainid/:market_pair', async (req, res) => {
-    const chainId = req.params.chainid
-      ? Number(req.params.chainid)
+  app.get('/api/v1/orderbook/:market_pair/:chainId', async (req, res, next) => {
+    const {chainId} = req.params
+    req.chainId = Number(chainId)
+    next()
+  })
+
+  app.get('/api/v1/orderbook/:market_pair', async (req, res) => {
+    const chainId = req.chainId
+      ? Number(req.chainId)
       : defaultChainId
 
     if (!app.api.VALID_CHAINS.includes(chainId)) {
@@ -154,7 +172,7 @@ export default function zzRoutes(app: ZZHttpServer) {
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
@@ -194,17 +212,23 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/trades/:chainid', async (req, res) => {
-    const chainId = req.params.chainid
-      ? Number(req.params.chainid)
+  app.get('/api/v1/trades/:chainId', async (req, res, next) => {
+    const {chainId} = req.params
+    req.chainId = Number(chainId)
+    next()
+  })
+
+  app.get('/api/v1/trades/', async (req, res) => {
+    const chainId = req.chainId
+      ? Number(req.chainId)
       : defaultChainId
-      
+
     if (!app.api.VALID_CHAINS.includes(chainId)) {
       res
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
@@ -290,18 +314,27 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/marketinfos/:chainId', async (req, res) => {
-    const chainId = req.query.chain_id
-      ? Number(req.query.chain_id)
+  app.get('/api/v1/marketinfos/:chainId', async (req, res, next) => {
+    const {chainId} = req.params
+    req.chainId = Number(chainId)
+    next()
+  })
+
+  app.get('/api/v1/marketinfos/', async (req, res) => {
+    const chainId = req.chainId
+      ? Number(req.chainId)
       : defaultChainId
 
     if (!app.api.VALID_CHAINS.includes(chainId)) {
-      res.send({
-        op: 'error',
-        message: `${chainId} is not a valid chain id. Use ${app.api.VALID_CHAINS}`,
-      })
+      res
+        .status(400)
+        .send({
+          op: 'error',
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+        })
       return
     }
+
     let markets: ZZMarket[] = []
     if (req.query.market) {
       markets = markets.concat(String(req.query.market).split(','))

@@ -28,5 +28,8 @@
     "entryPoints": ["./src/app.ts"],
     "readme": "none",
     "out": "apidocs/"
-  }
+  },
+  "files": [
+    "index.d.ts"
+  ]
 }
