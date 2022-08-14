@@ -24,7 +24,7 @@ export default function cgRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }
@@ -56,7 +56,7 @@ export default function cgRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }
@@ -95,7 +95,7 @@ export default function cgRoutes(app: ZZHttpServer) {
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
@@ -143,7 +143,7 @@ export default function cgRoutes(app: ZZHttpServer) {
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
