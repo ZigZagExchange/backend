@@ -1427,14 +1427,14 @@ async function start() {
         VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
-    if (chainId === 1003) {
+    if (chainId === 1002) {
       try {
         SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
-        const indexA = VALID_CHAINS.indexOf(1003)
+        const indexA = VALID_CHAINS.indexOf(1002)
         VALID_CHAINS.splice(indexA, 1)
-        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1003)
+        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1002)
         VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
