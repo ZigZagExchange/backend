@@ -162,10 +162,10 @@ export default class API extends EventEmitter {
     try {
       this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
     } catch (e: any) {
-      console.log('Failed to setup 1003. Disabling...')
-      const indexA = this.VALID_CHAINS.indexOf(1003)
+      console.log('Failed to setup 1002. Disabling...')
+      const indexA = this.VALID_CHAINS.indexOf(1002)
       this.VALID_CHAINS.splice(indexA, 1)
-      const indexB = this.VALID_CHAINS_ZKSYNC.indexOf(1003)
+      const indexB = this.VALID_CHAINS_ZKSYNC.indexOf(1002)
       this.VALID_CHAINS_ZKSYNC.splice(indexB, 1)
     }
 
