@@ -15,7 +15,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     next()
   }
 
-  app.get('/api/coinmarketcap/v1/markets/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coinmarketcap/v1/markets/:chainId?', getChainId, async (req, res) => {
     try {
       const {chainId} = req
 
@@ -24,7 +24,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }
@@ -56,7 +56,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coinmarketcap/v1/ticker/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coinmarketcap/v1/ticker/:chainId?', getChainId, async (req, res) => {
     try {
       const {chainId} = req
 
@@ -65,7 +65,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }
@@ -90,7 +90,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coinmarketcap/v1/orderbook/:market_pair/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coinmarketcap/v1/orderbook/:market_pair/:chainId?', getChainId, async (req, res) => {
       const {chainId} = req
   
       if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
@@ -98,7 +98,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }
@@ -146,7 +146,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
     }
   )
 
-  app.get('/api/coinmarketcap/v1/trades/:market_pair/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coinmarketcap/v1/trades/:market_pair/:chainId?', getChainId, async (req, res) => {
       const {chainId} = req
   
       if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
@@ -154,7 +154,7 @@ export default function cmcRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }

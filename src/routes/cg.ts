@@ -15,7 +15,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     next()
   }
 
-  app.get('/api/coingecko/v1/pairs/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coingecko/v1/pairs/:chainId?', getChainId, async (req, res) => {
     try {
       const {chainId} = req
 
@@ -24,7 +24,7 @@ export default function cgRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }
@@ -47,7 +47,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/tickers/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coingecko/v1/tickers/:chainId?', getChainId, async (req, res) => {
     try {
       const {chainId} = req
 
@@ -56,7 +56,7 @@ export default function cgRoutes(app: ZZHttpServer) {
           .status(400)
           .send({
             op: 'error',
-            message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+            message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
           })
         return
       }
@@ -87,7 +87,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/orderbook/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coingecko/v1/orderbook/:chainId?', getChainId, async (req, res) => {
     const {chainId} = req
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
@@ -95,7 +95,7 @@ export default function cgRoutes(app: ZZHttpServer) {
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
@@ -135,7 +135,7 @@ export default function cgRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/coingecko/v1/historical_trades/:chainid?', getChainId, async (req, res) => {
+  app.get('/api/coingecko/v1/historical_trades/:chainId?', getChainId, async (req, res) => {
     const {chainId} = req
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
@@ -143,7 +143,7 @@ export default function cgRoutes(app: ZZHttpServer) {
         .status(400)
         .send({
           op: 'error',
-          message: `ChainId ${req.params.chainid} not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
       return
     }
