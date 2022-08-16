@@ -18,6 +18,10 @@ export default {
       arbitrum: {
         url: "https://arb1.arbitrum.io/rpc",
         accounts: []
+      },
+      arbitrumRinkeby: {
+        url: "https://rinkeby.arbitrum.io/rpc",
+        accounts: []
       }
   }
 }

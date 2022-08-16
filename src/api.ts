@@ -28,6 +28,7 @@ import {
   formatPrice,
   stringToFelt,
   getNetwork,
+  getRPCURL,
   evmEIP712Types,
   getERC20Info,
   getNewToken
@@ -43,12 +44,12 @@ export default class API extends EventEmitter {
   MARKET_MAKER_TIMEOUT = 300
   VALID_CHAINS: number[] = process.env.VALID_CHAINS
     ? JSON.parse(process.env.VALID_CHAINS)
-    : [1, 1000, 1001, 42161]
+    : [1, 1002, 1001, 42161, 421613]
   VALID_CHAINS_ZKSYNC: number[] = this.VALID_CHAINS.filter((chainId) =>
-    [1, 1000].includes(chainId)
+    [1, 1002].includes(chainId)
   )
   VALID_EVM_CHAINS: number[] = this.VALID_CHAINS.filter((chainId) =>
-    [42161].includes(chainId)
+    [42161, 421613].includes(chainId)
   )
   EVMConfig: any
   ERC20_ABI: any
@@ -117,11 +118,28 @@ export default class API extends EventEmitter {
 
     // connect infura providers
     this.VALID_EVM_CHAINS.forEach((chainId) => {
-      if (this.ETHERS_PROVIDERS[chainId]) return
-      this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
-        getNetwork(chainId),
-        process.env.INFURA_PROJECT_ID
-      )
+      try {
+        if (this.ETHERS_PROVIDERS[chainId]) return
+        try {
+          this.ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
+            getNetwork(chainId),
+            process.env.INFURA_PROJECT_ID
+          )
+          console.log(`Connected InfuraProvider for ${chainId}`)
+        } catch (e: any) {
+          console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+          this.ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+            getRPCURL(chainId)
+          )
+          console.log(`Connected JsonRpcProvider for ${chainId}`)
+        } 
+      } catch (e: any) {
+        console.log(`Failed to setup ${chainId}. Disabling...`)
+        const indexA = this.VALID_CHAINS.indexOf(chainId)
+        this.VALID_CHAINS.splice(indexA, 1)
+        const indexB = this.VALID_EVM_CHAINS.indexOf(chainId)
+        this.VALID_EVM_CHAINS.splice(indexB, 1)
+      }
     })
 
     // setup provider
@@ -131,8 +149,25 @@ export default class API extends EventEmitter {
       starknetContractABI,
       process.env.STARKNET_CONTRACT_ADDRESS
     )
-    this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
-    this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+
+    try {
+      this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
+    } catch (e: any) {
+      console.log('Failed to setup 1. Disabling...')
+      const indexA = this.VALID_CHAINS.indexOf(1)
+      this.VALID_CHAINS.splice(indexA, 1)
+      const indexB = this.VALID_CHAINS_ZKSYNC.indexOf(1)
+      this.VALID_CHAINS_ZKSYNC.splice(indexB, 1)
+    }
+    try {
+      this.SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
+    } catch (e: any) {
+      console.log('Failed to setup 1002. Disabling...')
+      const indexA = this.VALID_CHAINS.indexOf(1002)
+      this.VALID_CHAINS.splice(indexA, 1)
+      const indexB = this.VALID_CHAINS_ZKSYNC.indexOf(1002)
+      this.VALID_CHAINS_ZKSYNC.splice(indexB, 1)
+    }
 
     // setup redisSubscriber
     this.redisSubscriber.PSUBSCRIBE(
@@ -312,7 +347,7 @@ export default class API extends EventEmitter {
     try {
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
     } catch(e: any) {
-      console.log(`Base asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
+      console.log(`Quote asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
       throw new Error('Base asset no valid ERC20 token')
     }
 
@@ -565,7 +600,7 @@ export default class API extends EventEmitter {
 
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
-    if (chainId !== 1 && chainId !== 1000) throw new Error('Only for zkSync')
+    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId)) throw new Error('Only for zkSync')
     if (zktx.validUntil * 1000 < Date.now())
       throw new Error(
         'Wrong expiry: sync your PC clock to the correct time to fix this error'
@@ -674,6 +709,7 @@ export default class API extends EventEmitter {
     return { op: 'userorderack', args: orderreceipt }
   }
 
+  /*
   processorderstarknet = async (
     chainId: number,
     market: string,
@@ -1138,6 +1174,7 @@ export default class API extends EventEmitter {
       )
     }
   }
+  */
 
   processOrderEVM = async (
     chainId: number,
@@ -1157,9 +1194,8 @@ export default class API extends EventEmitter {
     if (Number(zktx.buyAmount) <= 0) throw new Error("buyAmount must be positive")
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const networkProvider = this.ETHERS_PROVIDERS[chainId]
     const networkProviderConfig = this.EVMConfig[chainId]
-    if (!marketInfo || !networkProvider || !networkProviderConfig)
+    if (!marketInfo || !networkProviderConfig)
       throw new Error('Issue connecting to providers')
 
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
@@ -1972,13 +2008,14 @@ export default class API extends EventEmitter {
 
   /**
    * Returns the liquidity for a given market.
-   * @param {number} chainId The reqested chain (1->zkSync, 1000->zkSync_goerli)
+   * Returns the orderBook for a given market.
+   * @param {number} chainId The reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market The reqested market
-   * @param {number} depth Depth of returned liquidity (depth/2 buckets per return)
-   * @param {number} level Level of returned liquidity (1->best ask/bid, 2->0.05% steps, 3->all)
-   * @return {number} The resulting liquidity -> {"timestamp": _, "bids": _, "asks": _}
+   * @param {number} depth Depth of returned orderBook (depth/2 buckets per return)
+   * @param {number} level Level of returned orderBook (1->best ask/bid, 2->0.05% steps, 3->all)
+   * @return {number} The resulting orderBook -> {"timestamp": _, "bids": _, "asks": _}
    */
-  getLiquidityPerSide = async (
+   getOrderBook = async (
     chainId: number,
     market: ZZMarket,
     depth = 0,
@@ -1996,23 +2033,37 @@ export default class API extends EventEmitter {
       }
     }
 
-    const liquidity: any[] = await this.getSnapshotLiquidity(chainId, market)
-    if (liquidity.length === 0) {
+    let bids: number[][] = []
+    let asks: number[][] = []
+    if(this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      const liquidity: any[] = await this.getSnapshotLiquidity(chainId, market)
+      bids = liquidity
+        .filter((l) => l[0] === 'b')
+        .map((l: any[]) => [Number(l[1]), Number(l[2])])
+        .sort((a: any[], b: any[]) => b[0] - a[0])
+      asks = liquidity
+        .filter((l) => l[0] === 's')
+        .map((l: any[]) => [Number(l[1]), Number(l[2])])
+        .sort((a: any[], b: any[]) => a[0] - b[0])
+    } else {
+      const orderBook: any[] = await this.getopenorders(chainId, market)
+      bids = orderBook
+        .filter((o) => o[3] === 'b')
+        .map((o: any[]) => [Number(o[4]), Number(o[5])])
+        .sort((a: any[], b: any[]) => b[0] - a[0])
+      asks = orderBook
+        .filter((o) => o[3] === 's')
+        .map((o: any[]) => [Number(o[4]), Number(o[5])])
+        .sort((a: any[], b: any[]) => a[0] - b[0])
+    }
+
+    if (bids.length === 0 && asks.length === 0) {
       return {
         timestamp,
         bids: [],
         asks: []
       }
     }
-
-    // sort for bids and asks
-    let bids: number[][] = liquidity
-      .filter((l) => l[0] === 'b')
-      .map((l) => [Number(l[1]), Number(l[2])])
-      .reverse()
-    let asks: number[][] = liquidity
-      .filter((l) => l[0] === 's')
-      .map((l) => [Number(l[1]), Number(l[2])])
 
     // if depth is set, only used every n entrys
     if (depth > 1) {
@@ -2117,7 +2168,7 @@ export default class API extends EventEmitter {
       }
     }
     throw new Error(
-      `level': ${level} is not supported for getLiquidityPerSide. Use 1, 2 or 3`
+      `level': ${level} is not supported for getOrderBook. Use 1, 2 or 3`
     )
   }
 
@@ -2217,7 +2268,7 @@ export default class API extends EventEmitter {
 
   /**
    * Returns fills for a given market.
-   * @param {number} chainId reqested chain (1->zkSync, 1000->zkSync_goerli)
+   * @param {number} chainId reqested chain (1->zkSync, 1002->zkSync_goerli)
    * @param {ZZMarket} market reqested market
    * @param {number} limit number of trades returnd (MAX 25)
    * @param {number} orderId orderId to start at
@@ -2434,7 +2485,7 @@ export default class API extends EventEmitter {
   ) => {
     if (baseQuantity && quoteQuantity)
       throw new Error('Only one of baseQuantity or quoteQuantity should be set')
-    if (![1, 1000].includes(chainId))
+    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId))
       throw new Error('Quotes not supported for this chain')
     if (!['b', 's'].includes(side)) throw new Error('Invalid side')
 
@@ -2600,7 +2651,7 @@ export default class API extends EventEmitter {
 
   broadcastLastPrice = async () => {
     const result = this.VALID_CHAINS.map(async (chainId) => {
-      const lastprices = await this.getLastPrices(chainId);
+      const lastprices = await this.getLastPrices(chainId)
       this.broadcastMessage(
         chainId,
         'all',
