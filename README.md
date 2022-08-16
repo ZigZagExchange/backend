@@ -910,11 +910,11 @@ Description: Error message from a requested operation
 
 ## zigzag endpoints
 
-###### /api/v1/markets
+###### /api/v1/markets/:chainId?
 
-Example: `/api/v1/markets`or `/api/v1/markets?market=eth-ust`
+Example: `/api/v1/markets/421613`or `/api/v1/markets/421613?market=eth-ust`
 
-Arguments: `?market=ETH-UST` (optional, like: /api/v1/markets?market=eth-ust)
+Arguments: `?market=ETH-UST` (optional, like: /api/v1/markets/421613?market=eth-ust)
 
 Description: Returns a JSON containing all markets. If an argument is set, it will only return that summary.
 
@@ -941,11 +941,11 @@ Description: Returns a JSON containing all markets. If an argument is set, it wi
 
 ```
 
-###### /api/v1/ticker
+###### /api/v1/ticker/:chainId?
 
-Example: `/api/v1/ticker`or `/api/v1/ticker?market=eth-ust`
+Example: `/api/v1/ticker/421613`or `/api/v1/ticker/421613?market=eth-ust`
 
-Arguments: `?market=ETH-UST` (optional, like: /api/v1/ticker?market=eth-ust)
+Arguments: `?market=ETH-UST` (optional, like: /api/v1/ticker/421613?market=eth-ust)
 
 Description: Returns a JSON containing all price information. If an argument is set, it will only return this price information.
 
@@ -965,9 +965,9 @@ Description: Returns a JSON containing all price information. If an argument is 
 
 ```
 
-###### /api/v1/orderbook/:market
+###### /api/v1/orderbook/:market/:chainId?
 
-Example: `/api/v1/orderbook/eth-ust?depth=5&level=3`
+Example: `/api/v1/orderbook/eth-ust/421613?depth=5&level=3`
 
 Arguments: 
 * `:market` 
@@ -999,9 +999,9 @@ Returns a JSON containing all orderbook informations for that market. The volume
 
 ```
 
-###### /api/v1/trades/
+###### /api/v1/trades/:chainId?
 
-Example: `/api/v1/trades?market=eth-ust&type=s&order_id=4518`
+Example: `/api/v1/trades/421613?market=eth-ust&type=s&order_id=4518`
 
 Arguments: 
 * `?market` (optional)
@@ -1053,12 +1053,12 @@ Returns a JSON containing the last trades in decending order.
 
 ```
 
-###### /api/v1/marketinfos/
+###### /api/v1/marketinfos/:chainId?
 
-Example: `/api/v1/marketinfos?chain_id=1&market=ETH-USDC`
+Example: `/api/v1/marketinfos/421613?market=ETH-USDC`
 
 Arguments: 
-* `?chain_id`
+* `:chain_id`
 * `?market` - can be a list of markets "...&market=ETH-USDC,ETH-USDT,ETH-UST"
 
 {
