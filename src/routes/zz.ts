@@ -281,8 +281,8 @@ export default function zzRoutes(app: ZZHttpServer) {
           timestamp: date.getTime(),
           side: fill[3] === 's' ? 'sell' : 'buy',
           txHash: fill[7],
-          takerId: Number(fill[8]),
-          makerId: Number(fill[9]),
+          takerId: chainId === 1 ? Number(fill[8]) : fill[8], // chainId === 1 backward compatible 
+          makerId: chainId === 1 ?Number(fill[9]) : fill[9], // chainId === 1 backward compatible
           feeAmount: fill[10],
           feeToken: fill[11],
         }
