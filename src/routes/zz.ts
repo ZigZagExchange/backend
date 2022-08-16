@@ -297,7 +297,7 @@ export default function zzRoutes(app: ZZHttpServer) {
       : null
   
     chainId = !chainId && req.query.chain_id 
-      ? Number(req.query.chainId)
+      ? Number(req.query.chain_id)
       : defaultChainId
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
