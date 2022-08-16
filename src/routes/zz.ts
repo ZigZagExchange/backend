@@ -6,7 +6,6 @@ import type {
 } from 'src/types'
 
 export default function zzRoutes(app: ZZHttpServer) {
-
   const defaultChainId = process.env.DEFAULT_CHAIN_ID
     ? Number(process.env.DEFAULT_CHAIN_ID)
     : 1
@@ -35,15 +34,13 @@ export default function zzRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/markets/:chainId?', getChainId, async (req, res) => {
-    const {chainId} = req
+    const { chainId } = req
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
-      res
-        .status(400)
-        .send({
-          op: 'error',
-          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
-        })
+      res.status(400).send({
+        op: 'error',
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+      })
       return
     }
 
@@ -95,15 +92,13 @@ export default function zzRoutes(app: ZZHttpServer) {
   })
 
   app.get('/api/v1/ticker/:chainId?', getChainId, async (req, res) => {
-    const {chainId} = req
+    const { chainId } = req
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
-      res
-        .status(400)
-        .send({
-          op: 'error',
-          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
-        })
+      res.status(400).send({
+        op: 'error',
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+      })
       return
     }
 
@@ -149,64 +144,74 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/orderbook/:market_pair/:chainId?', getChainId, async (req, res) => {
-    const {chainId} = req
+  app.get(
+    '/api/v1/orderbook/:market_pair/:chainId?',
+    getChainId,
+    async (req, res) => {
+      const { chainId } = req
 
-    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
-      res
-        .status(400)
-        .send({
+      if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
+        res.status(400).send({
           op: 'error',
           message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
         })
-      return
-    }
-
-    const market = req.params.market_pair
-      .replace('_', '-')
-      .replace('/', '-')
-      .replace(':', '-')
-    const altMarket = req.params.market_pair
-      .replace('_', '-')
-      .replace('/', '-')
-      .replace(':', '-')
-      .toUpperCase()
-    const depth = req.query.depth ? Number(req.query.depth) : 0
-    const level: number = req.query.level ? Number(req.query.level) : 2
-    if (![1, 2, 3].includes(level)) {
-      res.send({
-        op: 'error',
-        message: `Level: ${level} is not a valid level. Use 1, 2 or 3.`,
-      })
-      return
-    }
-
-    try {
-      // get data
-      let orderBook = await app.api.getOrderBook(chainId, market, depth, level)
-      if (orderBook.asks.length === 0 && orderBook.bids.length === 0) {
-        orderBook = await app.api.getOrderBook(chainId, altMarket, depth, level)
+        return
       }
-      res.json(orderBook)
-    } catch (error: any) {
-      console.log(error.message)
-      res.send({
-        op: 'error',
-        message: `Failed to fetch orderbook for ${market}, ${error.message}`,
-      })
+
+      const market = req.params.market_pair
+        .replace('_', '-')
+        .replace('/', '-')
+        .replace(':', '-')
+      const altMarket = req.params.market_pair
+        .replace('_', '-')
+        .replace('/', '-')
+        .replace(':', '-')
+        .toUpperCase()
+      const depth = req.query.depth ? Number(req.query.depth) : 0
+      const level: number = req.query.level ? Number(req.query.level) : 2
+      if (![1, 2, 3].includes(level)) {
+        res.send({
+          op: 'error',
+          message: `Level: ${level} is not a valid level. Use 1, 2 or 3.`,
+        })
+        return
+      }
+
+      try {
+        // get data
+        let orderBook = await app.api.getOrderBook(
+          chainId,
+          market,
+          depth,
+          level
+        )
+        if (orderBook.asks.length === 0 && orderBook.bids.length === 0) {
+          orderBook = await app.api.getOrderBook(
+            chainId,
+            altMarket,
+            depth,
+            level
+          )
+        }
+        res.json(orderBook)
+      } catch (error: any) {
+        console.log(error.message)
+        res.send({
+          op: 'error',
+          message: `Failed to fetch orderbook for ${market}, ${error.message}`,
+        })
+      }
     }
-  })
+  )
 
   app.get('/api/v1/trades/:chainId?', getChainId, async (req, res) => {
-    const {chainId} = req
+    const { chainId } = req
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
-      res
-        .status(400)
-        .send({
-          op: 'error',
-          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
-        })
+      res.status(400).send({
+        op: 'error',
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+      })
       return
     }
 
@@ -291,22 +296,18 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/marketinfos/:chainId?', async (req, res) => {    
-    let chainId = req.params.chainId
-      ? Number(req.params.chainId)
-      : null
-  
-    chainId = !chainId && req.query.chain_id 
-      ? Number(req.query.chain_id)
-      : defaultChainId
+  app.get('/api/v1/marketinfos/:chainId?', async (req, res) => {
+    let chainId = req.params.chainId ? Number(req.params.chainId) : null
+
+    if (!chainId) {
+      chainId = req.query.chain_id ? Number(req.query.chain_id) : defaultChainId
+    }
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
-      res
-        .status(400)
-        .send({
-          op: 'error',
-          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
-        })
+      res.status(400).send({
+        op: 'error',
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+      })
       return
     }
 
