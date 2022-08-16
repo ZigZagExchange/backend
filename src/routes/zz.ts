@@ -291,8 +291,14 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
-  app.get('/api/v1/marketinfos/:chainId?', getChainId, async (req, res) => {
-    const {chainId} = req
+  app.get('/api/v1/marketinfos/:chainId?', async (req, res) => {    
+    let chainId = req.params.chainId
+      ? Number(req.params.chainId)
+      : null
+  
+    chainId = !chainId && req.query.chain_id 
+      ? Number(req.query.chainId)
+      : defaultChainId
 
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res
