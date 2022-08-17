@@ -1326,7 +1326,7 @@ async function cacheRecentTrades() {
   console.time('cacheRecentTrades')
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=ANY($2::string[]) ORDER BY id DESC LIMIT 30"
+    const text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=ANY($2::text[]) ORDER BY id DESC LIMIT 30"
     const query = {
       text,
       values: [chainId, markets],
