@@ -326,6 +326,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       try {
         let marketInfo = await app.api.getMarketInfo(market, Number(chainId))
+          .catch(() => null)
         // 2nd try, eg if user send eth-usdc
         if (!marketInfo) {
           marketInfo = await app.api.getMarketInfo(
