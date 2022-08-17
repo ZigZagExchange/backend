@@ -970,6 +970,12 @@ async function sendMatchedOrders() {
 
       // Update lastprice
       if (txStatus === 's') {
+        const today = new Date().toISOString().slice(0, 10)
+        redis.SET(
+          `dailyprice:${chainId}:${match.market}:${today}`,
+          fillupdateBroadcastMinted.rows[0].price,
+          { EX: 604800 }
+        )
         redis.HSET(`lastprices:${chainId}`, match.market, fillupdateBroadcastMinted.rows[0].price);
       }
 
