@@ -44,35 +44,32 @@ export default function zzRoutes(app: ZZHttpServer) {
       return
     }
 
-    const markets: string[] = []
-    const altMarkets: string[] = []
     const UTCFlag = req.query.utc === 'true'
-
+    const markets: string[] = []
     if (req.query.market) {
-      markets.push(
-        (req.query.market as string).replace('_', '-').replace('/', '-')
-      )
-      altMarkets.push(
-        (req.query.market as string)
-          .replace('_', '-')
-          .replace('/', '-')
-          .toUpperCase()
-      )
+      ;(req.query.market as string).split(',').forEach((market: string) => {
+        market = market.replace('_', '-').replace('/', '-')
+        markets.push(market)
+      })
     }
 
     try {
-      let marketSummarys: ZZMarketSummary = await app.api.getMarketSummarys(
+      const marketSummarys: ZZMarketSummary[] = await app.api.getMarketSummarys(
         chainId,
         markets,
         UTCFlag
       )
-      if (!marketSummarys && altMarkets) {
-        marketSummarys = await app.api.getMarketSummarys(
-          chainId,
-          altMarkets,
-          UTCFlag
-        )
+      // eslint-disable-next-line no-restricted-syntax
+      for (const market in marketSummarys) {
+        if (!marketSummarys[market]) {
+          marketSummarys[market] = await app.api.getMarketSummarys(
+            chainId,
+            [market.toUpperCase()],
+            UTCFlag
+          )
+        }
       }
+
       if (!marketSummarys) {
         if (markets.length === 0) {
           res.send({ op: 'error', message: `Can't find any markets.` })
@@ -104,11 +101,11 @@ export default function zzRoutes(app: ZZHttpServer) {
 
     const markets: ZZMarket[] = []
     if (req.query.market) {
-      const market = (req.query.market as string)
-        .replace('_', '-')
-        .replace('/', '-')
-      markets.push(market)
-      markets.push(market.toUpperCase())
+      ;(req.query.market as string).split(',').forEach((market: string) => {
+        market = market.replace('_', '-').replace('/', '-')
+        markets.push(market)
+        markets.push(market.toUpperCase())
+      })
     }
 
     try {
@@ -281,8 +278,8 @@ export default function zzRoutes(app: ZZHttpServer) {
           timestamp: date.getTime(),
           side: fill[3] === 's' ? 'sell' : 'buy',
           txHash: fill[7],
-          takerId: chainId === 1 ? Number(fill[8]) : fill[8], // chainId === 1 backward compatible 
-          makerId: chainId === 1 ?Number(fill[9]) : fill[9], // chainId === 1 backward compatible
+          takerId: chainId === 1 ? Number(fill[8]) : fill[8], // chainId === 1 backward compatible
+          makerId: chainId === 1 ? Number(fill[9]) : fill[9], // chainId === 1 backward compatible
           feeAmount: fill[10],
           feeToken: fill[11],
         }
@@ -311,9 +308,12 @@ export default function zzRoutes(app: ZZHttpServer) {
       return
     }
 
-    let markets: ZZMarket[] = []
+    const markets: ZZMarket[] = []
     if (req.query.market) {
-      markets = markets.concat(String(req.query.market).split(','))
+      ;(req.query.market as string).split(',').forEach((market: string) => {
+        market = market.replace('_', '-').replace('/', '-')
+        markets.push(market)
+      })
     } else {
       res.send({
         op: 'error',
@@ -325,7 +325,15 @@ export default function zzRoutes(app: ZZHttpServer) {
     const marketInfos: ZZMarketInfo = {}
     const results: Promise<any>[] = markets.map(async (market: ZZMarket) => {
       try {
-        const marketInfo = await app.api.getMarketInfo(market, Number(chainId))
+        let marketInfo = await app.api.getMarketInfo(market, Number(chainId))
+          .catch(() => null)
+        // 2nd try, eg if user send eth-usdc
+        if (!marketInfo) {
+          marketInfo = await app.api.getMarketInfo(
+            market.toUpperCase(),
+            Number(chainId)
+          )
+        }
         if (!marketInfo) throw new Error('Market not found')
         marketInfos[market] = marketInfo
       } catch (err: any) {

@@ -348,7 +348,7 @@ export default class API extends EventEmitter {
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
     } catch(e: any) {
       console.log(`Quote asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
-      throw new Error('Base asset no valid ERC20 token')
+      throw new Error('Quote asset no valid ERC20 token')
     }
 
     /* update token fee */
@@ -2280,7 +2280,7 @@ export default class API extends EventEmitter {
    */
   getfills = async (
     chainId: number,
-    market: ZZMarket,
+    market?: ZZMarket,
     limit?: number,
     orderId?: number,
     type?: string,
