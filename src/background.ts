@@ -848,9 +848,9 @@ async function sendUpdates(
 async function sendMatchedOrders() {
   const results: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
-      console.time('sendMatchedOrders: pre processing')
       const matchChainString = await redis.RPOP(`matchedorders:${chainId}`)
       if (!matchChainString) return
+      console.time('sendMatchedOrders: pre processing')
 
       console.log(
         `sendMatchedOrders: chainId ==> ${chainId}, matchChainString ==> ${matchChainString}`
