@@ -11,7 +11,7 @@ import type {
   ZZMarketInfo,
   AnyObject,
   ZZMarket,
-  ZZMarketSummary
+  ZZMarketSummary,
 } from './types'
 
 const NUMBER_OF_SNAPSHOT_POSITIONS = 200
@@ -92,7 +92,7 @@ async function updateVolumes() {
   const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
   const queryUTC = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [midnight]
+    values: [midnight],
   }
   const selectUTC = await db.query(queryUTC)
   selectUTC.rows.forEach(async (row) => {
@@ -119,7 +119,7 @@ async function updateVolumes() {
   const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
   const query = {
     text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [oneDayAgo]
+    values: [oneDayAgo],
   }
   const select = await db.query(query)
   select.rows.forEach(async (row) => {
@@ -181,7 +181,7 @@ async function updatePendingOrders() {
   let orderUpdates: string[][] = []
   const query = {
     text: "UPDATE offers SET order_status='c', update_timestamp=NOW() WHERE (order_status IN ('m', 'b', 'pm') AND update_timestamp < $1) OR (order_status='o' AND unfilled <= 0) RETURNING chainid, id, order_status;",
-    values: [oneMinAgo]
+    values: [oneMinAgo],
   }
   const update = await db.query(query)
   if (update.rowCount > 0) {
@@ -193,13 +193,13 @@ async function updatePendingOrders() {
   // Update fills
   const fillsQuery = {
     text: "UPDATE fills SET fill_status='e', feeamount=0 WHERE fill_status IN ('m', 'b', 'pm') AND insert_timestamp < $1",
-    values: [oneMinAgo]
+    values: [oneMinAgo],
   }
   await db.query(fillsQuery)
 
   const expiredQuery = {
     text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status IN ('o', 'pm', 'pf') AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
-    values: []
+    values: [],
   }
   const updateExpires = await db.query(expiredQuery)
   if (updateExpires.rowCount > 0) {
@@ -249,7 +249,7 @@ async function updateLastPrices() {
       lastPriceInfo.priceChange = yesterdayPrice
         ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
         : 0
-      
+
       lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
       lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
 
@@ -312,9 +312,7 @@ async function updateMarketSummarys() {
       let priceChangePercent_24hUTC = 0
       if (yesterdayPrice) {
         priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
-        priceChangePercent_24h = Number(
-          formatPrice(priceChange / lastPrice)
-        )
+        priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
       } else {
         priceChange = 0
         priceChangePercent_24h = 0
@@ -329,7 +327,7 @@ async function updateMarketSummarys() {
         priceChangeUTC = 0
         priceChangePercent_24hUTC = 0
       }
-      
+
       // get low/high price
       const lowestPrice_24h = Number(redisPricesLow[marketId])
       const highestPrice_24h = Number(redisPricesHigh[marketId])
@@ -358,7 +356,7 @@ async function updateMarketSummarys() {
         priceChange,
         priceChangePercent_24h,
         highestPrice_24h,
-        lowestPrice_24h
+        lowestPrice_24h,
       }
       const marketSummaryUTC: ZZMarketSummary = {
         market: marketId,
@@ -372,7 +370,7 @@ async function updateMarketSummarys() {
         priceChange: priceChangeUTC,
         priceChangePercent_24h: priceChangePercent_24hUTC,
         highestPrice_24h: highestPrice_24hUTC,
-        lowestPrice_24h: lowestPrice_24hUTC
+        lowestPrice_24h: lowestPrice_24hUTC,
       }
       redis.HSET(
         redisKeyMarketSummaryUTC,
@@ -415,9 +413,9 @@ async function updateUsdPrice() {
             ? formatPrice(fetchResult?.result?.price)
             : 1
         if (usdPrice === 0 && token === 'ZZ') {
-          usdPrice = "3.30"
+          usdPrice = '3.30'
         } else if (usdPrice === 0) {
-          usdPrice = "1.00"
+          usdPrice = '1.00'
         }
 
         updatedTokenPrice[token] = usdPrice
@@ -585,19 +583,19 @@ async function updateFeesEVM() {
         try {
           feeData = await ETHERS_PROVIDERS[chainId].getFeeData()
         } catch (e: any) {
-          console.log(`No fee data for chainId: ${chainId}, error: ${e.message}`)
-        }
-  
-        if (feeData.maxFeePerGas) {
-          const factorBN = ethers.BigNumber.from(
-            EVMConfig[chainId].gasUsed
+          console.log(
+            `No fee data for chainId: ${chainId}, error: ${e.message}`
           )
+        }
+
+        if (feeData.maxFeePerGas) {
+          const factorBN = ethers.BigNumber.from(EVMConfig[chainId].gasUsed)
           const feeInWei = feeData.maxFeePerGas.mul(factorBN)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
         } else if (feeData.gasPrice) {
-          const factorBN = ethers.BigNumber.from(Math.floor(
-            EVMConfig[chainId].gasUsed * 1.1
-          ))
+          const factorBN = ethers.BigNumber.from(
+            Math.floor(EVMConfig[chainId].gasUsed * 1.1)
+          )
           const feeInWei = feeData.gasPrice.mul(factorBN)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
         } else {
@@ -605,7 +603,7 @@ async function updateFeesEVM() {
             `No fee data for chainId: ${chainId}, unsing default ${feeAmountWETH} WETH.`
           )
         }
-  
+
         // check if fee changed enough to trigger update
         const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
         const delta = Math.abs(feeAmountWETH - oldFee) / oldFee
@@ -615,7 +613,7 @@ async function updateFeesEVM() {
           )
           return
         }
-  
+
         const newFees: any = []
         const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
         const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
@@ -635,28 +633,42 @@ async function updateFeesEVM() {
             const tokenInfo = JSON.parse(tokenInfos[tokenSymbol])
             if (!tokenInfo?.usdPrice) return
             const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
-            redis.HSET(`tokenfee:${chainId}`, tokenInfo.address, fee.toFixed(tokenInfo.decimals))
-            redis.HSET(`tokenfee:${chainId}`, tokenInfo.symbol, fee.toFixed(tokenInfo.decimals))
+            redis.HSET(
+              `tokenfee:${chainId}`,
+              tokenInfo.address,
+              fee.toFixed(tokenInfo.decimals)
+            )
+            redis.HSET(
+              `tokenfee:${chainId}`,
+              tokenInfo.symbol,
+              fee.toFixed(tokenInfo.decimals)
+            )
             newFees[tokenSymbol] = fee.toFixed(tokenInfo.decimals)
           }
         )
         await Promise.all(results1)
-  
+
         // update marketinfos & broadcastmsg
         const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
-        const results2: Promise<any>[] = markets.map(async (market: ZZMarket) => {
-          if (!marketInfos[market]) return
-          const marketInfo = JSON.parse(marketInfos[market])
-          marketInfo.baseFee = newFees[marketInfo.baseAsset.symbol]
-          marketInfo.quoteFee = newFees[marketInfo.quoteAsset.symbol]
-          publisher.PUBLISH(
-            `broadcastmsg:all:${chainId}:${market}`,
-            JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
-          )
-          // eslint-disable-next-line no-promise-executor-return
-          await new Promise((resolve) => setTimeout(resolve, 250))
-          redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
-        })
+        const results2: Promise<any>[] = markets.map(
+          async (market: ZZMarket) => {
+            if (!marketInfos[market]) return
+            const marketInfo = JSON.parse(marketInfos[market])
+            marketInfo.baseFee = newFees[marketInfo.baseAsset.symbol]
+            marketInfo.quoteFee = newFees[marketInfo.quoteAsset.symbol]
+            publisher.PUBLISH(
+              `broadcastmsg:all:${chainId}:${market}`,
+              JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+            )
+            // eslint-disable-next-line no-promise-executor-return
+            await new Promise((resolve) => setTimeout(resolve, 250))
+            redis.HSET(
+              `marketinfo:${chainId}`,
+              market,
+              JSON.stringify(marketInfo)
+            )
+          }
+        )
         await Promise.all(results2)
       }
     )
@@ -664,7 +676,7 @@ async function updateFeesEVM() {
   } catch (err: any) {
     console.log(`Failed to update EVM fees: ${err}`)
   }
-  
+
   console.timeEnd('Update fees EVM')
 }
 
@@ -742,7 +754,7 @@ async function removeOldLiquidity() {
         bids[i - 1] = [
           'b',
           Number(bidSet[bidSet.length - i]),
-          Number(uniqueBuy[bidSet[bidSet.length - i]])
+          Number(uniqueBuy[bidSet[bidSet.length - i]]),
         ]
       }
       const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
@@ -794,7 +806,12 @@ async function updateTokenInfoZkSync(chainId: number) {
     tokenInfos = fetchResult.result.list
     const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
       const { symbol, address } = tokenInfo
-      if (!symbol || !address || address === '0x0000000000000000000000000000000000000000') return
+      if (
+        !symbol ||
+        !address ||
+        address === '0x0000000000000000000000000000000000000000'
+      )
+        return
       if (!symbol.includes('ERC20')) {
         tokenInfo.usdPrice = 0
         try {
@@ -808,11 +825,7 @@ async function updateTokenInfoZkSync(chainId: number) {
           console.warn(e.message)
           tokenInfo.name = tokenInfo.address
         }
-        redis.HSET(
-          `tokeninfo:${chainId}`,
-          symbol,
-          JSON.stringify(tokenInfo)
-        )
+        redis.HSET(`tokeninfo:${chainId}`, symbol, JSON.stringify(tokenInfo))
       }
     })
     await Promise.all(results1)
@@ -857,7 +870,13 @@ async function sendMatchedOrders() {
       )
       const match = JSON.parse(matchChainString)
       const marketInfo = await getMarketInfo(match.market, match.chainId)
-      const { makerOrder, takerOrder, gasFee: feeAmount, feeToken, baseAmount } = match
+      const {
+        makerOrder,
+        takerOrder,
+        gasFee: feeAmount,
+        feeToken,
+        baseAmount,
+      } = match
 
       if (!makerOrder?.signature || !takerOrder?.signature) return
       const makerSignatureModified =
@@ -873,7 +892,7 @@ async function sendMatchedOrders() {
       console.time('sendMatchedOrders: sending')
       let transaction: any
       try {
-        transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(          
+        transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
           [
             makerOrder.user,
             makerOrder.sellToken,
@@ -886,7 +905,7 @@ async function sendMatchedOrders() {
             makerOrder.takerVolumeFee,
             makerOrder.gasFee,
             makerOrder.expirationTimeSeconds,
-            makerOrder.salt
+            makerOrder.salt,
           ],
           [
             takerOrder.user,
@@ -900,7 +919,7 @@ async function sendMatchedOrders() {
             takerOrder.takerVolumeFee,
             takerOrder.gasFee,
             takerOrder.expirationTimeSeconds,
-            takerOrder.salt
+            takerOrder.salt,
           ],
           makerSignatureModified,
           takerSignatureModified
@@ -909,7 +928,7 @@ async function sendMatchedOrders() {
         console.error(`Failed EVM transaction: ${e.message}`)
         transaction = {
           hash: null,
-          reason: e.message
+          reason: e.message,
         }
       }
 
@@ -941,9 +960,9 @@ async function sendMatchedOrders() {
                   0, // remaining
                   0,
                   0,
-                  new Date().toISOString() // timestamp
-                ]
-              ]
+                  new Date().toISOString(), // timestamp
+                ],
+              ],
             ]
           )
         }
@@ -962,13 +981,13 @@ async function sendMatchedOrders() {
       const fillupdateBroadcastMinted = await db.query(
         'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash, price',
         [
-          (txStatus === 's') ? 'f' : 'r', // filled only has f or r
+          txStatus === 's' ? 'f' : 'r', // filled only has f or r
           transaction.hash,
           transaction.hash ? feeAmount : 0,
           transaction.hash ? feeToken : null,
           Number(makerOrder.makerVolumeFee),
           Number(takerOrder.takerVolumeFee),
-          match.fillId
+          match.fillId,
         ]
       )
 
@@ -980,7 +999,11 @@ async function sendMatchedOrders() {
           fillupdateBroadcastMinted.rows[0].price,
           { EX: 604800 }
         )
-        redis.HSET(`lastprices:${chainId}`, match.market, fillupdateBroadcastMinted.rows[0].price);
+        redis.HSET(
+          `lastprices:${chainId}`,
+          match.market,
+          fillupdateBroadcastMinted.rows[0].price
+        )
       }
 
       let orderUpdateBroadcastMinted: AnyObject
@@ -990,33 +1013,29 @@ async function sendMatchedOrders() {
           [
             marketInfo?.baseFee ? marketInfo.baseFee : 0,
             match.takerId,
-            match.makerId
+            match.makerId,
           ]
         )
-        
       } else {
-        const startIndex = transaction.reason.indexOf("execution reverted")
-        const endIndex = transaction.reason.indexOf("code")
+        const startIndex = transaction.reason.indexOf('execution reverted')
+        const endIndex = transaction.reason.indexOf('code')
         const reason = transaction.reason.slice(startIndex, endIndex)
         console.log(reason)
         const cancelOrderIds = []
         if (reason.includes('right')) {
           cancelOrderIds.push(match.takerId)
-        }
-        else if (reason.includes('left')) {
+        } else if (reason.includes('left')) {
           cancelOrderIds.push(match.makerId)
-        }
-        else if (reason.includes('not profitable spread')) {
+        } else if (reason.includes('not profitable spread')) {
           // ignore. nothing needs to be canceled
-        }
-        else {
+        } else {
           // default: cancel both
           cancelOrderIds.push(match.makerId)
           cancelOrderIds.push(match.takerId)
         }
         orderUpdateBroadcastMinted = await db.query(
           `UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
-          [ cancelOrderIds ]
+          [cancelOrderIds]
         )
       }
       const orderUpdatesBroadcastMinted = orderUpdateBroadcastMinted.rows.map(
@@ -1025,7 +1044,7 @@ async function sendMatchedOrders() {
           row.id,
           row.order_status,
           null, // tx hash
-          transaction.reason ? transaction.reason : row.unfilled
+          transaction.reason ? transaction.reason : row.unfilled,
         ]
       )
       const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
@@ -1037,7 +1056,7 @@ async function sendMatchedOrders() {
           0, // remaing for fills is always 0
           feeAmount,
           feeToken,
-          new Date().toISOString() // timestamp
+          new Date().toISOString(), // timestamp
         ]
       )
 
@@ -1046,14 +1065,14 @@ async function sendMatchedOrders() {
       // wait for tx to be processed before sending the result
       if (transaction.hash) {
         try {
-          await ETHERS_PROVIDERS[chainId].waitForTransaction(
-            transaction.hash
-          )
+          await ETHERS_PROVIDERS[chainId].waitForTransaction(transaction.hash)
         } catch (e: any) {
-          console.error(`Failed to wait for tx ${transaction.hash} because ${e.message}`)
+          console.error(
+            `Failed to wait for tx ${transaction.hash} because ${e.message}`
+          )
         }
       }
-      
+
       if (orderUpdatesBroadcastMinted.length) {
         sendUpdates(
           chainId,
@@ -1104,8 +1123,10 @@ async function updateEVMMarketInfo() {
           marketInfo.relayerAddress !== evmConfig.relayerAddress ||
           marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
           marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
-          Number(marketInfo.contractVersion) !== Number(evmConfig.domain.version)          
-        ) updated = true
+          Number(marketInfo.contractVersion) !==
+            Number(evmConfig.domain.version)
+        )
+          updated = true
       }
       if (!updated) return
 
@@ -1317,41 +1338,39 @@ async function seedArbitrumMarkets() {
     'ZZ-USDC',
     JSON.stringify(lastPriceInfoZzUsdc)
   )
-  */  
+  */
   console.timeEnd('seeding arbitrum markets')
 }
-
 
 async function cacheRecentTrades() {
   console.time('cacheRecentTrades')
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=ANY($2::text[]) ORDER BY id DESC LIMIT 30"
+    const text =
+      "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=ANY($2::TEXT[]) ORDER BY id DESC LIMIT 30"
     const query = {
       text,
       values: [chainId, markets],
-      rowMode: 'array'
+      rowMode: 'array',
     }
     const select = await db.query(query)
 
-    select.rows.forEach(row => {
-      redis.SET(
-        `recenttrades:${row[0]}:${row[2]}`,
-        JSON.stringify(row),
-        { EX: 30 }
-      )
+    select.rows.forEach((row) => {
+      redis.SET(`recenttrades:${row[0]}:${row[2]}`, JSON.stringify(row), {
+        EX: 30,
+      })
     })
   })
   await Promise.all(results0)
-  
+
   console.timeEnd('cacheRecentTrades')
 }
 
 async function updateBestAskBidEVM() {
   console.time('updateBestAskBidEVM')
   const query = {
-    text: "SELECT market, chainid, MAX(price) AS best_bid, MIN(price) AS best_ask FROM offers WHERE chainid = ANY($1::int[]) AND order_status IN ('o', 'pm', 'pf') AND side = 'b' GROUP BY market, chainid;",
-    values: [VALID_EVM_CHAINS]
+    text: "SELECT market, chainid, MAX(price) AS best_bid, MIN(price) AS best_ask FROM offers WHERE chainid = ANY($1::INT[]) AND order_status IN ('o', 'pm', 'pf') AND side = 'b' GROUP BY market, chainid;",
+    values: [VALID_EVM_CHAINS],
   }
   const select = await db.query(query)
   const results: Promise<any>[] = select.rows.map(async (row: any) => {
@@ -1359,14 +1378,13 @@ async function updateBestAskBidEVM() {
     redis.HSET(`bestbid:${row.chainid}`, row.market, row.best_bid)
   })
   await Promise.all(results)
-    
-  console.timeEnd('updateBestAskBidEVM')  
+
+  console.timeEnd('updateBestAskBidEVM')
 }
 
 async function start() {
   console.log('background.ts: Run checks')
-  if (!process.env.INFURA_PROJECT_ID)
-    throw new Error('NO INFURA KEY SET')
+  if (!process.env.INFURA_PROJECT_ID) throw new Error('NO INFURA KEY SET')
 
   console.log('background.ts: Run startup')
 
@@ -1386,11 +1404,11 @@ async function start() {
 
   // connect infura providers
   const operatorKeysString = process.env.OPERATOR_KEY as any
-  if (!operatorKeysString && VALID_EVM_CHAINS.length) 
+  if (!operatorKeysString && VALID_EVM_CHAINS.length)
     throw new Error("MISSING ENV VAR 'OPERATOR_KEY'")
   const operatorKeys = JSON.parse(operatorKeysString)
   const results: Promise<any>[] = VALID_CHAINS.map(async (chainId: number) => {
-    if (ETHERS_PROVIDERS[chainId]) return    
+    if (ETHERS_PROVIDERS[chainId]) return
     try {
       ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
         getNetwork(chainId),
@@ -1398,13 +1416,15 @@ async function start() {
       )
       console.log(`Connected InfuraProvider for ${chainId}`)
     } catch (e: any) {
-      console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+      console.warn(
+        `Could not connect InfuraProvider for ${chainId}, trying RPC...`
+      )
       ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
         getRPCURL(chainId)
       )
       console.log(`Connected JsonRpcProvider for ${chainId}`)
-    } 
-    
+    }
+
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
       const address = EVMConfig[chainId].exchangeAddress
       const key = operatorKeys[chainId]
@@ -1412,18 +1432,18 @@ async function start() {
         if (!address || !key) {
           throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
         }
-  
+
         const wallet = new ethers.Wallet(
           key,
           ETHERS_PROVIDERS[chainId]
         ).connect(ETHERS_PROVIDERS[chainId])
-    
+
         EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
           address,
           EVMContractABI,
           wallet
         )
-    
+
         EXCHANGE_CONTRACTS[chainId].connect(wallet)
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
@@ -1473,12 +1493,13 @@ async function start() {
   /* startup */
   await updateEVMMarketInfo()
   try {
-    const updateReult = VALID_CHAINS_ZKSYNC.map(async (chainId) => updateTokenInfoZkSync(chainId))
+    const updateReult = VALID_CHAINS_ZKSYNC.map(async (chainId) =>
+      updateTokenInfoZkSync(chainId)
+    )
     await Promise.all(updateReult)
   } catch (e: any) {
     console.error(`Failed to updateTokenInfoZkSync: ${e}`)
   }
-
 
   // Seed Arbitrum Markets
   await seedArbitrumMarkets()

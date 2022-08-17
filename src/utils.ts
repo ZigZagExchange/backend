@@ -2,68 +2,75 @@ import * as starknet from 'starknet'
 import { ethers } from 'ethers'
 import { randomBytes } from 'crypto'
 
-export function formatPrice (input: any) {
+export function formatPrice(input: any) {
   const inputNumber = Number(input)
   if (inputNumber > 99999) {
     return inputNumber.toFixed(0)
-  } 
+  }
   if (inputNumber > 9999) {
     return inputNumber.toFixed(1)
-  } 
+  }
   if (inputNumber > 999) {
     return inputNumber.toFixed(2)
-  } 
+  }
   if (inputNumber > 99) {
     return inputNumber.toFixed(3)
-  } 
+  }
   if (inputNumber > 9) {
     return inputNumber.toFixed(4)
-  } 
+  }
   if (inputNumber > 1) {
     return inputNumber.toFixed(5)
-  } 
+  }
   return inputNumber.toPrecision(6)
 }
 
-
-export function stringToFelt (text: string) {
+export function stringToFelt(text: string) {
   const bufferText = Buffer.from(text, 'utf8')
   const hexString = `0x${bufferText.toString('hex')}`
   return starknet.number.toFelt(hexString)
 }
 
-export function getNetwork (chainId: number) {
-  switch(chainId) {
-    case 1: return "mainnet"
-    case 1002: case 1001: return "goerli"
-    case 42161: return "arbitrum"
-    default: throw new Error('No valid chainId')
+export function getNetwork(chainId: number) {
+  switch (chainId) {
+    case 1:
+      return 'mainnet'
+    case 1002:
+    case 1001:
+      return 'goerli'
+    case 42161:
+      return 'arbitrum'
+    default:
+      throw new Error('No valid chainId')
   }
 }
 
-export function getRPCURL (chainId: number) {
-  switch(chainId) {
-    case 42161: return "https://arb1.arbitrum.io/rpc"
-    case 421613: return "https://goerli-rollup.arbitrum.io/rpc"
-    default: throw new Error('No valid chainId')
+export function getRPCURL(chainId: number) {
+  switch (chainId) {
+    case 42161:
+      return 'https://arb1.arbitrum.io/rpc'
+    case 421613:
+      return 'https://goerli-rollup.arbitrum.io/rpc'
+    default:
+      throw new Error('No valid chainId')
   }
 }
 
 export const evmEIP712Types = {
-  "Order": [
-    { "name": 'user', "type": 'address' },
-    { "name": 'sellToken', "type": 'address' },
-    { "name": 'buyToken', "type": 'address' },
-    { "name": 'feeRecipientAddress', "type": 'address' },
-    { "name": 'relayerAddress', "type": 'address' },
-    { "name": 'sellAmount', "type": 'uint256' },
-    { "name": 'buyAmount', "type": 'uint256' },
-    { "name": 'makerVolumeFee', "type": 'uint256' },
-    { "name": 'takerVolumeFee', "type": 'uint256' },
-    { "name": 'gasFee', "type": 'uint256' },
-    { "name": 'expirationTimeSeconds', "type": 'uint256' },
-    { "name": 'salt', "type": 'uint256' }
-  ]
+  Order: [
+    { name: 'user', type: 'address' },
+    { name: 'sellToken', type: 'address' },
+    { name: 'buyToken', type: 'address' },
+    { name: 'feeRecipientAddress', type: 'address' },
+    { name: 'relayerAddress', type: 'address' },
+    { name: 'sellAmount', type: 'uint256' },
+    { name: 'buyAmount', type: 'uint256' },
+    { name: 'makerVolumeFee', type: 'uint256' },
+    { name: 'takerVolumeFee', type: 'uint256' },
+    { name: 'gasFee', type: 'uint256' },
+    { name: 'expirationTimeSeconds', type: 'uint256' },
+    { name: 'salt', type: 'uint256' },
+  ],
 }
 
 /**
@@ -79,11 +86,7 @@ export async function getERC20Info(
   abi: any
 ) {
   const tokenInfos: any = {}
-  const contract = new ethers.Contract(
-    contractAddress,
-    abi,
-    provider
-  )
+  const contract = new ethers.Contract(contractAddress, abi, provider)
   tokenInfos.decimals = await contract.decimals()
   tokenInfos.name = await contract.name()
   tokenInfos.symbol = await contract.symbol()

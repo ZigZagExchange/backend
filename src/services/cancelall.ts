@@ -5,11 +5,14 @@ export const cancelall: ZZServiceHandler = async (
   ws,
   [chainId, userid]
 ) => {
-  if (
-    !api.VALID_CHAINS_ZKSYNC.includes(chainId) ||
-    Number(chainId) === 0
-  ) {
-    const errorMsg = { op: 'error', args: ['cancelall', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS} or 0 to cancel on all networks`] }
+  if (!api.VALID_CHAINS_ZKSYNC.includes(chainId) || Number(chainId) === 0) {
+    const errorMsg = {
+      op: 'error',
+      args: [
+        'cancelall',
+        `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS} or 0 to cancel on all networks`,
+      ],
+    }
     ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return
