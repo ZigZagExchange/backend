@@ -2280,7 +2280,7 @@ export default class API extends EventEmitter {
    */
   getfills = async (
     chainId: number,
-    market: ZZMarket,
+    market?: ZZMarket,
     limit?: number,
     orderId?: number,
     type?: string,
