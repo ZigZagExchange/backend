@@ -177,7 +177,6 @@ async function updateVolumes() {
 async function updatePendingOrders() {
   console.time('updatePendingOrders')
 
-  // TODO back to one min, temp 300, starknet is too slow
   const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString()
   let orderUpdates: string[][] = []
   const query = {
@@ -849,6 +848,7 @@ async function sendUpdates(
 async function sendMatchedOrders() {
   const results: Promise<any>[] = VALID_EVM_CHAINS.map(
     async (chainId: number) => {
+      console.time('sendMatchedOrders: pre processing')
       const matchChainString = await redis.RPOP(`matchedorders:${chainId}`)
       if (!matchChainString) return
 
@@ -869,6 +869,8 @@ async function sendMatchedOrders() {
         takerOrder.signature.slice(-2) +
         takerOrder.signature.slice(2, -2)
 
+      console.timeEnd('sendMatchedOrders: pre processing')
+      console.time('sendMatchedOrders: sending')
       let transaction: any
       try {
         transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(          
@@ -911,6 +913,8 @@ async function sendMatchedOrders() {
         }
       }
 
+      console.timeEnd('sendMatchedOrders: sending')
+      console.time('sendMatchedOrders: post processing broadcast')
       /* txStatus: s - success, b - broadcasted (pending), r - rejected */
       let txStatus: string
       if (transaction.hash) {
@@ -1037,6 +1041,8 @@ async function sendMatchedOrders() {
         ]
       )
 
+      console.timeEnd('sendMatchedOrders: post processing broadcast')
+      console.time('sendMatchedOrders: post processing filled')
       // wait for tx to be processed before sending the result
       if (transaction.hash) {
         try {
@@ -1068,6 +1074,7 @@ async function sendMatchedOrders() {
           [fillUpdatesBroadcastMinted]
         )
       }
+      console.timeEnd('sendMatchedOrders: post processing filled')
     }
   )
 
