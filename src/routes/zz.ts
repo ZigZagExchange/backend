@@ -62,11 +62,12 @@ export default function zzRoutes(app: ZZHttpServer) {
       // eslint-disable-next-line no-restricted-syntax
       for (const market in marketSummarys) {
         if (!marketSummarys[market]) {
-          marketSummarys[market] = await app.api.getMarketSummarys(
+          const upperCaseSummary = await app.api.getMarketSummarys(
             chainId,
             [market.toUpperCase()],
             UTCFlag
           )
+          marketSummarys[market] = upperCaseSummary[market.toUpperCase()]
         }
       }
 
