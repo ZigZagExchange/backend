@@ -177,7 +177,6 @@ async function updateVolumes() {
 async function updatePendingOrders() {
   console.time('updatePendingOrders')
 
-  // TODO back to one min, temp 300, starknet is too slow
   const oneMinAgo = new Date(Date.now() - 60 * 1000).toISOString()
   let orderUpdates: string[][] = []
   const query = {
@@ -851,6 +850,7 @@ async function sendMatchedOrders() {
     async (chainId: number) => {
       const matchChainString = await redis.RPOP(`matchedorders:${chainId}`)
       if (!matchChainString) return
+      console.time('sendMatchedOrders: pre processing')
 
       console.log(
         `sendMatchedOrders: chainId ==> ${chainId}, matchChainString ==> ${matchChainString}`
@@ -869,6 +869,8 @@ async function sendMatchedOrders() {
         takerOrder.signature.slice(-2) +
         takerOrder.signature.slice(2, -2)
 
+      console.timeEnd('sendMatchedOrders: pre processing')
+      console.time('sendMatchedOrders: sending')
       let transaction: any
       try {
         transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(          
@@ -911,6 +913,8 @@ async function sendMatchedOrders() {
         }
       }
 
+      console.timeEnd('sendMatchedOrders: sending')
+      console.time('sendMatchedOrders: post processing broadcast')
       /* txStatus: s - success, b - broadcasted (pending), r - rejected */
       let txStatus: string
       if (transaction.hash) {
@@ -970,6 +974,12 @@ async function sendMatchedOrders() {
 
       // Update lastprice
       if (txStatus === 's') {
+        const today = new Date().toISOString().slice(0, 10)
+        redis.SET(
+          `dailyprice:${chainId}:${match.market}:${today}`,
+          fillupdateBroadcastMinted.rows[0].price,
+          { EX: 604800 }
+        )
         redis.HSET(`lastprices:${chainId}`, match.market, fillupdateBroadcastMinted.rows[0].price);
       }
 
@@ -1031,6 +1041,8 @@ async function sendMatchedOrders() {
         ]
       )
 
+      console.timeEnd('sendMatchedOrders: post processing broadcast')
+      console.time('sendMatchedOrders: post processing filled')
       // wait for tx to be processed before sending the result
       if (transaction.hash) {
         try {
@@ -1062,6 +1074,7 @@ async function sendMatchedOrders() {
           [fillUpdatesBroadcastMinted]
         )
       }
+      console.timeEnd('sendMatchedOrders: post processing filled')
     }
   )
 
@@ -1304,48 +1317,7 @@ async function seedArbitrumMarkets() {
     'ZZ-USDC',
     JSON.stringify(lastPriceInfoZzUsdc)
   )
-  */
-  const wbtcTokenInfo = {
-    id: '0x4cdfA8137455123723851349d705a0023F73896A',
-    address: '0x4cdfA8137455123723851349d705a0023F73896A',
-    symbol: 'WBTC',
-    decimals: 8,
-    enabledForFees: true,
-    usdPrice: '25000',
-    name: 'Wrapped Bitcoin (goerli)'
-  }
-  const usdcTokenInfo = {
-    id: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
-    address: '0xEA70a40Df1432A1b38b916A51Fb81A4cc805a963',
-    symbol: 'USDC',
-    decimals: 6,
-    enabledForFees: true,
-    usdPrice: '1',
-    name: 'USD COIN (goerli)'
-  }
-  const daiTokenInfo = {
-    id: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
-    address: '0x3d9835F9cB196f8A88b0d4F9586C3E427af1Ffe0',
-    symbol: 'DAI',
-    decimals: 18,
-    enabledForFees: true,
-    usdPrice: '1',
-    name: 'DAI (goerli)'
-  }
-  const wethTokenInfo = {
-    id: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
-    address: '0xe39ab88f8a4777030a534146a9ca3b52bd5d43a3',
-    symbol: 'WETH',
-    decimals: 18,
-    enabledForFees: true,
-    usdPrice: '2000',
-    name: 'WETH (goerli)'
-  }
-  await redis.HSET('tokeninfo:421613', 'WBTC', JSON.stringify(wbtcTokenInfo))
-  await redis.HSET('tokeninfo:421613', 'USDC', JSON.stringify(usdcTokenInfo))
-  await redis.HSET('tokeninfo:421613', 'DAI', JSON.stringify(daiTokenInfo))
-  await redis.HSET('tokeninfo:421613', 'WETH', JSON.stringify(wethTokenInfo))
-  
+  */  
   console.timeEnd('seeding arbitrum markets')
 }
 
@@ -1354,21 +1326,41 @@ async function cacheRecentTrades() {
   console.time('cacheRecentTrades')
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 30"
-      const query = {
-        text,
-        values: [chainId, marketId],
-        rowMode: 'array'
-      }
-      const select = await db.query(query)
-      redis.SET(`recenttrades:${chainId}:${marketId}`, JSON.stringify(select.rows))
+    const text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=ANY($2::text[]) ORDER BY id DESC LIMIT 30"
+    const query = {
+      text,
+      values: [chainId, markets],
+      rowMode: 'array'
+    }
+    const select = await db.query(query)
+
+    select.rows.forEach(row => {
+      redis.SET(
+        `recenttrades:${row[0]}:${row[2]}`,
+        JSON.stringify(row),
+        { EX: 30 }
+      )
     })
-    await Promise.all(results1)
   })
   await Promise.all(results0)
   
   console.timeEnd('cacheRecentTrades')
+}
+
+async function updateBestAskBidEVM() {
+  console.time('updateBestAskBidEVM')
+  const query = {
+    text: "SELECT market, chainid, MAX(price) AS best_bid, MIN(price) AS best_ask FROM offers WHERE chainid = ANY($1::int[]) AND order_status IN ('o', 'pm', 'pf') AND side = 'b' GROUP BY market, chainid;",
+    values: [VALID_EVM_CHAINS]
+  }
+  const select = await db.query(query)
+  const results: Promise<any>[] = select.rows.map(async (row: any) => {
+    redis.HSET(`bestask:${row.chainid}`, row.market, row.best_ask)
+    redis.HSET(`bestbid:${row.chainid}`, row.market, row.best_bid)
+  })
+  await Promise.all(results)
+    
+  console.timeEnd('updateBestAskBidEVM')  
 }
 
 async function start() {
@@ -1452,14 +1444,14 @@ async function start() {
         VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
-    if (chainId === 1003) {
+    if (chainId === 1002) {
       try {
         SYNC_PROVIDER.goerli = await zksync.getDefaultRestProvider('goerli')
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
-        const indexA = VALID_CHAINS.indexOf(1003)
+        const indexA = VALID_CHAINS.indexOf(1002)
         VALID_CHAINS.splice(indexA, 1)
-        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1003)
+        const indexB = VALID_CHAINS_ZKSYNC.indexOf(1002)
         VALID_CHAINS_ZKSYNC.splice(indexB, 1)
       }
     }
@@ -1492,16 +1484,17 @@ async function start() {
   await seedArbitrumMarkets()
 
   console.log('background.ts: Starting Update Functions')
-  setInterval(updatePriceHighLow, 600000)
-  setInterval(updateVolumes, 900000)
+  setInterval(updateBestAskBidEVM, 5000)
   setInterval(updatePendingOrders, 5000)
+  setInterval(cacheRecentTrades, 5500)
+  setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
+  setInterval(updateFeesEVM, 20000)
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-  setInterval(removeOldLiquidity, 10000)
-  setInterval(updateFeesEVM, 20000)
-  setInterval(cacheRecentTrades, 75000)
+  setInterval(updatePriceHighLow, 600000)
+  setInterval(updateVolumes, 900000)
 
   setTimeout(sendMatchedOrders, 5000)
 }

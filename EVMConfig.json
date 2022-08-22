@@ -13,7 +13,7 @@
     "gasUsed" : 1500000
   },
   "421613": {
-    "exchangeAddress": "0x0e656CD1a3fd1a5132d2fA12a64e2f4D7b4F008B",
+    "exchangeAddress": "0xf3a79aeE1e473453D4F6C6A3e3d412e06eb56038",
     "feeAddress": "0xeB65157C2A5306754c9616e45Bed37fC4049FC04",
     "relayerAddress": "0xe95984704D83D36C53021C5dbc90B5C6938BBEA2",
     "minMakerVolumeFee": 0.00,
