@@ -10,7 +10,7 @@ import {
   formatPrice,
   getNetwork,
   getRPCURL,
-  getOrder,
+  getFeeEstimationOrder,
   getFeeEstimationMarket,
 } from './utils'
 import type {
@@ -596,13 +596,13 @@ async function updateFeesEVM() {
           const marketInfo = await redis.HGET(`marketinfo:${chainId}`, market)
           if (!marketInfo)
             throw new Error(`updateFeesEVM: No marketInfo for ${market}`)
-          const buyOrder = await getOrder(
+          const buyOrder = await getFeeEstimationOrder(
             chainId,
             JSON.parse(marketInfo) as ZZMarketInfo,
             WALLET[chainId],
             'b'
           )
-          const sellOrder = await getOrder(
+          const sellOrder = await getFeeEstimationOrder(
             chainId,
             JSON.parse(marketInfo) as ZZMarketInfo,
             WALLET[chainId],
@@ -656,7 +656,6 @@ async function updateFeesEVM() {
             `No fee data for chainId: ${chainId}, error: ${e.message}`
           )
         }
-        console.log(`gasUsedEstimation ==> ${gasUsedEstimation}`)
 
         if (feeData.maxFeePerGas) {
           const feeInWei = feeData.maxFeePerGas.mul(gasUsedEstimation)

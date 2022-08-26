@@ -110,7 +110,7 @@ export function getFeeEstimationMarket(chainId: number) {
   }
 }
 
-export async function getOrder(
+export async function getFeeEstimationOrder(
   chainId: number,
   marketInfo: ZZMarketInfo,
   wallet: AnyObject,
