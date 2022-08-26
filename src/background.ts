@@ -1,12 +1,18 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import fetch from 'isomorphic-fetch'
-import { ethers } from 'ethers'
+import { ethers, Wallet } from 'ethers'
 import * as zksync from 'zksync'
 import fs from 'fs'
 import { redis, publisher } from './redisClient'
 import db from './db'
-import { formatPrice, getNetwork, getRPCURL } from './utils'
+import {
+  formatPrice,
+  getNetwork,
+  getRPCURL,
+  getOrder,
+  getFeeEstimationMarket,
+} from './utils'
 import type {
   ZZMarketInfo,
   AnyObject,
@@ -29,6 +35,7 @@ const ZKSYNC_BASE_URL: AnyObject = {}
 const SYNC_PROVIDER: AnyObject = {}
 const ETHERS_PROVIDERS: AnyObject = {}
 const EXCHANGE_CONTRACTS: AnyObject = {}
+const WALLET: AnyObject = {}
 let EVMConfig: AnyObject = {}
 let ERC20_ABI: any
 
@@ -580,23 +587,82 @@ async function updateFeesEVM() {
       async (chainId: number) => {
         let feeData: any = {}
         let feeAmountWETH = 0.002 // fallback fee
+        let gasUsedEstimation: ethers.BigNumber = ethers.BigNumber.from(
+          EVMConfig[chainId].gasUsed
+        )
         try {
           feeData = await ETHERS_PROVIDERS[chainId].getFeeData()
+          const market = getFeeEstimationMarket(chainId)
+          const marketInfo = await redis.HGET(`marketinfo:${chainId}`, market)
+          if (!marketInfo)
+            throw new Error(`updateFeesEVM: No marketInfo for ${market}`)
+          const buyOrder = await getOrder(
+            chainId,
+            JSON.parse(marketInfo) as ZZMarketInfo,
+            WALLET[chainId],
+            'b'
+          )
+          const sellOrder = await getOrder(
+            chainId,
+            JSON.parse(marketInfo) as ZZMarketInfo,
+            WALLET[chainId],
+            's'
+          )
+          const makerSignatureModified =
+            buyOrder.signature.slice(0, 2) +
+            buyOrder.signature.slice(-2) +
+            buyOrder.signature.slice(2, -2)
+          const takerSignatureModified =
+            sellOrder.signature.slice(0, 2) +
+            sellOrder.signature.slice(-2) +
+            sellOrder.signature.slice(2, -2)
+
+          gasUsedEstimation = await EXCHANGE_CONTRACTS[
+            chainId
+          ].estimateGas.matchOrders(
+            [
+              buyOrder.user,
+              buyOrder.sellToken,
+              buyOrder.buyToken,
+              buyOrder.feeRecipientAddress,
+              buyOrder.relayerAddress,
+              buyOrder.sellAmount,
+              buyOrder.buyAmount,
+              buyOrder.makerVolumeFee,
+              buyOrder.takerVolumeFee,
+              buyOrder.gasFee,
+              buyOrder.expirationTimeSeconds,
+              buyOrder.salt,
+            ],
+            [
+              sellOrder.user,
+              sellOrder.sellToken,
+              sellOrder.buyToken,
+              sellOrder.feeRecipientAddress,
+              sellOrder.relayerAddress,
+              sellOrder.sellAmount,
+              sellOrder.buyAmount,
+              sellOrder.makerVolumeFee,
+              sellOrder.takerVolumeFee,
+              sellOrder.gasFee,
+              sellOrder.expirationTimeSeconds,
+              sellOrder.salt,
+            ],
+            makerSignatureModified,
+            takerSignatureModified
+          )
         } catch (e: any) {
           console.log(
             `No fee data for chainId: ${chainId}, error: ${e.message}`
           )
         }
+        console.log(`gasUsedEstimation ==> ${gasUsedEstimation}`)
 
         if (feeData.maxFeePerGas) {
-          const factorBN = ethers.BigNumber.from(EVMConfig[chainId].gasUsed)
-          const feeInWei = feeData.maxFeePerGas.mul(factorBN)
+          const feeInWei = feeData.maxFeePerGas.mul(gasUsedEstimation)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
         } else if (feeData.gasPrice) {
-          const factorBN = ethers.BigNumber.from(
-            Math.floor(EVMConfig[chainId].gasUsed * 1.1)
-          )
-          const feeInWei = feeData.gasPrice.mul(factorBN)
+          const feeInWei = feeData.gasPrice.mul(gasUsedEstimation)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
         } else {
           console.error(
@@ -1410,6 +1476,31 @@ async function updateBestAskBidEVM() {
   console.timeEnd('updateBestAskBidEVM')
 }
 
+async function checkEVMChainAllowance() {
+  const results0: Promise<any>[] = VALID_EVM_CHAINS.map(async (chainId) => {
+    const { exchangeAddress } = EVMConfig[chainId]
+    const testAddress = await WALLET[chainId].getAddress()
+    const markets = getFeeEstimationMarket(chainId).split('-')
+    for (let i = 0; i < markets.length; i++) {
+      const tokenSymbol = markets[i]
+      const tokenInfoString = await redis.HGET(
+        `tokeninfo:${chainId}`,
+        tokenSymbol
+      )
+      if (!tokenInfoString) return
+
+      const { address, decimals } = JSON.parse(tokenInfoString)
+      const contract = new ethers.Contract(address, ERC20_ABI, WALLET[chainId])
+      const allowanceBN = await contract.allowance(testAddress, exchangeAddress)
+      const allowanceNeededBN = ethers.utils.parseUnits('10', decimals)
+      if (allowanceBN.lt(allowanceNeededBN)) {
+        await contract.approve(exchangeAddress, allowanceNeededBN.toString())
+      }
+    }
+  })
+  await Promise.all(results0)
+}
+
 async function start() {
   console.log('background.ts: Run checks')
   if (!process.env.INFURA_PROJECT_ID) throw new Error('NO INFURA KEY SET')
@@ -1461,7 +1552,7 @@ async function start() {
           throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
         }
 
-        const wallet = new ethers.Wallet(
+        WALLET[chainId] = new ethers.Wallet(
           key,
           ETHERS_PROVIDERS[chainId]
         ).connect(ETHERS_PROVIDERS[chainId])
@@ -1469,10 +1560,9 @@ async function start() {
         EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
           address,
           EVMContractABI,
-          wallet
+          WALLET[chainId]
         )
-
-        EXCHANGE_CONTRACTS[chainId].connect(wallet)
+        EXCHANGE_CONTRACTS[chainId].connect(WALLET[chainId])
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
         const indexA = VALID_CHAINS.indexOf(chainId)
@@ -1520,6 +1610,7 @@ async function start() {
 
   /* startup */
   await updateEVMMarketInfo()
+  await checkEVMChainAllowance()
   try {
     const updateResult = VALID_CHAINS_ZKSYNC.map(async (chainId) =>
       updateTokenInfoZkSync(chainId)
