@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import fetch from 'isomorphic-fetch'
-import { ethers, Wallet } from 'ethers'
+import { ethers } from 'ethers'
 import * as zksync from 'zksync'
 import fs from 'fs'
 import { redis, publisher } from './redisClient'
