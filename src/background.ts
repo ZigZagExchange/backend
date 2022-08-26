@@ -796,7 +796,17 @@ async function runDbMigration() {
  * @param chainId
  */
 async function updateTokenInfoZkSync(chainId: number) {
-  const updatedTokenInfo: AnyObject = {}
+  const updatedTokenInfo: AnyObject = {
+    ETH: {
+      id: 0,
+      address: '0x0000000000000000000000000000000000000000',
+      symbol: 'ETH',
+      decimals: 18,
+      enabledForFees: true,
+      usdPrice: '1910.20',
+      name: 'Ethereum',
+    },
+  }
 
   // fetch new tokenInfo from zkSync
   let index = 0
