@@ -60,15 +60,15 @@ export const orderstatusupdate: ZZServiceHandler = async (
       // update user
       api.redisPublisher.publish(
         `broadcastmsg:user:${chainId}:${userId}`,
-        JSON.stringify({ op: 'orderstatus', args: [[update]], })
+        JSON.stringify({ op: 'orderstatus', args: [[update]] })
       )
       api.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'orderstatus', args: [[update]], })
+        JSON.stringify({ op: 'orderstatus', args: [[update]] })
       )
       api.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:${market}`,
-        JSON.stringify({ op: 'fillstatus', args: [[fillUpdate]], })
+        JSON.stringify({ op: 'fillstatus', args: [[fillUpdate]] })
       )
     }
     if (success && newstatus === 'f') {
@@ -81,7 +81,10 @@ export const orderstatusupdate: ZZServiceHandler = async (
       const priceChange = (lastprice - yesterdayPrice).toString()
       api.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:all`,
-        JSON.stringify({ op: 'lastprice', args: [[[market, lastprice, priceChange]]], })
+        JSON.stringify({
+          op: 'lastprice',
+          args: [[[market, lastprice, priceChange]]],
+        })
       )
       // TODO: Account for nonce checks here
       // const userId = update[5];

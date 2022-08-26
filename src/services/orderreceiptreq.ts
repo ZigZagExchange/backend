@@ -6,7 +6,13 @@ export const orderreceiptreq: ZZServiceHandler = async (
   [chainId, orderId]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = { op: 'error', args: ['orderreceiptreq', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
+    const errorMsg = {
+      op: 'error',
+      args: [
+        'orderreceiptreq',
+        `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`,
+      ],
+    }
     if (ws) ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return errorMsg
@@ -16,7 +22,7 @@ export const orderreceiptreq: ZZServiceHandler = async (
     const orderreceipt = await api.getOrder(chainId, orderId)
     const msg = { op: 'orderreceipt', args: orderreceipt[0] }
     if (ws) ws.send(JSON.stringify(msg))
-    return orderreceipt[0]   
+    return orderreceipt[0]
   } catch (err: any) {
     const errorMsg = { op: 'error', args: ['orderreceiptreq', err.message] }
     if (ws) ws.send(JSON.stringify(errorMsg))

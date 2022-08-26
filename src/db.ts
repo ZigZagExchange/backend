@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
 import pg from 'pg'
-import path from 'path'
-import fs from 'fs'
 
 const { Pool } = pg
 

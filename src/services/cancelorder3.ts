@@ -6,7 +6,13 @@ export const cancelorder3: ZZServiceHandler = async (
   [chainId, orderId, token]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = { op: 'error', args: ['cancelorder3', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
+    const errorMsg = {
+      op: 'error',
+      args: [
+        'cancelorder3',
+        `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`,
+      ],
+    }
     ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return
@@ -14,15 +20,18 @@ export const cancelorder3: ZZServiceHandler = async (
 
   try {
     const cancelResult = await api.cancelorder3(chainId, orderId, token)
-    if(!cancelResult) throw new Error('Unexpected error')
+    if (!cancelResult) throw new Error('Unexpected error')
   } catch (e: any) {
     ws.send(
-      JSON.stringify({ op: 'error', args: ['cancelorder3', e.message, orderId ] })
+      JSON.stringify({
+        op: 'error',
+        args: ['cancelorder3', e.message, orderId],
+      })
     )
   }
 
   // return the new status to the sender
   ws.send(
-    JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]], })
-  )  
+    JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c']]] })
+  )
 }

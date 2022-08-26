@@ -6,20 +6,35 @@ export const fillreceiptreq: ZZServiceHandler = async (
   [chainId, orderId]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = { op: 'error', args: ['fillreceiptreq', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
+    const errorMsg = {
+      op: 'error',
+      args: [
+        'fillreceiptreq',
+        `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`,
+      ],
+    }
     if (ws) ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return errorMsg
   }
 
-  if(!orderId) {
-    const errorMsg = { op: 'error', args: ['fillreceiptreq', `orderId is not set`] }
+  if (!orderId) {
+    const errorMsg = {
+      op: 'error',
+      args: ['fillreceiptreq', `orderId is not set`],
+    }
     if (ws) ws.send(JSON.stringify(errorMsg))
     return errorMsg
   }
 
-  if(typeof orderId === 'object' && orderId.length > 25) {
-    const errorMsg = { op: 'error', args: ['fillreceiptreq', `${orderId.length} is not a valid length. Use up to 25`] }
+  if (typeof orderId === 'object' && orderId.length > 25) {
+    const errorMsg = {
+      op: 'error',
+      args: [
+        'fillreceiptreq',
+        `${orderId.length} is not a valid length. Use up to 25`,
+      ],
+    }
     if (ws) ws.send(JSON.stringify(errorMsg))
     return errorMsg
   }

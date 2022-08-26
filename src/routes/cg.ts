@@ -218,12 +218,10 @@ export default function cgRoutes(app: ZZHttpServer) {
         res.status(200).send(response)
       } catch (error: any) {
         console.log(error.message)
-        res
-          .status(400)
-          .send({
-            op: 'error',
-            message: `Failed to fetch trades for ${market}`,
-          })
+        res.status(400).send({
+          op: 'error',
+          message: `Failed to fetch trades for ${market}`,
+        })
       }
     }
   )

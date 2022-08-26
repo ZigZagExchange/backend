@@ -8,7 +8,13 @@ export const fillrequest: ZZServiceHandler = async (
   [chainId, orderId, fillOrder]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = { op: 'error', args: ['fillrequest', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`] }
+    const errorMsg = {
+      op: 'error',
+      args: [
+        'fillrequest',
+        `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS}`,
+      ],
+    }
     ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return
@@ -35,6 +41,11 @@ export const fillrequest: ZZServiceHandler = async (
     await api.matchorder(chainId, orderId, fillOrder, ws.uuid)
   } catch (err: any) {
     console.log(err.message)
-    ws.send(JSON.stringify({ op: 'error', args: ['fillrequest', makerUserId, err.message] }))
+    ws.send(
+      JSON.stringify({
+        op: 'error',
+        args: ['fillrequest', makerUserId, err.message],
+      })
+    )
   }
 }
