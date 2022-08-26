@@ -36,10 +36,9 @@ export const createHttpServer = (
     }
 
     const outputString = JSON.stringify(req.body)
-    if (!outputString.includes("/api/v1/marketinfos")) {
+    if (!outputString.includes('/api/v1/marketinfos')) {
       console.log(`REST: ${outputString}`)
     }
-    
 
     if (!httpMessages.includes(req.body.op)) {
       res.json({ op: 'error', args: [req.body.op, 'Not supported in HTTP'] })
@@ -54,11 +53,14 @@ export const createHttpServer = (
     try {
       responseMessage = await expressApp.api.serviceHandler(req.body)
     } catch (e: any) {
-      console.error(`Unexpected error while processing HTTP request: ${e.message}`)
-      res.status(400).json(`Unexpected error while processing your request: ${e.message}`)
+      console.error(
+        `Unexpected error while processing HTTP request: ${e.message}`
+      )
+      res
+        .status(400)
+        .json(`Unexpected error while processing your request: ${e.message}`)
     }
     clearTimeout(timeOutLog)
-    
 
     res.header('Content-Type', 'application/json')
     res.status(200).json(responseMessage)

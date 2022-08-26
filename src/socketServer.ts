@@ -28,22 +28,28 @@ export const createSocketServer = (): ZZSocketServer => {
       try {
         msg = JSON.parse(json) as WSMessage
         if (typeof msg.op === 'string' && Array.isArray(msg.args)) {
-          if (![
-            'indicateliq2',
-            'submitorder2',
-            'submitorder3',
-            'ping',
-            'fillrequest'
-          ].includes(msg.op)) { console.log(`WS[${ws.origin}]: %s`, json) }
-          else if ([
-            'submitorder2',
-            'submitorder3',
-            'fillrequest'
-          ].includes(msg.op)) {
-            console.log(`WS[${ws.origin}]: {"op":${msg.op},"args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`)
+          if (
+            ![
+              'indicateliq2',
+              'submitorder2',
+              'submitorder3',
+              'ping',
+              'fillrequest',
+            ].includes(msg.op)
+          ) {
+            console.log(`WS[${ws.origin}]: %s`, json)
+          } else if (
+            ['submitorder2', 'submitorder3', 'fillrequest'].includes(msg.op)
+          ) {
+            console.log(
+              `WS[${ws.origin}]: {"op":${msg.op},"args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`
+            )
           }
 
-          const debugLog = setTimeout(() => console.log(`Failed to process ${msg.op}, arg: ${msg.args}`), 5000)
+          const debugLog = setTimeout(
+            () => console.log(`Failed to process ${msg.op}, arg: ${msg.args}`),
+            5000
+          )
           if (wss.api) {
             const res = wss.api.serviceHandler(msg, ws)
             clearTimeout(debugLog)

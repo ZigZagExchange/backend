@@ -6,7 +6,13 @@ export const refreshliquidity: ZZServiceHandler = async (
   [chainId, market]
 ) => {
   if (!api.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-    const errorMsg = { op: 'error', args: ['refreshliquidity', `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS_ZKSYNC}`] }
+    const errorMsg = {
+      op: 'error',
+      args: [
+        'refreshliquidity',
+        `${chainId} is not a valid chain id. Use ${api.VALID_CHAINS_ZKSYNC}`,
+      ],
+    }
     if (ws) ws.send(JSON.stringify(errorMsg))
     console.log(`Error, ${chainId} is not a valid chain id.`)
     return errorMsg

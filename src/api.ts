@@ -2,7 +2,7 @@
 import { ethers } from 'ethers'
 import fetch from 'isomorphic-fetch'
 import { EventEmitter } from 'events'
-import { zksyncOrderSchema, StarkNetSchema, EVMOrderSchema } from 'src/schemas'
+import { zksyncOrderSchema, EVMOrderSchema } from 'src/schemas'
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import * as zksync from 'zksync'
@@ -22,7 +22,7 @@ import type {
   ZZHttpServer,
   ZZSocketServer,
   ZZMarketSummary,
-  ZZOrder
+  ZZOrder,
 } from 'src/types'
 import {
   formatPrice,
@@ -31,7 +31,7 @@ import {
   getRPCURL,
   evmEIP712Types,
   getERC20Info,
-  getNewToken
+  getNewToken,
 } from 'src/utils'
 
 export default class API extends EventEmitter {
@@ -94,7 +94,7 @@ export default class API extends EventEmitter {
       return (services as any)[msg.op].apply(this, [
         this,
         ws,
-        Array.isArray(msg.args) ? msg.args : []
+        Array.isArray(msg.args) ? msg.args : [],
       ])
     } catch (e: any) {
       console.error(`Operation failed: ${msg.op} because ${e.message}`)
@@ -127,12 +127,14 @@ export default class API extends EventEmitter {
           )
           console.log(`Connected InfuraProvider for ${chainId}`)
         } catch (e: any) {
-          console.warn(`Could not connect InfuraProvider for ${chainId}, trying RPC...`)
+          console.warn(
+            `Could not connect InfuraProvider for ${chainId}, trying RPC...`
+          )
           this.ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
             getRPCURL(chainId)
           )
           console.log(`Connected JsonRpcProvider for ${chainId}`)
-        } 
+        }
       } catch (e: any) {
         console.log(`Failed to setup ${chainId}. Disabling...`)
         const indexA = this.VALID_CHAINS.indexOf(chainId)
@@ -151,7 +153,9 @@ export default class API extends EventEmitter {
     )
 
     try {
-      this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider('mainnet')
+      this.SYNC_PROVIDER.mainnet = await zksync.getDefaultRestProvider(
+        'mainnet'
+      )
     } catch (e: any) {
       console.log('Failed to setup 1. Disabling...')
       const indexA = this.VALID_CHAINS.indexOf(1)
@@ -205,7 +209,7 @@ export default class API extends EventEmitter {
     this.watchers = [
       setInterval(this.clearDeadConnections, 30000),
       setInterval(this.broadcastLiquidity, 5000),
-      setInterval(this.broadcastLastPrice, 5000)
+      setInterval(this.broadcastLastPrice, 5000),
     ]
 
     this.started = true
@@ -240,7 +244,7 @@ export default class API extends EventEmitter {
       } else {
         const select = await this.db.query(
           'SELECT marketid FROM marketids WHERE marketAlias = $1 AND chainid = $2',
-          [ market, chainId ]
+          [market, chainId]
         )
         if (select.rows.length === 0) {
           return marketInfo
@@ -254,7 +258,7 @@ export default class API extends EventEmitter {
       const fetchResult = await fetch(
         `https://arweave.net/${marketArweaveId}`,
         {
-          signal: controller.signal
+          signal: controller.signal,
         }
       ).then((r: any) => r.json())
 
@@ -340,26 +344,34 @@ export default class API extends EventEmitter {
     let quoteAsset: any
     try {
       baseAsset = await this.getTokenInfo(chainId, baseTokenLike)
-    } catch(e: any) {
-      console.log(`Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`)
+    } catch (e: any) {
+      console.log(
+        `Base asset ${baseTokenLike} no valid ERC20 token, error: ${e.message}`
+      )
       throw new Error('Base asset no valid ERC20 token')
     }
     try {
       quoteAsset = await this.getTokenInfo(chainId, quoteTokenLike)
-    } catch(e: any) {
-      console.log(`Quote asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`)
+    } catch (e: any) {
+      console.log(
+        `Quote asset ${quoteAsset} no valid ERC20 token, error: ${e.message}`
+      )
       throw new Error('Quote asset no valid ERC20 token')
     }
 
     /* update token fee */
     const [baseFee, quoteFee] = await Promise.all([
       this.redis.HGET(`tokenfee:${chainId}`, baseAsset.symbol),
-      this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol)
+      this.redis.HGET(`tokenfee:${chainId}`, quoteAsset.symbol),
     ])
 
     // set fee, use arewave fees as fallback
-    marketInfo.baseFee = baseFee ? Number(baseFee) : Number(marketInfoDefaults?.baseFee)
-    marketInfo.quoteFee = quoteFee ? Number(quoteFee) : Number(marketInfoDefaults?.quoteFee)
+    marketInfo.baseFee = baseFee
+      ? Number(baseFee)
+      : Number(marketInfoDefaults?.baseFee)
+    marketInfo.quoteFee = quoteFee
+      ? Number(quoteFee)
+      : Number(marketInfoDefaults?.quoteFee)
     marketInfo.baseAssetId = baseAsset.id
     marketInfo.quoteAssetId = quoteAsset.id
 
@@ -395,7 +407,8 @@ export default class API extends EventEmitter {
     )
 
     // return if alias
-    if (market.length < 19 || this.VALID_EVM_CHAINS.includes(chainId)) return marketInfo
+    if (market.length < 19 || this.VALID_EVM_CHAINS.includes(chainId))
+      return marketInfo
 
     // update marketArweaveId in SQL
     try {
@@ -436,8 +449,10 @@ export default class API extends EventEmitter {
           tokenLike,
           this.ERC20_ABI
         )
-      } catch(e: any) {
-        console.log(`Error getting ERC20 infos for ${tokenLike}, error: ${e.message}`)
+      } catch (e: any) {
+        console.log(
+          `Error getting ERC20 infos for ${tokenLike}, error: ${e.message}`
+        )
         throw new Error('Asset no valid ERC20 token')
       }
       tokenInfo.id = tokenInfo.address
@@ -446,8 +461,16 @@ export default class API extends EventEmitter {
     }
 
     // update cache
-    await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.symbol, JSON.stringify(tokenInfo))
-    await this.redis.HSET(`tokeninfo:${chainId}`, tokenInfo.address, JSON.stringify(tokenInfo))
+    await this.redis.HSET(
+      `tokeninfo:${chainId}`,
+      tokenInfo.symbol,
+      JSON.stringify(tokenInfo)
+    )
+    await this.redis.HSET(
+      `tokeninfo:${chainId}`,
+      tokenInfo.address,
+      JSON.stringify(tokenInfo)
+    )
     return tokenInfo
   }
 
@@ -546,7 +569,7 @@ export default class API extends EventEmitter {
       feeAmount,
       feeToken,
       timestamp,
-      userId
+      userId,
     }
   }
 
@@ -600,7 +623,8 @@ export default class API extends EventEmitter {
 
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
-    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId)) throw new Error('Only for zkSync')
+    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId))
+      throw new Error('Only for zkSync')
     if (zktx.validUntil * 1000 < Date.now())
       throw new Error(
         'Wrong expiry: sync your PC clock to the correct time to fix this error'
@@ -678,7 +702,7 @@ export default class API extends EventEmitter {
       expires,
       JSON.stringify(zktx),
       baseQuantity,
-      token
+      token,
     ]
     // save order to DB
     const query =
@@ -696,7 +720,7 @@ export default class API extends EventEmitter {
       expires,
       userid.toString(),
       'o',
-      baseQuantity
+      baseQuantity,
     ]
 
     // broadcast new order
@@ -1190,8 +1214,10 @@ export default class API extends EventEmitter {
     if (inputValidation.error) throw inputValidation.error
 
     // amount validations
-    if (Number(zktx.sellAmount) <= 0) throw new Error("sellAmount must be positive")
-    if (Number(zktx.buyAmount) <= 0) throw new Error("buyAmount must be positive")
+    if (Number(zktx.sellAmount) <= 0)
+      throw new Error('sellAmount must be positive')
+    if (Number(zktx.buyAmount) <= 0)
+      throw new Error('buyAmount must be positive')
 
     const marketInfo = await this.getMarketInfo(market, chainId)
     const networkProviderConfig = this.EVMConfig[chainId]
@@ -1201,8 +1227,7 @@ export default class API extends EventEmitter {
     const assets = [marketInfo.baseAsset.address, marketInfo.quoteAsset.address]
 
     /* validate order */
-    if (!ethers.utils.isAddress(zktx.user))
-      throw new Error('Bad userAddress')
+    if (!ethers.utils.isAddress(zktx.user)) throw new Error('Bad userAddress')
 
     if (!assets.includes(zktx.sellToken))
       throw new Error(
@@ -1238,21 +1263,27 @@ export default class API extends EventEmitter {
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
       const buyFee = Number(
-        ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.baseAsset.decimals)
+        ethers.utils.formatUnits(
+          zktx.makerVolumeFee,
+          marketInfo.baseAsset.decimals
+        )
       )
       const sellFee = Number(
-        ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.baseAsset.decimals)
+        ethers.utils.formatUnits(
+          zktx.takerVolumeFee,
+          marketInfo.baseAsset.decimals
+        )
       )
       feeToken = marketInfo.baseAsset.symbol
       if (Number(gasFee) < marketInfo.baseFee)
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
         )
-      if ((buyFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+      if (buyFee / baseAmount < networkProviderConfig.minMakerVolumeFee)
         throw new Error(
           `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
         )
-      if ((sellFee / baseAmount) < networkProviderConfig.minMakerVolumeFee)
+      if (sellFee / baseAmount < networkProviderConfig.minMakerVolumeFee)
         throw new Error(
           `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
         )
@@ -1261,24 +1292,33 @@ export default class API extends EventEmitter {
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.baseAsset.decimals)
       )
       quoteAmount = Number(
-        ethers.utils.formatUnits(zktx.sellAmount, marketInfo.quoteAsset.decimals)
+        ethers.utils.formatUnits(
+          zktx.sellAmount,
+          marketInfo.quoteAsset.decimals
+        )
       )
       const buyFee = Number(
-        ethers.utils.formatUnits(zktx.makerVolumeFee, marketInfo.quoteAsset.decimals)
+        ethers.utils.formatUnits(
+          zktx.makerVolumeFee,
+          marketInfo.quoteAsset.decimals
+        )
       )
       const sellFee = Number(
-        ethers.utils.formatUnits(zktx.takerVolumeFee, marketInfo.quoteAsset.decimals)
+        ethers.utils.formatUnits(
+          zktx.takerVolumeFee,
+          marketInfo.quoteAsset.decimals
+        )
       )
       feeToken = marketInfo.quoteAsset.symbol
       if (Number(gasFee) < marketInfo.quoteFee)
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAsset.symbol}`
         )
-      if ((buyFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+      if (buyFee / quoteAmount < networkProviderConfig.minTakerVolumeFee)
         throw new Error(
           `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
         )
-      if ((sellFee / quoteAmount) < networkProviderConfig.minTakerVolumeFee)
+      if (sellFee / quoteAmount < networkProviderConfig.minTakerVolumeFee)
         throw new Error(
           `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
         )
@@ -1289,7 +1329,7 @@ export default class API extends EventEmitter {
       throw new Error(
         `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
       )
-    
+
     if (zktx.relayerAddress !== networkProviderConfig.relayerAddress)
       throw new Error(
         `Bad relayerAddress, use '${networkProviderConfig.relayerAddress}'`
@@ -1314,7 +1354,8 @@ export default class API extends EventEmitter {
     const price = quoteAmount / baseAmount
 
     const token = getNewToken()
-    const query = 'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)'
+    const query =
+      'SELECT * FROM match_limit_order($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)'
     const values = [
       chainId,
       zktx.user,
@@ -1325,7 +1366,7 @@ export default class API extends EventEmitter {
       quoteAmount,
       zktx.expirationTimeSeconds,
       JSON.stringify(zktx),
-      token
+      token,
     ]
     const matchquery = await this.db.query(query, values)
 
@@ -1353,7 +1394,7 @@ export default class API extends EventEmitter {
           row.maker_offer_id,
           'pm',
           null,
-          row.maker_unfilled
+          row.maker_unfilled,
         ])
       } else {
         orderupdates.push([chainId, row.maker_offer_id, 'm', null, 0])
@@ -1370,7 +1411,7 @@ export default class API extends EventEmitter {
         row.taker_user_id,
         row.maker_user_id,
         feeToken,
-        gasFee
+        gasFee,
       ])
 
       const matchOrderObject = {
@@ -1384,7 +1425,7 @@ export default class API extends EventEmitter {
         makerId: row.maker_offer_id,
         takerId: taker.id,
         feeToken,
-        gasFee
+        gasFee,
       }
       this.redis.LPUSH(
         `matchedorders:${chainId}`,
@@ -1403,7 +1444,7 @@ export default class API extends EventEmitter {
       taker.expires,
       taker.userid,
       taker.order_status,
-      taker.unfilled
+      taker.unfilled,
     ]
     this.redisPublisher.PUBLISH(
       `broadcastmsg:all:${chainId}:${market}`,
@@ -1514,7 +1555,7 @@ export default class API extends EventEmitter {
 
     return true
   }
-  
+
   cancelAllOrders3 = async (
     chainId: number,
     userId: string,
@@ -1522,14 +1563,14 @@ export default class API extends EventEmitter {
   ) => {
     // validate if sender is ok to cancel
     const valuesSelect = [chainId, userId]
-    const select = await this.db.query (
+    const select = await this.db.query(
       "SELECT id, token FROM offers WHERE chainid=$1 AND userid=$2 AND order_status IN ('o', 'pf', 'pm')",
       valuesSelect
     )
     // tokenArray should have a token for each open order
-    select.rows.forEach(order => {
-      if (!tokenArray.includes(order.token)) 
-        throw new Error(`Unauthorized to cancel order ${order.id}`)      
+    select.rows.forEach((order) => {
+      if (!tokenArray.includes(order.token))
+        throw new Error(`Unauthorized to cancel order ${order.id}`)
     })
 
     let orders: any
@@ -1554,27 +1595,18 @@ export default class API extends EventEmitter {
     this.VALID_CHAINS.forEach(async (broadcastChainId) => {
       const orderStatusUpdate = orders.rows
         .filter((o: any) => Number(o.chainid) === broadcastChainId)
-        .map((o: any) => [
-          o.chainid,
-          o.id,
-          o.order_status,
-          o.unfilled
-        ])
+        .map((o: any) => [o.chainid, o.id, o.order_status, o.unfilled])
 
       await this.redisPublisher.publish(
         `broadcastmsg:all:${broadcastChainId}:all`,
-        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate], })
+        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
       )
     })
 
     return true
   }
 
-  cancelorder = async (
-    chainId: number,
-    orderId: string,
-    ws?: WSocket
-  ) => {
+  cancelorder = async (chainId: number, orderId: string, ws?: WSocket) => {
     const values = [orderId, chainId]
     const select = await this.db.query(
       'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
@@ -1587,7 +1619,7 @@ export default class API extends EventEmitter {
 
     const userconnkey = `${chainId}:${select.rows[0].userid}`
 
-    if (!(["o", "pf", "pm"]).includes(select.rows[0].order_status)) {
+    if (!['o', 'pf', 'pm'].includes(select.rows[0].order_status)) {
       throw new Error('Order is no longer open')
     }
 
@@ -1604,7 +1636,10 @@ export default class API extends EventEmitter {
     if (update.rows.length > 0) {
       await this.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
-        JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c', 0]]] })
+        JSON.stringify({
+          op: 'orderstatus',
+          args: [[[chainId, orderId, 'c', 0]]],
+        })
       )
     } else {
       throw new Error('Order not found')
@@ -1642,7 +1677,7 @@ export default class API extends EventEmitter {
     }
     if (signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
 
-    if (!(["o", "pf", "pm"]).includes(select.rows[0].order_status)) {
+    if (!['o', 'pf', 'pm'].includes(select.rows[0].order_status)) {
       throw new Error('Order is no longer open')
     }
 
@@ -1655,7 +1690,10 @@ export default class API extends EventEmitter {
     if (update.rows.length > 0) {
       await this.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
-        JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c', 0]]] })
+        JSON.stringify({
+          op: 'orderstatus',
+          args: [[[chainId, orderId, 'c', 0]]],
+        })
       )
     } else {
       throw new Error('Order not found')
@@ -1664,11 +1702,7 @@ export default class API extends EventEmitter {
     return true
   }
 
-  cancelorder3 = async (
-    chainId: number,
-    orderId: string,
-    token: string
-  ) => {
+  cancelorder3 = async (chainId: number, orderId: string, token: string) => {
     const values = [orderId, chainId]
     const select = await this.db.query(
       'SELECT userid, order_status, token FROM offers WHERE id=$1 AND chainid=$2',
@@ -1680,9 +1714,9 @@ export default class API extends EventEmitter {
     }
 
     // validate if sender is ok to cancel
-    if(token !== select.rows[0].token) throw new Error('Unauthorized')
+    if (token !== select.rows[0].token) throw new Error('Unauthorized')
 
-    if (!(["o", "pf", "pm"]).includes(select.rows[0].order_status)) {
+    if (!['o', 'pf', 'pm'].includes(select.rows[0].order_status)) {
       throw new Error('Order is no longer open')
     }
 
@@ -1695,7 +1729,10 @@ export default class API extends EventEmitter {
     if (update.rows.length > 0) {
       await this.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
-        JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'c', 0]]], })
+        JSON.stringify({
+          op: 'orderstatus',
+          args: [[[chainId, orderId, 'c', 0]]],
+        })
       )
     } else {
       throw new Error('Order not found')
@@ -1762,8 +1799,8 @@ export default class API extends EventEmitter {
         quoteQuantity: selectresult.quote_quantity,
         userId: selectresult.userid,
         fillOrder,
-        wsUUID
-      })
+        wsUUID,
+      }),
     }
 
     const redisKey = `matchingorders:${chainId}:${orderId}`
@@ -1811,23 +1848,23 @@ export default class API extends EventEmitter {
     let fill
     const redisKeyBussy = `bussymarketmaker:${chainId}:${makerAccountId}`
     try {
-      const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
-      //if (redisBusyMM) {
-      //  const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
-      //  const remainingTime = await this.redis.ttl(redisKeyBussy)
-      //  this.redisPublisher.PUBLISH(
-      //    `broadcastmsg:maker:${chainId}:${value.wsUUID}`,
-      //    JSON.stringify({
-      //      op: 'error',
-      //      args: [
-      //        'fillrequest',
-      //        makerAccountId,
-      //        `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
-      //      ]
-      //    })
-      //  )
-      //  throw new Error('fillrequest - market maker is timed out.')
-      //}
+      // const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
+      // if (redisBusyMM) {
+      //   const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
+      //   const remainingTime = await this.redis.ttl(redisKeyBussy)
+      //   this.redisPublisher.PUBLISH(
+      //     `broadcastmsg:maker:${chainId}:${value.wsUUID}`,
+      //     JSON.stringify({
+      //       op: 'error',
+      //       args: [
+      //         'fillrequest',
+      //         makerAccountId,
+      //         `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
+      //       ]
+      //     })
+      //   )
+      //   throw new Error('fillrequest - market maker is timed out.')
+      // }
 
       let priceWithoutFee: string
       try {
@@ -1866,7 +1903,7 @@ export default class API extends EventEmitter {
         makerAccountId,
         priceWithoutFee,
         value.baseQuantity,
-        side
+        side,
       ]
       const update2 = await this.db.query(
         "INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id",
@@ -1885,14 +1922,14 @@ export default class API extends EventEmitter {
         value.userId,
         makerAccountId,
         null,
-        null
+        null,
       ]
 
       this.redisPublisher.PUBLISH(
         `broadcastmsg:maker:${chainId}:${value.wsUUID}`,
         JSON.stringify({
           op: 'userordermatch',
-          args: [chainId, orderId, value.zktx, fillOrder]
+          args: [chainId, orderId, value.zktx, fillOrder],
         })
       )
 
@@ -1938,8 +1975,8 @@ export default class API extends EventEmitter {
             args: [
               'fillrequest',
               otherMakerAccountId,
-              `Order ${orderId} was filled by better offer`
-            ]
+              `Order ${orderId} was filled by better offer`,
+            ],
           })
         )
       })
@@ -2015,7 +2052,7 @@ export default class API extends EventEmitter {
    * @param {number} level Level of returned orderBook (1->best ask/bid, 2->0.05% steps, 3->all)
    * @return {number} The resulting orderBook -> {"timestamp": _, "bids": _, "asks": _}
    */
-   getOrderBook = async (
+  getOrderBook = async (
     chainId: number,
     market: ZZMarket,
     depth = 0,
@@ -2025,7 +2062,7 @@ export default class API extends EventEmitter {
 
     let bids: number[][] = []
     let asks: number[][] = []
-    if(this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       const liquidity: any[] = await this.getSnapshotLiquidity(chainId, market)
       bids = liquidity
         .filter((l) => l[0] === 'b')
@@ -2051,7 +2088,7 @@ export default class API extends EventEmitter {
       return {
         timestamp,
         bids: [],
-        asks: []
+        asks: [],
       }
     }
 
@@ -2086,7 +2123,7 @@ export default class API extends EventEmitter {
       return {
         timestamp,
         bids: bids?.[0] ? bids[0] : [],
-        asks: asks?.[0] ? asks[0] : []
+        asks: asks?.[0] ? asks[0] : [],
       }
     }
 
@@ -2100,7 +2137,7 @@ export default class API extends EventEmitter {
         return {
           timestamp,
           bids: [],
-          asks: []
+          asks: [],
         }
       }
       // get mid price
@@ -2127,7 +2164,7 @@ export default class API extends EventEmitter {
       bidSteps.forEach((bid) => {
         returnBids.push([
           (+bid).toFixed(marketInfo.pricePrecisionDecimal),
-          stepBidValues[bid]
+          stepBidValues[bid],
         ])
       })
 
@@ -2148,14 +2185,14 @@ export default class API extends EventEmitter {
       askSteps.forEach((ask) => {
         returnAsks.push([
           (+ask).toFixed(marketInfo.pricePrecisionDecimal),
-          stepAskValues[ask]
+          stepAskValues[ask],
         ])
       })
 
       return {
         timestamp,
         bids: returnBids,
-        asks: returnAsks
+        asks: returnAsks,
       }
     }
     if (level === 3) {
@@ -2163,7 +2200,7 @@ export default class API extends EventEmitter {
       return {
         timestamp,
         bids,
-        asks
+        asks,
       }
     }
     throw new Error(
@@ -2179,7 +2216,7 @@ export default class API extends EventEmitter {
     const redisKeyLiquidity = `liquidity:${chainId}:${market}`
     const redisMember = {
       score: Number(liquidity[1]),
-      value: JSON.stringify(liquidity)
+      value: JSON.stringify(liquidity),
     }
     this.redis.ZADD(redisKeyLiquidity, redisMember)
     this.redis.SADD(`activemarkets:${chainId}`, market)
@@ -2212,7 +2249,7 @@ export default class API extends EventEmitter {
     const query = {
       text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE market=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf')",
       values: [market, chainId],
-      rowMode: 'array'
+      rowMode: 'array',
     }
     const select = await this.db.query(query)
     return select.rows
@@ -2224,7 +2261,7 @@ export default class API extends EventEmitter {
     const query = {
       text: 'SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND id IN ($2) LIMIT 25',
       values: [chainId, orderId],
-      rowMode: 'array'
+      rowMode: 'array',
     }
     const select = await this.db.query(query)
     if (select.rows.length === 0) throw new Error('Order not found')
@@ -2237,7 +2274,7 @@ export default class API extends EventEmitter {
     const query = {
       text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND id IN ($2) LIMIT 25',
       values: [chainId, orderId],
-      rowMode: 'array'
+      rowMode: 'array',
     }
     const select = await this.db.query(query)
     if (select.rows.length === 0) throw new Error('Fill(s) not found')
@@ -2249,7 +2286,7 @@ export default class API extends EventEmitter {
     const query = {
       text: 'SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND (maker_user_id=$2 OR taker_user_id=$2) ORDER BY id DESC LIMIT 25',
       values: [chainId, userid],
-      rowMode: 'array'
+      rowMode: 'array',
     }
     const select = await this.db.query(query)
     return select.rows
@@ -2259,7 +2296,7 @@ export default class API extends EventEmitter {
     const query = {
       text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE chainid=$1 AND userid=$2 AND order_status IN ('o','pm','pf') ORDER BY id DESC LIMIT 25",
       values: [chainId, userid],
-      rowMode: 'array'
+      rowMode: 'array',
     }
     const select = await this.db.query(query)
     return select.rows
@@ -2357,7 +2394,7 @@ export default class API extends EventEmitter {
       const query = {
         text,
         values: [chainId],
-        rowMode: 'array'
+        rowMode: 'array',
       }
       const select = await this.db.query(query)
       return select.rows
@@ -2382,7 +2419,7 @@ export default class API extends EventEmitter {
         +priceInfo.price,
         priceInfo.priceChange,
         priceInfo.quoteVolume,
-        priceInfo.baseVolume
+        priceInfo.baseVolume,
       ]
     }
     // fetch all active markets if none is requested
@@ -2402,7 +2439,7 @@ export default class API extends EventEmitter {
           +priceInfo.price,
           priceInfo.priceChange,
           priceInfo.quoteVolume,
-          priceInfo.baseVolume
+          priceInfo.baseVolume,
         ])
       }
     }
@@ -2462,7 +2499,7 @@ export default class API extends EventEmitter {
     let price
 
     for (let i = 0; i < ladder.length; i++) {
-      [price] = ladder[i]
+      ;[price] = ladder[i]
       const orderQuantity = ladder[i][1]
       if (orderQuantity >= unfilledQuantity) {
         unfilledQuantity = 0
@@ -2598,7 +2635,7 @@ export default class API extends EventEmitter {
       softQuoteQuantity,
       hardQuoteQuantity,
       softBaseQuantity,
-      hardBaseQuantity
+      hardBaseQuantity,
     }
   }
 
@@ -2635,7 +2672,7 @@ export default class API extends EventEmitter {
             marketId,
             JSON.stringify({
               op: 'liquidity2',
-              args: [chainId, marketId, liquidity]
+              args: [chainId, marketId, liquidity],
             })
           )
         }
@@ -2679,10 +2716,8 @@ export default class API extends EventEmitter {
       )
     }
 
-    const [baseToken, quoteToken] = market.split('-')
+    const baseToken = market.split('-')[0]
     const basePrice = await this.getUsdPrice(chainId, baseToken)
-    const quotePrice = await this.getUsdPrice(chainId, quoteToken)
-    const midPrice = basePrice && quotePrice ? basePrice / quotePrice : 0
 
     // $100 min size
     const minSize = basePrice ? 100 / basePrice : marketInfo.baseFee
@@ -2773,7 +2808,7 @@ export default class API extends EventEmitter {
     const query = {
       text: "SELECT chainid, market, DATE(insert_timestamp) AS trade_date, SUM(base_quantity) AS base_volume, SUM(quote_quantity) AS quote_volume FROM offers WHERE order_status IN ('m', 'f', 'b') AND chainid = $1 GROUP BY (chainid, market, trade_date)",
       values: [chainId],
-      rowMode: 'array'
+      rowMode: 'array',
     }
     const select = await this.db.query(query)
     const volumes = select.rows
