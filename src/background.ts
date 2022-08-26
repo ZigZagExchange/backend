@@ -796,41 +796,56 @@ async function runDbMigration() {
  * @param chainId
  */
 async function updateTokenInfoZkSync(chainId: number) {
+  const updatedTokenInfo: AnyObject = {}
+
+  // fetch new tokenInfo from zkSync
   let index = 0
-  let tokenInfos
+  let tokenInfoResults: AnyObject[]
   const network = getNetwork(chainId)
   do {
     const fetchResult = await fetch(
       `${ZKSYNC_BASE_URL[network]}tokens?from=${index}&limit=100&direction=newer`
     ).then((r: any) => r.json())
-    tokenInfos = fetchResult.result.list
-    const results1: Promise<any>[] = tokenInfos.map(async (tokenInfo: any) => {
-      const { symbol, address } = tokenInfo
-      if (
-        !symbol ||
-        !address ||
-        address === '0x0000000000000000000000000000000000000000'
-      )
-        return
-      if (!symbol.includes('ERC20')) {
-        tokenInfo.usdPrice = 0
-        try {
-          const contract = new ethers.Contract(
-            address,
-            ERC20_ABI,
-            ETHERS_PROVIDERS[chainId]
-          )
-          tokenInfo.name = await contract.name()
-        } catch (e: any) {
-          console.warn(e.message)
-          tokenInfo.name = tokenInfo.address
+    tokenInfoResults = fetchResult.result.list
+    const results1: Promise<any>[] = tokenInfoResults.map(
+      async (tokenInfo: AnyObject) => {
+        const { symbol, address } = tokenInfo
+        if (!symbol || !address || address === ethers.constants.AddressZero)
+          return
+        if (!symbol.includes('ERC20')) {
+          tokenInfo.usdPrice = 0
+          try {
+            const contract = new ethers.Contract(
+              address,
+              ERC20_ABI,
+              ETHERS_PROVIDERS[chainId]
+            )
+            tokenInfo.name = await contract.name()
+          } catch (e: any) {
+            console.warn(e.message)
+            tokenInfo.name = tokenInfo.address
+          }
+          redis.HSET(`tokeninfo:${chainId}`, symbol, JSON.stringify(tokenInfo))
+          updatedTokenInfo[symbol] = tokenInfo
         }
-        redis.HSET(`tokeninfo:${chainId}`, symbol, JSON.stringify(tokenInfo))
       }
-    })
+    )
     await Promise.all(results1)
-    index = tokenInfos[tokenInfos.length - 1].id
-  } while (tokenInfos.length > 99)
+    index = tokenInfoResults[tokenInfoResults.length - 1].id
+  } while (tokenInfoResults.length > 99)
+
+  // update existing marketInfo with the new tokenInfos
+  const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+  const resultsUpdateMarketInfos: Promise<any>[] = Object.keys(marketInfos).map(
+    async (alias: string) => {
+      const marketInfo = JSON.parse(marketInfos[alias])
+      const [baseSymbol, quoteSymbol] = alias.split('-')
+      marketInfo.baseAsset = updatedTokenInfo[baseSymbol]
+      marketInfo.quoteAsset = updatedTokenInfo[quoteSymbol]
+      redis.HSET(`marketinfo:${chainId}`, alias, JSON.stringify(marketInfo))
+    }
+  )
+  await Promise.all(resultsUpdateMarketInfos)
 }
 
 async function sendUpdates(
@@ -1493,10 +1508,10 @@ async function start() {
   /* startup */
   await updateEVMMarketInfo()
   try {
-    const updateReult = VALID_CHAINS_ZKSYNC.map(async (chainId) =>
+    const updateResult = VALID_CHAINS_ZKSYNC.map(async (chainId) =>
       updateTokenInfoZkSync(chainId)
     )
-    await Promise.all(updateReult)
+    await Promise.all(updateResult)
   } catch (e: any) {
     console.error(`Failed to updateTokenInfoZkSync: ${e}`)
   }

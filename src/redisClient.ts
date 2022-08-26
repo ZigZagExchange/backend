@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 import * as Redis from 'redis'
 
-const redisUrl = process.env.redisUrl || 'redis://0.0.0.0:6379'
+const redisUrl = process.env.REDIS_URL || 'redis://0.0.0.0:6379'
 const redisUseTLS = redisUrl.includes('rediss')
 
 export const redis = Redis.createClient({
