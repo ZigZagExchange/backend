@@ -799,7 +799,7 @@ async function updateTokenInfoZkSync(chainId: number) {
   const updatedTokenInfo: AnyObject = {
     ETH: {
       id: 0,
-      address: '0x0000000000000000000000000000000000000000',
+      address: ethers.constants.AddressZero,
       symbol: 'ETH',
       decimals: 18,
       enabledForFees: true,
@@ -850,6 +850,9 @@ async function updateTokenInfoZkSync(chainId: number) {
     async (alias: string) => {
       const marketInfo = JSON.parse(marketInfos[alias])
       const [baseSymbol, quoteSymbol] = alias.split('-')
+      if (!updatedTokenInfo[baseSymbol] || !updatedTokenInfo[quoteSymbol])
+        return
+
       marketInfo.baseAsset = updatedTokenInfo[baseSymbol]
       marketInfo.quoteAsset = updatedTokenInfo[quoteSymbol]
       redis.HSET(`marketinfo:${chainId}`, alias, JSON.stringify(marketInfo))
