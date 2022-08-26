@@ -1,6 +1,7 @@
 import * as starknet from 'starknet'
 import { ethers } from 'ethers'
 import { randomBytes } from 'crypto'
+import type { AnyObject, ZZMarketInfo } from './types'
 
 export function formatPrice(input: any) {
   const inputNumber = Number(input)
@@ -96,4 +97,116 @@ export async function getERC20Info(
 
 export function getNewToken() {
   return randomBytes(64).toString('hex')
+}
+
+export function getFeeEstimationMarket(chainId: number) {
+  switch (chainId) {
+    case 42161:
+      return 'USDC-USDT'
+    case 421613:
+      return 'DAI-USDC'
+    default:
+      throw new Error('No valid chainId')
+  }
+}
+
+export async function getFeeEstimationOrder(
+  chainId: number,
+  marketInfo: ZZMarketInfo,
+  wallet: AnyObject,
+  side: string
+) {
+  const baseAmount = 1
+  const quoteAmount = 1
+  
+  const baseAmountBN = ethers.utils.parseUnits(
+    Number(baseAmount).toFixed(marketInfo.baseAsset.decimals),
+    marketInfo.baseAsset.decimals
+  )
+  const quoteAmountBN = ethers.utils.parseUnits(
+    Number(quoteAmount).toFixed(marketInfo.quoteAsset.decimals),
+    marketInfo.quoteAsset.decimals
+  )
+
+  let sellToken: string
+  let buyToken: string
+  let sellAmountBN: ethers.BigNumber
+  let buyAmountBN: ethers.BigNumber
+  let gasFeeBN: ethers.BigNumber
+  if (side === 's') {
+    sellToken = marketInfo.baseAsset.address
+    buyToken = marketInfo.quoteAsset.address
+    sellAmountBN = baseAmountBN
+    buyAmountBN = quoteAmountBN.mul(99999).div(100000)
+    gasFeeBN = ethers.utils.parseUnits(
+      '1',
+      marketInfo.baseAsset.decimals
+    )
+  } else {
+    sellToken = marketInfo.quoteAsset.address
+    buyToken = marketInfo.baseAsset.address
+    sellAmountBN = quoteAmountBN
+    buyAmountBN = baseAmountBN.mul(99999).div(100000)
+    gasFeeBN = ethers.utils.parseUnits(
+      '1',
+      marketInfo.quoteAsset.decimals
+    )
+  }
+
+  const makerVolumeFeeBN = quoteAmountBN
+    .div(10000)
+    .mul(marketInfo.makerVolumeFee * 100)
+  const takerVolumeFeeBN = baseAmountBN
+    .div(10000)
+    .mul(marketInfo.takerVolumeFee * 100)
+
+  const userAccount = await wallet.getAddress()
+  const expirationTimeSeconds = Math.floor(Date.now() / 1000 + 5 * 2)
+  let domain: AnyObject = {}
+  let Order: AnyObject = {}
+  let types: AnyObject = {}
+  if (Number(marketInfo.contractVersion) === 5) {
+    Order = {
+      user: userAccount,
+      sellToken,
+      buyToken,
+      feeRecipientAddress: marketInfo.feeAddress,
+      relayerAddress: marketInfo.relayerAddress,
+      sellAmount: sellAmountBN.toString(),
+      buyAmount: buyAmountBN.toString(),
+      makerVolumeFee: makerVolumeFeeBN.toString(),
+      takerVolumeFee: takerVolumeFeeBN.toString(),
+      gasFee: gasFeeBN.toString(),
+      expirationTimeSeconds: expirationTimeSeconds.toFixed(0),
+      salt: (Math.random() * 123456789).toFixed(0),
+    }
+
+    domain = {
+      name: 'ZigZag',
+      version: '5',
+      chainId,
+    }
+
+    types = {
+      Order: [
+        { name: 'user', type: 'address' },
+        { name: 'sellToken', type: 'address' },
+        { name: 'buyToken', type: 'address' },
+        { name: 'feeRecipientAddress', type: 'address' },
+        { name: 'relayerAddress', type: 'address' },
+        { name: 'sellAmount', type: 'uint256' },
+        { name: 'buyAmount', type: 'uint256' },
+        { name: 'makerVolumeFee', type: 'uint256' },
+        { name: 'takerVolumeFee', type: 'uint256' },
+        { name: 'gasFee', type: 'uint256' },
+        { name: 'expirationTimeSeconds', type: 'uint256' },
+        { name: 'salt', type: 'uint256' },
+      ],
+    }
+  }
+
+  // eslint-disable-next-line no-underscore-dangle
+  const signature = await wallet._signTypedData(domain, types, Order)
+  Order.signature = signature
+  return Order
 }
