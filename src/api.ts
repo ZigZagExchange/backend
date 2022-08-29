@@ -1419,8 +1419,6 @@ export default class API extends EventEmitter {
         market,
         takerOrder: JSON.parse(taker.zktx),
         makerOrder: JSON.parse(row.maker_zktx),
-        amount: row.amount,
-        price: row.price,
         fillId: row.id,
         makerId: row.maker_offer_id,
         takerId: taker.id,
