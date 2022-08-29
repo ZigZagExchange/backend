@@ -963,13 +963,7 @@ async function sendMatchedOrders() {
       )
       const match = JSON.parse(matchChainString)
       const marketInfo = await getMarketInfo(match.market, match.chainId)
-      const {
-        makerOrder,
-        takerOrder,
-        gasFee: feeAmount,
-        feeToken,
-        baseAmount,
-      } = match
+      const { makerOrder, takerOrder, gasFee: feeAmount, feeToken } = match
 
       if (!makerOrder?.signature || !takerOrder?.signature) return
       const makerSignatureModified =
@@ -1072,14 +1066,12 @@ async function sendMatchedOrders() {
       }
 
       const fillupdateBroadcastMinted = await db.query(
-        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4, maker_fee=$5, taker_fee=$6 WHERE id=$7 RETURNING id, fill_status, txhash, price',
+        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4 WHERE id=$5 RETURNING id, fill_status, txhash, price',
         [
           txStatus === 's' ? 'f' : 'r', // filled only has f or r
           transaction.hash,
           transaction.hash ? feeAmount : 0,
           transaction.hash ? feeToken : null,
-          Number(makerOrder.makerVolumeFee),
-          Number(takerOrder.takerVolumeFee),
           match.fillId,
         ]
       )
@@ -1440,14 +1432,18 @@ async function cacheRecentTrades() {
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const text = "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 30"
+      const text =
+        "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 30"
       const query = {
         text,
         values: [chainId, marketId],
-        rowMode: 'array'
+        rowMode: 'array',
       }
       const select = await db.query(query)
-      redis.SET(`recenttrades:${chainId}:${marketId}`, JSON.stringify(select.rows))
+      redis.SET(
+        `recenttrades:${chainId}:${marketId}`,
+        JSON.stringify(select.rows)
+      )
     })
     await Promise.all(results1)
   })
