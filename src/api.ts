@@ -2573,12 +2573,17 @@ export default class API extends EventEmitter {
           l[0],
           Number(l[0]) * Number(l[1]),
         ])
+        console.log(bids)
         ladderPrice = API.getQuoteFromLadder(bids, quoteQuantity)
+        console.log(ladderPrice)
 
         hardBaseQuantity = quoteQuantity / ladderPrice + marketInfo.baseFee
+        console.log(hardBaseQuantity)
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
         softPrice = hardPrice * 0.999
+        console.log(hardPrice)
+        console.log(softPrice)
       }
 
       softQuoteQuantity = quoteQuantity
