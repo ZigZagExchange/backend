@@ -170,6 +170,7 @@ Starknet
 ```
 
 Arbitrum
+Note: `feeRecipientAddress`, `relayerAddress`, `makerVolumeFee`, `takerVolumeFee` and `gasFee` can be hardcoded or requested using marketsrequest.
 
 ```json
 {
@@ -193,6 +194,26 @@ Arbitrum
       "signature":"0xdf..."
     }
   ]
+}
+```
+
+Typed Data for ZigZag orders:
+```js
+{
+  Order: [
+    { name: 'user', type: 'address' },
+    { name: 'sellToken', type: 'address' },
+    { name: 'buyToken', type: 'address' },
+    { name: 'feeRecipientAddress', type: 'address' },
+    { name: 'relayerAddress', type: 'address' },
+    { name: 'sellAmount', type: 'uint256' },
+    { name: 'buyAmount', type: 'uint256' },
+    { name: 'makerVolumeFee', type: 'uint256' },
+    { name: 'takerVolumeFee', type: 'uint256' },
+    { name: 'gasFee', type: 'uint256' },
+    { name: 'expirationTimeSeconds', type: 'uint256' },
+    { name: 'salt', type: 'uint256' },
+  ],
 }
 ```
 
