@@ -5,7 +5,7 @@ export const requestquote: ZZServiceHandler = async (
   ws,
   [chainId, market, side, baseQuantity = null, quoteQuantity = null]
 ): Promise<any> => {
-  if (!api.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+  if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg = {
       op: 'error',
       args: [

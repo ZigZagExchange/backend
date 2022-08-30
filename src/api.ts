@@ -2206,20 +2206,6 @@ export default class API extends EventEmitter {
     )
   }
 
-  addLiquidity = async (
-    chainId: number,
-    market: ZZMarket,
-    liquidity: any[]
-  ) => {
-    const redisKeyLiquidity = `liquidity:${chainId}:${market}`
-    const redisMember = {
-      score: Number(liquidity[1]),
-      value: JSON.stringify(liquidity),
-    }
-    this.redis.ZADD(redisKeyLiquidity, redisMember)
-    this.redis.SADD(`activemarkets:${chainId}`, market)
-  }
-
   // The liquidity here gets wiped regularly so it's very unreliable
   // YOu want to use getSnapshotLiquidity most of the time and it's a
   // drop in replacement for this
@@ -2519,8 +2505,6 @@ export default class API extends EventEmitter {
   ) => {
     if (baseQuantity && quoteQuantity)
       throw new Error('Only one of baseQuantity or quoteQuantity should be set')
-    if (!this.VALID_CHAINS_ZKSYNC.includes(chainId))
-      throw new Error('Quotes not supported for this chain')
     if (!['b', 's'].includes(side)) throw new Error('Invalid side')
 
     if (baseQuantity) baseQuantity = Number(baseQuantity)
@@ -2531,8 +2515,7 @@ export default class API extends EventEmitter {
       throw new Error('Quantity must be positive')
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    const liquidity = await this.getSnapshotLiquidity(chainId, market)
-    if (liquidity.length === 0) throw new Error('No liquidity for pair')
+    const liquidity = await this.getOrderBook(chainId, market)
 
     let softQuoteQuantity: any
     let hardQuoteQuantity: any
@@ -2551,17 +2534,11 @@ export default class API extends EventEmitter {
       }
 
       if (side === 'b') {
-        const asks = liquidity
-          .filter((l: string) => l[0] === 's')
-          .sort((a: any[], b: any[]) => a[1] - b[1])
-          .map((l: string) => l.slice(1, 3)) as any[]
-        ladderPrice = API.getQuoteFromLadder(asks, baseQuantity)
+        const { asks } = liquidity
+        ladderPrice = API.getQuoteFromLadder(asks as any[][], baseQuantity)
       } else {
-        const bids = liquidity
-          .filter((l: string) => l[0] === 'b')
-          .sort((a: any[], b: any[]) => b[1] - a[1])
-          .map((l: string) => l.slice(1, 3))
-        ladderPrice = API.getQuoteFromLadder(bids, baseQuantity)
+        const { bids } = liquidity
+        ladderPrice = API.getQuoteFromLadder(bids as any[][], baseQuantity)
       }
 
       hardBaseQuantity = +baseQuantity.toFixed(marketInfo.baseAsset.decimals)
@@ -2593,9 +2570,8 @@ export default class API extends EventEmitter {
       hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
 
       if (side === 'b') {
-        const asks: any[] = liquidity
-          .filter((l: any) => l[0] === 's')
-          .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
+        const asks: any[] = liquidity.asks
+          .map((l: any) => [l[0], Number(l[0]) * Number(l[1])])
         ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
 
         hardBaseQuantity = (
@@ -2605,9 +2581,8 @@ export default class API extends EventEmitter {
         hardPrice = formatPrice(hardQuoteQuantity / hardBaseQuantity)
         softPrice = formatPrice(hardPrice * 1.0005)
       } else {
-        const bids = liquidity
-          .filter((l: any) => l[0] === 'b')
-          .map((l: any) => [l[1], Number(l[1]) * Number(l[2])])
+        const bids = liquidity.bids
+          .map((l: any) => [l[0], Number(l[0]) * Number(l[1])])
         ladderPrice = API.getQuoteFromLadder(bids, quoteQuantity)
 
         hardBaseQuantity = (
