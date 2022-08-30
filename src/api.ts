@@ -2529,26 +2529,22 @@ export default class API extends EventEmitter {
       if (baseQuantity < marketInfo.baseFee)
         throw new Error('Amount is inadequate to pay fee')
 
-      if (side !== 'b' && side !== 's') {
-        throw new Error('Side must be "s" or "b"')
-      }
+      hardBaseQuantity = baseQuantity
 
       if (side === 'b') {
         const { asks } = liquidity
         ladderPrice = API.getQuoteFromLadder(asks as any[][], baseQuantity)
-      } else {
-        const { bids } = liquidity
-        ladderPrice = API.getQuoteFromLadder(bids as any[][], baseQuantity)
-      }
 
-      hardBaseQuantity = +baseQuantity.toFixed(marketInfo.baseAsset.decimals)
+        hardQuoteQuantity = baseQuantity * ladderPrice + marketInfo.quoteFee
 
-      if (side === 'b') {
-        hardQuoteQuantity = +(baseQuantity * ladderPrice + marketInfo.quoteFee)
         hardPrice = hardQuoteQuantity / hardBaseQuantity
         softPrice = hardPrice * 1.001
       } else {
-        hardQuoteQuantity = +((baseQuantity - marketInfo.baseFee) * ladderPrice)
+        const { bids } = liquidity
+        ladderPrice = API.getQuoteFromLadder(bids as any[][], baseQuantity)
+
+        hardQuoteQuantity = (baseQuantity - marketInfo.baseFee) * ladderPrice
+
         hardPrice = hardQuoteQuantity / hardBaseQuantity
         softPrice = hardPrice * 0.999
       }
@@ -2571,7 +2567,7 @@ export default class API extends EventEmitter {
         hardBaseQuantity = (quoteQuantity - marketInfo.quoteFee) / ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
-        softPrice = hardPrice * 1.0005
+        softPrice = hardPrice * 1.001
       } else {
         const bids = liquidity.bids.map((l: any) => [
           l[0],
@@ -2582,7 +2578,7 @@ export default class API extends EventEmitter {
         hardBaseQuantity = quoteQuantity / ladderPrice + marketInfo.baseFee
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
-        softPrice = hardPrice * 0.9995
+        softPrice = hardPrice * 0.999
       }
 
       softQuoteQuantity = quoteQuantity
