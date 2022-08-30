@@ -721,9 +721,9 @@ Description: Cancel all orders for a user. To verify the sender is the original 
 
 Arguments: `[chainid, market, side, baseQuantity, quoteQuantity]`
 
-Note: Only for zkSync chains.
+Description: Request a quote for a purchase. 
 
-Description: Request a quote for a purchase. Quotes are all in prices including gas fees, so they may differ from the market price substantially.
+Note: **For zkSync** quotes are all in prices including gas fees, so they may differ from the market price substantially.
 
 Only one of baseQuantity or quoteQuantity should be set.
 
