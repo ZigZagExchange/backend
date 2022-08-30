@@ -2517,13 +2517,13 @@ export default class API extends EventEmitter {
     const marketInfo = await this.getMarketInfo(market, chainId)
     const liquidity = await this.getOrderBook(chainId, market)
 
-    let softQuoteQuantity: any
-    let hardQuoteQuantity: any
-    let softBaseQuantity: any
-    let hardBaseQuantity: any
-    let softPrice: any
-    let hardPrice: any
-    let ladderPrice: any
+    let softQuoteQuantity: number
+    let hardQuoteQuantity: number
+    let softBaseQuantity: number
+    let hardBaseQuantity: number
+    let softPrice: number
+    let hardPrice: number
+    let ladderPrice: number
 
     if (baseQuantity) {
       if (baseQuantity < marketInfo.baseFee)
@@ -2544,71 +2544,72 @@ export default class API extends EventEmitter {
       hardBaseQuantity = +baseQuantity.toFixed(marketInfo.baseAsset.decimals)
 
       if (side === 'b') {
-        hardQuoteQuantity = +(
-          baseQuantity * ladderPrice +
-          marketInfo.quoteFee
-        ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = formatPrice(hardQuoteQuantity / hardBaseQuantity)
-        softPrice = formatPrice(hardPrice * 1.001)
+        hardQuoteQuantity = +(baseQuantity * ladderPrice + marketInfo.quoteFee)
+        hardPrice = hardQuoteQuantity / hardBaseQuantity
+        softPrice = hardPrice * 1.001
       } else {
-        hardQuoteQuantity = (
-          (baseQuantity - marketInfo.baseFee) *
-          ladderPrice
-        ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = formatPrice(hardQuoteQuantity / hardBaseQuantity)
-        softPrice = formatPrice(hardPrice * 0.999)
+        hardQuoteQuantity = +((baseQuantity - marketInfo.baseFee) * ladderPrice)
+        hardPrice = hardQuoteQuantity / hardBaseQuantity
+        softPrice = hardPrice * 0.999
       }
 
-      softBaseQuantity = baseQuantity.toFixed(marketInfo.baseAsset.decimals)
-      softQuoteQuantity = (baseQuantity * softPrice).toFixed(
-        marketInfo.quoteAsset.decimals
-      )
+      softBaseQuantity = baseQuantity
+      softQuoteQuantity = baseQuantity * softPrice
     } else if (quoteQuantity) {
       if (quoteQuantity < marketInfo.quoteFee)
         throw new Error('Amount is inadequate to pay fee')
 
-      hardQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
+      hardQuoteQuantity = quoteQuantity
 
       if (side === 'b') {
-        const asks: any[] = liquidity.asks
-          .map((l: any) => [l[0], Number(l[0]) * Number(l[1])])
+        const asks: any[] = liquidity.asks.map((l: any) => [
+          l[0],
+          Number(l[0]) * Number(l[1]),
+        ])
         ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
 
-        hardBaseQuantity = (
-          (quoteQuantity - marketInfo.quoteFee) /
-          ladderPrice
-        ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = formatPrice(hardQuoteQuantity / hardBaseQuantity)
-        softPrice = formatPrice(hardPrice * 1.0005)
+        hardBaseQuantity = (quoteQuantity - marketInfo.quoteFee) / ladderPrice
+
+        hardPrice = hardQuoteQuantity / hardBaseQuantity
+        softPrice = hardPrice * 1.0005
       } else {
-        const bids = liquidity.bids
-          .map((l: any) => [l[0], Number(l[0]) * Number(l[1])])
+        const bids = liquidity.bids.map((l: any) => [
+          l[0],
+          Number(l[0]) * Number(l[1]),
+        ])
         ladderPrice = API.getQuoteFromLadder(bids, quoteQuantity)
 
-        hardBaseQuantity = (
-          quoteQuantity / ladderPrice +
-          marketInfo.baseFee
-        ).toFixed(marketInfo.baseAsset.decimals)
-        hardPrice = formatPrice(hardQuoteQuantity / Number(hardBaseQuantity))
-        softPrice = formatPrice(hardPrice * 0.9995)
+        hardBaseQuantity = quoteQuantity / ladderPrice + marketInfo.baseFee
+
+        hardPrice = hardQuoteQuantity / hardBaseQuantity
+        softPrice = hardPrice * 0.9995
       }
 
-      softQuoteQuantity = quoteQuantity.toFixed(marketInfo.quoteAsset.decimals)
-      softBaseQuantity = (quoteQuantity / softPrice).toFixed(
-        marketInfo.baseAsset.decimals
-      )
+      softQuoteQuantity = quoteQuantity
+      softBaseQuantity = quoteQuantity / softPrice
+    } else {
+      throw new Error('baseQuantity or quoteQuantity should be set')
     }
 
-    if (Number.isNaN(softPrice) || Number.isNaN(hardPrice))
+    if (
+      !softPrice ||
+      !hardPrice ||
+      Number.isNaN(softPrice) ||
+      Number.isNaN(hardPrice)
+    )
       throw new Error('Internal Error. No price generated.')
 
     return {
-      softPrice,
-      hardPrice,
-      softQuoteQuantity,
-      hardQuoteQuantity,
-      softBaseQuantity,
-      hardBaseQuantity,
+      softPrice: formatPrice(softPrice),
+      hardPrice: formatPrice(hardPrice),
+      softQuoteQuantity: softQuoteQuantity.toFixed(
+        marketInfo.quoteAsset.decimals
+      ),
+      hardQuoteQuantity: hardQuoteQuantity.toFixed(
+        marketInfo.quoteAsset.decimals
+      ),
+      softBaseQuantity: softBaseQuantity.toFixed(marketInfo.baseAsset.decimals),
+      hardBaseQuantity: hardBaseQuantity.toFixed(marketInfo.baseAsset.decimals),
     }
   }
 
