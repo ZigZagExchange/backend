@@ -2535,7 +2535,9 @@ export default class API extends EventEmitter {
         const { asks } = liquidity
         ladderPrice = API.getQuoteFromLadder(asks as any[][], baseQuantity)
 
-        hardQuoteQuantity = baseQuantity * ladderPrice + marketInfo.quoteFee
+        hardQuoteQuantity = this.VALID_CHAINS_ZKSYNC.includes(chainId)
+          ? baseQuantity * ladderPrice + Number(marketInfo.quoteFee)
+          : baseQuantity * ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
         softPrice = hardPrice * 1.001
@@ -2543,7 +2545,9 @@ export default class API extends EventEmitter {
         const { bids } = liquidity
         ladderPrice = API.getQuoteFromLadder(bids as any[][], baseQuantity)
 
-        hardQuoteQuantity = (baseQuantity - marketInfo.baseFee) * ladderPrice
+        hardQuoteQuantity = this.VALID_CHAINS_ZKSYNC.includes(chainId)
+          ? (baseQuantity - Number(marketInfo.baseFee)) * ladderPrice
+          : baseQuantity * ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
         softPrice = hardPrice * 0.999
@@ -2564,7 +2568,9 @@ export default class API extends EventEmitter {
         ])
         ladderPrice = API.getQuoteFromLadder(asks, quoteQuantity)
 
-        hardBaseQuantity = (quoteQuantity - marketInfo.quoteFee) / ladderPrice
+        hardBaseQuantity = this.VALID_CHAINS_ZKSYNC.includes(chainId)
+          ? (quoteQuantity - Number(marketInfo.quoteFee)) / ladderPrice
+          : quoteQuantity / ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
         softPrice = hardPrice * 1.001
@@ -2573,17 +2579,14 @@ export default class API extends EventEmitter {
           l[0],
           Number(l[0]) * Number(l[1]),
         ])
-        console.log(bids)
         ladderPrice = API.getQuoteFromLadder(bids, quoteQuantity)
-        console.log(ladderPrice)
 
-        hardBaseQuantity = quoteQuantity / ladderPrice + marketInfo.baseFee
-        console.log(hardBaseQuantity)
+        hardBaseQuantity = this.VALID_CHAINS_ZKSYNC.includes(chainId)
+          ? quoteQuantity / ladderPrice + Number(marketInfo.baseFee)
+          : quoteQuantity / ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
         softPrice = hardPrice * 0.999
-        console.log(hardPrice)
-        console.log(softPrice)
       }
 
       softQuoteQuantity = quoteQuantity
