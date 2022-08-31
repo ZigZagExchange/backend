@@ -653,6 +653,7 @@ async function updateFeesEVM() {
           )
 
           // TEMP OVERRIDE
+          console.log(gasUsedEstimation.toString());
           gasUsedEstimation = ethers.BigNumber.from(1500000);
         } catch (e: any) {
           console.log(
