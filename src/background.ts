@@ -654,13 +654,13 @@ async function updateFeesEVM() {
 
           // TEMP OVERRIDE
           console.log(gasUsedEstimation.toString());
-          gasUsedEstimation = ethers.BigNumber.from(1500000);
         } catch (e: any) {
           console.log(
             `No fee data for chainId: ${chainId}, error: ${e.message}`
           )
         }
 
+        console.log(feeData);
         if (feeData.maxFeePerGas) {
           const feeInWei = feeData.maxFeePerGas.mul(gasUsedEstimation)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
