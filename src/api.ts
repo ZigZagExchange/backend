@@ -1279,14 +1279,6 @@ export default class API extends EventEmitter {
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
         )
-      if (buyFee / baseAmount < networkProviderConfig.minMakerVolumeFee)
-        throw new Error(
-          `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
-        )
-      if (sellFee / baseAmount < networkProviderConfig.minMakerVolumeFee)
-        throw new Error(
-          `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
-        )
     } else {
       baseAmount = Number(
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.baseAsset.decimals)
@@ -1314,17 +1306,17 @@ export default class API extends EventEmitter {
         throw new Error(
           `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAsset.symbol}`
         )
-      if (buyFee / quoteAmount < networkProviderConfig.minTakerVolumeFee)
-        throw new Error(
-          `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
-        )
-      if (sellFee / quoteAmount < networkProviderConfig.minTakerVolumeFee)
-        throw new Error(
-          `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
-        )
     }
 
     // check fees
+    if (Number(zktx.makerVolumeFee) / Number(zktx.sellAmount) < networkProviderConfig.minMakerVolumeFee)
+      throw new Error(
+        `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
+      )
+    if (Number(zktx.takerVolumeFee) / Number(zktx.sellAmount) < networkProviderConfig.minTakerVolumeFee)
+      throw new Error(
+        `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
+      )
     if (zktx.feeRecipientAddress !== networkProviderConfig.feeAddress)
       throw new Error(
         `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
