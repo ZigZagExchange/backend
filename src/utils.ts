@@ -154,11 +154,11 @@ export async function getFeeEstimationOrder(
   }
 
   const makerVolumeFeeBN = sellAmountBN
-    .div(10000)
     .mul(marketInfo.makerVolumeFee * 10000)
+    .div(9999)
   const takerVolumeFeeBN = sellAmountBN
-    .div(10000)
     .mul(marketInfo.takerVolumeFee * 10000)
+    .div(9999)
 
   const userAccount = await wallet.getAddress()
   const expirationTimeSeconds = Math.floor(Date.now() / 1000 + 5 * 2)
