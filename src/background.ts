@@ -651,6 +651,9 @@ async function updateFeesEVM() {
             makerSignatureModified,
             takerSignatureModified
           )
+
+          // TEMP OVERRIDE
+          gasUsedEstimation = ethers.BigNumber.from(1500000);
         } catch (e: any) {
           console.log(
             `No fee data for chainId: ${chainId}, error: ${e.message}`
