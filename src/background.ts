@@ -1106,21 +1106,21 @@ async function sendMatchedOrders() {
         const endIndex = transaction.reason.indexOf('code')
         const reason = transaction.reason.slice(startIndex, endIndex)
         console.log(reason)
-        const cancelOrderIds = []
+        const rejectedOrderIds = []
         if (reason.includes('right')) {
-          cancelOrderIds.push(match.takerId)
+          rejectedOrderIds.push(match.takerId)
         } else if (reason.includes('left')) {
-          cancelOrderIds.push(match.makerId)
+          rejectedOrderIds.push(match.makerId)
         } else if (reason.includes('not profitable spread')) {
-          // ignore. nothing needs to be canceled
+          // ignore. nothing needs to be rejected
         } else {
-          // default: cancel both
-          cancelOrderIds.push(match.makerId)
-          cancelOrderIds.push(match.takerId)
+          // default: both got rejected
+          rejectedOrderIds.push(match.makerId)
+          rejectedOrderIds.push(match.takerId)
         }
         orderUpdateBroadcastMinted = await db.query(
-          `UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
-          [cancelOrderIds]
+          `UPDATE offers SET order_status='r', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
+          [rejectedOrderIds]
         )
       }
       const orderUpdatesBroadcastMinted = orderUpdateBroadcastMinted.rows.map(
