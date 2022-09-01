@@ -77,12 +77,12 @@ contract Exchange is SignatureValidator{
         
         _updateFilledState(
             makerOrderInfo.orderHash,
-            matchedFillResults.maker.buyFilledAmount
+            matchedFillResults.takerSellFilledAmount
         );
 
         _updateFilledState(
             takerOrderInfo.orderHash,
-            matchedFillResults.taker.buyFilledAmount
+            matchedFillResults.makerSellFilledAmount
         );
 
         _settleMatchedOrders(
@@ -103,26 +103,26 @@ contract Exchange is SignatureValidator{
     )
     internal{
         require(
-            IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= matchedFillResults.maker.buyFilledAmount,
+            IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= matchedFillResults.takerSellFilledAmount,
             "taker order not enough balance"
         );
         require(
-            IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.taker.buyFilledAmount,
+            IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.makerSellFilledAmount,
             "maker order not enough balance"
         );
         
         // Right maker asset -> maker maker
-        IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, makerOrder.user, matchedFillResults.maker.buyFilledAmount);
+        IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, makerOrder.user, matchedFillResults.takerSellFilledAmount);
        
         // Left maker asset -> taker maker
-        IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, takerOrder.user, matchedFillResults.taker.buyFilledAmount);
+        IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, takerOrder.user, matchedFillResults.makerSellFilledAmount);
 
 
         /*
             Fees Paid 
         */
         // Taker fee + gas fee -> fee recipient
-        uint takerOrderFees = matchedFillResults.taker.feePaid + takerOrder.gasFee;
+        uint takerOrderFees = matchedFillResults.takerFeePaid + takerOrder.gasFee;
         if (takerOrderFees > 0) {
             require(
                 IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= takerOrderFees,
@@ -132,12 +132,12 @@ contract Exchange is SignatureValidator{
         }
        
         // Maker fee -> fee recipient
-        if (matchedFillResults.maker.feePaid > 0) {
+        if (matchedFillResults.makerFeePaid > 0) {
             require(
-                IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.maker.feePaid,
+                IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.makerFeePaid,
                 "maker order not enough balance for fee"
             );
-            IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, makerOrder.feeRecipientAddress, matchedFillResults.maker.feePaid);
+            IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, makerOrder.feeRecipientAddress, matchedFillResults.makerFeePaid);
         }
 
     }

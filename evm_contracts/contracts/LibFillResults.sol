@@ -7,15 +7,11 @@ import "./LibMath.sol";
 
 library LibFillResults {
 
-    struct FillResults {
-        uint256 sellFilledAmount;      // The amount sold by the user in the sell token
-        uint256 buyFilledAmount;       // The amount received by the user in the buy token
-        uint256 feePaid;               // Total amount of fees paid in sell token to feeRecipient(s).
-    }
-
     struct MatchedFillResults {
-        FillResults maker;                // Amounts filled and fees paid of maker order.
-        FillResults taker;               // Amounts filled and fees paid of taker order.
+        uint256 makerSellFilledAmount;      // The amount sold by the maker in the maker sell token
+        uint256 takerSellFilledAmount;      // The amount received by the taker in the taker sell token
+        uint256 makerFeePaid;               // The fee paid by the maker in the maker sell token
+        uint256 takerFeePaid;               // The fee paid by the taker in the taker sell token
     }
 
     function calculateMatchedFillResults(
@@ -49,13 +45,13 @@ library LibFillResults {
         
 
         // Compute fees for maker order
-        matchedFillResults.maker.feePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.maker.sellFilledAmount,
+        matchedFillResults.makerFeePaid = LibMath.safeGetPartialAmountFloor(
+            matchedFillResults.makerSellFilledAmount,
             makerOrder.sellAmount,
             makerOrder.makerVolumeFee
         );
-        matchedFillResults.taker.feePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.taker.sellFilledAmount,
+        matchedFillResults.takerFeePaid = LibMath.safeGetPartialAmountFloor(
+            matchedFillResults.takerSellFilledAmount,
             takerOrder.sellAmount,
             takerOrder.takerVolumeFee
         );
@@ -90,20 +86,16 @@ library LibFillResults {
         //   Both orders can be filled fully so we can default to case 2
 
         if (makerBuyAmountRemaining >= takerSellAmountRemaining) {
-            matchedFillResults.maker.buyFilledAmount = takerSellAmountRemaining;
-            matchedFillResults.maker.sellFilledAmount = LibMath.safeGetPartialAmountFloor(
+            matchedFillResults.makerSellFilledAmount = LibMath.safeGetPartialAmountFloor(
                 makerOrder.sellAmount,
                 makerOrder.buyAmount,
                 takerSellAmountRemaining
             );
-            matchedFillResults.taker.sellFilledAmount = takerSellAmountRemaining;
-            matchedFillResults.taker.buyFilledAmount = matchedFillResults.maker.sellFilledAmount;
+            matchedFillResults.takerSellFilledAmount = takerSellAmountRemaining;
         }
         else {
-            matchedFillResults.maker.sellFilledAmount = makerSellAmountRemaining;
-            matchedFillResults.maker.buyFilledAmount = makerBuyAmountRemaining;
-            matchedFillResults.taker.sellFilledAmount = makerBuyAmountRemaining;
-            matchedFillResults.taker.buyFilledAmount = makerSellAmountRemaining;
+            matchedFillResults.makerSellFilledAmount = makerSellAmountRemaining;
+            matchedFillResults.takerSellFilledAmount = makerBuyAmountRemaining;
         }
 
         return matchedFillResults;
