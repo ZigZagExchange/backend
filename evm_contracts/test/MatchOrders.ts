@@ -624,6 +624,59 @@ describe("Order Matching", function () {
         expect(balance8).to.equal(ethers.utils.parseEther("0.1"))
     });
 
+    it("feeRecipient should take partial Taker Fee", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
+            sellAmount: ethers.utils.parseEther("500"),
+            buyAmount: ethers.utils.parseEther("50"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0.1"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const takerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
+            feeRecipientAddress: feeRecipientAddress,
+            relayerAddress: ethers.constants.AddressZero,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("1000"),
+            makerVolumeFee: ethers.utils.parseEther("0"),
+            takerVolumeFee: ethers.utils.parseEther("0.1"),
+            gasFee: ethers.BigNumber.from("0"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
+            salt: ethers.BigNumber.from("0")
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+
+        const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
+        //console.log(tx)
+
+        const balance1 = await tokenA.balanceOf(wallets[0].address);
+        const balance2 = await tokenA.balanceOf(wallets[1].address);
+        const balance3 = await tokenA.balanceOf(wallets[2].address);
+        const balance4 = await tokenB.balanceOf(wallets[0].address);
+        const balance5 = await tokenB.balanceOf(wallets[1].address);
+        const balance6 = await tokenB.balanceOf(wallets[2].address);
+        const balance7 = await tokenA.balanceOf(feeRecipientAddress);
+        const balance8 = await tokenB.balanceOf(feeRecipientAddress);
+        console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
+        console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
+        console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
+        console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
+
+        expect(balance8).to.equal(ethers.utils.parseEther("0.05"))
+    });
+
     it("same price should match", async function () {
         // tokenA = ETH
         // tokenB = USDC

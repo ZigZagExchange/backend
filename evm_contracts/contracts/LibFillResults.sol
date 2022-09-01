@@ -40,8 +40,8 @@ library LibFillResults {
             takerBuyAmountRemaining
         ) ;
 
-        matchedFillResults = _calculateMatchedFillResultsWithMaximalFill(makerOrder,
-            takerOrder,
+        matchedFillResults = _calculateMatchedFillResultsWithMaximalFill(
+            makerOrder,
             makerSellAmountRemaining,
             makerBuyAmountRemaining,
             takerSellAmountRemaining
@@ -64,7 +64,6 @@ library LibFillResults {
 
     function _calculateMatchedFillResultsWithMaximalFill(
         LibOrder.Order memory makerOrder,
-        LibOrder.Order memory takerOrder,
         uint256 makerSellAmountRemaining,
         uint256 makerBuyAmountRemaining,
         uint256 takerSellAmountRemaining
@@ -103,11 +102,7 @@ library LibFillResults {
         else {
             matchedFillResults.maker.sellFilledAmount = makerSellAmountRemaining;
             matchedFillResults.maker.buyFilledAmount = makerBuyAmountRemaining;
-            matchedFillResults.taker.sellFilledAmount = LibMath.safeGetPartialAmountCeil(
-                takerOrder.sellAmount,
-                takerOrder.buyAmount,
-                makerSellAmountRemaining
-            );
+            matchedFillResults.taker.sellFilledAmount = makerBuyAmountRemaining;
             matchedFillResults.taker.buyFilledAmount = makerSellAmountRemaining;
         }
 
