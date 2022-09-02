@@ -653,23 +653,21 @@ async function updateFeesEVM() {
           )
 
           // TEMP OVERRIDE
-          console.log(gasUsedEstimation.toString());
+          console.log(gasUsedEstimation.toString())
         } catch (e: any) {
           console.log(
             `No fee data for chainId: ${chainId}, error: ${e.message}`
           )
         }
 
-        console.log(feeData);
+        console.log(feeData)
         if (feeData.gasPrice) {
           const feeInWei = feeData.gasPrice.mul(gasUsedEstimation)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
-        }
-        else if (feeData.maxFeePerGas) {
+        } else if (feeData.maxFeePerGas) {
           const feeInWei = feeData.maxFeePerGas.mul(gasUsedEstimation)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
-        } 
-        else {
+        } else {
           console.error(
             `No fee data for chainId: ${chainId}, unsing default ${feeAmountWETH} WETH.`
           )

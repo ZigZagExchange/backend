@@ -1309,11 +1309,17 @@ export default class API extends EventEmitter {
     }
 
     // check fees
-    if (Number(zktx.makerVolumeFee) / Number(zktx.sellAmount) < networkProviderConfig.minMakerVolumeFee)
+    if (
+      Number(zktx.makerVolumeFee) / Number(zktx.sellAmount) <
+      Number(networkProviderConfig.minMakerVolumeFee) - 0.0001
+    )
       throw new Error(
         `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
       )
-    if (Number(zktx.takerVolumeFee) / Number(zktx.sellAmount) < networkProviderConfig.minTakerVolumeFee)
+    if (
+      Number(zktx.takerVolumeFee) / Number(zktx.sellAmount) <
+      Number(networkProviderConfig.minTakerVolumeFee) - 0.0001
+    )
       throw new Error(
         `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
       )
