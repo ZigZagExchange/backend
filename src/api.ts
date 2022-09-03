@@ -30,7 +30,6 @@ import {
   getNetwork,
   getRPCURL,
   evmEIP712Types,
-  getERC20Info,
   getNewToken,
 } from 'src/utils'
 
@@ -431,47 +430,8 @@ export default class API extends EventEmitter {
       tokenInfo = JSON.parse(cache)
       return tokenInfo
     }
-
-    if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-      const assetString = await this.redis.HGET(
-        `tokeninfo:${chainId}`,
-        tokenLike
-      )
-
-      if (!assetString) throw new Error('Unknown asset.')
-      tokenInfo = JSON.parse(assetString) as AnyObject
-    } else if (this.VALID_EVM_CHAINS.includes(chainId)) {
-      if (tokenLike.length < 20) throw new Error('Use token address')
-
-      try {
-        tokenInfo = await getERC20Info(
-          this.ETHERS_PROVIDERS[chainId],
-          tokenLike,
-          this.ERC20_ABI
-        )
-      } catch (e: any) {
-        console.log(
-          `Error getting ERC20 infos for ${tokenLike}, error: ${e.message}`
-        )
-        throw new Error('Asset no valid ERC20 token')
-      }
-      tokenInfo.id = tokenInfo.address
-    } else {
-      throw new Error('Bad chainId')
-    }
-
-    // update cache
-    await this.redis.HSET(
-      `tokeninfo:${chainId}`,
-      tokenInfo.symbol,
-      JSON.stringify(tokenInfo)
-    )
-    await this.redis.HSET(
-      `tokeninfo:${chainId}`,
-      tokenInfo.address,
-      JSON.stringify(tokenInfo)
-    )
-    return tokenInfo
+    
+    throw new Error('Unknown asset.')
   }
 
   updateOrderFillStatus = async (
@@ -1262,18 +1222,6 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
-      const buyFee = Number(
-        ethers.utils.formatUnits(
-          zktx.makerVolumeFee,
-          marketInfo.baseAsset.decimals
-        )
-      )
-      const sellFee = Number(
-        ethers.utils.formatUnits(
-          zktx.takerVolumeFee,
-          marketInfo.baseAsset.decimals
-        )
-      )
       feeToken = marketInfo.baseAsset.symbol
       if (Number(gasFee) < marketInfo.baseFee)
         throw new Error(
@@ -1286,18 +1234,6 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(
           zktx.sellAmount,
-          marketInfo.quoteAsset.decimals
-        )
-      )
-      const buyFee = Number(
-        ethers.utils.formatUnits(
-          zktx.makerVolumeFee,
-          marketInfo.quoteAsset.decimals
-        )
-      )
-      const sellFee = Number(
-        ethers.utils.formatUnits(
-          zktx.takerVolumeFee,
           marketInfo.quoteAsset.decimals
         )
       )
