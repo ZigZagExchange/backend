@@ -1,7 +1,17 @@
 import * as starknet from 'starknet'
 import { ethers } from 'ethers'
 import { randomBytes } from 'crypto'
+import fetch from 'isomorphic-fetch'
+import fs from 'fs'
+
 import type { AnyObject, ZZMarketInfo } from './types'
+
+const ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
+
+const ZKSYNC_BASE_URL: AnyObject = {
+  mainnet: 'https://api.zksync.io/api/v0.2/',
+  goerli: 'https://goerli-api.zksync.io/api/v0.2/',
+}
 
 export function formatPrice(input: any) {
   const inputNumber = Number(input)
@@ -95,6 +105,126 @@ export async function getERC20Info(
   return tokenInfos
 }
 
+export async function getTokenInfosZkSync(
+  chainId: number,
+  provider: any
+): Promise<AnyObject> {
+  const updatedTokenInfo: AnyObject = {
+    ETH: {
+      id: 0,
+      address: ethers.constants.AddressZero,
+      symbol: 'ETH',
+      decimals: 18,
+      enabledForFees: true,
+      usdPrice: '1910.20',
+      name: 'Ethereum',
+    },
+  }
+
+  // fetch new tokenInfo from zkSync
+  let index = 0
+  let tokenInfoResults: AnyObject[]
+  const network = getNetwork(chainId)
+  do {
+    const fetchResult = await fetch(
+      `${ZKSYNC_BASE_URL[network]}tokens?from=${index}&limit=100&direction=newer`
+    ).then((r: any) => r.json())
+    tokenInfoResults = fetchResult.result.list
+    const results1: Promise<any>[] = tokenInfoResults.map(
+      async (tokenInfo: AnyObject) => {
+        const { symbol, address } = tokenInfo
+        if (!symbol || !address || address === ethers.constants.AddressZero)
+          return
+        if (!symbol.includes('ERC20')) {
+          tokenInfo.usdPrice = 0
+          try {
+            const contract = new ethers.Contract(address, ERC20_ABI, provider)
+            tokenInfo.name = await contract.name()
+          } catch (e: any) {
+            console.warn(e.message)
+            tokenInfo.name = tokenInfo.address
+          }
+          updatedTokenInfo[symbol] = tokenInfo
+        }
+      }
+    )
+    await Promise.all(results1)
+    index = tokenInfoResults[tokenInfoResults.length - 1].id
+  } while (tokenInfoResults.length > 99)
+
+  return updatedTokenInfo
+}
+
+export async function getTokenInfosEVM(
+  chainId: number,
+  provider: any
+): Promise<AnyObject> {
+  // some networks (testnets) are not supported
+  let coingeckoNetworkKey: string
+  switch (chainId) {
+    case 42161:
+      coingeckoNetworkKey = 'arbitrum-one'
+      break
+    default:
+      return {}
+  }
+
+  const updatedTokenInfo: AnyObject = {
+    ETH: {
+      id: ethers.constants.AddressZero,
+      address: ethers.constants.AddressZero,
+      symbol: 'ETH',
+      decimals: 18,
+      enabledForFees: true,
+      usdPrice: '1910.20',
+      name: 'Ethereum',
+    },
+  }
+
+  const tokens: AnyObject[] = await fetch(
+    'https://api.coingecko.com/api/v3/coins/list?include_platform=true'
+  ).then((r: any) => r.json())
+
+  const updatedTokenInfoResult: Promise<any>[] = tokens.map(
+    async (tokenData: AnyObject) => {
+      const address = tokenData.platforms[coingeckoNetworkKey]
+      if (!address) return
+
+      const contract = new ethers.Contract(address, ERC20_ABI, provider)
+      const decimals = await contract.decimals()
+
+      updatedTokenInfo[tokenData.symbol] = {
+        id: address,
+        address,
+        symbol: tokenData.symbol,
+        decimals,
+        enabledForFees: true,
+        usdPrice: '1',
+        name: tokenData.name,
+      }
+    }
+  )
+
+  await Promise.all(updatedTokenInfoResult)
+  return updatedTokenInfo
+}
+
+export async function getTokenInfos(
+  chainId: number,
+  provider: any
+): Promise<AnyObject> {
+  switch (chainId) {
+    case 1:
+    case 1002:
+      return getTokenInfosZkSync(chainId, provider)
+    case 42161:
+    case 421613:
+      return getTokenInfosEVM(chainId, provider)
+    default:
+      return {}
+  }
+}
+
 export function getNewToken() {
   return randomBytes(64).toString('hex')
 }
@@ -118,7 +248,7 @@ export async function getFeeEstimationOrder(
 ) {
   const baseAmount = 1
   const quoteAmount = 1
-  
+
   const baseAmountBN = ethers.utils.parseUnits(
     Number(baseAmount).toFixed(marketInfo.baseAsset.decimals),
     marketInfo.baseAsset.decimals
@@ -138,19 +268,13 @@ export async function getFeeEstimationOrder(
     buyToken = marketInfo.quoteAsset.address
     sellAmountBN = baseAmountBN
     buyAmountBN = quoteAmountBN.mul(99999).div(100000)
-    gasFeeBN = ethers.utils.parseUnits(
-      '1',
-      marketInfo.baseAsset.decimals
-    )
+    gasFeeBN = ethers.utils.parseUnits('1', marketInfo.baseAsset.decimals)
   } else {
     sellToken = marketInfo.quoteAsset.address
     buyToken = marketInfo.baseAsset.address
     sellAmountBN = quoteAmountBN
     buyAmountBN = baseAmountBN.mul(99999).div(100000)
-    gasFeeBN = ethers.utils.parseUnits(
-      '1',
-      marketInfo.quoteAsset.decimals
-    )
+    gasFeeBN = ethers.utils.parseUnits('1', marketInfo.quoteAsset.decimals)
   }
 
   const makerVolumeFeeBN = sellAmountBN
