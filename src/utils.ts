@@ -165,6 +165,7 @@ export async function getFeeEstimationOrder(
   let domain: AnyObject = {}
   let Order: AnyObject = {}
   let types: AnyObject = {}
+  
   if (Number(marketInfo.contractVersion) === 5) {
     Order = {
       user: userAccount,
@@ -203,8 +204,46 @@ export async function getFeeEstimationOrder(
         { name: 'salt', type: 'uint256' },
       ],
     }
-  }
+  } else if (Number(marketInfo.contractVersion) === 6) {
+    Order = {
+      user: userAccount,
+      sellToken,
+      buyToken,
+      feeRecipientAddress: marketInfo.feeAddress,
+      relayerAddress: marketInfo.relayerAddress,
+      sellAmount: sellAmountBN.toString(),
+      buyAmount: buyAmountBN.toString(),
+      makerVolumeFee: makerVolumeFeeBN.toString(),
+      takerVolumeFee: takerVolumeFeeBN.toString(),
+      gasFee: gasFeeBN.toString(),
+      expirationTimeSeconds: expirationTimeSeconds.toFixed(0),
+      salt: (Math.random() * 123456789).toFixed(0),
+    }
 
+    domain = {
+      name: 'ZigZag',
+      version: '6',
+      chainId,
+    }
+
+    types = {
+      Order: [
+        { name: 'user', type: 'address' },
+        { name: 'sellToken', type: 'address' },
+        { name: 'buyToken', type: 'address' },
+        { name: 'feeRecipientAddress', type: 'address' },
+        { name: 'relayerAddress', type: 'address' },
+        { name: 'sellAmount', type: 'uint256' },
+        { name: 'buyAmount', type: 'uint256' },
+        { name: 'makerVolumeFee', type: 'uint256' },
+        { name: 'takerVolumeFee', type: 'uint256' },
+        { name: 'gasFee', type: 'uint256' },
+        { name: 'expirationTimeSeconds', type: 'uint256' },
+        { name: 'salt', type: 'uint256' },
+      ],
+    }
+  }
+  
   // eslint-disable-next-line no-underscore-dangle
   const signature = await wallet._signTypedData(domain, types, Order)
   Order.signature = signature
