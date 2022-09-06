@@ -39,6 +39,8 @@ const WALLET: AnyObject = {}
 let EVMConfig: AnyObject = {}
 let ERC20_ABI: any
 
+const updatePendingOrdersDelay = 5
+
 async function getMarketInfo(market: ZZMarket, chainId: number) {
   if (!VALID_CHAINS.includes(chainId) || !market) return null
 
@@ -204,9 +206,10 @@ async function updatePendingOrders() {
   }
   await db.query(fillsQuery)
 
+  const expiredTimestamp = ((Date.now() / 1000) | 0) + Math.floor(updatePendingOrdersDelay)
   const expiredQuery = {
-    text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status IN ('o', 'pm', 'pf') AND expires < EXTRACT(EPOCH FROM NOW()) RETURNING chainid, id, order_status",
-    values: [],
+    text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status IN ('o', 'pm', 'pf') AND expires < $1 RETURNING chainid, id, order_status",
+    values: [expiredTimestamp],
   }
   const updateExpires = await db.query(expiredQuery)
   if (updateExpires.rowCount > 0) {
@@ -1621,7 +1624,7 @@ async function start() {
 
   console.log('background.ts: Starting Update Functions')
   setInterval(updateBestAskBidEVM, 5000)
-  setInterval(updatePendingOrders, 5000)
+  setInterval(updatePendingOrders, updatePendingOrdersDelay * 1000)
   setInterval(cacheRecentTrades, 5500)
   setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
