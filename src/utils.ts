@@ -116,8 +116,8 @@ export async function getFeeEstimationOrder(
   wallet: AnyObject,
   side: string
 ) {
-  const baseAmount = 1
-  const quoteAmount = 1
+  const baseAmount = 5
+  const quoteAmount = 5
   
   const baseAmountBN = ethers.utils.parseUnits(
     Number(baseAmount).toFixed(marketInfo.baseAsset.decimals),
