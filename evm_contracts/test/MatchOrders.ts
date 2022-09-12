@@ -397,7 +397,7 @@ describe("Order Matching", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("maker order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("invalid maker asset amount");
 
     });
 
@@ -438,7 +438,7 @@ describe("Order Matching", function () {
 
         await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("taker order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("order is filled")
     });
 
     it("Should revert when taker order is canceled", async function () {
@@ -478,7 +478,7 @@ describe("Order Matching", function () {
 
         await exchangeContract.connect(wallets[1]).cancelOrder(Object.values(takerOrder))
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("taker order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("order canceled")
     });
 
     it("Should revert when order time is expired", async function () {
@@ -516,7 +516,7 @@ describe("Order Matching", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("taker order status not Fillable")
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("order expired")
     });
 
     it("feeRecipient should take Maker Fee", async function () {

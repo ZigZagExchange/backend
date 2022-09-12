@@ -155,31 +155,11 @@ contract Exchange is SignatureValidator{
     function getOrderInfo(LibOrder.Order memory order) public view returns(LibOrder.OrderInfo memory orderInfo){
         (orderInfo.orderHash, orderInfo.orderBuyFilledAmount) = _getOrderHashAndFilledAmount(order);
         
-        if (order.sellAmount == 0) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.INVALID_MAKER_ASSET_AMOUNT;
-            return orderInfo;
-        }
-
-        if (order.buyAmount == 0) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.INVALID_TAKER_ASSET_AMOUNT;
-            return orderInfo;
-        }
-
-        if (orderInfo.orderBuyFilledAmount >= order.buyAmount) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.FULLY_FILLED;
-            return orderInfo;
-        }
-
-       
-        if (block.timestamp >= order.expirationTimeSeconds) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.EXPIRED;
-            return orderInfo;
-        }
-
-        if (cancelled[orderInfo.orderHash]) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.CANCELLED;
-            return orderInfo;
-        }
+        require(order.sellAmount > 0, "invalid maker asset amount");
+        require(order.buyAmount > 0, "invalid taker asset amount");
+        require(orderInfo.orderBuyFilledAmount < order.buyAmount, "order is filled");
+        require(block.timestamp <= order.expirationTimeSeconds, "order expired");
+        require(!cancelled[orderInfo.orderHash], "order canceled");
 
         orderInfo.orderStatus = LibOrder.OrderStatus.FILLABLE;
         return orderInfo;
