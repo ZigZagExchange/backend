@@ -18,6 +18,14 @@ contract Exchange is SignatureValidator{
 
     mapping (bytes32 => bool) public cancelled;
 
+    // fees
+    uint256 maker_fee_numerator = 0;
+    uint256 maker_fee_denominator = 10000;
+    uint256 taker_fee_numerator = 0;
+    uint256 taker_fee_denominator = 10000;
+
+
+
     function cancelOrder(
         LibOrder.Order memory order
     ) public{   
@@ -73,7 +81,11 @@ contract Exchange is SignatureValidator{
             makerOrder,
             takerOrder,
             makerOrderInfo.orderBuyFilledAmount,
-            takerOrderInfo.orderBuyFilledAmount
+            takerOrderInfo.orderBuyFilledAmount,    
+            maker_fee_numerator,
+            maker_fee_denominator,
+            taker_fee_numerator,
+            taker_fee_denominator
         );
         
         

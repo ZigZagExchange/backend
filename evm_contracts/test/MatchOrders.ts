@@ -52,8 +52,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("10000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -67,8 +65,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -94,8 +90,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -109,8 +103,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("10000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -136,8 +128,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("20000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -151,8 +141,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("20000"),
             buyAmount: ethers.utils.parseEther("1"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -176,8 +164,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("20000"),
             buyAmount: ethers.utils.parseEther("1"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -191,8 +177,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("20000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -216,8 +200,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("10000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -231,8 +213,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("10000"),
             buyAmount: ethers.utils.parseEther("1"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("1000"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -256,8 +236,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("10000"),
             buyAmount: ethers.utils.parseEther("1"),
-            makerVolumeFee: ethers.BigNumber.from("1000"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -271,8 +249,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("10000"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -296,8 +272,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("100"),
             buyAmount: ethers.BigNumber.from("100"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -311,8 +285,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("100"),
             buyAmount: ethers.BigNumber.from("100"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -333,8 +305,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("10000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -348,8 +318,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -372,8 +340,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("0"),
             buyAmount: ethers.BigNumber.from("10000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -387,8 +353,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("10000"),
             buyAmount: ethers.BigNumber.from("20000"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -411,8 +375,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("120"),
             buyAmount: ethers.BigNumber.from("970"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -426,8 +388,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("890"),
             buyAmount: ethers.BigNumber.from("10"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -451,8 +411,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("120"),
             buyAmount: ethers.BigNumber.from("970"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -466,8 +424,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("890"),
             buyAmount: ethers.BigNumber.from("10"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -491,8 +447,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("120"),
             buyAmount: ethers.BigNumber.from("970"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -506,8 +460,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("890"),
             buyAmount: ethers.BigNumber.from("10"),
-            makerVolumeFee: ethers.BigNumber.from("0"),
-            takerVolumeFee: ethers.BigNumber.from("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) - 3600)),
             salt: ethers.BigNumber.from("0")
@@ -528,8 +480,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("120"),
             buyAmount: ethers.utils.parseEther("970"),
-            makerVolumeFee: ethers.utils.parseEther("0.1"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -543,8 +493,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("890"),
             buyAmount: ethers.utils.parseEther("10"),
-            makerVolumeFee: ethers.utils.parseEther("0.1"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -580,8 +528,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("120"),
             buyAmount: ethers.utils.parseEther("970"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0.1"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -595,8 +541,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("890"),
             buyAmount: ethers.utils.parseEther("10"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0.1"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -633,8 +577,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("500"),
             buyAmount: ethers.utils.parseEther("50"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0.1"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -648,8 +590,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("100"),
             buyAmount: ethers.utils.parseEther("1000"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0.1"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -688,8 +628,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("100"),
             buyAmount: ethers.utils.parseEther("200"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -703,8 +641,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("200"),
             buyAmount: ethers.utils.parseEther("100"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -725,8 +661,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("100"),
             buyAmount: ethers.utils.parseEther("200"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -740,8 +674,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("200"),
             buyAmount: ethers.utils.parseEther("100"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -768,8 +700,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("1000"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -783,8 +713,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("4000"),
             buyAmount: ethers.utils.parseEther("2"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("1")
@@ -818,8 +746,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("2"),
             buyAmount: ethers.utils.parseEther("2000"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -833,8 +759,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1500"),
             buyAmount: ethers.utils.parseEther("1"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("1")
@@ -868,8 +792,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1000"),
             buyAmount: ethers.utils.parseEther("1"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -883,8 +805,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("2"),
             buyAmount: ethers.utils.parseEther("1000"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("1")
@@ -918,8 +838,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("2000"),
             buyAmount: ethers.utils.parseEther("2"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -933,8 +851,6 @@ describe("Order Matching", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("500"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("1")
@@ -964,8 +880,6 @@ describe("Order Matching", function () {
             relayerAddress: wallets[2].address,
             sellAmount: ethers.utils.parseEther("2000"),
             buyAmount: ethers.utils.parseEther("2"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -979,8 +893,6 @@ describe("Order Matching", function () {
             relayerAddress: wallets[2].address,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("500"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("1")
@@ -1001,8 +913,6 @@ describe("Order Matching", function () {
             relayerAddress: wallets[1].address,
             sellAmount: ethers.utils.parseEther("2000"),
             buyAmount: ethers.utils.parseEther("2"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -1016,8 +926,6 @@ describe("Order Matching", function () {
             relayerAddress: wallets[2].address,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("500"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("1")
@@ -1038,8 +946,6 @@ describe("Order Matching", function () {
             relayerAddress: wallets[2].address,
             sellAmount: ethers.utils.parseEther("2000"),
             buyAmount: ethers.utils.parseEther("2"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -1053,8 +959,6 @@ describe("Order Matching", function () {
             relayerAddress: wallets[1].address,
             sellAmount: ethers.utils.parseEther("1"),
             buyAmount: ethers.utils.parseEther("500"),
-            makerVolumeFee: ethers.utils.parseEther("0"),
-            takerVolumeFee: ethers.utils.parseEther("0"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("1")

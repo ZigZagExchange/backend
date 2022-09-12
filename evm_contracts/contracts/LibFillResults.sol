@@ -18,7 +18,11 @@ library LibFillResults {
         LibOrder.Order memory makerOrder,
         LibOrder.Order memory takerOrder,
         uint256 makerOrderBuyFilledAmount,
-        uint256 takerOrderBuyFilledAmount
+        uint256 takerOrderBuyFilledAmount,
+        uint256 maker_fee_numerator,
+        uint256 maker_fee_denominator,
+        uint256 taker_fee_numerator,
+        uint256 taker_fee_denominator
      ) internal pure returns(MatchedFillResults memory matchedFillResults){
 
 
@@ -44,18 +48,9 @@ library LibFillResults {
         );
         
 
-        // Compute fees for maker order
-        matchedFillResults.makerFeePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.makerSellFilledAmount,
-            makerOrder.sellAmount,
-            makerOrder.makerVolumeFee
-        );
-        matchedFillResults.takerFeePaid = LibMath.safeGetPartialAmountFloor(
-            matchedFillResults.takerSellFilledAmount,
-            takerOrder.sellAmount,
-            takerOrder.takerVolumeFee
-        );
-
+        // Compute volume fees
+        matchedFillResults.makerFeePaid = matchedFillResults.makerSellFilledAmount * maker_fee_numerator / maker_fee_denominator;
+        matchedFillResults.takerFeePaid = matchedFillResults.takerSellFilledAmount * taker_fee_numerator / taker_fee_denominator;
     }
 
     function _calculateMatchedFillResultsWithMaximalFill(

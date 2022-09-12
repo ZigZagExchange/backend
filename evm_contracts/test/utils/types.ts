@@ -8,8 +8,6 @@ export interface Order {
     relayerAddress: string,
     sellAmount: BigNumber,
     buyAmount: BigNumber,
-    makerVolumeFee: BigNumber,
-    takerVolumeFee: BigNumber,
     gasFee: BigNumber,
     expirationTimeSeconds: BigNumber,
     salt: BigNumber
