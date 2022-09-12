@@ -10,6 +10,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Exchange is SignatureValidator{
 
+    event Swap(address maker, address taker, address makerSellToken, address takerSellToken, uint makerSellAmount, uint takerSellAmount, uint gasFee, uint makerVolumeFee, uint takerVolumeFee);
+
     using LibOrder for LibOrder.Order;
 
     mapping (bytes32 => uint256) public filled;
@@ -139,6 +141,8 @@ contract Exchange is SignatureValidator{
             );
             IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, makerOrder.feeRecipientAddress, matchedFillResults.makerFeePaid);
         }
+
+        emit Swap(makerOrder.user, takerOrder.user, makerOrder.sellToken, takerOrder.sellToken, matchedFillResults.makerSellFilledAmount, matchedFillResults.takerSellFilledAmount, takerOrder.gasFee, matchedFillResults.makerFeePaid, matchedFillResults.takerFeePaid);
 
     }
 
