@@ -206,7 +206,8 @@ async function updatePendingOrders() {
   }
   await db.query(fillsQuery)
 
-  const expiredTimestamp = ((Date.now() / 1000) | 0) + Math.floor(updatePendingOrdersDelay)
+  const expiredTimestamp =
+    ((Date.now() / 1000) | 0) + Math.floor(updatePendingOrdersDelay)
   const expiredQuery = {
     text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status IN ('o', 'pm', 'pf') AND expires < $1 RETURNING chainid, id, order_status",
     values: [expiredTimestamp],
@@ -1528,19 +1529,19 @@ async function start() {
   const results: Promise<any>[] = VALID_CHAINS.map(async (chainId: number) => {
     if (ETHERS_PROVIDERS[chainId]) return
     try {
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+        getRPCURL(chainId)
+      )
+      console.log(`Connected JsonRpcProvider for ${chainId}`)
+    } catch (e: any) {
+      console.warn(
+        `Could not connect JsonRpcProvider for ${chainId}, trying Infura...`
+      )
       ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
         getNetwork(chainId),
         process.env.INFURA_PROJECT_ID
       )
       console.log(`Connected InfuraProvider for ${chainId}`)
-    } catch (e: any) {
-      console.warn(
-        `Could not connect InfuraProvider for ${chainId}, trying RPC...`
-      )
-      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
-        getRPCURL(chainId)
-      )
-      console.log(`Connected JsonRpcProvider for ${chainId}`)
     }
 
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
