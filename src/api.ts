@@ -2008,7 +2008,7 @@ export default class API extends EventEmitter {
     ;(this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
       if (
-        !ws.marketSubscriptions.includes(subscription) || 
+        !ws.marketSubscriptions.includes(subscription) && 
         (market === 'all' && ws.chainId !== chainId)
       ) return
       ws.send(msg)
