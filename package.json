@@ -16,7 +16,7 @@
     "url": "git+https://github.com/zigzag/backend.git"
   },
   "author": "ZigZag Exchange",
-  "license": "BUSL-1.1",
+  "license": "GPLv3",
   "bugs": {
     "url": "https://github.com/zigzag/backend/issues"
   },
