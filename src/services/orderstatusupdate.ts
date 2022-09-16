@@ -47,8 +47,6 @@ export const orderstatusupdate: ZZServiceHandler = async (
       feeToken = result.feeToken
       timestamp = result.timestamp
       userId = result.userId
-      const redisKey = `bussymarketmaker:${chainId}:${result.makerUserId}`
-      await api.redis.del(redisKey)
     }
     if (success) {
       const fillUpdate = [...update]

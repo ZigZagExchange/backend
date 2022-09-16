@@ -25,8 +25,6 @@ export async function signOrder(privateKey: string, order: Order) {
                 { "name": 'relayerAddress', "type": 'address' },
                 { "name": 'sellAmount', "type": 'uint256' },
                 { "name": 'buyAmount', "type": 'uint256' },
-                { "name": 'makerVolumeFee', "type": 'uint256' },
-                { "name": 'takerVolumeFee', "type": 'uint256' },
                 { "name": 'gasFee', "type": 'uint256' },
                 { "name": 'expirationTimeSeconds', "type": 'uint256' },
                 { "name": 'salt', "type": 'uint256' },
@@ -47,8 +45,6 @@ export async function signOrder(privateKey: string, order: Order) {
             "relayerAddress": order.relayerAddress,
             "sellAmount": order.sellAmount,
             "buyAmount": order.buyAmount,
-            "makerVolumeFee": order.makerVolumeFee,
-            "takerVolumeFee": order.takerVolumeFee,
             "gasFee": order.gasFee,
             "expirationTimeSeconds": order.expirationTimeSeconds,
             "salt": order.salt

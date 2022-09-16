@@ -10,11 +10,21 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Exchange is SignatureValidator{
 
+    event Swap(address maker, address taker, address makerSellToken, address takerSellToken, uint makerSellAmount, uint takerSellAmount, uint gasFee, uint makerVolumeFee, uint takerVolumeFee);
+
     using LibOrder for LibOrder.Order;
 
     mapping (bytes32 => uint256) public filled;
 
     mapping (bytes32 => bool) public cancelled;
+
+    // fees
+    uint256 maker_fee_numerator = 0;
+    uint256 maker_fee_denominator = 10000;
+    uint256 taker_fee_numerator = 0;
+    uint256 taker_fee_denominator = 10000;
+
+
 
     function cancelOrder(
         LibOrder.Order memory order
@@ -71,7 +81,11 @@ contract Exchange is SignatureValidator{
             makerOrder,
             takerOrder,
             makerOrderInfo.orderBuyFilledAmount,
-            takerOrderInfo.orderBuyFilledAmount
+            takerOrderInfo.orderBuyFilledAmount,    
+            maker_fee_numerator,
+            maker_fee_denominator,
+            taker_fee_numerator,
+            taker_fee_denominator
         );
         
         
@@ -140,6 +154,8 @@ contract Exchange is SignatureValidator{
             IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, makerOrder.feeRecipientAddress, matchedFillResults.makerFeePaid);
         }
 
+        emit Swap(makerOrder.user, takerOrder.user, makerOrder.sellToken, takerOrder.sellToken, matchedFillResults.makerSellFilledAmount, matchedFillResults.takerSellFilledAmount, takerOrder.gasFee, matchedFillResults.makerFeePaid, matchedFillResults.takerFeePaid);
+
     }
 
 
@@ -151,31 +167,11 @@ contract Exchange is SignatureValidator{
     function getOrderInfo(LibOrder.Order memory order) public view returns(LibOrder.OrderInfo memory orderInfo){
         (orderInfo.orderHash, orderInfo.orderBuyFilledAmount) = _getOrderHashAndFilledAmount(order);
         
-        if (order.sellAmount == 0) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.INVALID_MAKER_ASSET_AMOUNT;
-            return orderInfo;
-        }
-
-        if (order.buyAmount == 0) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.INVALID_TAKER_ASSET_AMOUNT;
-            return orderInfo;
-        }
-
-        if (orderInfo.orderBuyFilledAmount >= order.buyAmount) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.FULLY_FILLED;
-            return orderInfo;
-        }
-
-       
-        if (block.timestamp >= order.expirationTimeSeconds) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.EXPIRED;
-            return orderInfo;
-        }
-
-        if (cancelled[orderInfo.orderHash]) {
-            orderInfo.orderStatus = LibOrder.OrderStatus.CANCELLED;
-            return orderInfo;
-        }
+        require(order.sellAmount > 0, "invalid maker asset amount");
+        require(order.buyAmount > 0, "invalid taker asset amount");
+        require(orderInfo.orderBuyFilledAmount < order.buyAmount, "order is filled");
+        require(block.timestamp <= order.expirationTimeSeconds, "order expired");
+        require(!cancelled[orderInfo.orderHash], "order canceled");
 
         orderInfo.orderStatus = LibOrder.OrderStatus.FILLABLE;
         return orderInfo;

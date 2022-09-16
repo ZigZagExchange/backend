@@ -53,6 +53,7 @@ export default class API extends EventEmitter {
   )
   EVMConfig: any
   ERC20_ABI: any
+  ZKSYNC_BASE_URL: AnyObject = {}
 
   watchers: NodeJS.Timer[] = []
   started = false
@@ -105,6 +106,9 @@ export default class API extends EventEmitter {
   start = async (port: number) => {
     if (this.started) return
     this.started = true
+
+    this.ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
+    this.ZKSYNC_BASE_URL.goerli = 'https://goerli-api.zksync.io/api/v0.2/'
 
     await this.redis.connect()
     await this.redisSubscriber.connect()
@@ -512,21 +516,16 @@ export default class API extends EventEmitter {
     let feeAmount
     let feeToken
     let timestamp
-    try {
-      const marketInfo = await this.getMarketInfo(market, chainId)
-      if (marketInfo) {
-        if (side === 's') {
-          feeAmount = marketInfo.baseFee
-          feeToken = marketInfo.baseAsset.symbol
-        } else {
-          feeAmount = marketInfo.quoteFee
-          feeToken = marketInfo.quoteAsset.symbol
-        }
+    const marketInfo = await this.getMarketInfo(market, chainId)
+    if (marketInfo) {
+      if (side === 's') {
+        feeAmount = marketInfo.baseFee
+        feeToken = marketInfo.baseAsset.symbol
       } else {
-        feeAmount = 0.5
-        feeToken = 'USDC'
+        feeAmount = marketInfo.quoteFee
+        feeToken = marketInfo.quoteAsset.symbol
       }
-    } catch (err: any) {
+    } else {
       feeAmount = 0.5
       feeToken = 'USDC'
     }
@@ -536,11 +535,66 @@ export default class API extends EventEmitter {
     }
 
     try {
-      const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainId]
-      const update2 = await this.db.query(
-        "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
-        valuesFills
-      )
+      let update2: any
+      if (newstatus === 'f') {
+        // if filled we use the price set in the zksync tx data
+        const network = getNetwork(chainId)
+        const fetchResult = await fetch(
+          `${this.ZKSYNC_BASE_URL[network]}transactions/0x${txhash}/data`
+        ).then((r: any) => r.json())
+        let baseAmount: number
+        let quoteAmount: number
+        if (side === 's') {
+          baseAmount = Number(
+            ethers.utils.formatUnits(
+              fetchResult.result.tx.op.amounts[0],
+              marketInfo.baseAsset.decimals
+            )
+          )
+          baseAmount -= marketInfo.baseFee
+          quoteAmount = Number(
+            ethers.utils.formatUnits(
+              fetchResult.result.tx.op.amounts[1],
+              marketInfo.quoteAsset.decimals
+            )
+          )
+        } else {
+          baseAmount = Number(
+            ethers.utils.formatUnits(
+              fetchResult.result.tx.op.amounts[1],
+              marketInfo.baseAsset.decimals
+            )
+          )
+          quoteAmount = Number(
+            ethers.utils.formatUnits(
+              fetchResult.result.tx.op.amounts[0],
+              marketInfo.quoteAsset.decimals
+            )
+          )
+          quoteAmount -= marketInfo.quoteFee
+        }
+        const priceWithoutFee = baseAmount / quoteAmount
+
+        const valuesFills = [
+          newstatus,
+          feeAmount,
+          feeToken,
+          priceWithoutFee,
+          orderid,
+          chainId,
+        ]
+        update2 = await this.db.query(
+          "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3,price=$4 WHERE taker_offer_id=$5 AND chainid=$6 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
+          valuesFills
+        )
+      } else {
+        const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainId]
+        update2 = await this.db.query(
+          "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
+          valuesFills
+        )
+      }
+
       if (update2.rows.length > 0) {
         fillId = update2.rows[0].id
         fillPrice = update2.rows[0].price
@@ -1262,18 +1316,6 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
-      const buyFee = Number(
-        ethers.utils.formatUnits(
-          zktx.makerVolumeFee,
-          marketInfo.baseAsset.decimals
-        )
-      )
-      const sellFee = Number(
-        ethers.utils.formatUnits(
-          zktx.takerVolumeFee,
-          marketInfo.baseAsset.decimals
-        )
-      )
       feeToken = marketInfo.baseAsset.symbol
       if (Number(gasFee) < marketInfo.baseFee)
         throw new Error(
@@ -1286,18 +1328,6 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(
           zktx.sellAmount,
-          marketInfo.quoteAsset.decimals
-        )
-      )
-      const buyFee = Number(
-        ethers.utils.formatUnits(
-          zktx.makerVolumeFee,
-          marketInfo.quoteAsset.decimals
-        )
-      )
-      const sellFee = Number(
-        ethers.utils.formatUnits(
-          zktx.takerVolumeFee,
           marketInfo.quoteAsset.decimals
         )
       )
@@ -1842,26 +1872,7 @@ export default class API extends EventEmitter {
     const makerAccountId = fillOrder.accountId.toString()
 
     let fill
-    const redisKeyBussy = `bussymarketmaker:${chainId}:${makerAccountId}`
     try {
-      // const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
-      // if (redisBusyMM) {
-      //   const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
-      //   const remainingTime = await this.redis.ttl(redisKeyBussy)
-      //   this.redisPublisher.PUBLISH(
-      //     `broadcastmsg:maker:${chainId}:${value.wsUUID}`,
-      //     JSON.stringify({
-      //       op: 'error',
-      //       args: [
-      //         'fillrequest',
-      //         makerAccountId,
-      //         `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
-      //       ]
-      //     })
-      //   )
-      //   throw new Error('fillrequest - market maker is timed out.')
-      // }
-
       let priceWithoutFee: string
       try {
         const marketInfo = await this.getMarketInfo(value.market, chainId)
@@ -1933,12 +1944,6 @@ export default class API extends EventEmitter {
       this.redisPublisher.PUBLISH(
         `broadcastmsg:user:${chainId}:${value.userId}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'm']]] })
-      )
-
-      this.redis.SET(
-        redisKeyBussy,
-        JSON.stringify({ orderId, ws_uuid: value.wsUUID }),
-        { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
       if (err.message.includes('is not open')) {

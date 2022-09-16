@@ -26,8 +26,6 @@ describe("Signature Validation", function () {
             relayerAddress: ethers.constants.AddressZero,
             sellAmount: ethers.BigNumber.from("12"),
             buyAmount: ethers.BigNumber.from("13"),
-            makerVolumeFee: ethers.BigNumber.from("21"),
-            takerVolumeFee: ethers.BigNumber.from("20"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from("0"),
             salt: ethers.BigNumber.from("0")

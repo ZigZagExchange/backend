@@ -1599,15 +1599,6 @@ async function start() {
   ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
   ZKSYNC_BASE_URL.goerli = 'https://goerli-api.zksync.io/api/v0.2/'
 
-  // reste some values on start-up
-  const resetResult = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
-    const keysBussy = await redis.keys(`bussymarketmaker:${chainId}:*`)
-    keysBussy.forEach(async (key: string) => {
-      redis.del(key)
-    })
-  })
-  await Promise.all(resetResult)
-
   /* startup */
   await updateEVMMarketInfo()
   await checkEVMChainAllowance()

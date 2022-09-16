@@ -18,8 +18,8 @@ library LibOrder{
     ); 
     */
 
-    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0x0b86e5560a722da94769313c9690e24ca4925d085b3cdbd5a1240ba1bcc92a95;
-    //keccak256("Order(address user,address sellToken,address buyToken,address feeRecipientAddress,address relayerAddress,uint256 sellAmount,uint256 buyAmount,uint256 makerVolumeFee,uint256 takerVolumeFee,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)")
+    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0x573d82b18a677641f8b46e5280c268852c77c040affcce708d5575f2be6f92b0;
+    //keccak256("Order(address user,address sellToken,address buyToken,address feeRecipientAddress,address relayerAddress,uint256 sellAmount,uint256 buyAmount,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)")
 
     enum OrderStatus {
         INVALID,                     // Default value
@@ -39,8 +39,6 @@ library LibOrder{
         address relayerAddress; // if specified, only the specified address can relay the order. setting it to the zero address will allow anyone to relay
         uint256 sellAmount; // amount of Token that the Order Creator wants to sell
         uint256 buyAmount; // amount of Token that the Order Creator wants to receive in return
-        uint256 makerVolumeFee; // Fee taken from an order if it is filled in the maker position
-        uint256 takerVolumeFee;// Fee taken from an order if it is filled in the taker position
         uint256 gasFee;// Fee paid by taker Order to cover gas fees each time a transaction is made with this order, taken in the form of the sellToken
         uint256 expirationTimeSeconds; //time after which the order is no longer valid
         uint256 salt; //to further ensure the order hash is unique, could represent the order created time
@@ -53,13 +51,21 @@ library LibOrder{
     }
 
    function getOrderHash(Order memory order) internal pure returns (bytes32){
-
-      
-      // Why does this clusterfuck of bad code have to exist?
-      // Trying to encode the entire order struct at once leads to a "stack too deep" error,
-      // so it has to be split into two pieces to be encoded, then recombined
-      bytes memory encodedOrderAbi = bytes.concat(encodeFirstHalfOrderAbi(order), encodeSecondHalfOrderAbi(order));
-      bytes32 orderHash = keccak256(encodedOrderAbi);
+      bytes32 orderHash = keccak256(
+        abi.encode(
+            _EIP712_ORDER_SCHEMA_HASH,
+            order.user,
+            order.sellToken,
+            order.buyToken,
+            order.feeRecipientAddress,
+            order.relayerAddress,
+            order.sellAmount,
+            order.buyAmount,
+            order.gasFee,
+            order.expirationTimeSeconds,
+            order.salt
+        )
+      );
 
        
       //return hashEIP712Message(orderHash);
@@ -73,16 +79,9 @@ library LibOrder{
           order.sellToken,
           order.buyToken,
           order.feeRecipientAddress,
-          order.relayerAddress
-       );
-   }
-
-   function encodeSecondHalfOrderAbi(Order memory order) internal pure returns (bytes memory){
-       return abi.encode(
+          order.relayerAddress,
           order.sellAmount,
           order.buyAmount,
-          order.makerVolumeFee,
-          order.takerVolumeFee,
           order.gasFee,
           order.expirationTimeSeconds,
           order.salt
