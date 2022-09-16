@@ -573,7 +573,7 @@ export default class API extends EventEmitter {
           )
           quoteAmount -= marketInfo.quoteFee
         }
-        const priceWithoutFee = baseAmount / quoteAmount
+        const priceWithoutFee = quoteAmount / baseAmount
 
         const valuesFills = [
           newstatus,
