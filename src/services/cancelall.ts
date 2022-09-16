@@ -3,7 +3,7 @@ import type { ZZServiceHandler } from 'src/types'
 export const cancelall: ZZServiceHandler = async (
   api,
   ws,
-  [chainId, userid]
+  [chainId, userId]
 ) => {
   if (!api.VALID_CHAINS_ZKSYNC.includes(chainId) || Number(chainId) === 0) {
     const errorMsg = {
@@ -18,22 +18,22 @@ export const cancelall: ZZServiceHandler = async (
     return
   }
 
-  const userconnkey = `${chainId}:${userid}`
+  const userconnkey = `${chainId}:${userId}`
   if (api.USER_CONNECTIONS[userconnkey] !== ws) {
     ws.send(
       JSON.stringify({
         op: 'error',
-        args: ['cancelall', 'Unauthorized', userid],
+        args: ['cancelall', 'Unauthorized', userId],
       })
     )
     return
   }
   try {
-    const cancelresult = await api.cancelallorders(chainId, userid)
+    const cancelresult = await api.cancelallorders(chainId, userId)
     if (!cancelresult) throw new Error('Unexpected error')
   } catch (e: any) {
     ws.send(
-      JSON.stringify({ op: 'error', args: ['cancelall', e.message, userid] })
+      JSON.stringify({ op: 'error', args: ['cancelall', e.message, userId] })
     )
   }
 }

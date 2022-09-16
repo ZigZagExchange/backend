@@ -2004,10 +2004,10 @@ export default class API extends EventEmitter {
    * @param msg JSON.stringify( WSMessage )
    */
   broadcastMessage = async (chainId: number, market: ZZMarket, msg: string) => {
+    const subscription = `${chainId}:${market}`
     ;(this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
-      if (ws.chainid !== chainId) return
-      if (market !== 'all' && !ws.marketSubscriptions.includes(market)) return
+      if (market !== 'all' && !ws.marketSubscriptions.includes(subscription)) return
       ws.send(msg)
     })
   }
@@ -2628,7 +2628,7 @@ export default class API extends EventEmitter {
     )
     ;(this.wss.clients as Set<WSocket>).forEach((ws) => {
       if (!ws.isAlive) {
-        const userconnkey = `${ws.chainid}:${ws.userid}`
+        const userconnkey = `${ws.chainId}:${ws.userId}`
         delete this.USER_CONNECTIONS[userconnkey]
         delete this.MAKER_CONNECTIONS[userconnkey]
         ws.terminate()

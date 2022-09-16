@@ -12,8 +12,8 @@ export const createSocketServer = (): ZZSocketServer => {
       uuid: randomUUID(),
       isAlive: true,
       marketSubscriptions: [],
-      chainid: 1,
-      userid: null,
+      chainId: null,
+      userId: null,
       origin: req?.headers?.origin,
     })
 

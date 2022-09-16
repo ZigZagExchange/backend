@@ -21,9 +21,9 @@ export type ZZMarketSide = 'b' | 's'
 export type WSocket = WebSocket & {
   uuid: string
   isAlive: boolean
-  marketSubscriptions: ZZMarket[]
-  chainid: number
-  userid: string
+  marketSubscriptions: string[]
+  chainId: number
+  userId: string
   origin: string
 }
 
