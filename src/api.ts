@@ -1664,7 +1664,7 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
         JSON.stringify({
           op: 'orderstatus',
-          args: [[[chainId, orderId, 'c', 0]]],
+          args: [[[chainId, orderId, 'c', null, 0]]],
         })
       )
     } else {
@@ -1718,7 +1718,7 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
         JSON.stringify({
           op: 'orderstatus',
-          args: [[[chainId, orderId, 'c', 0]]],
+          args: [[[chainId, orderId, 'c', null, 0]]],
         })
       )
     } else {
@@ -1757,7 +1757,7 @@ export default class API extends EventEmitter {
         `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
         JSON.stringify({
           op: 'orderstatus',
-          args: [[[chainId, orderId, 'c', 0]]],
+          args: [[[chainId, orderId, 'c', null, 0]]],
         })
       )
     } else {
