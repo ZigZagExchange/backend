@@ -1514,9 +1514,16 @@ async function start() {
   // fetch abi's
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
+  // temp override as artifacts is WIP for V6
+  // const EVMContractABI = JSON.parse(
+  //   fs.readFileSync(
+  //     'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+  //     'utf8'
+  //   )
+  // ).abi
   const EVMContractABI = JSON.parse(
     fs.readFileSync(
-      'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+      'abi/temp_exchangeV5.json',
       'utf8'
     )
   ).abi
