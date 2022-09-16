@@ -1262,18 +1262,6 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
-      const buyFee = Number(
-        ethers.utils.formatUnits(
-          zktx.makerVolumeFee,
-          marketInfo.baseAsset.decimals
-        )
-      )
-      const sellFee = Number(
-        ethers.utils.formatUnits(
-          zktx.takerVolumeFee,
-          marketInfo.baseAsset.decimals
-        )
-      )
       feeToken = marketInfo.baseAsset.symbol
       if (Number(gasFee) < marketInfo.baseFee)
         throw new Error(
@@ -1286,18 +1274,6 @@ export default class API extends EventEmitter {
       quoteAmount = Number(
         ethers.utils.formatUnits(
           zktx.sellAmount,
-          marketInfo.quoteAsset.decimals
-        )
-      )
-      const buyFee = Number(
-        ethers.utils.formatUnits(
-          zktx.makerVolumeFee,
-          marketInfo.quoteAsset.decimals
-        )
-      )
-      const sellFee = Number(
-        ethers.utils.formatUnits(
-          zktx.takerVolumeFee,
           marketInfo.quoteAsset.decimals
         )
       )
@@ -1842,25 +1818,7 @@ export default class API extends EventEmitter {
     const makerAccountId = fillOrder.accountId.toString()
 
     let fill
-    const redisKeyBussy = `bussymarketmaker:${chainId}:${makerAccountId}`
     try {
-      // const redisBusyMM = (await this.redis.get(redisKeyBussy)) as string
-      // if (redisBusyMM) {
-      //   const processingOrderId: number = (JSON.parse(redisBusyMM) as any).orderId
-      //   const remainingTime = await this.redis.ttl(redisKeyBussy)
-      //   this.redisPublisher.PUBLISH(
-      //     `broadcastmsg:maker:${chainId}:${value.wsUUID}`,
-      //     JSON.stringify({
-      //       op: 'error',
-      //       args: [
-      //         'fillrequest',
-      //         makerAccountId,
-      //         `Your address did not respond to order (${processingOrderId}) yet. Remaining timeout: ${remainingTime}.`
-      //       ]
-      //     })
-      //   )
-      //   throw new Error('fillrequest - market maker is timed out.')
-      // }
 
       let priceWithoutFee: string
       try {
@@ -1933,12 +1891,6 @@ export default class API extends EventEmitter {
       this.redisPublisher.PUBLISH(
         `broadcastmsg:user:${chainId}:${value.userId}`,
         JSON.stringify({ op: 'orderstatus', args: [[[chainId, orderId, 'm']]] })
-      )
-
-      this.redis.SET(
-        redisKeyBussy,
-        JSON.stringify({ orderId, ws_uuid: value.wsUUID }),
-        { EX: this.MARKET_MAKER_TIMEOUT }
       )
     } catch (err: any) {
       if (err.message.includes('is not open')) {
