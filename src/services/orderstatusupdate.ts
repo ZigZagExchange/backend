@@ -13,7 +13,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
     let success
     let fillId
     let market
-    let lastprice
+    let fillPrice
     let feeAmount
     let feeToken
     let timestamp
@@ -42,7 +42,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
       success = result.success
       fillId = result.fillId
       market = result.market
-      lastprice = result.fillPrice
+      fillPrice = result.fillPrice
       feeAmount = result.feeAmount
       feeToken = result.feeToken
       timestamp = result.timestamp
@@ -54,7 +54,8 @@ export const orderstatusupdate: ZZServiceHandler = async (
       fillUpdate[5] = feeAmount
       fillUpdate[6] = feeToken
       fillUpdate[7] = timestamp
-      // update user
+      fillUpdate[8] = fillPrice
+
       // update user
       api.redisPublisher.publish(
         `broadcastmsg:user:${chainId}:${userId}`,
@@ -76,12 +77,12 @@ export const orderstatusupdate: ZZServiceHandler = async (
       const yesterdayPrice = Number(
         await api.redis.get(`dailyprice:${chainId}:${market}:${yesterday}`)
       )
-      const priceChange = (lastprice - yesterdayPrice).toString()
+      const priceChange = (fillPrice - yesterdayPrice).toString()
       api.redisPublisher.publish(
         `broadcastmsg:all:${chainId}:all`,
         JSON.stringify({
           op: 'lastprice',
-          args: [[[market, lastprice, priceChange]]],
+          args: [[[market, fillPrice, priceChange]]],
         })
       )
       // TODO: Account for nonce checks here
