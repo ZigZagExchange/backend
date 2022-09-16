@@ -206,7 +206,8 @@ async function updatePendingOrders() {
   }
   await db.query(fillsQuery)
 
-  const expiredTimestamp = ((Date.now() / 1000) | 0) + Math.floor(updatePendingOrdersDelay)
+  const expiredTimestamp =
+    ((Date.now() / 1000) | 0) + Math.floor(updatePendingOrdersDelay)
   const expiredQuery = {
     text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status IN ('o', 'pm', 'pf') AND expires < $1 RETURNING chainid, id, order_status",
     values: [expiredTimestamp],
