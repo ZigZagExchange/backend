@@ -206,7 +206,8 @@ async function updatePendingOrders() {
   }
   await db.query(fillsQuery)
 
-  const expiredTimestamp = ((Date.now() / 1000) | 0) + Math.floor(updatePendingOrdersDelay)
+  const expiredTimestamp =
+    ((Date.now() / 1000) | 0) + Math.floor(updatePendingOrdersDelay)
   const expiredQuery = {
     text: "UPDATE offers SET order_status='e', zktx=NULL, update_timestamp=NOW() WHERE order_status IN ('o', 'pm', 'pf') AND expires < $1 RETURNING chainid, id, order_status",
     values: [expiredTimestamp],
@@ -1513,9 +1514,16 @@ async function start() {
   // fetch abi's
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
+  // temp override as artifacts is WIP for V6
+  // const EVMContractABI = JSON.parse(
+  //   fs.readFileSync(
+  //     'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+  //     'utf8'
+  //   )
+  // ).abi
   const EVMContractABI = JSON.parse(
     fs.readFileSync(
-      'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+      'abi/temp_exchangeV5.json',
       'utf8'
     )
   ).abi
@@ -1597,15 +1605,6 @@ async function start() {
 
   ZKSYNC_BASE_URL.mainnet = 'https://api.zksync.io/api/v0.2/'
   ZKSYNC_BASE_URL.goerli = 'https://goerli-api.zksync.io/api/v0.2/'
-
-  // reste some values on start-up
-  const resetResult = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
-    const keysBussy = await redis.keys(`bussymarketmaker:${chainId}:*`)
-    keysBussy.forEach(async (key: string) => {
-      redis.del(key)
-    })
-  })
-  await Promise.all(resetResult)
 
   /* startup */
   await updateEVMMarketInfo()

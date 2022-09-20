@@ -59,10 +59,6 @@ Messages to the HTTP POST API have a similar structure. An example curl command 
 curl -X POST "https://zigzag-exchange.herokuapp.com/" --header "Content-Type: application/json" -d '{"op":"requestquote", "args": [1002, "ETH-USDT", "b", "0.232"]}'
 ```
 
-## Limitations
-
-Currently a user can only receive order updates on one connection at a time per chain. This may be upgraded in the future.
-
 ## Pings
 
 The server sends a ping message every 30 seconds to assure the connection is alive. A pong response is expected in return.
@@ -498,7 +494,7 @@ Description: A series of order status updates. orderupdate = `[chainId,orderId,s
 
 ###### Operation: **fillstatus**
 
-Description: An update about the fill status of an active order. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken,timestamp]`. See [Order Status](#order-statuses) for status flags.
+Description: An update about the fill status of an active order. These numbers might get updated after the match is send on chain. fillstatus = `[chainId,fillId,status,txHash,remaining,feeamount,feetoken,timestamp,price]`. See [Order Status](#order-statuses) for status flags. 
 
 ```json
 {
@@ -513,7 +509,8 @@ Description: An update about the fill status of an active order. fillstatus = `[
         null,
         0.000072,
         "ETH",
-        1646476058552
+        1646476058552,
+        1460.21
       ]
     ]
   ]

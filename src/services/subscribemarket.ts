@@ -113,6 +113,5 @@ export const subscribemarket: ZZServiceHandler = async (
     ws.send(JSON.stringify(errorMsg))
   }
 
-  ws.chainid = chainId
-  ws.marketSubscriptions.push(market)
+  ws.marketSubscriptions.push(`${chainId}:${market}`)
 }
