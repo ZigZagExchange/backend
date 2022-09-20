@@ -107,13 +107,15 @@ Description: Submit an order.
 
 For zksync, zkOrder is the output of zksync.wallet.getOrder in the Javascript library.
 
-For Starknet, a zkOrder is the calldata for an Order struct in the Zigzag [smart contract](https://github.com/ZigZagExchange/starknet-contracts/blob/master/zigzag.cairo). For an example of how to send a Starknet order, see the `submitorderstarknet` function in the [helpers](https://github.com/ZigZagExchange/frontend/blob/master/src/helpers.js) file in our frontend.
+For Arbitrum, the order is an EIP-712 typed message.
 
-An example of how to submit an order with Javascript can be found [here](https://github.com/ZigZagExchange/zksync-frontend/blob/master/src/helpers.js) in the `submitorder` function.
+An example of how to submit an order with Javascript in zksync can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIZKProvider/APIZKProvider.js) in the `submitorder` function.
+
+An example of how to submit an order with Javascript in Arbitrum can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIArbitrumProvider.js) in the `submitorder` function.
 
 This operation is also available over HTTP POST and returns a `userorderack` message.
 
-Zksync
+Zksync 1.0 
 
 ```json
 {
@@ -140,31 +142,6 @@ Zksync
         "signature": "0x03d07fecdc1cdc5b454c14701007201a49c35b5015dae062c7c2e30c5be44aaf27ff753ee8ee2635035979dd2006ffe4d37f3648da01c755970a70e57245db621b"
       }
     }
-  ]
-}
-```
-
-Starknet
-
-```json
-{
-  "op": "submitorder3",
-  "args": [
-    1001,
-    "ETH-USDT",
-    [
-      "1001",
-      "0xe386d09808b7b87507e6483deea09a32c688ef47616416c967d639d1283bc0",
-      "0x06a75fdd9c9e376aebf43ece91ffb315dbaa753f9c0ddfeb8d7f3af0124cd0b6",
-      "0x03d3af6e3567c48173ff9b9ae7efc1816562e558ee0cc9abc0fe1862b2931d9a",
-      "0",
-      "25252900000000000",
-      "1",
-      "211376718",
-      "1638413195932",
-      "239163444802039150939555844808313706381087721975693276317756200101630683732",
-      "3563164837021092402584684943417251345107665423524603528021630345938863767190"
-    ]
   ]
 }
 ```
@@ -200,20 +177,33 @@ Note: `feeRecipientAddress`, `relayerAddress`, `makerVolumeFee`, `takerVolumeFee
 Typed Data for ZigZag orders:
 ```js
 {
-  Order: [
-    { name: 'user', type: 'address' },
-    { name: 'sellToken', type: 'address' },
-    { name: 'buyToken', type: 'address' },
-    { name: 'feeRecipientAddress', type: 'address' },
-    { name: 'relayerAddress', type: 'address' },
-    { name: 'sellAmount', type: 'uint256' },
-    { name: 'buyAmount', type: 'uint256' },
-    { name: 'makerVolumeFee', type: 'uint256' },
-    { name: 'takerVolumeFee', type: 'uint256' },
-    { name: 'gasFee', type: 'uint256' },
-    { name: 'expirationTimeSeconds', type: 'uint256' },
-    { name: 'salt', type: 'uint256' },
-  ],
+  "types": {
+      "EIP712Domain": [
+          { "name": 'name', "type": 'string' },
+          { "name": 'version', "type": 'string' },
+          { "name": 'chainId', "type": 'uint256' },
+
+      ],
+      "Order": [
+          { "name": 'user', "type": 'address' },
+          { "name": 'sellToken', "type": 'address' },
+          { "name": 'buyToken', "type": 'address' },
+          { "name": 'feeRecipientAddress', "type": 'address' },
+          { "name": 'relayerAddress', "type": 'address' },
+          { "name": 'sellAmount', "type": 'uint256' },
+          { "name": 'buyAmount', "type": 'uint256' },
+          { "name": 'gasFee', "type": 'uint256' },
+          { "name": 'expirationTimeSeconds', "type": 'uint256' },
+          { "name": 'salt', "type": 'uint256' },
+      ]
+  },
+  "primaryType": "Order",
+  "domain": {
+      "name": 'ZigZag',
+      "version": "6",
+      "chainId": 42161,
+
+  }
 }
 ```
 
