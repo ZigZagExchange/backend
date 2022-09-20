@@ -14,7 +14,7 @@ describe("Signature Validation", function () {
     beforeEach(async function () {
 
         const Exchange = await ethers.getContractFactory("Exchange");
-        exchangeContract = await Exchange.deploy();
+        exchangeContract = await Exchange.deploy(ethers.constants.AddressZero);
 
         wallet = new ethers.Wallet(TESTRPC_PRIVATE_KEYS_STRINGS[0], ethers.getDefaultProvider())
 

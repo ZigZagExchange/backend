@@ -11,7 +11,7 @@ describe("Order Matching", function () {
     let tokenA: Contract;
     let tokenB: Contract;
     let wallets: Wallet[] = [];
-    const feeRecipientAddress: string = "0x90d4ffBf13bF3203940E6DAcE392F7C23ff6b9Ed"
+    let feeRecipientAddress: string;
 
     beforeEach(async function () {
 
@@ -19,12 +19,11 @@ describe("Order Matching", function () {
         const Token = await ethers.getContractFactory("Token");
         const provider = ethers.provider;
 
-        exchangeContract = await Exchange.deploy();
         tokenA = await Token.deploy();
         tokenB = await Token.deploy();
         let [owner] = await ethers.getSigners();
 
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 4; i++) {
             wallets[i] = new ethers.Wallet(TESTRPC_PRIVATE_KEYS_STRINGS[i], provider)
 
             await owner.sendTransaction({
@@ -33,11 +32,15 @@ describe("Order Matching", function () {
             })
         }
 
+        feeRecipientAddress = wallets[3].address;
+        exchangeContract = await Exchange.deploy(feeRecipientAddress);
+
         await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);
         await tokenB.mint(ethers.utils.parseEther("10000"), wallets[1].address);
         await tokenA.connect(wallets[0]).approve(exchangeContract.address, ethers.utils.parseEther("10000"));
         await tokenB.connect(wallets[1]).approve(exchangeContract.address, ethers.utils.parseEther("10000"));
 
+        await exchangeContract.connect(wallets[3]).setFees(5, 10000, 0, 10000);
 
     });
 
@@ -227,6 +230,7 @@ describe("Order Matching", function () {
 
     it("Should revert with 'maker order not enough balance for fee' ", async function () {
 
+        await exchangeContract.connect(wallets[3]).setFees(5, 10000, 5, 10000);
 
         const makerOrder = {
             user: wallets[0].address,
@@ -472,14 +476,16 @@ describe("Order Matching", function () {
     });
 
     it("feeRecipient should take Maker Fee", async function () {
+        await exchangeContract.connect(wallets[3]).setFees(0, 10000, 5, 10000);
+
         const makerOrder = {
             user: wallets[0].address,
             sellToken: tokenA.address,
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
             relayerAddress: ethers.constants.AddressZero,
-            sellAmount: ethers.utils.parseEther("120"),
-            buyAmount: ethers.utils.parseEther("970"),
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("1000"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -491,8 +497,8 @@ describe("Order Matching", function () {
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
             relayerAddress: ethers.constants.AddressZero,
-            sellAmount: ethers.utils.parseEther("890"),
-            buyAmount: ethers.utils.parseEther("10"),
+            sellAmount: ethers.utils.parseEther("900"),
+            buyAmount: ethers.utils.parseEther("80"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -516,7 +522,7 @@ describe("Order Matching", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance7).to.equal(ethers.utils.parseEther("0.1").mul(890).div(970))
+        expect(balance7).to.equal(ethers.utils.parseEther("0.045"));
     });
 
     it("feeRecipient should take Taker Fee", async function () {
@@ -526,8 +532,8 @@ describe("Order Matching", function () {
             buyToken: tokenB.address,
             feeRecipientAddress: feeRecipientAddress,
             relayerAddress: ethers.constants.AddressZero,
-            sellAmount: ethers.utils.parseEther("120"),
-            buyAmount: ethers.utils.parseEther("970"),
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("1000"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -539,8 +545,8 @@ describe("Order Matching", function () {
             buyToken: tokenA.address,
             feeRecipientAddress: feeRecipientAddress,
             relayerAddress: ethers.constants.AddressZero,
-            sellAmount: ethers.utils.parseEther("890"),
-            buyAmount: ethers.utils.parseEther("10"),
+            sellAmount: ethers.utils.parseEther("1000"),
+            buyAmount: ethers.utils.parseEther("100"),
             gasFee: ethers.BigNumber.from("0"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
             salt: ethers.BigNumber.from("0")
@@ -565,7 +571,7 @@ describe("Order Matching", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance8).to.equal(ethers.utils.parseEther("0.1"))
+        expect(balance8).to.equal(ethers.utils.parseEther("0.5"))
     });
 
     it("feeRecipient should take partial Taker Fee", async function () {
@@ -614,7 +620,7 @@ describe("Order Matching", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance8).to.equal(ethers.utils.parseEther("0.05"))
+        expect(balance8).to.equal(ethers.utils.parseEther("0.025"))
     });
 
     it("same price should match", async function () {
