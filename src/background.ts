@@ -655,16 +655,12 @@ async function updateFeesEVM() {
             makerSignatureModified,
             takerSignatureModified
           )
-
-          // TEMP OVERRIDE
-          console.log(gasUsedEstimation.toString())
         } catch (e: any) {
           console.log(
             `No fee data for chainId: ${chainId}, error: ${e.message}`
           )
         }
 
-        console.log(feeData)
         if (feeData.gasPrice) {
           const feeInWei = feeData.gasPrice.mul(gasUsedEstimation)
           feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
@@ -1522,10 +1518,7 @@ async function start() {
   //   )
   // ).abi
   const EVMContractABI = JSON.parse(
-    fs.readFileSync(
-      'abi/temp_exchangeV5.json',
-      'utf8'
-    )
+    fs.readFileSync('abi/temp_exchangeV5.json', 'utf8')
   ).abi
 
   // connect infura providers
