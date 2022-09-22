@@ -1893,16 +1893,16 @@ export default class API extends EventEmitter {
         priceWithoutFee = fillPrice.toString()
       }
 
-      let values = [orderId, chainId]
+      const valuesOrder = [orderId, chainId]
       const update1 = await this.db.query(
         "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
-        values
+        valuesOrder
       )
       if (update1.rows.length === 0)
         // this *should* not happen, so no need to send to ws
         throw new Error(`Order ${orderId} is not open`)
 
-      values = [
+      const valuesFills = [
         chainId,
         value.market,
         orderId,
@@ -1912,10 +1912,23 @@ export default class API extends EventEmitter {
         value.baseQuantity,
         side,
       ]
-      const update2 = await this.db.query(
-        "INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id",
-        values
-      )
+      let update2
+      try {
+        update2 = await this.db.query(
+          "INSERT INTO fills (chainid, market, taker_offer_id, taker_user_id, maker_user_id, price, amount, side, fill_status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'm') RETURNING id",
+          valuesFills
+        )
+      } catch (e: any) {
+        // reset order updates
+        await this.db.query(
+          "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
+          valuesOrder
+        )
+        throw new Error(
+          `Failed to update fills: ${e.message}, args: ${valuesFills}`
+        )
+      }
+
       const fillId = update2.rows[0].id
       fill = [
         chainId,
@@ -2007,7 +2020,8 @@ export default class API extends EventEmitter {
     const subscription = `${chainId}:${market}`
     ;(this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
-      if (market !== 'all' && !ws.marketSubscriptions.includes(subscription)) return
+      if (market !== 'all' && !ws.marketSubscriptions.includes(subscription))
+        return
       ws.send(msg)
     })
   }
