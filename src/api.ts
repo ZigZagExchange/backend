@@ -1921,7 +1921,7 @@ export default class API extends EventEmitter {
       } catch (e: any) {
         // reset order updates
         await this.db.query(
-          "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
+          "UPDATE offers SET order_status='o' WHERE id=$1 AND chainid=$2 RETURNING id",
           valuesOrder
         )
         throw new Error(
