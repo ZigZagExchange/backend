@@ -72,22 +72,6 @@ library LibOrder{
       return keccak256(abi.encodePacked("\x19\x01",eip712DomainHash,orderHash));
    }
 
-   function encodeFirstHalfOrderAbi(Order memory order) internal pure returns (bytes memory){
-       return abi.encode(
-          _EIP712_ORDER_SCHEMA_HASH,
-          order.user,
-          order.sellToken,
-          order.buyToken,
-          order.feeRecipientAddress,
-          order.relayerAddress,
-          order.sellAmount,
-          order.buyAmount,
-          order.gasFee,
-          order.expirationTimeSeconds,
-          order.salt
-       );
-   }
-
     function hashEIP712Message( bytes32 hashStruct)
         internal
         pure

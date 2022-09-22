@@ -19,12 +19,17 @@ contract Exchange is SignatureValidator{
     mapping (bytes32 => bool) public cancelled;
 
     // fees
+    address FEE_ADDRESS;
     uint256 maker_fee_numerator = 0;
     uint256 maker_fee_denominator = 10000;
     uint256 taker_fee_numerator = 0;
     uint256 taker_fee_denominator = 10000;
 
-
+  
+    // initialize fee address
+    constructor(address fee_address) {
+        FEE_ADDRESS = fee_address;    
+    }
 
     function cancelOrder(
         LibOrder.Order memory order
@@ -185,6 +190,20 @@ contract Exchange is SignatureValidator{
         orderHash = order.getOrderHash();
         orderBuyFilledAmount = filled[orderHash];
         return (orderHash, orderBuyFilledAmount);
+    }
+
+    function setFees (
+        uint _taker_fee_numerator,
+        uint _taker_fee_denominator,
+        uint _maker_fee_numerator,
+        uint _maker_fee_denominator
+    ) public{   
+        require(msg.sender == FEE_ADDRESS, "only fee address may update fees");
+
+        taker_fee_numerator = _taker_fee_numerator;
+        taker_fee_denominator = _taker_fee_denominator;
+        maker_fee_numerator = _maker_fee_numerator;
+        maker_fee_denominator = _maker_fee_denominator;
     }
 
 }
