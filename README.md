@@ -111,7 +111,7 @@ An example of how to submit an order with Javascript in Arbitrum can be found [h
 
 This operation is also available over HTTP POST and returns a `userorderack` message.
 
-Zksync 1.0 
+**Zksync 1.0**
 
 ```json
 {
@@ -142,10 +142,11 @@ Zksync 1.0
 }
 ```
 
-Arbitrum
+**Arbitrum**
+
 Note: `feeRecipientAddress`, `relayerAddress`, `makerVolumeFee`, `takerVolumeFee` and `gasFee` can be hardcoded or requested using marketsrequest.
 
-```json
+```js
 {
   "op":"submitorder3",
   "args": [
@@ -170,7 +171,7 @@ Note: `feeRecipientAddress`, `relayerAddress`, `makerVolumeFee`, `takerVolumeFee
 }
 ```
 
-Typed Data for ZigZag orders:
+Typed Data for ZigZag orders on Arbitrum:
 ```js
 {
   "types": {
