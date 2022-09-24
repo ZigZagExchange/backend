@@ -103,11 +103,7 @@ Description: Submit an order.
 
 For zksync, zkOrder is the output of zksync.wallet.getOrder in the Javascript library.
 
-For Arbitrum, the order is an EIP-712 typed message.
-
 An example of how to submit an order with Javascript in zksync can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIZKProvider/APIZKProvider.js) in the `submitorder` function.
-
-An example of how to submit an order with Javascript in Arbitrum can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIArbitrumProvider.js) in the `submitorder` function.
 
 This operation is also available over HTTP POST and returns a `userorderack` message.
 
@@ -143,6 +139,12 @@ This operation is also available over HTTP POST and returns a `userorderack` mes
 ```
 
 **Arbitrum**
+
+For Arbitrum, the order is an EIP-712 typed message.
+
+An example of how to submit an order with Javascript in Arbitrum can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIArbitrumProvider.js) in the `submitorder` function.
+
+This operation is also available over HTTP POST and returns a `userorderack` message.
 
 Note: `feeRecipientAddress`, `relayerAddress`, `makerVolumeFee`, `takerVolumeFee` and `gasFee` can be hardcoded or requested using marketsrequest.
 
