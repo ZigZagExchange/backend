@@ -697,7 +697,7 @@ export default class API extends EventEmitter {
     }
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    let side
+    let side: ZZMarketSide
     let baseQuantity
     let quoteQuantity
     let price
@@ -1299,7 +1299,7 @@ export default class API extends EventEmitter {
     if (expiry < Date.now() + 10000)
       throw new Error('Expiry time too low. Use at least NOW + 10sec')
 
-    const side = marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
+    const side: ZZMarketSide = marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
     const gasFee =
       side === 's'
         ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
@@ -1767,7 +1767,7 @@ export default class API extends EventEmitter {
   senduserordermatch = async (
     chainId: number,
     orderId: string,
-    side: string
+    side: ZZMarketSide
   ) => {
     const redisKeyMatchingOrder = `matchingorders:${chainId}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(
@@ -2277,7 +2277,7 @@ export default class API extends EventEmitter {
     }
 
     if (type) {
-      let side
+      let side: ZZMarketSide
       switch (type) {
         case 's':
           side = 's'
