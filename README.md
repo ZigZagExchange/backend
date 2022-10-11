@@ -208,6 +208,52 @@ Typed Data for ZigZag orders on Arbitrum:
 
 ---
 
+###### Operation: **submitorder4**
+
+Arguments: `[chainId, market, [zkOrders], [[orderId, signedMessage], [orderId, signedMessage], ...]]`
+
+Description: Submit an array of orders. Also offers the option to specify an array of orderIds to be replaced by the new orders.
+
+Note: Only for EVM chains. Intended to be used by market makers placing a high number of orders.
+
+An example of how to submit an order with Javascript in Arbitrum can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIArbitrumProvider.js) in the `submitorder` function.
+
+The orderIds array contains an orderId and a matching signedMessage signature (text: 'cancelorder2:_chainId_:_orderId_') for each old order. See cancelorder2 for detailed docs.
+
+
+```js
+{
+  "op":"submitorder4",
+  "args": [
+    42161,
+    "USDC-USDT",
+    [
+      {
+        "user":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
+        "sellToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+        "buyToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+        "feeRecipientAddress":"0xF4BBA1e2a5024a2754225b981e9A0DB7d2c33EE9",
+        "relayerAddress":"0xE743c1C553cb6473732DF81524839beF11C67d10",
+        "sellAmount":"8824841",
+        "buyAmount":"8804819",
+        "makerVolumeFee":"0",
+        "takerVolumeFee":"0",
+        "gasFee":"488079",
+        "expirationTimeSeconds":"1659561395",
+        "salt":"52129210",
+        "signature":"0xdf..."
+      }
+    ],
+    [
+      1432892,
+      "0x238fc8a23...02f"
+    ]
+  ]
+}
+```
+
+---
+
 ###### Operation: **indicateliq2**
 
 Arguments: `[chainId, market, liquidity]`
