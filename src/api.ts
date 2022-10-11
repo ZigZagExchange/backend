@@ -37,7 +37,6 @@ import {
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
-  V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDERS: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
@@ -698,7 +697,7 @@ export default class API extends EventEmitter {
     }
 
     const marketInfo = await this.getMarketInfo(market, chainId)
-    let side
+    let side: ZZMarketSide
     let baseQuantity
     let quoteQuantity
     let price
@@ -1300,7 +1299,7 @@ export default class API extends EventEmitter {
     if (expiry < Date.now() + 10000)
       throw new Error('Expiry time too low. Use at least NOW + 10sec')
 
-    const side = marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
+    const side: ZZMarketSide = marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
     const gasFee =
       side === 's'
         ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
@@ -1493,40 +1492,6 @@ export default class API extends EventEmitter {
     return { op: 'userorderack', args: orderMsg }
   }
 
-  cancelallorders = async (chainId: number, userid: string | number) => {
-    let orders: any
-    if (chainId) {
-      // cancel for chainId set
-      const values = [userid, chainId]
-      orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf') RETURNING chainid, id, order_status, unfilled;",
-        values
-      )
-    } else {
-      // cancel for all chainIds - chainId not set
-      const values = [userid]
-      orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pm', 'pf') RETURNING chainid, id, order_status, unfilled;",
-        values
-      )
-    }
-
-    if (orders.rows.length === 0) throw new Error('No open Orders')
-
-    this.VALID_CHAINS.forEach(async (broadcastChainId) => {
-      const orderStatusUpdate = orders.rows
-        .filter((o: any) => Number(o.chainid) === broadcastChainId)
-        .map((o: any) => [o.chainid, o.id, o.order_status, o.unfilled])
-
-      await this.redisPublisher.publish(
-        `broadcastmsg:all:${broadcastChainId}:all`,
-        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
-      )
-    })
-
-    return true
-  }
-
   cancelAllOrders2 = async (
     chainId: number,
     userId: string,
@@ -1628,48 +1593,6 @@ export default class API extends EventEmitter {
         JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
       )
     })
-
-    return true
-  }
-
-  cancelorder = async (chainId: number, orderId: string, ws?: WSocket) => {
-    const values = [orderId, chainId]
-    const select = await this.db.query(
-      'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
-      values
-    )
-
-    if (select.rows.length === 0) {
-      throw new Error('Order not found')
-    }
-
-    const userconnkey = `${chainId}:${select.rows[0].userid}`
-
-    if (!['o', 'pf', 'pm'].includes(select.rows[0].order_status)) {
-      throw new Error('Order is no longer open')
-    }
-
-    if (this.USER_CONNECTIONS[userconnkey] !== ws) {
-      throw new Error('Unauthorized')
-    }
-
-    const updatevalues = [orderId]
-    const update = await this.db.query(
-      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id=$1 RETURNING market",
-      updatevalues
-    )
-
-    if (update.rows.length > 0) {
-      await this.redisPublisher.publish(
-        `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
-        JSON.stringify({
-          op: 'orderstatus',
-          args: [[[chainId, orderId, 'c', null, 0]]],
-        })
-      )
-    } else {
-      throw new Error('Order not found')
-    }
 
     return true
   }
@@ -1844,7 +1767,7 @@ export default class API extends EventEmitter {
   senduserordermatch = async (
     chainId: number,
     orderId: string,
-    side: string
+    side: ZZMarketSide
   ) => {
     const redisKeyMatchingOrder = `matchingorders:${chainId}:${orderId}`
     const existingMembers = await this.redis.ZCOUNT(
@@ -2354,7 +2277,7 @@ export default class API extends EventEmitter {
     }
 
     if (type) {
-      let side
+      let side: ZZMarketSide
       switch (type) {
         case 's':
           side = 's'
@@ -2771,29 +2694,6 @@ export default class API extends EventEmitter {
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
-  }
-
-  populateV1TokenIds = async () => {
-    for (let i = 0; ; ) {
-      const result: any = (await fetch(
-        `https://api.zksync.io/api/v0.2/tokens?from=${i}&limit=100&direction=newer`
-      ).then((r: any) => r.json())) as AnyObject
-      const { list } = result.result
-      if (list.length === 0) {
-        break
-      } else {
-        list.forEach((l: any) => {
-          this.V1_TOKEN_IDS[l.id] = l.symbol
-        })
-        i += 100
-      }
-    }
-  }
-
-  getV1Markets = async (chainId: number) => {
-    const v1Prices = await this.getLastPrices(chainId)
-    const v1markets = v1Prices.map((l) => l[0])
-    return v1markets
   }
 
   dailyVolumes = async (chainId: number) => {
