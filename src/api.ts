@@ -37,7 +37,6 @@ import {
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
   MAKER_CONNECTIONS: AnyObject = {}
-  V1_TOKEN_IDS: AnyObject = {}
   SYNC_PROVIDER: AnyObject = {}
   ETHERS_PROVIDERS: AnyObject = {}
   STARKNET_EXCHANGE: AnyObject = {}
@@ -2771,29 +2770,6 @@ export default class API extends EventEmitter {
     }
     await this.redis.SADD(`activemarkets:${chainId}`, market)
     return errorMsg
-  }
-
-  populateV1TokenIds = async () => {
-    for (let i = 0; ; ) {
-      const result: any = (await fetch(
-        `https://api.zksync.io/api/v0.2/tokens?from=${i}&limit=100&direction=newer`
-      ).then((r: any) => r.json())) as AnyObject
-      const { list } = result.result
-      if (list.length === 0) {
-        break
-      } else {
-        list.forEach((l: any) => {
-          this.V1_TOKEN_IDS[l.id] = l.symbol
-        })
-        i += 100
-      }
-    }
-  }
-
-  getV1Markets = async (chainId: number) => {
-    const v1Prices = await this.getLastPrices(chainId)
-    const v1markets = v1Prices.map((l) => l[0])
-    return v1markets
   }
 
   dailyVolumes = async (chainId: number) => {
