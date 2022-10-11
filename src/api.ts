@@ -1492,40 +1492,6 @@ export default class API extends EventEmitter {
     return { op: 'userorderack', args: orderMsg }
   }
 
-  cancelallorders = async (chainId: number, userid: string | number) => {
-    let orders: any
-    if (chainId) {
-      // cancel for chainId set
-      const values = [userid, chainId]
-      orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf') RETURNING chainid, id, order_status, unfilled;",
-        values
-      )
-    } else {
-      // cancel for all chainIds - chainId not set
-      const values = [userid]
-      orders = await this.db.query(
-        "UPDATE offers SET order_status='c',zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE userid=$1 AND order_status IN ('o', 'pm', 'pf') RETURNING chainid, id, order_status, unfilled;",
-        values
-      )
-    }
-
-    if (orders.rows.length === 0) throw new Error('No open Orders')
-
-    this.VALID_CHAINS.forEach(async (broadcastChainId) => {
-      const orderStatusUpdate = orders.rows
-        .filter((o: any) => Number(o.chainid) === broadcastChainId)
-        .map((o: any) => [o.chainid, o.id, o.order_status, o.unfilled])
-
-      await this.redisPublisher.publish(
-        `broadcastmsg:all:${broadcastChainId}:all`,
-        JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
-      )
-    })
-
-    return true
-  }
-
   cancelAllOrders2 = async (
     chainId: number,
     userId: string,
@@ -1627,48 +1593,6 @@ export default class API extends EventEmitter {
         JSON.stringify({ op: 'orderstatus', args: [orderStatusUpdate] })
       )
     })
-
-    return true
-  }
-
-  cancelorder = async (chainId: number, orderId: string, ws?: WSocket) => {
-    const values = [orderId, chainId]
-    const select = await this.db.query(
-      'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
-      values
-    )
-
-    if (select.rows.length === 0) {
-      throw new Error('Order not found')
-    }
-
-    const userconnkey = `${chainId}:${select.rows[0].userid}`
-
-    if (!['o', 'pf', 'pm'].includes(select.rows[0].order_status)) {
-      throw new Error('Order is no longer open')
-    }
-
-    if (this.USER_CONNECTIONS[userconnkey] !== ws) {
-      throw new Error('Unauthorized')
-    }
-
-    const updatevalues = [orderId]
-    const update = await this.db.query(
-      "UPDATE offers SET order_status='c', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id=$1 RETURNING market",
-      updatevalues
-    )
-
-    if (update.rows.length > 0) {
-      await this.redisPublisher.publish(
-        `broadcastmsg:all:${chainId}:${update.rows[0].market}`,
-        JSON.stringify({
-          op: 'orderstatus',
-          args: [[[chainId, orderId, 'c', null, 0]]],
-        })
-      )
-    } else {
-      throw new Error('Order not found')
-    }
 
     return true
   }
