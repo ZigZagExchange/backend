@@ -1,6 +1,6 @@
 {
   "name": "zigzag-zksync-backend",
-  "version": "0.0.1",
+  "version": "1.0",
   "description": "Typescript implementation of Zigzag protocol",
   "main": "src/index.ts",
   "scripts": {
@@ -16,7 +16,7 @@
     "url": "git+https://github.com/zigzag/backend.git"
   },
   "author": "ZigZag Exchange",
-  "license": "BUSL-1.1",
+  "license": "GPL-3.0",
   "bugs": {
     "url": "https://github.com/zigzag/backend/issues"
   },
@@ -24,7 +24,7 @@
   "dependencies": {
     "@ethersproject/logger": "^5.4.0",
     "@types/express": "^4.17.13",
-    "@types/isomorphic-fetch": "0.0.35",
+    "@types/isomorphic-fetch": "^0.0.35",
     "@types/node": "^17.0.23",
     "@types/pg": "^8.6.4",
     "@types/throng": "^5.0.3",
