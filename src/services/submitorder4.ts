@@ -61,12 +61,11 @@ export const submitorder4: ZZServiceHandler = async (
   }
   console.log('DEBUG: all orders canceled')
 
-  const msg: WSMessage[] = []
   // only for EVM chains, check line 11
   const results: Promise<any>[] = zktxArray.map(async (zktx: ZZOrder) => {
     try {
-      msg.push(await api.processOrderEVM(chainId, market, zktx))
-      console.log('DEBUG: placed new order')
+      const msg: WSMessage = await api.processOrderEVM(chainId, market, zktx)
+      ws.send(JSON.stringify(msg))
     } catch (err: any) {
       console.error(`Failed to place new order, ${err.message}`)
       const errorMsg: WSMessage = {
@@ -76,8 +75,7 @@ export const submitorder4: ZZServiceHandler = async (
       ws.send(JSON.stringify(errorMsg))
     }
   })
+  
   await Promise.all(results)
   console.log('DEBUG: placed all new orders')
-
-  ws.send(JSON.stringify(msg))
 }
