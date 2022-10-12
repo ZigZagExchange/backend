@@ -36,9 +36,9 @@ export const submitorder4: ZZServiceHandler = async (
 
   if (oldOrderArray) {
     console.log(oldOrderArray)
-    try {
-      await Promise.all(
-        oldOrderArray.map(async (oldOrderEntry: [number, string]) => {
+    await Promise.all(
+      oldOrderArray.map(async (oldOrderEntry: [number, string]) => {
+        try {
           const [orderId, signature] = oldOrderEntry
           if (!orderId || !signature)
             throw new Error(
@@ -50,16 +50,19 @@ export const submitorder4: ZZServiceHandler = async (
             signature
           )
           if (!cancelResult) throw new Error('Unexpected error')
-        })
-      )
-    } catch (err: any) {
-      console.error(`Failed to cancel old orders, ${err.message}`)
-      const errorMsg: WSMessage = {
-        op: 'error',
-        args: ['submitorder4', `Failed to cancel old orders, ${err.message}`],
-      }
-      ws.send(JSON.stringify(errorMsg))
-    }
+        } catch (err: any) {
+          console.error(`Failed to cancel old orders, ${err.message}`)
+          const errorMsg: WSMessage = {
+            op: 'error',
+            args: [
+              'submitorder4',
+              `Failed to cancel old orders, ${err.message}`,
+            ],
+          }
+          ws.send(JSON.stringify(errorMsg))
+        }
+      })
+    )
   }
 
   // only for EVM chains, check line 11
