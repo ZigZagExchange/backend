@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const cancelall2: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const cancelall2: ZZServiceHandler = async (
   [chainId, userId, validUntil, signedMessage]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId) && Number(chainId) !== 0) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'cancelall2',
@@ -20,7 +20,7 @@ export const cancelall2: ZZServiceHandler = async (
   userId = typeof userId === 'number' ? userId.toString() : userId
 
   try {
-    const cancelResult = await api.cancelAllOrders2(
+    const cancelResult: boolean = await api.cancelAllOrders2(
       chainId,
       userId,
       validUntil,

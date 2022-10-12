@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const requestquote: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const requestquote: ZZServiceHandler = async (
   [chainId, market, side, baseQuantity = null, quoteQuantity = null]
 ): Promise<any> => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'requestquote',

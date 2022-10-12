@@ -1,4 +1,4 @@
-import type { ZZServiceHandler, ZZMarketSummary, ZZMarketInfo } from 'src/types'
+import type { ZZServiceHandler, ZZMarketSummary, ZZMarketInfo, WSMessage } from 'src/types'
 
 // subscribemarket operations should be very conservative
 // this function gets called like 10k times in 2 seconds on a restart
@@ -13,7 +13,7 @@ export const subscribemarket: ZZServiceHandler = async (
   [chainId, market, UTCFlag]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'subscribemarket',
@@ -43,7 +43,7 @@ export const subscribemarket: ZZServiceHandler = async (
       }
       ws.send(JSON.stringify(marketSummaryMsg))
     } else {
-      const errorMsg = {
+      const errorMsg: WSMessage = {
         op: 'error',
         args: ['subscribemarket', `Can not find marketSummary for ${market}`],
       }
@@ -54,7 +54,7 @@ export const subscribemarket: ZZServiceHandler = async (
     try {
       marketInfo = await api.getMarketInfo(market, chainId)
     } catch (e: any) {
-      const errorMsg = {
+      const errorMsg: WSMessage = {
         op: 'error',
         args: [
           'subscribemarket',
@@ -69,7 +69,7 @@ export const subscribemarket: ZZServiceHandler = async (
       const marketInfoMsg = { op: 'marketinfo', args: [marketInfo] }
       ws.send(JSON.stringify(marketInfoMsg))
     } else {
-      const errorMsg = {
+      const errorMsg: WSMessage = {
         op: 'error',
         args: ['subscribemarket', `Can not find market ${market}`],
       }
@@ -89,7 +89,7 @@ export const subscribemarket: ZZServiceHandler = async (
           JSON.stringify({ op: 'fills', args: [JSON.parse(fillsString)] })
         )
     } catch (e: any) {
-      const errorMsg = {
+      const errorMsg: WSMessage = {
         op: 'error',
         args: [
           'subscribemarket',
@@ -109,7 +109,7 @@ export const subscribemarket: ZZServiceHandler = async (
     }
   } catch (e: any) {
     console.error(e.message)
-    const errorMsg = { op: 'error', args: ['subscribemarket', e.message] }
+    const errorMsg: WSMessage = { op: 'error', args: ['subscribemarket', e.message] }
     ws.send(JSON.stringify(errorMsg))
   }
 

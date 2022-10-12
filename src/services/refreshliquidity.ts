@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const refreshliquidity: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const refreshliquidity: ZZServiceHandler = async (
   [chainId, market]
 ) => {
   if (!api.VALID_CHAINS_ZKSYNC.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'refreshliquidity',
@@ -19,7 +19,7 @@ export const refreshliquidity: ZZServiceHandler = async (
   }
 
   const liquidity = await api.getLiquidity(chainId, market)
-  const liquidityMsg = { op: 'liquidity2', args: [chainId, market, liquidity] }
+  const liquidityMsg: WSMessage = { op: 'liquidity2', args: [chainId, market, liquidity] }
   if (ws) ws.send(JSON.stringify(liquidityMsg))
   return liquidityMsg
 }

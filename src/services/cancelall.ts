@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const cancelall: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const cancelall: ZZServiceHandler = async (
   [chainId, userId]
 ) => {
   
-  const errorMsg = {
+  const errorMsg: WSMessage = {
     op: 'error',
     args: [
       'cancelorder',

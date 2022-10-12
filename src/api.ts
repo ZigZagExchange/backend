@@ -26,7 +26,6 @@ import type {
 } from 'src/types'
 import {
   formatPrice,
-  stringToFelt,
   getNetwork,
   getRPCURL,
   evmEIP712Types,
@@ -1257,7 +1256,7 @@ export default class API extends EventEmitter {
     chainId: number,
     market: ZZMarket,
     zktx: ZZOrder
-  ) => {
+  ): Promise<WSMessage> => {
     if (!this.VALID_EVM_CHAINS.includes(chainId))
       throw new Error(
         `ChainId ${chainId} is not valid, only ${this.VALID_EVM_CHAINS}`
@@ -1497,7 +1496,7 @@ export default class API extends EventEmitter {
     userId: string,
     validUntil: number,
     signedMessage: string
-  ) => {
+  ): Promise<boolean> => {
     if (Date.now() / 1000 > validUntil) throw new Error('Request expired')
 
     // validate if sender is ok to cancel
@@ -1551,7 +1550,7 @@ export default class API extends EventEmitter {
     chainId: number,
     userId: string,
     tokenArray: string[]
-  ) => {
+  ): Promise<boolean> => {
     // validate if sender is ok to cancel
     const valuesSelect = [chainId, userId]
     const select = await this.db.query(
@@ -1599,9 +1598,9 @@ export default class API extends EventEmitter {
 
   cancelorder2 = async (
     chainId: number,
-    orderId: string,
+    orderId: number,
     signedMessage: string
-  ) => {
+  ): Promise<boolean> => {
     const values = [orderId, chainId]
     const select = await this.db.query(
       'SELECT userid, order_status FROM offers WHERE id=$1 AND chainid=$2',
@@ -1651,7 +1650,7 @@ export default class API extends EventEmitter {
     return true
   }
 
-  cancelorder3 = async (chainId: number, orderId: string, token: string) => {
+  cancelorder3 = async (chainId: number, orderId: number, token: string): Promise<boolean> => {
     const values = [orderId, chainId]
     const select = await this.db.query(
       'SELECT userid, order_status, token FROM offers WHERE id=$1 AND chainid=$2',
@@ -1692,7 +1691,7 @@ export default class API extends EventEmitter {
 
   matchorder = async (
     chainId: number,
-    orderId: string,
+    orderId: number,
     fillOrder: ZZFillOrder,
     wsUUID: string
   ) => {
@@ -1766,7 +1765,7 @@ export default class API extends EventEmitter {
 
   senduserordermatch = async (
     chainId: number,
-    orderId: string,
+    orderId: number,
     side: ZZMarketSide
   ) => {
     const redisKeyMatchingOrder = `matchingorders:${chainId}:${orderId}`
@@ -2179,7 +2178,7 @@ export default class API extends EventEmitter {
     return select.rows
   }
 
-  getOrder = async (chainId: number, orderId: string | string[]) => {
+  getOrder = async (chainId: number, orderId: number | number[]) => {
     chainId = Number(chainId)
     orderId = typeof orderId === 'string' ? [orderId] : orderId
     const query = {
@@ -2192,7 +2191,7 @@ export default class API extends EventEmitter {
     return select.rows
   }
 
-  getFill = async (chainId: number, orderId: string | string[]) => {
+  getFill = async (chainId: number, orderId: number | number[]) => {
     chainId = Number(chainId)
     orderId = typeof orderId === 'string' ? [orderId] : orderId
     const query = {
@@ -2621,7 +2620,7 @@ export default class API extends EventEmitter {
     market: ZZMarket,
     liquidity: any[],
     clientId: string
-  ) => {
+  ): Promise<string[]> => {
     const NINE_SECONDS = ((Date.now() / 1000) | 0) + 9
     const marketInfo = await this.getMarketInfo(market, chainId)
 

@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const fillreceiptreq: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const fillreceiptreq: ZZServiceHandler = async (
   [chainId, orderId]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'fillreceiptreq',
@@ -19,7 +19,7 @@ export const fillreceiptreq: ZZServiceHandler = async (
   }
 
   if (!orderId) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: ['fillreceiptreq', `orderId is not set`],
     }
@@ -28,7 +28,7 @@ export const fillreceiptreq: ZZServiceHandler = async (
   }
 
   if (typeof orderId === 'object' && orderId.length > 25) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'fillreceiptreq',
@@ -45,7 +45,10 @@ export const fillreceiptreq: ZZServiceHandler = async (
     if (ws) ws.send(JSON.stringify(msg))
     return fillreceipt
   } catch (err: any) {
-    const errorMsg = { op: 'error', args: ['fillreceiptreq', err.message] }
+    const errorMsg: WSMessage = {
+      op: 'error',
+      args: ['fillreceiptreq', err.message],
+    }
     if (ws) ws.send(JSON.stringify(errorMsg))
     return errorMsg
   }

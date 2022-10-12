@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZOrder, ZZServiceHandler } from 'src/types'
 
 // Exact same thing as submitorder4 but it allows for multiple orders at the same time
 // Returns:
@@ -9,7 +9,7 @@ export const submitorder4: ZZServiceHandler = async (
   [chainId, market, zktxArray, oldOrderArray]
 ) => {
   if (!api.VALID_EVM_CHAINS.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'submitorder4',
@@ -26,7 +26,7 @@ export const submitorder4: ZZServiceHandler = async (
     (oldOrderArray && !Array.isArray(oldOrderArray))
   ) {
     console.error('submitorder4, argument is no array')
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: ['submitorder4', 'Argument is no array'],
     }
@@ -37,19 +37,20 @@ export const submitorder4: ZZServiceHandler = async (
   if (oldOrderArray) {
     try {
       const results: Promise<any>[] = oldOrderArray.map(
-        async (oldOrderEntry: any) => {
+        async (oldOrderEntry: [number, string]) => {
           const [orderId, signature] = oldOrderEntry
           if (!orderId || !signature)
             throw new Error(
               `The argument ${oldOrderEntry} is wrongly formatted, use [orderId, signedMessage]`
             )
-          await api.cancelorder2(chainId, orderId, signature)
+          const cancelResult: boolean = await api.cancelorder2(chainId, orderId, signature)
+          if (!cancelResult) throw new Error('Unexpected error')
         }
       )
       await Promise.all(results)
     } catch (err: any) {
       console.error(`Failed to cancel old orders, ${err.message}`)
-      const errorMsg = {
+      const errorMsg: WSMessage = {
         op: 'error',
         args: ['submitorder4', `Failed to cancel old orders, ${err.message}`],
       }
@@ -58,14 +59,14 @@ export const submitorder4: ZZServiceHandler = async (
     }
   }
 
-  const msg: any[] = []
+  const msg: WSMessage[] = []
   // only for EVM chains, check line 11
-  const results: Promise<any>[] = zktxArray.map(async (zktx: any) => {
+  const results: Promise<any>[] = zktxArray.map(async (zktx: ZZOrder) => {
     try {
       msg.push(await api.processOrderEVM(chainId, market, zktx))
     } catch (err: any) {
       console.error(`Failed to place new order, ${err.message}`)
-      const errorMsg = {
+      const errorMsg: WSMessage = {
         op: 'error',
         args: ['submitorder4', `Failed to place new order, ${err.message}`],
       }
