@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 // Exact same thing as submitorder2 but it follows our standardized response format
 // Returns:
@@ -8,7 +8,7 @@ export const submitorder3: ZZServiceHandler = async (
   ws,
   [chainId, market, zktx]
 ) => {
-  let msg
+  let msg: WSMessage
   try {
     switch (chainId) {
       case 1:
