@@ -45,7 +45,6 @@ export const submitorder4: ZZServiceHandler = async (
             )
           const cancelResult: boolean = await api.cancelorder2(chainId, orderId, signature)
           if (!cancelResult) throw new Error('Unexpected error')
-          console.log(`DEBUG: canceled order ${orderId}`)
         }
       )
       await Promise.all(results)
@@ -59,14 +58,12 @@ export const submitorder4: ZZServiceHandler = async (
       return
     }
   }
-  console.log('DEBUG: all orders canceled')
 
-  const msg: WSMessage[] = []
   // only for EVM chains, check line 11
   const results: Promise<any>[] = zktxArray.map(async (zktx: ZZOrder) => {
     try {
-      msg.push(await api.processOrderEVM(chainId, market, zktx))
-      console.log('DEBUG: placed new order')
+      const msg: WSMessage = await api.processOrderEVM(chainId, market, zktx)
+      ws.send(JSON.stringify(msg))
     } catch (err: any) {
       console.error(`Failed to place new order, ${err.message}`)
       const errorMsg: WSMessage = {
@@ -76,8 +73,6 @@ export const submitorder4: ZZServiceHandler = async (
       ws.send(JSON.stringify(errorMsg))
     }
   })
-  await Promise.all(results)
-  console.log('DEBUG: placed all new orders')
 
-  ws.send(JSON.stringify(msg))
+  await Promise.all(results)
 }
