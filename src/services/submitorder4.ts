@@ -35,6 +35,7 @@ export const submitorder4: ZZServiceHandler = async (
   }
 
   if (oldOrderArray) {
+    console.log(oldOrderArray)
     await Promise.all(
       oldOrderArray.map(async (oldOrderEntry: [number, string]) => {
         try {
