@@ -1,4 +1,4 @@
-import type { ZZMarketInfo, ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZMarketInfo, ZZServiceHandler } from 'src/types'
 
 export const marketsreq: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const marketsreq: ZZServiceHandler = async (
   [chainId, detailedFlag]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'marketsreq',

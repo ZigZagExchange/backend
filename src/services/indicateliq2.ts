@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const indicateliq2: ZZServiceHandler = async (
   api,
@@ -8,7 +8,7 @@ export const indicateliq2: ZZServiceHandler = async (
   const makerConnId = `${chainId}:${ws.uuid}`
   api.MAKER_CONNECTIONS[makerConnId] = ws
   try {
-    const errorMsg = await api.updateLiquidity(
+    const errorArgs: string[] = await api.updateLiquidity(
       chainId,
       market,
       liquidity,
@@ -16,15 +16,23 @@ export const indicateliq2: ZZServiceHandler = async (
     )
 
     // return any bad liquidity msg
-    if (errorMsg.length > 0) {
-      const errorString = `Send one or more invalid liquidity positions: ${errorMsg.join(
-        '. '
-      )}.`
-      ws.send(
-        JSON.stringify({ op: 'error', args: ['indicateliq2', errorString] })
-      )
+    if (errorArgs.length > 0) {
+      const errorMsg: WSMessage = {
+        op: 'error',
+        args: [
+          'indicateliq2',
+          `Send one or more invalid liquidity positions: ${errorArgs.join(
+            '. '
+          )}.`,
+        ],
+      }
+      ws.send(JSON.stringify(errorMsg))
     }
   } catch (e: any) {
-    ws.send(JSON.stringify({ op: 'error', args: ['indicateliq2', e.message] }))
+    const errorMsg: WSMessage = {
+      op: 'error',
+      args: ['indicateliq2', e.message],
+    }
+    ws.send(JSON.stringify(errorMsg))
   }
 }

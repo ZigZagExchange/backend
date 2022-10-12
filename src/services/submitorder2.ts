@@ -1,11 +1,11 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const submitorder2: ZZServiceHandler = async (
   api,
   ws,
   [chainId, market, zktx]
 ) => {
-  let msg = { op: 'error', args: ['submitorder3'] }
+  let msg: WSMessage
   try {
     switch (chainId) {
       case 1:

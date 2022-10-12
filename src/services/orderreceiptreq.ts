@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const orderreceiptreq: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const orderreceiptreq: ZZServiceHandler = async (
   [chainId, orderId]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'orderreceiptreq',
@@ -24,7 +24,7 @@ export const orderreceiptreq: ZZServiceHandler = async (
     if (ws) ws.send(JSON.stringify(msg))
     return orderreceipt[0]
   } catch (err: any) {
-    const errorMsg = { op: 'error', args: ['orderreceiptreq', err.message] }
+    const errorMsg: WSMessage = { op: 'error', args: ['orderreceiptreq', err.message] }
     if (ws) ws.send(JSON.stringify(errorMsg))
     return errorMsg
   }

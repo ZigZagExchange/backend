@@ -1,4 +1,4 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const cancelall3: ZZServiceHandler = async (
   api,
@@ -6,7 +6,7 @@ export const cancelall3: ZZServiceHandler = async (
   [chainId, userId, tokenArray]
 ) => {
   if (!api.VALID_CHAINS.includes(chainId) && Number(chainId) !== 0) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'cancelall3',
@@ -20,7 +20,7 @@ export const cancelall3: ZZServiceHandler = async (
   userId = typeof userId === 'number' ? userId.toString() : userId
 
   try {
-    const cancelResult = await api.cancelAllOrders3(chainId, userId, tokenArray)
+    const cancelResult: boolean = await api.cancelAllOrders3(chainId, userId, tokenArray)
     if (!cancelResult) throw new Error('Unexpected error')
   } catch (e: any) {
     console.error(e)

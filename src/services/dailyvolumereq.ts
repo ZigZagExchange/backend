@@ -1,8 +1,8 @@
-import type { ZZServiceHandler } from 'src/types'
+import type { WSMessage, ZZServiceHandler } from 'src/types'
 
 export const dailyvolumereq: ZZServiceHandler = async (api, ws, [chainId]) => {
   if (!api.VALID_CHAINS.includes(chainId)) {
-    const errorMsg = {
+    const errorMsg: WSMessage = {
       op: 'error',
       args: [
         'dailyvolumereq',
