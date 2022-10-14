@@ -1499,10 +1499,7 @@ async function checkEVMChainAllowance() {
 
 async function deleteOldOrders () {
   console.time('deleteOldOrders')
-  const query = {
-    text: "DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm')",
-  }
-  await db.query(query)
+  await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm')")
   console.timeEnd('deleteOldOrders')
 }
 
