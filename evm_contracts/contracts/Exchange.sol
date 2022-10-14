@@ -24,7 +24,6 @@ contract Exchange is SignatureValidator{
     uint256 maker_fee_denominator = 10000;
     uint256 taker_fee_numerator = 0;
     uint256 taker_fee_denominator = 10000;
-
   
     // initialize fee address
     constructor(address fee_address) {
@@ -147,7 +146,7 @@ contract Exchange is SignatureValidator{
                 IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= takerOrderFees,
                 "taker order not enough balance for fee"
             );
-            IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, takerOrder.feeRecipientAddress, takerOrderFees);
+            IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, FEE_ADDRESS, takerOrderFees);
         }
        
         // Maker fee -> fee recipient
@@ -156,7 +155,7 @@ contract Exchange is SignatureValidator{
                 IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.makerFeePaid,
                 "maker order not enough balance for fee"
             );
-            IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, makerOrder.feeRecipientAddress, matchedFillResults.makerFeePaid);
+            IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, FEE_ADDRESS, matchedFillResults.makerFeePaid);
         }
 
         emit Swap(makerOrder.user, takerOrder.user, makerOrder.sellToken, takerOrder.sellToken, matchedFillResults.makerSellFilledAmount, matchedFillResults.takerSellFilledAmount, takerOrder.gasFee, matchedFillResults.makerFeePaid, matchedFillResults.takerFeePaid);

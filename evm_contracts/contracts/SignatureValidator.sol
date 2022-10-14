@@ -41,9 +41,4 @@ contract SignatureValidator{
             return isValid;
     }
 
-    // function helper() public pure returns(bytes32 orderhash){
-    //     orderhash = keccak256("Order(address makerAddress,address makerToken,address takerToken,address feeRecipientAddress,uint256 makerAssetAmount,uint256 takerAssetAmount,uint256 makerVolumeFee,uint256 takerVolumeFee,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)");
-    //     return orderhash;
-    // }
-    
 }

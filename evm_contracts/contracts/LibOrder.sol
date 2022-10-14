@@ -18,8 +18,8 @@ library LibOrder{
     ); 
     */
 
-    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0x573d82b18a677641f8b46e5280c268852c77c040affcce708d5575f2be6f92b0;
-    //keccak256("Order(address user,address sellToken,address buyToken,address feeRecipientAddress,address relayerAddress,uint256 sellAmount,uint256 buyAmount,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)")
+    bytes32 constant internal _EIP712_ORDER_SCHEMA_HASH = 0xfa32bf255b1c22edbfeb8277d85cc12f63ae6977de503f9ac76a2b65b5e4f195;
+    //keccak256("Order(address user,address sellToken,address buyToken,address relayerAddress,uint256 sellAmount,uint256 buyAmount,uint256 gasFee,uint256 expirationTimeSeconds,uint256 salt)")
 
     enum OrderStatus {
         INVALID,                     // Default value
@@ -35,7 +35,6 @@ library LibOrder{
         address user; //address of the Order Creator making the sale
         address sellToken; // address of the Token the Order Creator wants to sell
         address buyToken; // address of the Token the Order Creator wants to receive in return
-        address feeRecipientAddress; // address of the protocol owner that recives the fees
         address relayerAddress; // if specified, only the specified address can relay the order. setting it to the zero address will allow anyone to relay
         uint256 sellAmount; // amount of Token that the Order Creator wants to sell
         uint256 buyAmount; // amount of Token that the Order Creator wants to receive in return
@@ -57,7 +56,6 @@ library LibOrder{
             order.user,
             order.sellToken,
             order.buyToken,
-            order.feeRecipientAddress,
             order.relayerAddress,
             order.sellAmount,
             order.buyAmount,
