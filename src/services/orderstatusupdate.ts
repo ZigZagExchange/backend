@@ -82,7 +82,7 @@ export const orderstatusupdate: ZZServiceHandler = async (
         `broadcastmsg:all:${chainId}:all`,
         JSON.stringify({
           op: 'lastprice',
-          args: [[[market, fillPrice, priceChange]]],
+          args: [[[market, fillPrice, priceChange]], chainId],
         })
       )
       // TODO: Account for nonce checks here
