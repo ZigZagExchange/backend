@@ -1497,6 +1497,15 @@ async function checkEVMChainAllowance() {
   await Promise.all(results0)
 }
 
+async function deleteOldOrders () {
+  console.time('delete old orders')
+  const query = {
+    text: "DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm')",
+  }
+  await db.query(query)
+  console.timeEnd('delete old orders')
+}
+
 async function start() {
   console.log('background.ts: Run checks')
   if (!process.env.INFURA_PROJECT_ID) throw new Error('NO INFURA KEY SET')
@@ -1626,6 +1635,7 @@ async function start() {
   setInterval(updateFeesZkSync, 25000)
   setInterval(updatePriceHighLow, 600000)
   setInterval(updateVolumes, 900000)
+  setInterval(deleteOldOrders, 900000)
 
   setTimeout(sendMatchedOrders, 5000)
 }
