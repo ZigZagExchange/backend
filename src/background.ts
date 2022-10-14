@@ -1502,7 +1502,7 @@ async function deleteOldOrders () {
   const query = {
     text: "DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf')",
   }
-  const delete = await db.query(query)
+  await db.query(query)
   console.timeEnd('delete old orders')
 }
 
