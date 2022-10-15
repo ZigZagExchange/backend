@@ -50,7 +50,7 @@ export const submitorder4: ZZServiceHandler = async (
           )
           if (!cancelResult) throw new Error('Unexpected error')
         } catch (err: any) {
-          console.error(`Failed to cancel old orders, ${err.message}`)
+          console.error(`Failed to cancel old orders, ${err}`)
           const errorMsg: WSMessage = {
             op: 'error',
             args: [
@@ -71,7 +71,7 @@ export const submitorder4: ZZServiceHandler = async (
         const msg: WSMessage = await api.processOrderEVM(chainId, market, zktx)
         ws.send(JSON.stringify(msg))
       } catch (err: any) {
-        console.error(`Failed to place new order, ${err.message}`)
+        console.error(`Failed to place new order, ${err}`)
         const errorMsg: WSMessage = {
           op: 'error',
           args: ['submitorder4', `Failed to place new order, ${err.message}`],
