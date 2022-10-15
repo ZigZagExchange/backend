@@ -273,5 +273,17 @@ export function getReadableTxError(errorMsg: string): string {
   if (errorMsg.includes('maker order not enough balance for fee'))
     return 'maker order not enough balance for fee'
 
+  if (errorMsg.includes('invalid maker asset amount'))
+    return 'invalid maker asset amount'
+
+  if (errorMsg.includes('invalid taker asset amount'))
+    return 'invalid taker asset amount'
+
+  if (errorMsg.includes('order is filled')) return 'order is filled'
+
+  if (errorMsg.includes('order expired')) return 'order expired'
+
+  if (errorMsg.includes('order canceled')) return 'order canceled'
+
   return 'Internal error: A'
 }
