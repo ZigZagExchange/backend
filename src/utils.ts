@@ -249,3 +249,38 @@ export async function getFeeEstimationOrder(
   Order.signature = signature
   return Order
 }
+
+export function getReadableTxError (errorMsg: string): string {
+  if (errorMsg.includes('not profitable spread'))
+    return "Internal error: ps"
+
+  if (errorMsg.includes('taker order not enough balance'))
+    return "taker order not enough balance"
+
+  if (errorMsg.includes('maker order not enough balance'))
+    return "maker order not enough balance"
+
+  if (errorMsg.includes('invalid taker signature'))
+    return "invalid taker signature"
+
+  if (errorMsg.includes('invalid maker signature'))
+    return "invalid maker signature"
+
+  if (errorMsg.includes('mismatched tokens'))
+    return "mismatched tokens"
+
+  if (errorMsg.includes('taker order status not Fillable'))
+    return "taker order status not Fillable"
+
+  if (errorMsg.includes('maker order status not Fillable'))
+    return "maker order status not Fillable"
+
+  if (errorMsg.includes('taker order not enough balance for fee'))
+    return "taker order not enough balance for fee"
+
+  if (errorMsg.includes('maker order not enough balance for fee'))
+    return "maker order not enough balance for fee"
+
+
+  return "Internal error: A"
+}

@@ -12,6 +12,7 @@ import {
   getRPCURL,
   getFeeEstimationOrder,
   getFeeEstimationMarket,
+  getReadableTxError,
 } from './utils'
 import type {
   ZZMarketInfo,
@@ -1096,6 +1097,7 @@ async function sendMatchedOrders() {
       }
 
       let orderUpdateBroadcastMinted: AnyObject
+      let readableTxError: string
       if (txStatus === 's') {
         orderUpdateBroadcastMinted = await db.query(
           "UPDATE offers SET order_status = (CASE WHEN unfilled <= $1 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($2, $3) RETURNING id, order_status, unfilled",
@@ -1109,6 +1111,7 @@ async function sendMatchedOrders() {
         const startIndex = transaction.reason.indexOf('execution reverted')
         const endIndex = transaction.reason.indexOf('code')
         const reason = transaction.reason.slice(startIndex, endIndex)
+        readableTxError = getReadableTxError(reason)
         console.log(reason)
         const rejectedOrderIds = []
         if (reason.includes('right')) {
@@ -1133,7 +1136,7 @@ async function sendMatchedOrders() {
           row.id,
           row.order_status,
           null, // tx hash
-          transaction.reason ? transaction.reason : row.unfilled,
+          readableTxError || row.unfilled,
         ]
       )
       const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
