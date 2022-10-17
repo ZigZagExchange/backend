@@ -181,9 +181,7 @@ contract Exchange is EIP712 {
       matchedFillResults.makerSellFilledAmount
     );
 
-    /*
-            Fees Paid 
-        */
+    /* Fees Paid */
     // Taker fee + gas fee -> fee recipient
     uint256 takerOrderFees = matchedFillResults.takerFeePaid +
       takerOrder.gasFee;
