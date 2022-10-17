@@ -17,7 +17,6 @@ contract Exchange is EIP712 {
     address takerSellToken,
     uint256 makerSellAmount,
     uint256 takerSellAmount,
-    uint256 gasFee,
     uint256 makerVolumeFee,
     uint256 takerVolumeFee
   );
@@ -64,18 +63,6 @@ contract Exchange is EIP712 {
     // check that tokens address match
     require(takerOrder.sellToken == makerOrder.buyToken, 'mismatched tokens');
     require(takerOrder.buyToken == makerOrder.sellToken, 'mismatched tokens');
-
-    // check the relayer field
-    require(
-      makerOrder.relayerAddress == address(0) ||
-        makerOrder.relayerAddress == msg.sender,
-      'maker relayer mismatch'
-    );
-    require(
-      takerOrder.relayerAddress == address(0) ||
-        takerOrder.relayerAddress == msg.sender,
-      'taker relayer mismatch'
-    );
 
     LibOrder.OrderInfo memory makerOrderInfo = getOrderInfo(makerOrder);
     LibOrder.OrderInfo memory takerOrderInfo = getOrderInfo(takerOrder);
@@ -183,18 +170,16 @@ contract Exchange is EIP712 {
 
     /* Fees Paid */
     // Taker fee + gas fee -> fee recipient
-    uint256 takerOrderFees = matchedFillResults.takerFeePaid +
-      takerOrder.gasFee;
-    if (takerOrderFees > 0) {
+    if (matchedFillResults.takerFeePaid > 0) {
       require(
         IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >=
-          takerOrderFees,
+          matchedFillResults.takerFeePaid,
         'taker order not enough balance for fee'
       );
       IERC20(takerOrder.sellToken).transferFrom(
         takerOrder.user,
         FEE_ADDRESS,
-        takerOrderFees
+        matchedFillResults.takerFeePaid
       );
     }
 
@@ -219,7 +204,6 @@ contract Exchange is EIP712 {
       takerOrder.sellToken,
       matchedFillResults.makerSellFilledAmount,
       matchedFillResults.takerSellFilledAmount,
-      takerOrder.gasFee,
       matchedFillResults.makerFeePaid,
       matchedFillResults.takerFeePaid
     );

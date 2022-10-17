@@ -55,9 +55,7 @@ async function sign() {
                 { "name": 'takerAssetAmount', "type": 'uint256' },
                 { "name": 'makerVolumeFee', "type": 'uint256' },
                 { "name": 'takerVolumeFee', "type": 'uint256' },
-                { "name": 'gasFee', "type": 'uint256' },
                 { "name": 'expirationTimeSeconds', "type": 'uint256' },
-                { "name": 'salt', "type": 'uint256' },
             ]
         },
         "primaryType": 'Order',
@@ -75,9 +73,7 @@ async function sign() {
             "takerAssetAmount": ethers.BigNumber.from("0"),
             "makerVolumeFee": ethers.BigNumber.from("0"),
             "takerVolumeFee": ethers.BigNumber.from("0"),
-            "gasFee": ethers.BigNumber.from("0"),
             "expirationTimeSeconds": ethers.BigNumber.from("0"),
-            "salt": ethers.BigNumber.from("0")
         }
     }
 
