@@ -11,10 +11,10 @@ describe("Order Matching", function () {
     let tokenA: Contract;
     let tokenB: Contract;
     let wallets: Wallet[] = [];
-    let feeRecipientAddress: string;
+    let FEE_ADDRESS: string;
 
     beforeEach(async function () {
-
+        this.timeout(30000) 
         const Exchange = await ethers.getContractFactory("Exchange");
         const Token = await ethers.getContractFactory("Token");
         const provider = ethers.provider;
@@ -32,8 +32,8 @@ describe("Order Matching", function () {
             })
         }
 
-        feeRecipientAddress = wallets[3].address;
-        exchangeContract = await Exchange.deploy(feeRecipientAddress);
+        FEE_ADDRESS = wallets[3].address;
+        exchangeContract = await Exchange.deploy("ZigZag", "6", FEE_ADDRESS);
 
         await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);
         await tokenB.mint(ethers.utils.parseEther("10000"), wallets[1].address);
@@ -71,8 +71,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('not profitable spread');
@@ -107,8 +107,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('not profitable spread');
@@ -143,8 +143,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('taker order not enough balance');
@@ -177,8 +177,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('maker order not enough balance');
@@ -211,8 +211,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('taker order not enough balance for fee');
@@ -246,8 +246,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('maker order not enough balance for fee');
@@ -280,8 +280,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
     });
 
@@ -311,8 +311,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("mismatched tokens")
 
@@ -344,8 +344,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("invalid maker asset amount");
 
@@ -377,8 +377,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
 
@@ -411,8 +411,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         await exchangeContract.connect(wallets[1]).cancelOrder(Object.values(takerOrder))
 
@@ -445,8 +445,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("order expired")
     });
@@ -478,8 +478,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
 
@@ -489,8 +489,8 @@ describe("Order Matching", function () {
         const balance4 = await tokenB.balanceOf(wallets[0].address);
         const balance5 = await tokenB.balanceOf(wallets[1].address);
         const balance6 = await tokenB.balanceOf(wallets[2].address);
-        const balance7 = await tokenA.balanceOf(feeRecipientAddress);
-        const balance8 = await tokenB.balanceOf(feeRecipientAddress);
+        const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
+        const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
         console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
         console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
@@ -524,8 +524,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
         //console.log(tx)
@@ -536,8 +536,8 @@ describe("Order Matching", function () {
         const balance4 = await tokenB.balanceOf(wallets[0].address);
         const balance5 = await tokenB.balanceOf(wallets[1].address);
         const balance6 = await tokenB.balanceOf(wallets[2].address);
-        const balance7 = await tokenA.balanceOf(feeRecipientAddress);
-        const balance8 = await tokenB.balanceOf(feeRecipientAddress);
+        const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
+        const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
         console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
         console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
@@ -571,8 +571,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
         //console.log(tx)
@@ -583,8 +583,8 @@ describe("Order Matching", function () {
         const balance4 = await tokenB.balanceOf(wallets[0].address);
         const balance5 = await tokenB.balanceOf(wallets[1].address);
         const balance6 = await tokenB.balanceOf(wallets[2].address);
-        const balance7 = await tokenA.balanceOf(feeRecipientAddress);
-        const balance8 = await tokenB.balanceOf(feeRecipientAddress);
+        const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
+        const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
         console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
         console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
@@ -620,8 +620,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
     });
@@ -651,8 +651,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("0")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
         expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage))
@@ -688,8 +688,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("1")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
         const balance1 = await tokenA.balanceOf(wallets[0].address);
@@ -732,8 +732,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("1")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
         const balance1 = await tokenA.balanceOf(wallets[0].address);
@@ -776,8 +776,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("1")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
         const balance1 = await tokenA.balanceOf(wallets[0].address);
@@ -820,8 +820,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("1")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
         const balance1 = await tokenA.balanceOf(wallets[0].address);
@@ -860,8 +860,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("1")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
 
         const tx = await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
     });
@@ -891,8 +891,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("1")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("maker relayer mismatch")
     });
@@ -922,8 +922,8 @@ describe("Order Matching", function () {
             salt: ethers.BigNumber.from("1")
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder)
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("taker relayer mismatch")
     });

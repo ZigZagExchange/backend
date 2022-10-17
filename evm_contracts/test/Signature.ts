@@ -12,9 +12,10 @@ describe("Signature Validation", function () {
     let order: Order;
 
     beforeEach(async function () {
+        this.timeout(30000) 
 
         const Exchange = await ethers.getContractFactory("Exchange");
-        exchangeContract = await Exchange.deploy(ethers.constants.AddressZero);
+        exchangeContract = await Exchange.deploy("ZigZag", "6", ethers.constants.AddressZero);
 
         wallet = new ethers.Wallet(TESTRPC_PRIVATE_KEYS_STRINGS[0], ethers.getDefaultProvider())
 
@@ -33,13 +34,10 @@ describe("Signature Validation", function () {
 
     it("Should validate signature", async function () {
 
-
-        const signedMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], order)
-        //console.log(signedMessage)
+        const signedMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], order, exchangeContract.address)
 
         expect(await exchangeContract.isValidSignature(
-            Object.values(order)
-            ,
+            Object.values(order),
             signedMessage)
         ).to.equal(true);
 
@@ -48,10 +46,9 @@ describe("Signature Validation", function () {
 
     it("Shouldn't validate signature with different Private Key", async function () {
 
-        const incorrenctlySignedMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], order)
+        const incorrenctlySignedMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], order, exchangeContract.address)
         expect(await exchangeContract.isValidSignature(
-            Object.values(order)
-            ,
+            Object.values(order),
             incorrenctlySignedMessage)
         ).to.equal(false);
     });
