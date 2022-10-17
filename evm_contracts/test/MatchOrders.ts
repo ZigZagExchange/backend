@@ -270,33 +270,6 @@ describe("Order Matching", function () {
 
     });
 
-    it("Should revert with maker amount = 0", async function () {
-
-        const makerOrder = {
-            user: wallets[0].address,
-            sellToken: tokenA.address,
-            buyToken: tokenB.address,
-            sellAmount: ethers.BigNumber.from("0"),
-            buyAmount: ethers.BigNumber.from("10000"),
-            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
-        }
-
-        const takerOrder = {
-            user: wallets[1].address,
-            sellToken: tokenB.address,
-            buyToken: tokenA.address,
-            sellAmount: ethers.BigNumber.from("10000"),
-            buyAmount: ethers.BigNumber.from("20000"),
-            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
-        }
-
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
-
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("invalid maker asset amount");
-
-    });
-
     it("Should revert when taker order is already filled", async function () {
 
         const makerOrder = {

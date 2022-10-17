@@ -77,26 +77,22 @@ contract Exchange is EIP712 {
     );
 
     //validate signature
-    if (msg.sender != takerOrder.user) {
-      require(
-        _isValidSignatureHash(
-          takerOrder.user,
-          takerOrderInfo.orderHash,
-          takerSignature
-        ),
-        'invalid taker signature'
-      );
-    }
-    if (msg.sender != makerOrder.user) {
-      require(
-        _isValidSignatureHash(
-          makerOrder.user,
-          makerOrderInfo.orderHash,
-          makerSignature
-        ),
-        'invalid maker signature'
-      );
-    }
+    require(
+      _isValidSignatureHash(
+        takerOrder.user,
+        takerOrderInfo.orderHash,
+        takerSignature
+      ),
+      'invalid taker signature'
+    );
+    require(
+      _isValidSignatureHash(
+        makerOrder.user,
+        makerOrderInfo.orderHash,
+        makerSignature
+      ),
+      'invalid maker signature'
+    );
 
     // Make sure there is a profitable spread.
     // There is a profitable spread iff the cost per unit bought (OrderA.SellAmount/OrderA.BuyAmount) for each order is greater
@@ -225,8 +221,6 @@ contract Exchange is EIP712 {
       orderInfo.orderBuyFilledAmount
     ) = _getOrderHashAndFilledAmount(order);
 
-    require(order.sellAmount > 0, 'invalid maker asset amount');
-    require(order.buyAmount > 0, 'invalid taker asset amount');
     require(
       orderInfo.orderBuyFilledAmount < order.buyAmount,
       'order is filled'
