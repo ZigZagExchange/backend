@@ -3,12 +3,13 @@ pragma solidity ^0.8.0;
 
 import "./LibOrder.sol";
 import "./LibFillResults.sol";
-import "./SignatureValidator.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { EIP712  } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { SignatureChecker  } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 //import "hardhat/console.sol";
 
-contract Exchange is SignatureValidator{
+contract Exchange is EIP712 {
 
     event Swap(address maker, address taker, address makerSellToken, address takerSellToken, uint makerSellAmount, uint takerSellAmount, uint gasFee, uint makerVolumeFee, uint takerVolumeFee);
 
@@ -27,8 +28,8 @@ contract Exchange is SignatureValidator{
 
   
     // initialize fee address
-    constructor(address fee_address) {
-        FEE_ADDRESS = fee_address;    
+    constructor(string memory name, string memory version, address fee_address) EIP712(name, version) {
+        FEE_ADDRESS = fee_address;
     }
 
     function cancelOrder(
@@ -37,9 +38,9 @@ contract Exchange is SignatureValidator{
 
         require(msg.sender == order.user, "only user may cancel order");
 
-        LibOrder.OrderInfo memory orderInfo = getOrderInfo(order);
+        bytes32 orderHash = order.getOrderHash();
 
-        cancelled[orderInfo.orderHash] = true;
+        cancelled[orderHash] = true;
     }
     
    function matchOrders(
@@ -66,9 +67,13 @@ contract Exchange is SignatureValidator{
         require(makerOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE, "maker order status not Fillable");
 
         //validate signature
-        require(msg.sender == takerOrder.user || _isValidOrderWithHashSignature(takerOrderInfo.orderHash, takerSignature, takerOrder.user), "invalid taker signature");
-        require(msg.sender == makerOrder.user || _isValidOrderWithHashSignature(makerOrderInfo.orderHash, makerSignature, makerOrder.user),"invalid maker signature");
-        
+        if (msg.sender != takerOrder.user) {
+          require(_isValidSignatureHash(takerOrder.user, takerOrderInfo.orderHash, takerSignature), "invalid taker signature");
+        }
+         if (msg.sender != makerOrder.user) {
+          require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), "invalid maker signature");
+        }
+
         // Make sure there is a profitable spread.
         // There is a profitable spread iff the cost per unit bought (OrderA.SellAmount/OrderA.BuyAmount) for each order is greater
         // than the profit per unit sold of the matched order (OrderB.BuyAmount/OrderB.SellAmount).
@@ -147,7 +152,7 @@ contract Exchange is SignatureValidator{
                 IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= takerOrderFees,
                 "taker order not enough balance for fee"
             );
-            IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, takerOrder.feeRecipientAddress, takerOrderFees);
+            IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, FEE_ADDRESS, takerOrderFees);
         }
        
         // Maker fee -> fee recipient
@@ -156,7 +161,7 @@ contract Exchange is SignatureValidator{
                 IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.makerFeePaid,
                 "maker order not enough balance for fee"
             );
-            IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, makerOrder.feeRecipientAddress, matchedFillResults.makerFeePaid);
+            IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, FEE_ADDRESS, matchedFillResults.makerFeePaid);
         }
 
         emit Swap(makerOrder.user, takerOrder.user, makerOrder.sellToken, takerOrder.sellToken, matchedFillResults.makerSellFilledAmount, matchedFillResults.takerSellFilledAmount, takerOrder.gasFee, matchedFillResults.makerFeePaid, matchedFillResults.takerFeePaid);
@@ -190,6 +195,22 @@ contract Exchange is SignatureValidator{
         orderHash = order.getOrderHash();
         orderBuyFilledAmount = filled[orderHash];
         return (orderHash, orderBuyFilledAmount);
+    }
+
+    function isValidSignature (LibOrder.Order memory order, bytes memory signature) 
+        public
+        view
+        returns (bool)
+    {
+      bytes32 orderHash = order.getOrderHash();
+
+      return _isValidSignatureHash(order.user, orderHash, signature);
+    }
+
+    function _isValidSignatureHash (address a, bytes32 orderHash, bytes memory signature) private view returns (bool) {
+      bytes32 digest = _hashTypedDataV4(orderHash);
+
+      return SignatureChecker.isValidSignatureNow(a, digest , signature);
     }
 
     function setFees (
