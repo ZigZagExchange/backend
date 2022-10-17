@@ -58,7 +58,7 @@ contract Exchange is EIP712 {
 
   function matchOrder(
     Order memory order,
-    bytes memory makerSignature,
+    bytes memory signature,
     uint fillAmount,
     bool fillAvailable
   )
@@ -80,9 +80,9 @@ contract Exchange is EIP712 {
       _isValidSignatureHash(
         order.user,
         orderhash,
-        makerSignature
+        signature
       ),
-      'invalid maker signature'
+      'invalid signature'
     );
 
 
