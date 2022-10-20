@@ -967,17 +967,9 @@ async function sendMatchedOrders() {
       )
       const match = JSON.parse(matchChainString)
       const marketInfo = await getMarketInfo(match.market, match.chainId)
-      const { makerOrder, takerOrder, gasFee: feeAmount, feeToken } = match
+      const { makerOrder, takerOrder, feeToken } = match
 
       if (!makerOrder?.signature || !takerOrder?.signature) return
-      const makerSignatureModified =
-        makerOrder.signature.slice(0, 2) +
-        makerOrder.signature.slice(-2) +
-        makerOrder.signature.slice(2, -2)
-      const takerSignatureModified =
-        takerOrder.signature.slice(0, 2) +
-        takerOrder.signature.slice(-2) +
-        takerOrder.signature.slice(2, -2)
 
       console.timeEnd('sendMatchedOrders: pre processing')
       console.time('sendMatchedOrders: sending')
@@ -988,13 +980,8 @@ async function sendMatchedOrders() {
             makerOrder.user,
             makerOrder.sellToken,
             makerOrder.buyToken,
-            makerOrder.feeRecipientAddress,
-            makerOrder.relayerAddress,
             makerOrder.sellAmount,
             makerOrder.buyAmount,
-            makerOrder.makerVolumeFee,
-            makerOrder.takerVolumeFee,
-            makerOrder.gasFee,
             makerOrder.expirationTimeSeconds,
             makerOrder.salt,
           ],
@@ -1002,18 +989,13 @@ async function sendMatchedOrders() {
             takerOrder.user,
             takerOrder.sellToken,
             takerOrder.buyToken,
-            takerOrder.feeRecipientAddress,
-            takerOrder.relayerAddress,
             takerOrder.sellAmount,
             takerOrder.buyAmount,
-            takerOrder.makerVolumeFee,
-            takerOrder.takerVolumeFee,
-            takerOrder.gasFee,
             takerOrder.expirationTimeSeconds,
             takerOrder.salt,
           ],
-          makerSignatureModified,
-          takerSignatureModified
+          makerOrder.signature,
+          takerOrder.signature
         )
       } catch (e: any) {
         console.error(`Failed EVM transaction: ${e.message}`)
@@ -1074,7 +1056,7 @@ async function sendMatchedOrders() {
         [
           txStatus === 's' ? 'f' : 'r', // filled only has f or r
           transaction.hash,
-          transaction.hash ? feeAmount : 0,
+          0, // temp 0, use events later
           transaction.hash ? feeToken : null,
           match.fillId,
         ]
@@ -1143,7 +1125,7 @@ async function sendMatchedOrders() {
           row.fill_status,
           row.txhash,
           0, // remaing for fills is always 0
-          feeAmount,
+          0, // temp 0, use events later
           feeToken,
           new Date().toISOString(), // timestamp
         ]
@@ -1208,10 +1190,6 @@ async function updateEVMMarketInfo() {
         const marketInfo = JSON.parse(testPairString)
         if (
           marketInfo.exchangeAddress !== evmConfig.exchangeAddress ||
-          marketInfo.feeAddress !== evmConfig.feeAddress ||
-          marketInfo.relayerAddress !== evmConfig.relayerAddress ||
-          marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
-          marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
           Number(marketInfo.contractVersion) !==
             Number(evmConfig.domain.version)
         )
@@ -1227,10 +1205,6 @@ async function updateEVMMarketInfo() {
 
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.exchangeAddress = evmConfig.exchangeAddress
-        marketInfo.feeAddress = evmConfig.feeAddress
-        marketInfo.relayerAddress = evmConfig.relayerAddress
-        marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
-        marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
         marketInfo.contractVersion = Number(evmConfig.domain.version)
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
@@ -1519,15 +1493,11 @@ async function start() {
   // fetch abi's
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
-  // temp override as artifacts is WIP for V6
-  // const EVMContractABI = JSON.parse(
-  //   fs.readFileSync(
-  //     'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
-  //     'utf8'
-  //   )
-  // ).abi
   const EVMContractABI = JSON.parse(
-    fs.readFileSync('abi/temp_exchangeV5.json', 'utf8')
+    fs.readFileSync(
+      'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+      'utf8'
+    )
   ).abi
 
   // connect infura providers
