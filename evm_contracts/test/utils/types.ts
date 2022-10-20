@@ -1,14 +1,10 @@
-import { BigNumber } from "ethers";
+import { BigNumber } from 'ethers'
 
 export interface Order {
-    user: string,
-    sellToken: string,
-    buyToken: string,
-    feeRecipientAddress: string,
-    relayerAddress: string,
-    sellAmount: BigNumber,
-    buyAmount: BigNumber,
-    gasFee: BigNumber,
-    expirationTimeSeconds: BigNumber,
-    salt: BigNumber
+  user: string
+  sellToken: string
+  buyToken: string
+  sellAmount: BigNumber
+  buyAmount: BigNumber
+  expirationTimeSeconds: BigNumber
 }
