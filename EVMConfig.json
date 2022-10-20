@@ -5,7 +5,7 @@
     "minTakerVolumeFee": 0.0005,
     "domain": {
       "name": "ZigZag",
-      "version": "2.1",
+      "version": "2.0",
       "chainId": "42161"
     },
     "gasUsed" : 1500000
@@ -16,7 +16,7 @@
     "minTakerVolumeFee": 0.0005,
     "domain": {
       "name": "ZigZag",
-      "version": "2.1",
+      "version": "2.0",
       "chainId": "421613"
     },
     "gasUsed" : 1500000

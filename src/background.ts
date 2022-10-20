@@ -1041,7 +1041,8 @@ async function updateEVMMarketInfo() {
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.exchangeAddress = evmConfig.exchangeAddress
         marketInfo.contractVersion = Number(evmConfig.domain.version)
-        delete marketInfo.gasFee
+        marketInfo.baseFee = 0
+        marketInfo.quoteFee = 0
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
       await Promise.all(results1)

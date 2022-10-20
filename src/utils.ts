@@ -1,7 +1,7 @@
 import * as starknet from 'starknet'
 import { ethers } from 'ethers'
 import { randomBytes } from 'crypto'
-import type { AnyObject, ZZMarketInfo } from './types'
+import type { AnyObject, ZZMarketInfo, ZZOrder } from './types'
 
 export function formatPrice(input: any) {
   const inputNumber = Number(input)
@@ -131,99 +131,46 @@ export async function getFeeEstimationOrder(
   let buyToken: string
   let sellAmountBN: ethers.BigNumber
   let buyAmountBN: ethers.BigNumber
-  let gasFeeBN: ethers.BigNumber
   if (side === 's') {
     sellToken = marketInfo.baseAsset.address
     buyToken = marketInfo.quoteAsset.address
     sellAmountBN = baseAmountBN
     buyAmountBN = quoteAmountBN.mul(99999).div(100000)
-    gasFeeBN = ethers.utils.parseUnits('1', marketInfo.baseAsset.decimals)
   } else {
     sellToken = marketInfo.quoteAsset.address
     buyToken = marketInfo.baseAsset.address
     sellAmountBN = quoteAmountBN
     buyAmountBN = baseAmountBN.mul(99999).div(100000)
-    gasFeeBN = ethers.utils.parseUnits('1', marketInfo.quoteAsset.decimals)
   }
-
-  const makerVolumeFeeBN = sellAmountBN
-    .mul(marketInfo.makerVolumeFee * 10000)
-    .div(9999)
-  const takerVolumeFeeBN = sellAmountBN
-    .mul(marketInfo.takerVolumeFee * 10000)
-    .div(9999)
 
   const userAccount = await wallet.getAddress()
   const expirationTimeSeconds = Math.floor(Date.now() / 1000 + 5 * 2)
-  let domain: AnyObject = {}
-  let Order: AnyObject = {}
-  let types: AnyObject = {}
 
-  if (Number(marketInfo.contractVersion) === 6) {
-    Order = {
-      user: userAccount,
-      sellToken,
-      buyToken,
-      feeRecipientAddress: marketInfo.feeAddress,
-      relayerAddress: marketInfo.relayerAddress,
-      sellAmount: sellAmountBN.toString(),
-      buyAmount: buyAmountBN.toString(),
-      makerVolumeFee: makerVolumeFeeBN.toString(),
-      takerVolumeFee: takerVolumeFeeBN.toString(),
-      gasFee: gasFeeBN.toString(),
-      expirationTimeSeconds: expirationTimeSeconds.toFixed(0),
-      salt: (Math.random() * 123456789).toFixed(0),
-    }
+  const Order: ZZOrder = {
+    user: userAccount,
+    sellToken,
+    buyToken,
+    sellAmount: sellAmountBN.toString(),
+    buyAmount: buyAmountBN.toString(),
+    expirationTimeSeconds: expirationTimeSeconds.toFixed(0),
+  }
 
-    domain = {
-      name: 'ZigZag',
-      version: '6',
-      chainId,
-    }
+  const domain = {
+    name: 'ZigZag',
+    version: '2.0',
+    chainId,
+    verifyingContract: marketInfo.exchangeAddress,
+  }
 
-    types = {
-      Order: [
-        { name: 'user', type: 'address' },
-        { name: 'sellToken', type: 'address' },
-        { name: 'buyToken', type: 'address' },
-        { name: 'feeRecipientAddress', type: 'address' },
-        { name: 'relayerAddress', type: 'address' },
-        { name: 'sellAmount', type: 'uint256' },
-        { name: 'buyAmount', type: 'uint256' },
-        { name: 'makerVolumeFee', type: 'uint256' },
-        { name: 'takerVolumeFee', type: 'uint256' },
-        { name: 'gasFee', type: 'uint256' },
-        { name: 'expirationTimeSeconds', type: 'uint256' },
-        { name: 'salt', type: 'uint256' },
-      ],
-    }
-  } else if (Number(marketInfo.contractVersion) === 2.1) {
-    Order = {
-      user: userAccount,
-      sellToken,
-      buyToken,
-      sellAmount: sellAmountBN.toString(),
-      buyAmount: buyAmountBN.toString(),
-      expirationTimeSeconds: expirationTimeSeconds.toFixed(0),
-    }
-
-    domain = {
-      name: 'ZigZag',
-      version: '2.1',
-      chainId,
-      verifyingContract: marketInfo.exchangeAddress,
-    }
-
-    types = {
-      Order: [
-        { name: 'user', type: 'address' },
-        { name: 'sellToken', type: 'address' },
-        { name: 'buyToken', type: 'address' },
-        { name: 'sellAmount', type: 'uint256' },
-        { name: 'buyAmount', type: 'uint256' },
-        { name: 'expirationTimeSeconds', type: 'uint256' },
-      ],
-    }
+  const types = {
+    Order: [
+      { name: 'user', type: 'address' },
+      { name: 'sellToken', type: 'address' },
+      { name: 'buyToken', type: 'address' },
+      { name: 'sellAmount', type: 'uint256' },
+      { name: 'buyAmount', type: 'uint256' },
+      { name: 'expirationTimeSeconds', type: 'uint256' },
+    ],
   }
 
   // eslint-disable-next-line no-underscore-dangle
