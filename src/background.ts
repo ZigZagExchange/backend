@@ -1500,13 +1500,10 @@ async function checkEVMChainAllowance() {
   await Promise.all(results0)
 }
 
-async function deleteOldOrders() {
-  console.time('delete old orders')
-  const query = {
-    text: "DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm')",
-  }
-  await db.query(query)
-  console.timeEnd('delete old orders')
+async function deleteOldOrders () {
+  console.time('deleteOldOrders')
+  await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '1 HOUR')")
+  console.timeEnd('deleteOldOrders')
 }
 
 async function start() {
@@ -1541,19 +1538,19 @@ async function start() {
   const results: Promise<any>[] = VALID_CHAINS.map(async (chainId: number) => {
     if (ETHERS_PROVIDERS[chainId]) return
     try {
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+        getRPCURL(chainId)
+      )
+      console.log(`Connected JsonRpcProvider for ${chainId}`)
+    } catch (e: any) {
+      console.warn(
+        `Could not connect JsonRpcProvider for ${chainId}, trying Infura...`
+      )
       ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
         getNetwork(chainId),
         process.env.INFURA_PROJECT_ID
       )
       console.log(`Connected InfuraProvider for ${chainId}`)
-    } catch (e: any) {
-      console.warn(
-        `Could not connect InfuraProvider for ${chainId}, trying RPC...`
-      )
-      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
-        getRPCURL(chainId)
-      )
-      console.log(`Connected JsonRpcProvider for ${chainId}`)
     }
 
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
