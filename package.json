@@ -53,7 +53,7 @@
     "utf-8-validate": "^5.0.5"
   },
   "engines": {
-    "node": ">=16"
+    "node": "18.11.0"
   },
   "imports": {
     "src/*": "./src/*"
