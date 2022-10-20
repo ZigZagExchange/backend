@@ -11,6 +11,7 @@ import {
   getNetwork,
   getRPCURL,
   getFeeEstimationMarket,
+  getReadableTxError,
 } from './utils'
 import type {
   ZZMarketInfo,
@@ -912,6 +913,7 @@ async function sendMatchedOrders() {
       }
 
       let orderUpdateBroadcastMinted: AnyObject
+      let readableTxError: string
       if (txStatus === 's') {
         orderUpdateBroadcastMinted = await db.query(
           "UPDATE offers SET order_status = (CASE WHEN unfilled <= $1 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($2, $3) RETURNING id, order_status, unfilled",
@@ -925,6 +927,7 @@ async function sendMatchedOrders() {
         const startIndex = transaction.reason.indexOf('execution reverted')
         const endIndex = transaction.reason.indexOf('code')
         const reason = transaction.reason.slice(startIndex, endIndex)
+        readableTxError = getReadableTxError(reason)
         console.log(reason)
         const rejectedOrderIds = []
         if (reason.includes('right')) {
@@ -949,7 +952,7 @@ async function sendMatchedOrders() {
           row.id,
           row.order_status,
           null, // tx hash
-          transaction.reason ? transaction.reason : row.unfilled,
+          readableTxError || row.unfilled,
         ]
       )
       const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
@@ -1308,12 +1311,9 @@ async function checkEVMChainAllowance() {
 }
 
 async function deleteOldOrders () {
-  console.time('delete old orders')
-  const query = {
-    text: "DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm')",
-  }
-  await db.query(query)
-  console.timeEnd('delete old orders')
+  console.time('deleteOldOrders')
+  await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '1 HOUR')")
+  console.timeEnd('deleteOldOrders')
 }
 
 async function start() {
@@ -1344,19 +1344,19 @@ async function start() {
   const results: Promise<any>[] = VALID_CHAINS.map(async (chainId: number) => {
     if (ETHERS_PROVIDERS[chainId]) return
     try {
+      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
+        getRPCURL(chainId)
+      )
+      console.log(`Connected JsonRpcProvider for ${chainId}`)
+    } catch (e: any) {
+      console.warn(
+        `Could not connect JsonRpcProvider for ${chainId}, trying Infura...`
+      )
       ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
         getNetwork(chainId),
         process.env.INFURA_PROJECT_ID
       )
       console.log(`Connected InfuraProvider for ${chainId}`)
-    } catch (e: any) {
-      console.warn(
-        `Could not connect InfuraProvider for ${chainId}, trying RPC...`
-      )
-      ETHERS_PROVIDERS[chainId] = new ethers.providers.JsonRpcProvider(
-        getRPCURL(chainId)
-      )
-      console.log(`Connected JsonRpcProvider for ${chainId}`)
     }
 
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
