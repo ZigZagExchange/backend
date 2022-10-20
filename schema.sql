@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS fills_fill_status ON fills(fill_status);
 CREATE INDEX IF NOT EXISTS fills_maker_user_id ON fills(chainid, maker_user_id);
 CREATE INDEX IF NOT EXISTS fills_taker_user_id ON fills(chainid, taker_user_id);
 CREATE INDEX IF NOT EXISTS fills_taker_offer_id ON fills(chainid, taker_offer_id);
-
+CREATE INDEX IF NOT EXISTS fills_chainid_fill_status_market ON fills(chainid, fill_status, market);
 
 CREATE TABLE IF NOT EXISTS marketids (
   marketalias        TEXT            PRIMARY KEY,
