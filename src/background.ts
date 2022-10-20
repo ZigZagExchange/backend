@@ -10,7 +10,6 @@ import {
   formatPrice,
   getNetwork,
   getRPCURL,
-  getFeeEstimationOrder,
   getFeeEstimationMarket,
 } from './utils'
 import type {
