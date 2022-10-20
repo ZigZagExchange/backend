@@ -118,7 +118,7 @@ export async function getFeeEstimationOrder(
 ) {
   const baseAmount = 5
   const quoteAmount = 5
-  
+
   const baseAmountBN = ethers.utils.parseUnits(
     Number(baseAmount).toFixed(marketInfo.baseAsset.decimals),
     marketInfo.baseAsset.decimals
@@ -138,19 +138,13 @@ export async function getFeeEstimationOrder(
     buyToken = marketInfo.quoteAsset.address
     sellAmountBN = baseAmountBN
     buyAmountBN = quoteAmountBN.mul(99999).div(100000)
-    gasFeeBN = ethers.utils.parseUnits(
-      '1',
-      marketInfo.baseAsset.decimals
-    )
+    gasFeeBN = ethers.utils.parseUnits('1', marketInfo.baseAsset.decimals)
   } else {
     sellToken = marketInfo.quoteAsset.address
     buyToken = marketInfo.baseAsset.address
     sellAmountBN = quoteAmountBN
     buyAmountBN = baseAmountBN.mul(99999).div(100000)
-    gasFeeBN = ethers.utils.parseUnits(
-      '1',
-      marketInfo.quoteAsset.decimals
-    )
+    gasFeeBN = ethers.utils.parseUnits('1', marketInfo.quoteAsset.decimals)
   }
 
   const makerVolumeFeeBN = sellAmountBN
@@ -165,7 +159,7 @@ export async function getFeeEstimationOrder(
   let domain: AnyObject = {}
   let Order: AnyObject = {}
   let types: AnyObject = {}
-  
+
   if (Number(marketInfo.contractVersion) === 5) {
     Order = {
       user: userAccount,
@@ -243,9 +237,53 @@ export async function getFeeEstimationOrder(
       ],
     }
   }
-  
+
   // eslint-disable-next-line no-underscore-dangle
   const signature = await wallet._signTypedData(domain, types, Order)
   Order.signature = signature
   return Order
+}
+
+export function getReadableTxError(errorMsg: string): string {
+  if (errorMsg.includes('not profitable spread')) return 'Internal error: ps'
+
+  if (errorMsg.includes('taker order not enough balance'))
+    return 'taker order not enough balance'
+
+  if (errorMsg.includes('maker order not enough balance'))
+    return 'maker order not enough balance'
+
+  if (errorMsg.includes('invalid taker signature'))
+    return 'invalid taker signature'
+
+  if (errorMsg.includes('invalid maker signature'))
+    return 'invalid maker signature'
+
+  if (errorMsg.includes('mismatched tokens')) return 'mismatched tokens'
+
+  if (errorMsg.includes('taker order status not Fillable'))
+    return 'taker order status not Fillable'
+
+  if (errorMsg.includes('maker order status not Fillable'))
+    return 'maker order status not Fillable'
+
+  if (errorMsg.includes('taker order not enough balance for fee'))
+    return 'taker order not enough balance for fee'
+
+  if (errorMsg.includes('maker order not enough balance for fee'))
+    return 'maker order not enough balance for fee'
+
+  if (errorMsg.includes('invalid maker asset amount'))
+    return 'invalid maker asset amount'
+
+  if (errorMsg.includes('invalid taker asset amount'))
+    return 'invalid taker asset amount'
+
+  if (errorMsg.includes('order is filled')) return 'order is filled'
+
+  if (errorMsg.includes('order expired')) return 'order expired'
+
+  if (errorMsg.includes('order canceled')) return 'order canceled'
+
+  return 'Internal error: A'
 }
