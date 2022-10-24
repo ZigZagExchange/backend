@@ -1635,7 +1635,7 @@ async function start() {
   setInterval(updateFeesZkSync, 25000)
   setInterval(updatePriceHighLow, 600000)
   setInterval(updateVolumes, 900000)
-  setInterval(deleteOldOrders, 900000)
+  setInterval(deleteOldOrders, 90000)
 
   setTimeout(sendMatchedOrders, 5000)
 }
