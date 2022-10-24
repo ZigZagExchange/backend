@@ -387,7 +387,7 @@ export default class API extends EventEmitter {
     // set tradingViewChart, use binance as fallback
     marketInfo.tradingViewChart = marketInfoDefaults?.tradingViewChart
       ? marketInfoDefaults.tradingViewChart
-      : `BINANCE:${baseAsset.symbol}${quoteAsset.symbol}`
+      : `${baseAsset.symbol}${quoteAsset.symbol}`
     // set pricePrecisionDecimal, use min decimals as fallback
     marketInfo.pricePrecisionDecimal = marketInfoDefaults?.pricePrecisionDecimal
       ? marketInfoDefaults.pricePrecisionDecimal
