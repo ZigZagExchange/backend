@@ -1440,7 +1440,7 @@ async function cacheRecentTrades() {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
       const text =
-        "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 30"
+        "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 5"
       const query = {
         text,
         values: [chainId, marketId],
