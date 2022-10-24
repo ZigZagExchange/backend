@@ -961,7 +961,7 @@ async function sendMatchedOrders() {
           row.id,
           row.fill_status,
           row.txhash,
-          0, // remaing for fills is always 0
+          readableTxError || 0, // remaing for fills is always 0; but current msg format sends error reson if it failed here
           0, // temp 0, use events later
           feeToken,
           new Date().toISOString(), // timestamp
