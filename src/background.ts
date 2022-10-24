@@ -1626,7 +1626,7 @@ async function start() {
   console.log('background.ts: Starting Update Functions')
   setInterval(updateBestAskBidEVM, 5000)
   setInterval(updatePendingOrders, updatePendingOrdersDelay * 1000)
-  setInterval(cacheRecentTrades, 5500)
+  setInterval(cacheRecentTrades, 30000)
   setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
   setInterval(updateFeesEVM, 20000)
