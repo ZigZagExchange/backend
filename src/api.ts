@@ -676,7 +676,7 @@ export default class API extends EventEmitter {
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
     if (!this.VALID_CHAINS_ZKSYNC.includes(chainId))
-      throw new Error('Only for zkSync')
+      throw new Error(`'${chainId}' is an invalid chainId, Only for zkSync`)
     if (zktx.validUntil * 1000 < Date.now())
       throw new Error(
         'Wrong expiry: sync your PC clock to the correct time to fix this error'

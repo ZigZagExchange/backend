@@ -7,24 +7,16 @@ export const submitorder2: ZZServiceHandler = async (
 ) => {
   let msg: WSMessage
   try {
-    switch (chainId) {
-      case 1:
-      case 1002:
-        msg = await api.processorderzksync(chainId, market, zktx)
-        break
-      // case 1001:
-      //   msg = await api.processorderstarknet(chainId, market, zktx)
-      //   break
-      case 42161:
-      case 421613:
-        msg = await api.processOrderEVM(chainId, market, zktx)
-        break
-      default:
-        msg = { op: 'error', args: ['submitorder3', 'Invalid chainId'] }
+    if (api.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      msg = await api.processorderzksync(chainId, market, zktx)
+    } else if (api.VALID_EVM_CHAINS.includes(chainId)) {
+      msg = await api.processOrderEVM(chainId, market, zktx)
+    } else {
+      msg = { op: 'error', args: ['submitorder2', `'${chainId}' is an invalid chainId`] }
     }
   } catch (err: any) {
     console.error(err)
-    msg = { op: 'error', args: ['submitorder3', err.message] }
+    msg = { op: 'error', args: ['submitorder2', err.message] }
   }
 
   if (ws) ws.send(JSON.stringify(msg))
