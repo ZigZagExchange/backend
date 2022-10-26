@@ -28,6 +28,7 @@ export const subscribemarket: ZZServiceHandler = async (
   const redis_key_rate_limit = `subscribe_rate_limit:${ws.uuid}:${chainId}:${market}`;
   const rate_limited = await api.redis.get(redis_key_rate_limit);
   if (rate_limited) {
+    console.log('Rate limited: subscribemarket', chainId, market);
     const errorMsg: WSMessage = {
       op: 'error',
       args: ['subscribemarket', `Rate limited. Can only subscribe once per second.`],
