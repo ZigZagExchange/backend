@@ -1,22 +1,26 @@
 {
   "42161": {
     "exchangeAddress": "0x3D8971B77546ceBCD9b7eA2B22d27483283c9A2F",
+    "feeAddress": "0xF4BBA1e2a5024a2754225b981e9A0DB7d2c33EE9",
+    "relayerAddress": "0x1375fa71dfd8e2bed4bf6072a4a550618ceff91c",
     "minMakerVolumeFee": 0.00,
     "minTakerVolumeFee": 0.0005,
     "domain": {
       "name": "ZigZag",
-      "version": "2.0",
+      "version": "6",
       "chainId": "42161"
     },
     "gasUsed" : 1500000
   },
   "421613": {
     "exchangeAddress": "0xf3a79aeE1e473453D4F6C6A3e3d412e06eb56038",
+    "feeAddress": "0xeB65157C2A5306754c9616e45Bed37fC4049FC04",
+    "relayerAddress": "0xe95984704D83D36C53021C5dbc90B5C6938BBEA2",
     "minMakerVolumeFee": 0.00,
     "minTakerVolumeFee": 0.0005,
     "domain": {
       "name": "ZigZag",
-      "version": "2.0",
+      "version": "5",
       "chainId": "421613"
     },
     "gasUsed" : 1500000

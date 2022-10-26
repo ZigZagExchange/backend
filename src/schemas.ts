@@ -60,6 +60,16 @@ export const EVMOrderSchema = Joi.object({
     'string.hex': `"buyToken" should be a hex string`,
     'any.required': `"buyToken" is a required field`,
   }),
+  feeRecipientAddress: Joi.string().required().messages({
+    'string.base': `"feeRecipientAddress" should be a type of 'string'`,
+    'string.hex': `"feeRecipientAddress" should be a hex string`,
+    'any.required': `"feeRecipientAddress" is a required field`,
+  }),
+  relayerAddress: Joi.string().required().messages({
+    'string.base': `"relayerAddress" should be a type of 'string'`,
+    'string.hex': `"relayerAddress" should be a hex string`,
+    'any.required': `"relayerAddress" is a required field`,
+  }),
   sellAmount: Joi.string().required().messages({
     'string.base': `"sellAmount" should be a type of 'string'`,
     'any.required': `"sellAmount" is a required field`,
@@ -68,9 +78,25 @@ export const EVMOrderSchema = Joi.object({
     'string.base': `"buyAmount" should be a type of 'string'`,
     'any.required': `"buyAmount" is a required field`,
   }),
+  makerVolumeFee: Joi.string().required().messages({
+    'string.base': `"makerVolumeFee" should be a type of 'string'`,
+    'any.required': `"makerVolumeFee" is a required field`,
+  }),
+  takerVolumeFee: Joi.string().required().messages({
+    'string.base': `"takerVolumeFee" should be a type of 'string'`,
+    'any.required': `"takerVolumeFee" is a required field`,
+  }),
+  gasFee: Joi.string().required().messages({
+    'string.base': `"gasFee" should be a type of 'string'`,
+    'any.required': `"gasFee" is a required field`,
+  }),
   expirationTimeSeconds: Joi.string().required().messages({
     'string.base': `"expirationTimeSeconds" should be a type of 'string'`,
     'any.required': `"expirationTimeSeconds" is a required field`,
+  }),
+  salt: Joi.string().required().messages({
+    'string.base': `"salt" should be a type of 'string'`,
+    'any.required': `"salt" is a required field`,
   }),
   signature: Joi.string().required().messages({
     'string.base': `"signature" should be a type of 'string'`,

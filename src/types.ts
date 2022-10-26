@@ -66,8 +66,14 @@ export type ZZOrder = {
   user: string
   sellToken: string
   buyToken: string
+  feeRecipientAddress: string
+  relayerAddress: string
   sellAmount: string
   buyAmount: string
+  makerVolumeFee: string
+  takerVolumeFee: string
+  gasFee: string
   expirationTimeSeconds: string
+  salt: string
   signature?: string
 }
