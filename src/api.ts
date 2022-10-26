@@ -582,23 +582,41 @@ export default class API extends EventEmitter {
           chainId,
         ]
         update2 = await this.db.query(
-          "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3,price=$4 WHERE taker_offer_id=$5 AND chainid=$6 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
+          "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3,price=$4 WHERE taker_offer_id=$5 AND chainid=$6 AND fill_status IN ('b', 'm') RETURNING id, price, taker_user_id, maker_user_id, insert_timestamp",
           valuesFills
         )
+
+        if (update2.rows.length > 0) {
+          fillId = update2.rows[0].id
+          fillPrice = update2.rows[0].price
+          makerUserId = update2.rows[0].maker_user_id
+          timestamp = update2.rows[0].insert_timestamp
+
+          const redisValues = [
+            chainId,
+            fillId,
+            market,
+            side,
+            fillPrice,
+            baseAmount,
+            'f',
+            txhash,
+            update2.rows[0].taker_user_id,
+            makerUserId,
+            feeAmount,
+            feeToken,
+            timestamp
+          ]
+          await this.redis.LPUSH(`recenttrades:${chainId}:${market}`, JSON.stringify(redisValues))
+          await this.redis.LTRIM(`recenttrades:${chainId}:${market}`, 0, 24)
+        }
       } else {
         const valuesFills = [newstatus, feeAmount, feeToken, orderid, chainId]
         update2 = await this.db.query(
-          "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, market, price, amount, maker_user_id, insert_timestamp",
+          "UPDATE fills SET fill_status=$1,feeamount=$2,feetoken=$3 WHERE taker_offer_id=$4 AND chainid=$5 AND fill_status IN ('b', 'm') RETURNING id, price, maker_user_id, insert_timestamp",
           valuesFills
         )
-      }
-
-      if (update2.rows.length > 0) {
-        fillId = update2.rows[0].id
-        fillPrice = update2.rows[0].price
-        makerUserId = update2.rows[0].maker_user_id
-        timestamp = update2.rows[0].insert_timestamp
-      }
+      }      
     } catch (e) {
       console.error('Error while updateOrderFillStatus fills.')
       console.error(e)

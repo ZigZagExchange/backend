@@ -81,13 +81,13 @@ export const subscribemarket: ZZServiceHandler = async (
     ws.send(JSON.stringify({ op: 'orders', args: [openorders] }))
 
     try {
-      const fillsString = await api.redis.GET(
-        `recenttrades:${chainId}:${market}`
+      const fillsString = await api.redis.LRANGE(
+        `recenttrades:${chainId}:${market}`,
+        0,
+        24
       )
       if (fillsString)
-        ws.send(
-          JSON.stringify({ op: 'fills', args: [JSON.parse(fillsString)] })
-        )
+        ws.send(JSON.stringify({ op: 'fills', args: fillsString }))
     } catch (e: any) {
       const errorMsg: WSMessage = {
         op: 'error',

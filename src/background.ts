@@ -1071,7 +1071,7 @@ async function sendMatchedOrders() {
       }
 
       const fillupdateBroadcastMinted = await db.query(
-        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4 WHERE id=$5 RETURNING id, fill_status, txhash, price',
+        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4 WHERE id=$5 RETURNING id, side, amount, fill_status, txhash, price',
         [
           txStatus === 's' ? 'f' : 'r', // filled only has f or r
           transaction.hash,
@@ -1094,6 +1094,24 @@ async function sendMatchedOrders() {
           match.market,
           fillupdateBroadcastMinted.rows[0].price
         )
+
+        const redisValues = [
+          chainId,
+          fillupdateBroadcastMinted.rows[0].id,
+          match.market,
+          fillupdateBroadcastMinted.rows[0].side,
+          fillupdateBroadcastMinted.rows[0].price,
+          fillupdateBroadcastMinted.rows[0].amount,
+          fillupdateBroadcastMinted.rows[0].fill_status,
+          transaction.hash,
+          match.takerId,
+          match.makerId,
+          feeAmount,
+          feeToken,
+          new Date().toISOString(), // timestamp
+        ]
+        await redis.LPUSH(`recenttrades:${chainId}:${match.market}`, JSON.stringify(redisValues))
+        await redis.LTRIM(`recenttrades:${chainId}:${match.market}`, 0, 24)
       }
 
       let orderUpdateBroadcastMinted: AnyObject
@@ -1434,31 +1452,6 @@ async function seedArbitrumMarkets() {
   console.timeEnd('seeding arbitrum markets')
 }
 
-async function cacheRecentTrades() {
-  console.time('cacheRecentTrades')
-  const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
-    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const text =
-        "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 20"
-      const query = {
-        text,
-        values: [chainId, marketId],
-        rowMode: 'array',
-      }
-      const select = await db.query(query)
-      redis.SET(
-        `recenttrades:${chainId}:${marketId}`,
-        JSON.stringify(select.rows)
-      )
-    })
-    await Promise.all(results1)
-  })
-  await Promise.all(results0)
-
-  console.timeEnd('cacheRecentTrades')
-}
-
 async function updateBestAskBidEVM() {
   console.time('updateBestAskBidEVM')
   const query = {
@@ -1626,7 +1619,6 @@ async function start() {
   console.log('background.ts: Starting Update Functions')
   setInterval(updateBestAskBidEVM, 5000)
   setInterval(updatePendingOrders, updatePendingOrdersDelay * 1000)
-  setInterval(cacheRecentTrades, 60000)
   setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
   setInterval(updateFeesEVM, 20000)
