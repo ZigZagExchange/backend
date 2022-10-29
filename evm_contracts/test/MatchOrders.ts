@@ -681,4 +681,33 @@ describe("Order Matching", function () {
         expect(balance2).to.equal(ethers.utils.parseEther("1"))
         expect(balance3).to.equal(ethers.utils.parseEther("1000"))
     });
+
+    it("should disallow self swap", async function () {
+        // tokenA = ETH
+        // tokenB = USDC
+        // User 0 starts with all the ETH
+        // User 1 starts with all the USDC
+        const makerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
+            sellAmount: ethers.utils.parseEther("2000"),
+            buyAmount: ethers.utils.parseEther("2"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const takerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("1"),
+            buyAmount: ethers.utils.parseEther("500"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('self swap not allowed');
+    });
 });

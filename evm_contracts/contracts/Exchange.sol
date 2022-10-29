@@ -64,6 +64,9 @@ contract Exchange is EIP712 {
     require(takerOrder.sellToken == makerOrder.buyToken, 'mismatched tokens');
     require(takerOrder.buyToken == makerOrder.sellToken, 'mismatched tokens');
 
+    // no self-swap
+    require(takerOrder.user != makerOrder.user, 'self swap not allowed');
+
     LibOrder.OrderInfo memory makerOrderInfo = getOrderInfo(makerOrder);
     LibOrder.OrderInfo memory takerOrderInfo = getOrderInfo(takerOrder);
 
