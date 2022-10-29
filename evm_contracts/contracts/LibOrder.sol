@@ -32,8 +32,8 @@ library LibOrder {
   }
 
   // https://eips.ethereum.org/EIPS/eip-712#definition-of-hashstruct
-  function getOrderHash(Order memory order) internal pure returns (bytes32) {
-    bytes32 orderHash = keccak256(
+  function getOrderHash(Order memory order) internal pure returns (bytes32 orderHash) {
+    orderHash = keccak256(
       abi.encode(
         _EIP712_ORDER_SCHEMA_HASH,
         order.user,
@@ -44,7 +44,5 @@ library LibOrder {
         order.expirationTimeSeconds
       )
     );
-    
-    return orderHash;
   }
 }
