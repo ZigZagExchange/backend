@@ -15,3 +15,7 @@ evm_contracts/cache
 evm_contracts/build-info
 evm_contracts/node_modules
 yarn-error.log
+
+#remix
+evm_contracts/contracts/artifacts
+evm_contracts/remix-compiler.config.js
