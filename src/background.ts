@@ -970,16 +970,16 @@ async function sendMatchedOrders() {
 
       console.timeEnd('sendMatchedOrders: post processing broadcast')
       console.time('sendMatchedOrders: post processing filled')
-      // wait for tx to be processed before sending the result
-      if (transaction.hash) {
-        try {
-          await ETHERS_PROVIDERS[chainId].waitForTransaction(transaction.hash)
-        } catch (e: any) {
-          console.error(
-            `Failed to wait for tx ${transaction.hash} because ${e.message}`
-          )
-        }
-      }
+      //// wait for tx to be processed before sending the result
+      //if (transaction.hash) {
+      //  try {
+      //    await ETHERS_PROVIDERS[chainId].waitForTransaction(transaction.hash)
+      //  } catch (e: any) {
+      //    console.error(
+      //      `Failed to wait for tx ${transaction.hash} because ${e.message}`
+      //    )
+      //  }
+      //}
 
       if (orderUpdatesBroadcastMinted.length) {
         sendUpdates(
@@ -1250,7 +1250,7 @@ async function cacheRecentTrades() {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
       const text =
-        "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 30"
+        "SELECT chainid,id,market,side,price,amount,fill_status,txhash,taker_user_id,maker_user_id,feeamount,feetoken,insert_timestamp FROM fills WHERE chainid=$1 AND fill_status='f' AND market=$2 ORDER BY id DESC LIMIT 20"
       const query = {
         text,
         values: [chainId, marketId],
@@ -1312,7 +1312,7 @@ async function checkEVMChainAllowance() {
 
 async function deleteOldOrders () {
   console.time('deleteOldOrders')
-  await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '1 HOUR')")
+  await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '10 MINUTES')")
   console.timeEnd('deleteOldOrders')
 }
 
@@ -1331,7 +1331,7 @@ async function start() {
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
   const EVMContractABI = JSON.parse(
     fs.readFileSync(
-      'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+      'abi/EVM_Exchange.json',
       'utf8'
     )
   ).abi
@@ -1432,7 +1432,7 @@ async function start() {
   console.log('background.ts: Starting Update Functions')
   setInterval(updateBestAskBidEVM, 5000)
   setInterval(updatePendingOrders, updatePendingOrdersDelay * 1000)
-  setInterval(cacheRecentTrades, 5500)
+  setInterval(cacheRecentTrades, 60000)
   setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
   setInterval(updateMarketSummarys, 20000)
@@ -1440,7 +1440,7 @@ async function start() {
   setInterval(updateFeesZkSync, 25000)
   setInterval(updatePriceHighLow, 600000)
   setInterval(updateVolumes, 900000)
-  setInterval(deleteOldOrders, 900000)
+  setInterval(deleteOldOrders, 90000)
 
   setTimeout(sendMatchedOrders, 5000)
 }
