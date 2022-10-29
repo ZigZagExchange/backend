@@ -130,8 +130,6 @@ contract Exchange is EIP712 {
     );
 
     _settleMatchedOrders(makerOrder, takerOrder, matchedFillResults);
-
-    return matchedFillResults;
   }
 
   function _settleMatchedOrders(
@@ -229,7 +227,6 @@ contract Exchange is EIP712 {
     require(!cancelled[orderInfo.orderHash], 'order canceled');
 
     orderInfo.orderStatus = LibOrder.OrderStatus.FILLABLE;
-    return orderInfo;
   }
 
   function _getOrderHashAndFilledAmount(LibOrder.Order memory order)
@@ -239,7 +236,6 @@ contract Exchange is EIP712 {
   {
     orderHash = order.getOrderHash();
     orderBuyFilledAmount = filled[orderHash];
-    return (orderHash, orderBuyFilledAmount);
   }
 
   function isValidSignature(LibOrder.Order memory order, bytes memory signature)
@@ -253,13 +249,13 @@ contract Exchange is EIP712 {
   }
 
   function _isValidSignatureHash(
-    address a,
+    address user,
     bytes32 orderHash,
     bytes memory signature
   ) private view returns (bool) {
     bytes32 digest = _hashTypedDataV4(orderHash);
 
-    return SignatureChecker.isValidSignatureNow(a, digest, signature);
+    return SignatureChecker.isValidSignatureNow(user, digest, signature);
   }
 
   function setFees(
