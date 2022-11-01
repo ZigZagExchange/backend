@@ -7,18 +7,16 @@
       "name": "ZigZag",
       "version": "2.0",
       "chainId": "42161"
-    },
-    "gasUsed" : 1500000
+    }
   },
   "421613": {
-    "exchangeAddress": "0xf3a79aeE1e473453D4F6C6A3e3d412e06eb56038",
+    "exchangeAddress": "0xcb7aa8a6deaa8bc411e3fb82fd92167f3d2dd3a7",
     "minMakerVolumeFee": 0.00,
     "minTakerVolumeFee": 0.0005,
     "domain": {
       "name": "ZigZag",
       "version": "2.0",
       "chainId": "421613"
-    },
-    "gasUsed" : 1500000
+    }
   }
 }

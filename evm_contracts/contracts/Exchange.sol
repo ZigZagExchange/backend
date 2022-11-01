@@ -31,7 +31,7 @@ contract Exchange is EIP712 {
   address FEE_ADDRESS;
   uint256 maker_fee_numerator = 0;
   uint256 maker_fee_denominator = 10000;
-  uint256 taker_fee_numerator = 0;
+  uint256 taker_fee_numerator = 5;
   uint256 taker_fee_denominator = 10000;
 
   // initialize fee address
@@ -69,15 +69,6 @@ contract Exchange is EIP712 {
 
     LibOrder.OrderInfo memory makerOrderInfo = getOrderInfo(makerOrder);
     LibOrder.OrderInfo memory takerOrderInfo = getOrderInfo(takerOrder);
-
-    require(
-      takerOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE,
-      'taker order status not Fillable'
-    );
-    require(
-      makerOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE,
-      'maker order status not Fillable'
-    );
 
     //validate signature
     require(
