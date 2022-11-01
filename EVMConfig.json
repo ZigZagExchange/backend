@@ -6,7 +6,8 @@
     "domain": {
       "name": "ZigZag",
       "version": "2.0",
-      "chainId": "42161"
+      "chainId": "42161",
+      "verifyingContract": "0x3D8971B77546ceBCD9b7eA2B22d27483283c9A2F"
     }
   },
   "421613": {
@@ -16,7 +17,8 @@
     "domain": {
       "name": "ZigZag",
       "version": "2.0",
-      "chainId": "421613"
+      "chainId": "421613",
+      "verifyingContract": "0xcb7aa8a6deaa8bc411e3fb82fd92167f3d2dd3a7"
     }
   }
 }
