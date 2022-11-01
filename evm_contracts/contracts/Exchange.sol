@@ -70,15 +70,6 @@ contract Exchange is EIP712 {
     LibOrder.OrderInfo memory makerOrderInfo = getOrderInfo(makerOrder);
     LibOrder.OrderInfo memory takerOrderInfo = getOrderInfo(takerOrder);
 
-    require(
-      takerOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE,
-      'taker order status not Fillable'
-    );
-    require(
-      makerOrderInfo.orderStatus == LibOrder.OrderStatus.FILLABLE,
-      'maker order status not Fillable'
-    );
-
     //validate signature
     require(
       _isValidSignatureHash(
