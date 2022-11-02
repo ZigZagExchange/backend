@@ -818,7 +818,6 @@ async function sendMatchedOrders() {
             makerOrder.sellAmount,
             makerOrder.buyAmount,
             makerOrder.expirationTimeSeconds,
-            makerOrder.salt,
           ],
           [
             takerOrder.user,
@@ -827,7 +826,6 @@ async function sendMatchedOrders() {
             takerOrder.sellAmount,
             takerOrder.buyAmount,
             takerOrder.expirationTimeSeconds,
-            takerOrder.salt,
           ],
           makerOrder.signature,
           takerOrder.signature

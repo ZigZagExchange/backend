@@ -15,7 +15,7 @@ describe("Signature Validation", function () {
         this.timeout(30000) 
 
         const Exchange = await ethers.getContractFactory("Exchange");
-        exchangeContract = await Exchange.deploy("ZigZag", "6", ethers.constants.AddressZero);
+        exchangeContract = await Exchange.deploy("ZigZag", "2.0", ethers.constants.AddressZero);
 
         wallet = new ethers.Wallet(TESTRPC_PRIVATE_KEYS_STRINGS[0], ethers.getDefaultProvider())
 
