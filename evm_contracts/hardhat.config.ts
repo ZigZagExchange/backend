@@ -1,6 +1,7 @@
 import { task } from "hardhat/config";
 import "@nomiclabs/hardhat-waffle";
 import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-etherscan";
 
 task("accounts", "Prints the list of accounts", async (args, hre) => {
   const accounts = await hre.ethers.getSigners();
@@ -20,6 +21,11 @@ export default {
       runs: 1000,
     },
   },
+  etherscan: {
+    apiKey: {
+      arbitrumOne: ""
+    }
+  },
   networks: {
       arbitrum: {
         url: "https://arb1.arbitrum.io/rpc",
@@ -29,5 +35,5 @@ export default {
         url: "https://goerli-rollup.arbitrum.io/rpc",
         accounts: []
       }
-  }
+  },
 }
