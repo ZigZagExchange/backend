@@ -20,4 +20,5 @@ jobs:
         with:
           node-version: '16.17.1'
           cache: 'yarn'
-      - run: yarn run testContract
+      - run: cd evm_contracts && yarn install
+      - run: cd evm_contracts && yarn run test
