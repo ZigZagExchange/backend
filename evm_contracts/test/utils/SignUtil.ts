@@ -30,7 +30,7 @@ export async function signOrder(
     primaryType: 'Order',
     domain: {
       name: 'ZigZag',
-      version: '2.0',
+      version: '2.5',
       chainId: '31337', // test hardhat default
       verifyingContract: exchangeAddress,
     },
