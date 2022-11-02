@@ -7,6 +7,9 @@
     "test": "npx hardhat compile && mocha -r ts-node/register test/*.ts",
     "compile": "npx hardhat compile"
   },
+  "engines": {
+    "node": "16.17.1"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
