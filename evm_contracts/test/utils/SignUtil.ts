@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-extraneous-dependencies
 import { ethers } from 'ethers'
 import { Order } from './types'
 
