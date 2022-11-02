@@ -1323,9 +1323,15 @@ export default class API extends EventEmitter {
     }
 
     /* validateSignature */
-    const { signature } = zktx
+    let { signature } = zktx
     if (!signature) throw new Error('Missing order signature')
     delete zktx.signature
+    if (signature.slice(-2) === '00')
+      signature = signature.slice(0, -2).concat('1B')
+
+    if (signature.slice(-2) === '01')
+      signature = signature.slice(0, -2).concat('1C')
+
     const evmEIP712Types = getEvmEIP712Types(chainId)
     if (!evmEIP712Types) {
       console.error(`Failed to get evmEIP712Types for ${chainId}`)
