@@ -248,8 +248,7 @@ contract Exchange is EIP712 {
     bytes memory signature
   ) private view returns (bool) {
     bytes32 digest = _hashTypedDataV4(orderHash);
-
-    return SignatureChecker.isValidSignatureNow(user, digest, signature);
+    return false;
   }
 
   function setFees(
