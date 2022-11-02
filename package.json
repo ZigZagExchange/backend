@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "test": "true",
+    "testContract": "cd evm_contracts && yarn install && npx hardhat compile && mocha -r ts-node/register ./test/*.ts",
     "dev": "nodemon -x ts-node -e 'ts tsx json' -r ./src/env src/",
     "build": "tsc",
     "start": "ts-node -r ./src/env src/",
