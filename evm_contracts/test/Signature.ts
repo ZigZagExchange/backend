@@ -14,7 +14,7 @@ describe('Signature Validation', () => {
   beforeEach(async function _ () {
     this.timeout(30000)
 
-    const Exchange = await ethers.getContractFactory('Exchange')
+    const Exchange = await ethers.getContractFactory('ZigZagExchange')
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.0',

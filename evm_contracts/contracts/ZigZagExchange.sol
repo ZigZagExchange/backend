@@ -9,7 +9,7 @@ import {SignatureChecker} from '@openzeppelin/contracts/utils/cryptography/Signa
 
 //import "hardhat/console.sol";
 
-contract Exchange is EIP712 {
+contract ZigZagExchange is EIP712 {
   event Swap(
     address maker,
     address taker,

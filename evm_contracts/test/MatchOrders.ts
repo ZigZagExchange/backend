@@ -15,7 +15,7 @@ describe("Order Matching", function () {
 
     beforeEach(async function () {
         this.timeout(30000) 
-        const Exchange = await ethers.getContractFactory("Exchange");
+        const Exchange = await ethers.getContractFactory("ZigZagExchange");
         const Token = await ethers.getContractFactory("Token");
         const provider = ethers.provider;
 
