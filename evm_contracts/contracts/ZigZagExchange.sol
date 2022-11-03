@@ -71,15 +71,15 @@ contract ZigZagExchange is EIP712 {
     require(_isValidSignatureHash(takerOrder.user, takerOrderInfo.orderHash, takerSignature), 'invalid taker signature');
     require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
 
-    // Make sure there is a profitable spread.
-    // There is a profitable spread iff the cost per unit bought (OrderA.SellAmount/OrderA.BuyAmount) for each order is greater
+    // Make sure both orders are crossed.
+    // The orders are crossed if the cost per unit bought (OrderA.SellAmount/OrderA.BuyAmount) for **each** order is greater
     // than the profit per unit sold of the matched order (OrderB.BuyAmount/OrderB.SellAmount).
     // This is satisfied by the equations below:
     // <makerOrder.sellAmount> / <makerOrder.buyAmount> >= <takerOrder.buyAmount> / <takerOrder.sellAmount>
     // AND
     // <takerOrder.sellAmount> / <takerOrder.buyAmount> >= <makerOrder.buyAmount> / <makerOrder.sellAmount>
     // These equations can be combined to get the following:
-    require(makerOrder.sellAmount * takerOrder.sellAmount >= makerOrder.buyAmount * takerOrder.buyAmount, 'not profitable spread');
+    require(makerOrder.sellAmount * takerOrder.sellAmount >= makerOrder.buyAmount * takerOrder.buyAmount, 'orders not crossed');
 
     matchedFillResults = LibFillResults.calculateMatchedFillResults(
       makerOrder,
