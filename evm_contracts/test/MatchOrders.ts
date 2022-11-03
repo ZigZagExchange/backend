@@ -301,19 +301,19 @@ describe('Order Matching', () => {
   })
 
   it('Should execute with spread of 0', async () => {
-    const takerOrder = {
+    const makerOrder = {
       user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: tokenB.address,
+      sellToken: tokenB.address,
+      buyToken: tokenA.address,
       sellAmount: ethers.BigNumber.from('100'),
       buyAmount: ethers.BigNumber.from('100'),
       expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
     }
 
-    const makerOrder = {
+    const takerOrder = {
       user: wallets[1].address,
-      sellToken: tokenB.address,
-      buyToken: tokenA.address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
       sellAmount: ethers.BigNumber.from('100'),
       buyAmount: ethers.BigNumber.from('100'),
       expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600)),
