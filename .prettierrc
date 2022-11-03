@@ -1,6 +1,24 @@
 {
-  "tabWidth": 2,
-  "useTabs": false,
-  "semi": false,
-  "singleQuote": true
+  "overrides": [
+    {
+      "files": "*.sol",
+      "options": {
+        "printWidth": 160,
+        "tabWidth": 2,
+        "useTabs": false,
+        "singleQuote": true,
+        "bracketSpacing": true,
+        "explicitTypes": "preserve"
+      }
+    },
+    {
+      "files": "*.ts",
+      "options": {
+        "tabWidth": 2,
+        "useTabs": false,
+        "semi": false,
+        "singleQuote": true
+      }
+    } 
+  ]
 }

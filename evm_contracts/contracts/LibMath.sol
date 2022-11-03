@@ -7,12 +7,8 @@ library LibMath {
     uint256 denominator,
     uint256 target
   ) internal pure returns (uint256 partialAmount) {
-    require(
-      !isRoundingErrorFloor(numerator, denominator, target),
-      'floor rounding error >= 0.1%'
-    );
+    require(!isRoundingErrorFloor(numerator, denominator, target), 'floor rounding error >= 0.1%');
     partialAmount = (numerator * target) / denominator;
-    return partialAmount;
   }
 
   function safeGetPartialAmountCeil(
@@ -20,17 +16,12 @@ library LibMath {
     uint256 denominator,
     uint256 target
   ) internal pure returns (uint256 partialAmount) {
-    require(
-      !isRoundingErrorCeil(numerator, denominator, target),
-      'ceil rounding error >= 0.1%'
-    );
+    require(!isRoundingErrorCeil(numerator, denominator, target), 'ceil rounding error >= 0.1%');
 
     // safeDiv computes `floor(a / b)`. We use the identity (a, b integer):
     //       ceil(a / b) = floor((a + b - 1) / b)
     // To implement `ceil(a / b)` using safeDiv.
     partialAmount = (numerator * (target + (denominator - 1))) / denominator;
-
-    return partialAmount;
   }
 
   function isRoundingErrorFloor(
@@ -43,9 +34,7 @@ library LibMath {
       return false;
     }
     uint256 remainder = mulmod(target, numerator, denominator);
-
     isError = remainder * 1000 >= numerator * target;
-    return isError;
   }
 
   function isRoundingErrorCeil(
@@ -66,6 +55,5 @@ library LibMath {
     uint256 remainder = mulmod(target, numerator, denominator);
     remainder = (denominator - remainder) % denominator;
     isError = remainder * 1000 >= numerator * target;
-    return isError;
   }
 }

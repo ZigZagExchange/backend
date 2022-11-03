@@ -44,7 +44,7 @@ describe("Order Matching", function () {
 
     });
 
-    it("Should revert with 'not profitable spread' ", async function () {
+    it("Should revert with 'orders not crossed' ", async function () {
 
 
         const makerOrder = {
@@ -69,12 +69,12 @@ describe("Order Matching", function () {
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('not profitable spread');
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('orders not crossed');
 
 
     });
 
-    it("Should revert with 'not profitable spread' ", async function () {
+    it("Should revert with 'orders not crossed' ", async function () {
 
 
         const makerOrder = {
@@ -99,7 +99,7 @@ describe("Order Matching", function () {
         const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
 
 
-        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('not profitable spread');
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('orders not crossed');
 
 
     });
