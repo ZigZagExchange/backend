@@ -80,11 +80,7 @@ export function getEvmEIP712Types(chainId: number) {
  * @param abi
  * @returns tokenInfos
  */
-export async function getERC20Info(
-  provider: any,
-  contractAddress: string,
-  abi: any
-) {
+export async function getERC20Info(provider: any, contractAddress: string, abi: any) {
   const tokenInfos: any = {}
   const contract = new ethers.Contract(contractAddress, abi, provider)
   tokenInfos.decimals = await contract.decimals()
@@ -114,17 +110,13 @@ export function getReadableTxError(errorMsg: string): string {
 
   if (errorMsg.includes('mismatched tokens')) return 'mismatched tokens'
 
-  if (errorMsg.includes('invalid taker signature'))
-    return 'invalid taker signature'
+  if (errorMsg.includes('invalid taker signature')) return 'invalid taker signature'
 
-  if (errorMsg.includes('invalid maker signature'))
-    return 'invalid maker signature'
+  if (errorMsg.includes('invalid maker signature')) return 'invalid maker signature'
 
-  if (errorMsg.includes('taker order not enough balance'))
-    return 'taker order not enough balance'
+  if (errorMsg.includes('taker order not enough balance')) return 'taker order not enough balance'
 
-  if (errorMsg.includes('maker order not enough balance'))
-    return 'maker order not enough balance'
+  if (errorMsg.includes('maker order not enough balance')) return 'maker order not enough balance'
 
   if (errorMsg.includes('taker order not enough balance for fee'))
     return 'taker order not enough balance for fee'
