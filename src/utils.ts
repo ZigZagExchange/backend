@@ -110,7 +110,7 @@ export function getFeeEstimationMarket(chainId: number) {
 }
 
 export function getReadableTxError(errorMsg: string): string {
-  if (errorMsg.includes('not profitable spread')) return 'Internal error: ps'
+  if (errorMsg.includes('orders not crossed')) return 'orders not crossed'
 
   if (errorMsg.includes('mismatched tokens')) return 'mismatched tokens'
 
