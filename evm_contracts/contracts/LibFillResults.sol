@@ -22,36 +22,17 @@ library LibFillResults {
     uint256 taker_fee_numerator,
     uint256 taker_fee_denominator
   ) internal pure returns (MatchedFillResults memory matchedFillResults) {
-    uint256 makerBuyAmountRemaining = makerOrder.buyAmount -
-      makerOrderBuyFilledAmount;
-    uint256 makerSellAmountRemaining = LibMath.safeGetPartialAmountFloor(
-      makerOrder.sellAmount,
-      makerOrder.buyAmount,
-      makerBuyAmountRemaining
-    );
+    uint256 makerBuyAmountRemaining = makerOrder.buyAmount - makerOrderBuyFilledAmount;
+    uint256 makerSellAmountRemaining = LibMath.safeGetPartialAmountFloor(makerOrder.sellAmount, makerOrder.buyAmount, makerBuyAmountRemaining);
 
-    uint256 takerBuyAmountRemaining = takerOrder.buyAmount -
-      takerOrderBuyFilledAmount;
-    uint256 takerSellAmountRemaining = LibMath.safeGetPartialAmountFloor(
-      takerOrder.sellAmount,
-      takerOrder.buyAmount,
-      takerBuyAmountRemaining
-    );
+    uint256 takerBuyAmountRemaining = takerOrder.buyAmount - takerOrderBuyFilledAmount;
+    uint256 takerSellAmountRemaining = LibMath.safeGetPartialAmountFloor(takerOrder.sellAmount, takerOrder.buyAmount, takerBuyAmountRemaining);
 
-    matchedFillResults = _calculateMatchedFillResultsWithMaximalFill(
-      makerOrder,
-      makerSellAmountRemaining,
-      makerBuyAmountRemaining,
-      takerSellAmountRemaining
-    );
+    matchedFillResults = _calculateMatchedFillResultsWithMaximalFill(makerOrder, makerSellAmountRemaining, makerBuyAmountRemaining, takerSellAmountRemaining);
 
     // Compute volume fees
-    matchedFillResults.makerFeePaid =
-      (matchedFillResults.makerSellFilledAmount * maker_fee_numerator) /
-      maker_fee_denominator;
-    matchedFillResults.takerFeePaid =
-      (matchedFillResults.takerSellFilledAmount * taker_fee_numerator) /
-      taker_fee_denominator;
+    matchedFillResults.makerFeePaid = (matchedFillResults.makerSellFilledAmount * maker_fee_numerator) / maker_fee_denominator;
+    matchedFillResults.takerFeePaid = (matchedFillResults.takerSellFilledAmount * taker_fee_numerator) / taker_fee_denominator;
   }
 
   function _calculateMatchedFillResultsWithMaximalFill(
@@ -77,12 +58,7 @@ library LibFillResults {
     //   Both orders can be filled fully so we can default to case 2
 
     if (makerBuyAmountRemaining >= takerSellAmountRemaining) {
-      matchedFillResults.makerSellFilledAmount = LibMath
-        .safeGetPartialAmountFloor(
-          makerOrder.sellAmount,
-          makerOrder.buyAmount,
-          takerSellAmountRemaining
-        );
+      matchedFillResults.makerSellFilledAmount = LibMath.safeGetPartialAmountFloor(makerOrder.sellAmount, makerOrder.buyAmount, takerSellAmountRemaining);
       matchedFillResults.takerSellFilledAmount = takerSellAmountRemaining;
     } else {
       matchedFillResults.makerSellFilledAmount = makerSellAmountRemaining;
