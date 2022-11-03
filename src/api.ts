@@ -1278,12 +1278,12 @@ export default class API extends EventEmitter {
     /* validate order */
     if (!ethers.utils.isAddress(zktx.user)) throw new Error('Bad userAddress')
 
-    if (!assets.includes(zktx.sellToken))
+    if ((marketInfo.baseAsset.address !== zktx.sellToken) && (marketInfo.quoteAsset.address !== zktx.sellToken))
       throw new Error(
         `Bad sellToken, market ${assets} does not include ${zktx.sellToken}`
       )
 
-    if (!assets.includes(zktx.buyToken))
+    if ((marketInfo.baseAsset.address !== zktx.buyToken) && (marketInfo.quoteAsset.address !== zktx.buyToken))
       throw new Error(
         `Bad buyToken, market ${assets} does not include ${zktx.buyToken}`
       )
