@@ -28,7 +28,7 @@ import {
   formatPrice,
   getNetwork,
   getRPCURL,
-  getEvmEIP712Types,
+  evmEIP712Types,
   getERC20Info,
   getNewToken,
 } from 'src/utils'
@@ -379,6 +379,9 @@ export default class API extends EventEmitter {
 
     if (this.VALID_EVM_CHAINS.includes(chainId)) {
       marketInfo.exchangeAddress = this.EVMConfig[chainId].exchangeAddress
+      marketInfo.feeAddress = this.EVMConfig[chainId].feeAddress
+      marketInfo.makerVolumeFee = this.EVMConfig[chainId].minMakerVolumeFee
+      marketInfo.takerVolumeFee = this.EVMConfig[chainId].minTakerVolumeFee
     }
 
     // set tradingViewChart, use binance as fallback
@@ -673,7 +676,7 @@ export default class API extends EventEmitter {
     const inputValidation = zksyncOrderSchema.validate(zktx)
     if (inputValidation.error) throw inputValidation.error
     if (!this.VALID_CHAINS_ZKSYNC.includes(chainId))
-      throw new Error('Only for zkSync')
+      throw new Error(`'${chainId}' is an invalid chainId, Only for zkSync`)
     if (zktx.validUntil * 1000 < Date.now())
       throw new Error(
         'Wrong expiry: sync your PC clock to the correct time to fix this error'
@@ -1295,8 +1298,11 @@ export default class API extends EventEmitter {
     if (expiry < Date.now() + 10000)
       throw new Error('Expiry time too low. Use at least NOW + 10sec')
 
-    const side: ZZMarketSide =
-      marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
+    const side: ZZMarketSide = marketInfo.baseAsset.address === zktx.sellToken ? 's' : 'b'
+    const gasFee =
+      side === 's'
+        ? ethers.utils.formatUnits(zktx.gasFee, marketInfo.baseAsset.decimals)
+        : ethers.utils.formatUnits(zktx.gasFee, marketInfo.quoteAsset.decimals)
 
     let baseAmount: number
     let quoteAmount: number
@@ -1309,6 +1315,10 @@ export default class API extends EventEmitter {
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.quoteAsset.decimals)
       )
       feeToken = marketInfo.baseAsset.symbol
+      if (Number(gasFee) < marketInfo.baseFee)
+        throw new Error(
+          `Bad gasFee, minimum is ${marketInfo.baseFee}${marketInfo.baseAsset.symbol}`
+        )
     } else {
       baseAmount = Number(
         ethers.utils.formatUnits(zktx.buyAmount, marketInfo.baseAsset.decimals)
@@ -1320,7 +1330,36 @@ export default class API extends EventEmitter {
         )
       )
       feeToken = marketInfo.quoteAsset.symbol
+      if (Number(gasFee) < marketInfo.quoteFee)
+        throw new Error(
+          `Bad gasFee, minimum is ${marketInfo.quoteFee}${marketInfo.quoteAsset.symbol}`
+        )
     }
+
+    // check fees
+    if (
+      Number(zktx.makerVolumeFee) / Number(zktx.sellAmount) <
+      Number(networkProviderConfig.minMakerVolumeFee) - 0.0001
+    )
+      throw new Error(
+        `Bad makerVolumeFee, minimum is ${networkProviderConfig.minMakerVolumeFee}`
+      )
+    if (
+      Number(zktx.takerVolumeFee) / Number(zktx.sellAmount) <
+      Number(networkProviderConfig.minTakerVolumeFee) - 0.0001
+    )
+      throw new Error(
+        `Bad takerVolumeFee, minimum is ${networkProviderConfig.minTakerVolumeFee}`
+      )
+    if (zktx.feeRecipientAddress !== networkProviderConfig.feeAddress)
+      throw new Error(
+        `Bad feeRecipientAddress, use '${networkProviderConfig.feeAddress}'`
+      )
+
+    if (zktx.relayerAddress !== networkProviderConfig.relayerAddress)
+      throw new Error(
+        `Bad relayerAddress, use '${networkProviderConfig.relayerAddress}'`
+      )
 
     /* validateSignature */
     let { signature } = zktx
@@ -1409,6 +1448,7 @@ export default class API extends EventEmitter {
         row.taker_user_id,
         row.maker_user_id,
         feeToken,
+        gasFee,
       ])
 
       const matchOrderObject = {
@@ -1420,6 +1460,7 @@ export default class API extends EventEmitter {
         makerId: row.maker_offer_id,
         takerId: taker.id,
         feeToken,
+        gasFee,
       }
       this.redis.LPUSH(
         `matchedorders:${chainId}`,
@@ -1620,11 +1661,7 @@ export default class API extends EventEmitter {
     return true
   }
 
-  cancelorder3 = async (
-    chainId: number,
-    orderId: number,
-    token: string
-  ): Promise<boolean> => {
+  cancelorder3 = async (chainId: number, orderId: number, token: string): Promise<boolean> => {
     const values = [orderId, chainId]
     const select = await this.db.query(
       'SELECT userid, order_status, token FROM offers WHERE id=$1 AND chainid=$2',

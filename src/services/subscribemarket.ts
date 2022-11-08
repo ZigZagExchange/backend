@@ -24,6 +24,23 @@ export const subscribemarket: ZZServiceHandler = async (
     return
   }
 
+  // Only allow one subscribe per market per second per connection
+  const redis_key_rate_limit = `subscribe_rate_limit:${ws.uuid}:${chainId}:${market}`;
+  const rate_limited = await api.redis.get(redis_key_rate_limit);
+  if (rate_limited) {
+    console.log('Rate limited: subscribemarket', chainId, market);
+    const errorMsg: WSMessage = {
+      op: 'error',
+      args: ['subscribemarket', `Rate limited. Can only subscribe once per second.`],
+    }
+    ws.send(JSON.stringify(errorMsg))
+    return
+  }
+  else {
+    api.redis.set(redis_key_rate_limit, 1, { 'EX': 1 });    
+  }
+
+
   try {
     const marketSummary: ZZMarketSummary = (
       await api.getMarketSummarys(chainId, [market], UTCFlag)
@@ -48,6 +65,7 @@ export const subscribemarket: ZZServiceHandler = async (
         args: ['subscribemarket', `Can not find marketSummary for ${market}`],
       }
       ws.send(JSON.stringify(errorMsg))
+      return;
     }
 
     let marketInfo: ZZMarketInfo

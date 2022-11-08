@@ -10,6 +10,7 @@ import {
   formatPrice,
   getNetwork,
   getRPCURL,
+  getFeeEstimationOrder,
   getFeeEstimationMarket,
   getReadableTxError,
 } from './utils'
@@ -584,6 +585,171 @@ async function updateFeesZkSync() {
   console.timeEnd('Update fees zkSync')
 }
 
+async function updateFeesEVM() {
+  console.time('Update fees EVM')
+  try {
+    const results0: Promise<any>[] = VALID_EVM_CHAINS.map(
+      async (chainId: number) => {
+        let feeData: any = {}
+        let feeAmountWETH = 0.002 // fallback fee
+        let gasUsedEstimation: ethers.BigNumber = ethers.BigNumber.from(
+          EVMConfig[chainId].gasUsed
+        )
+        try {
+          feeData = await ETHERS_PROVIDERS[chainId].getFeeData()
+          const market = getFeeEstimationMarket(chainId)
+          const marketInfo = await redis.HGET(`marketinfo:${chainId}`, market)
+          if (!marketInfo)
+            throw new Error(`updateFeesEVM: No marketInfo for ${market}`)
+          const buyOrder = await getFeeEstimationOrder(
+            chainId,
+            JSON.parse(marketInfo) as ZZMarketInfo,
+            WALLET[chainId],
+            'b'
+          )
+          const sellOrder = await getFeeEstimationOrder(
+            chainId,
+            JSON.parse(marketInfo) as ZZMarketInfo,
+            WALLET[chainId],
+            's'
+          )
+          const makerSignatureModified =
+            buyOrder.signature.slice(0, 2) +
+            buyOrder.signature.slice(-2) +
+            buyOrder.signature.slice(2, -2)
+          const takerSignatureModified =
+            sellOrder.signature.slice(0, 2) +
+            sellOrder.signature.slice(-2) +
+            sellOrder.signature.slice(2, -2)
+
+          gasUsedEstimation = await EXCHANGE_CONTRACTS[
+            chainId
+          ].estimateGas.matchOrders(
+            [
+              buyOrder.user,
+              buyOrder.sellToken,
+              buyOrder.buyToken,
+              buyOrder.feeRecipientAddress,
+              buyOrder.relayerAddress,
+              buyOrder.sellAmount,
+              buyOrder.buyAmount,
+              buyOrder.makerVolumeFee,
+              buyOrder.takerVolumeFee,
+              buyOrder.gasFee,
+              buyOrder.expirationTimeSeconds,
+              buyOrder.salt,
+            ],
+            [
+              sellOrder.user,
+              sellOrder.sellToken,
+              sellOrder.buyToken,
+              sellOrder.feeRecipientAddress,
+              sellOrder.relayerAddress,
+              sellOrder.sellAmount,
+              sellOrder.buyAmount,
+              sellOrder.makerVolumeFee,
+              sellOrder.takerVolumeFee,
+              sellOrder.gasFee,
+              sellOrder.expirationTimeSeconds,
+              sellOrder.salt,
+            ],
+            makerSignatureModified,
+            takerSignatureModified
+          )
+        } catch (e: any) {
+          console.log(
+            `No fee data for chainId: ${chainId}, error: ${e.message}`
+          )
+        }
+
+        if (feeData.gasPrice) {
+          const feeInWei = feeData.gasPrice.mul(gasUsedEstimation)
+          feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
+        } else if (feeData.maxFeePerGas) {
+          const feeInWei = feeData.maxFeePerGas.mul(gasUsedEstimation)
+          feeAmountWETH = Number(ethers.utils.formatEther(feeInWei))
+        } else {
+          console.error(
+            `No fee data for chainId: ${chainId}, unsing default ${feeAmountWETH} WETH.`
+          )
+        }
+
+        // check if fee changed enough to trigger update
+        const oldFee = Number(await redis.HGET(`tokenfee:${chainId}`, 'WETH'))
+        const delta = Math.abs(feeAmountWETH - oldFee) / oldFee
+        if (delta < 0.05) {
+          console.log(
+            `updateFeesEVM: ${chainId}: new fee ${feeAmountWETH} close to old fee ${oldFee}`
+          )
+          return
+        }
+
+        const newFees: any = []
+        const tokenInfos = await redis.HGETALL(`tokeninfo:${chainId}`)
+        const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+        // get every token form activemarkets once
+        let tokenSymbols = markets
+          .join('-')
+          .split('-')
+          .filter((t) => t.length < 20) // filter addresses
+        tokenSymbols = tokenSymbols.filter(
+          (x, i) => i === tokenSymbols.indexOf(x)
+        )
+        const wethInfo = JSON.parse(tokenInfos.WETH)
+        const feeAmountUSD = Number(wethInfo.usdPrice) * feeAmountWETH * 1.05 // margin for fee change
+        const results1: Promise<any>[] = tokenSymbols.map(
+          async (tokenSymbol: string) => {
+            if (!tokenInfos[tokenSymbol]) return
+            const tokenInfo = JSON.parse(tokenInfos[tokenSymbol])
+            if (!tokenInfo?.usdPrice) return
+            const fee = feeAmountUSD / Number(tokenInfo.usdPrice)
+            redis.HSET(
+              `tokenfee:${chainId}`,
+              tokenInfo.address,
+              fee.toFixed(tokenInfo.decimals)
+            )
+            redis.HSET(
+              `tokenfee:${chainId}`,
+              tokenInfo.symbol,
+              fee.toFixed(tokenInfo.decimals)
+            )
+            newFees[tokenSymbol] = fee.toFixed(tokenInfo.decimals)
+          }
+        )
+        await Promise.all(results1)
+
+        // update marketinfos & broadcastmsg
+        const marketInfos = await redis.HGETALL(`marketinfo:${chainId}`)
+        const results2: Promise<any>[] = markets.map(
+          async (market: ZZMarket) => {
+            if (!marketInfos[market]) return
+            const marketInfo = JSON.parse(marketInfos[market])
+            marketInfo.baseFee = newFees[marketInfo.baseAsset.symbol]
+            marketInfo.quoteFee = newFees[marketInfo.quoteAsset.symbol]
+            publisher.PUBLISH(
+              `broadcastmsg:all:${chainId}:${market}`,
+              JSON.stringify({ op: 'marketinfo', args: [marketInfo] })
+            )
+            // eslint-disable-next-line no-promise-executor-return
+            await new Promise((resolve) => setTimeout(resolve, 250))
+            redis.HSET(
+              `marketinfo:${chainId}`,
+              market,
+              JSON.stringify(marketInfo)
+            )
+          }
+        )
+        await Promise.all(results2)
+      }
+    )
+    await Promise.all(results0)
+  } catch (err: any) {
+    console.log(`Failed to update EVM fees: ${err}`)
+  }
+
+  console.timeEnd('Update fees EVM')
+}
+
 // Removes old liquidity
 // Updates lastprice redis map
 // Sets best bids and asks in a JSON for broadcasting
@@ -802,9 +968,17 @@ async function sendMatchedOrders() {
       )
       const match = JSON.parse(matchChainString)
       const marketInfo = await getMarketInfo(match.market, match.chainId)
-      const { makerOrder, takerOrder, feeToken } = match
+      const { makerOrder, takerOrder, gasFee: feeAmount, feeToken } = match
 
       if (!makerOrder?.signature || !takerOrder?.signature) return
+      const makerSignatureModified =
+        makerOrder.signature.slice(0, 2) +
+        makerOrder.signature.slice(-2) +
+        makerOrder.signature.slice(2, -2)
+      const takerSignatureModified =
+        takerOrder.signature.slice(0, 2) +
+        takerOrder.signature.slice(-2) +
+        takerOrder.signature.slice(2, -2)
 
       console.timeEnd('sendMatchedOrders: pre processing')
       console.time('sendMatchedOrders: sending')
@@ -815,20 +989,30 @@ async function sendMatchedOrders() {
             makerOrder.user,
             makerOrder.sellToken,
             makerOrder.buyToken,
+            makerOrder.feeRecipientAddress,
+            makerOrder.relayerAddress,
             makerOrder.sellAmount,
             makerOrder.buyAmount,
+            makerOrder.makerVolumeFee,
+            makerOrder.takerVolumeFee,
+            makerOrder.gasFee,
             makerOrder.expirationTimeSeconds,
           ],
           [
             takerOrder.user,
             takerOrder.sellToken,
             takerOrder.buyToken,
+            takerOrder.feeRecipientAddress,
+            takerOrder.relayerAddress,
             takerOrder.sellAmount,
             takerOrder.buyAmount,
+            takerOrder.makerVolumeFee,
+            takerOrder.takerVolumeFee,
+            takerOrder.gasFee,
             takerOrder.expirationTimeSeconds,
           ],
-          makerOrder.signature,
-          takerOrder.signature
+          makerSignatureModified,
+          takerSignatureModified
         )
       } catch (e: any) {
         console.error(`Failed EVM transaction: ${e.message}`)
@@ -889,7 +1073,7 @@ async function sendMatchedOrders() {
         [
           txStatus === 's' ? 'f' : 'r', // filled only has f or r
           transaction.hash,
-          0, // temp 0, use events later
+          transaction.hash ? feeAmount : 0,
           transaction.hash ? feeToken : null,
           match.fillId,
         ]
@@ -960,7 +1144,7 @@ async function sendMatchedOrders() {
           row.fill_status,
           row.txhash,
           readableTxError || 0, // remaing for fills is always 0; but current msg format sends error reson if it failed here
-          0, // temp 0, use events later
+          feeAmount,
           feeToken,
           new Date().toISOString(), // timestamp
         ]
@@ -1025,6 +1209,10 @@ async function updateEVMMarketInfo() {
         const marketInfo = JSON.parse(testPairString)
         if (
           marketInfo.exchangeAddress !== evmConfig.exchangeAddress ||
+          marketInfo.feeAddress !== evmConfig.feeAddress ||
+          marketInfo.relayerAddress !== evmConfig.relayerAddress ||
+          marketInfo.makerVolumeFee !== evmConfig.minMakerVolumeFee ||
+          marketInfo.takerVolumeFee !== evmConfig.minTakerVolumeFee ||
           Number(marketInfo.contractVersion) !==
             Number(evmConfig.domain.version)
         )
@@ -1040,9 +1228,11 @@ async function updateEVMMarketInfo() {
 
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.exchangeAddress = evmConfig.exchangeAddress
+        marketInfo.feeAddress = evmConfig.feeAddress
+        marketInfo.relayerAddress = evmConfig.relayerAddress
+        marketInfo.makerVolumeFee = evmConfig.minMakerVolumeFee
+        marketInfo.takerVolumeFee = evmConfig.minTakerVolumeFee
         marketInfo.contractVersion = Number(evmConfig.domain.version)
-        marketInfo.baseFee = 0
-        marketInfo.quoteFee = 0
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))
       })
       await Promise.all(results1)
@@ -1327,11 +1517,15 @@ async function start() {
   // fetch abi's
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
+  // temp override as artifacts is WIP for V6
+  // const EVMContractABI = JSON.parse(
+  //   fs.readFileSync(
+  //     'evm_contracts/artifacts/contracts/Exchange.sol/Exchange.json',
+  //     'utf8'
+  //   )
+  // ).abi
   const EVMContractABI = JSON.parse(
-    fs.readFileSync(
-      'abi/EVM_Exchange.json',
-      'utf8'
-    )
+    fs.readFileSync('abi/temp_exchangeV5.json', 'utf8')
   ).abi
 
   // connect infura providers
@@ -1433,6 +1627,7 @@ async function start() {
   setInterval(cacheRecentTrades, 60000)
   setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
+  setInterval(updateFeesEVM, 20000)
   setInterval(updateMarketSummarys, 20000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
