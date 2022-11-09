@@ -138,6 +138,8 @@ export function getReadableTxError(errorMsg: string): string {
 
   if (errorMsg.includes('order canceled')) return 'order canceled'
 
+  if (errorMsg.includes('self swap not allowed')) return 'self swap not allowed'
+
   // this might be a new error, log it
   console.log(`getReadableTxError: unparsed error: ${errorMsg}`)
   return 'Internal error: A'
