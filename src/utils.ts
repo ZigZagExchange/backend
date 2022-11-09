@@ -138,5 +138,7 @@ export function getReadableTxError(errorMsg: string): string {
 
   if (errorMsg.includes('order canceled')) return 'order canceled'
 
+  // this might be a new error, log it
+  console.log(`getReadableTxError: unparsed error: ${errorMsg}`)
   return 'Internal error: A'
 }

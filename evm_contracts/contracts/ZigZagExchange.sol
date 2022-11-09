@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import './LibOrder.sol';
-import './LibFillResults.sol';
+import './LibMath.sol';
 import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import { EIP712 } from '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
 import { SignatureChecker } from '@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol';
@@ -51,12 +51,38 @@ contract ZigZagExchange is EIP712 {
     cancelled[orderHash] = true;
   }
 
+  function fillOrder(
+    LibOrder.Order memory makerOrder,
+    bytes memory makerSignature,
+    uint fillAmount,
+    bool fillAvailable
+  ) public returns (bool) {
+    LibOrder.OrderInfo memory makerOrderInfo = getOrderInfo(makerOrder);
+
+    //validate signature
+    require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
+
+    // adjust size if the user wants to fill whatever is available
+    uint availableSize = makerOrder.buyAmount - makerOrderInfo.orderBuyFilledAmount;
+    if (fillAvailable) fillAmount = availableSize;
+    require(fillAmount <= availableSize, 'fill amount exceeds available size');
+
+    LibOrder.Order memory takerOrder;
+    takerOrder.user = msg.sender;
+    takerOrder.buyAmount = fillAmount;
+    takerOrder.sellAmount = (makerOrder.sellAmount / makerOrder.buyAmount) * fillAmount;
+
+    (uint makerSellAmount, uint _takerSellAmount) = _settleMatchedOrders(makerOrder, takerOrder, makerOrderInfo.orderBuyFilledAmount, 0);
+    _updateFilledState(makerOrderInfo.orderHash, makerSellAmount);
+    return true;
+  }
+
   function matchOrders(
     LibOrder.Order memory makerOrder,
     LibOrder.Order memory takerOrder,
     bytes memory makerSignature,
     bytes memory takerSignature
-  ) public returns (LibFillResults.MatchedFillResults memory matchedFillResults) {
+  ) public returns (bool) {
     // check that tokens address match
     require(takerOrder.sellToken == makerOrder.buyToken, 'mismatched tokens');
     require(takerOrder.buyToken == makerOrder.sellToken, 'mismatched tokens');
@@ -81,60 +107,78 @@ contract ZigZagExchange is EIP712 {
     // These equations can be combined to get the following:
     require(makerOrder.sellAmount * takerOrder.sellAmount >= makerOrder.buyAmount * takerOrder.buyAmount, 'orders not crossed');
 
-    matchedFillResults = LibFillResults.calculateMatchedFillResults(
+    (uint makerSellAmount, uint takerSellAmount) = _settleMatchedOrders(
       makerOrder,
       takerOrder,
       makerOrderInfo.orderBuyFilledAmount,
-      takerOrderInfo.orderBuyFilledAmount,
-      maker_fee_numerator,
-      maker_fee_denominator,
-      taker_fee_numerator,
-      taker_fee_denominator
+      takerOrderInfo.orderBuyFilledAmount
     );
 
-    _updateFilledState(makerOrderInfo.orderHash, matchedFillResults.takerSellFilledAmount);
-
-    _updateFilledState(takerOrderInfo.orderHash, matchedFillResults.makerSellFilledAmount);
-
-    _settleMatchedOrders(makerOrder, takerOrder, matchedFillResults);
+    _updateFilledState(makerOrderInfo.orderHash, makerSellAmount);
+    _updateFilledState(takerOrderInfo.orderHash, takerSellAmount);
+    return true;
   }
 
   function _settleMatchedOrders(
     LibOrder.Order memory makerOrder,
     LibOrder.Order memory takerOrder,
-    LibFillResults.MatchedFillResults memory matchedFillResults
-  ) internal {
-    require(IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= matchedFillResults.takerSellFilledAmount, 'taker order not enough balance');
-    require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.makerSellFilledAmount, 'maker order not enough balance');
+    uint256 makerFilledAmount,
+    uint256 takerFilledAmount
+  ) internal returns (uint makerSellAmount, uint takerSellAmount) {
+    uint makerBuyAmountRemaining = makerOrder.buyAmount - makerFilledAmount;
+    uint takerBuyAmountRemaining = takerOrder.buyAmount - takerFilledAmount;
+    uint takerSellAmountRemaining = LibMath.safeGetPartialAmountFloor(takerOrder.sellAmount, takerOrder.buyAmount, takerBuyAmountRemaining);
+    // Calculate the maximum fill results for the maker and taker assets. At least one of the orders will be fully filled.
+    //
+    // The maximum that the maker maker can possibly buy is the amount that the taker order can sell.
+    // The maximum that the taker maker can possibly buy is the amount that the maker order can sell.
+    //
+    // There are two cases to consider:
+    // Case 1.
+    //   If the maker can buy more or the same as the taker can sell, then the taker order is fully filled, at the price of the maker order.
+    // Case 2.
+    //   Else the taker can buy more or the same as the maker can sell, then the maker order is fully filled, at the price of the maker order.
+    if (makerBuyAmountRemaining >= takerSellAmountRemaining) {
+      makerSellAmount = LibMath.safeGetPartialAmountFloor(makerOrder.sellAmount, makerOrder.buyAmount, takerSellAmountRemaining);
+      takerSellAmount = takerSellAmountRemaining;
+    } else {
+      makerSellAmount = LibMath.safeGetPartialAmountFloor(makerOrder.sellAmount, makerOrder.buyAmount, makerBuyAmountRemaining);
+      takerSellAmount = makerBuyAmountRemaining;
+    }
+
+    require(IERC20(makerOrder.buyToken).balanceOf(takerOrder.user) >= takerSellAmount, 'taker order not enough balance');
+    require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= makerSellAmount, 'maker order not enough balance');
 
     // Right maker asset -> maker maker
-    IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, makerOrder.user, matchedFillResults.takerSellFilledAmount);
+    IERC20(makerOrder.buyToken).transferFrom(takerOrder.user, makerOrder.user, takerSellAmount);
 
     // Left maker asset -> taker maker
-    IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, takerOrder.user, matchedFillResults.makerSellFilledAmount);
+    IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, takerOrder.user, makerSellAmount);
 
+    uint makerFee = (makerSellAmount * maker_fee_numerator) / maker_fee_denominator;
+    uint takerFee = (takerSellAmount * taker_fee_numerator) / taker_fee_denominator;
     /* Fees Paid */
     // Taker fee + gas fee -> fee recipient
-    if (matchedFillResults.takerFeePaid > 0) {
-      require(IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= matchedFillResults.takerFeePaid, 'taker order not enough balance for fee');
-      IERC20(takerOrder.sellToken).transferFrom(takerOrder.user, FEE_ADDRESS, matchedFillResults.takerFeePaid);
+    if (takerFee > 0) {
+      require(IERC20(makerOrder.buyToken).balanceOf(takerOrder.user) >= takerFee, 'taker order not enough balance for fee');
+      IERC20(makerOrder.buyToken).transferFrom(takerOrder.user, FEE_ADDRESS, takerFee);
     }
 
     // Maker fee -> fee recipient
-    if (matchedFillResults.makerFeePaid > 0) {
-      require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= matchedFillResults.makerFeePaid, 'maker order not enough balance for fee');
-      IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, FEE_ADDRESS, matchedFillResults.makerFeePaid);
+    if (makerFee > 0) {
+      require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= makerFee, 'maker order not enough balance for fee');
+      IERC20(makerOrder.sellToken).transferFrom(makerOrder.user, FEE_ADDRESS, makerFee);
     }
 
     emit Swap(
       makerOrder.user,
       takerOrder.user,
       makerOrder.sellToken,
-      takerOrder.sellToken,
-      matchedFillResults.makerSellFilledAmount,
-      matchedFillResults.takerSellFilledAmount,
-      matchedFillResults.makerFeePaid,
-      matchedFillResults.takerFeePaid
+      makerOrder.buyToken,
+      makerSellAmount,
+      takerSellAmount,
+      makerFee,
+      takerFee
     );
   }
 
@@ -152,7 +196,11 @@ contract ZigZagExchange is EIP712 {
     orderInfo.orderStatus = LibOrder.OrderStatus.FILLABLE;
   }
 
-  function _getOrderHashAndFilledAmount(LibOrder.Order memory order) internal view returns (bytes32 orderHash, uint256 orderBuyFilledAmount) {
+  function _getOrderHashAndFilledAmount(LibOrder.Order memory order)
+    internal
+    view
+    returns (bytes32 orderHash, uint256 orderBuyFilledAmount)
+  {
     orderHash = order.getOrderHash();
     orderBuyFilledAmount = filled[orderHash];
   }

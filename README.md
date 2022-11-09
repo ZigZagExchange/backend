@@ -146,7 +146,7 @@ An example of how to submit an order with Javascript in Arbitrum can be found [h
 
 This operation is also available over HTTP POST and returns a `userorderack` message.
 
-Note: `feeRecipientAddress`, `relayerAddress`, `makerVolumeFee`, `takerVolumeFee` and `gasFee` can be hardcoded or requested using marketsrequest.
+Note: `gasFee` can be hardcoded or requested using marketsrequest.
 
 ```js
 {
@@ -158,15 +158,8 @@ Note: `feeRecipientAddress`, `relayerAddress`, `makerVolumeFee`, `takerVolumeFee
       "user":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
       "sellToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
       "buyToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-      "feeRecipientAddress":"0xF4BBA1e2a5024a2754225b981e9A0DB7d2c33EE9",
-      "relayerAddress":"0xE743c1C553cb6473732DF81524839beF11C67d10",
       "sellAmount":"8824841",
       "buyAmount":"8804819",
-      "makerVolumeFee":"0",
-      "takerVolumeFee":"0",
-      "gasFee":"488079",
-      "expirationTimeSeconds":"1659561395",
-      "salt":"52129210",
       "signature":"0xdf..."
     }
   ]
@@ -187,19 +180,14 @@ Typed Data for ZigZag orders on Arbitrum:
           { "name": 'user', "type": 'address' },
           { "name": 'sellToken', "type": 'address' },
           { "name": 'buyToken', "type": 'address' },
-          { "name": 'feeRecipientAddress', "type": 'address' },
-          { "name": 'relayerAddress', "type": 'address' },
           { "name": 'sellAmount', "type": 'uint256' },
           { "name": 'buyAmount', "type": 'uint256' },
-          { "name": 'gasFee', "type": 'uint256' },
-          { "name": 'expirationTimeSeconds', "type": 'uint256' },
-          { "name": 'salt', "type": 'uint256' },
       ]
   },
   "primaryType": "Order",
   "domain": {
       "name": 'ZigZag',
-      "version": "6",
+      "version": "2.0",
       "chainId": 42161,
 
   }
@@ -232,15 +220,8 @@ The orderIds array contains an orderId and a matching signedMessage signature (t
         "user":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
         "sellToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
         "buyToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-        "feeRecipientAddress":"0xF4BBA1e2a5024a2754225b981e9A0DB7d2c33EE9",
-        "relayerAddress":"0xE743c1C553cb6473732DF81524839beF11C67d10",
         "sellAmount":"8824841",
         "buyAmount":"8804819",
-        "makerVolumeFee":"0",
-        "takerVolumeFee":"0",
-        "gasFee":"488079",
-        "expirationTimeSeconds":"1659561395",
-        "salt":"52129210",
         "signature":"0xdf..."
       }
     ],
