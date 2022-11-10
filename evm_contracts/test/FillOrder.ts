@@ -158,4 +158,170 @@ describe("RFQ", function () {
         expect(balance8).to.equal(ethers.utils.parseEther("0.15"));
     });
 
+    it("feeRecipient should take Taker Fee", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("1000"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("30");
+        await exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+
+        const balance1 = await tokenA.balanceOf(wallets[0].address);
+        const balance2 = await tokenA.balanceOf(wallets[1].address);
+        const balance3 = await tokenA.balanceOf(wallets[2].address);
+        const balance4 = await tokenB.balanceOf(wallets[0].address);
+        const balance5 = await tokenB.balanceOf(wallets[1].address);
+        const balance6 = await tokenB.balanceOf(wallets[2].address);
+        const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
+        const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
+        console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
+        console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
+        console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
+        console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
+
+        expect(balance7).to.equal(ethers.utils.parseEther("0.015"));
+    });
+
+    it("should fail when filled twice", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("200"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("100");
+        const tx = await exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        await expect(exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+            .to.be.revertedWith('order is filled');
+    });
+
+    it("fill a full order", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("200"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("100");
+        await exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+
+        const balance1 = await tokenA.balanceOf(wallets[0].address);
+        const balance2 = await tokenA.balanceOf(wallets[1].address);
+        const balance3 = await tokenA.balanceOf(wallets[2].address);
+        const balance4 = await tokenB.balanceOf(wallets[0].address);
+        const balance5 = await tokenB.balanceOf(wallets[1].address);
+        const balance6 = await tokenB.balanceOf(wallets[2].address);
+        const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
+        const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
+        console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
+        console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
+        console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
+        console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
+
+        expect(balance2).to.equal(ethers.utils.parseEther("99.95"));
+        expect(balance4).to.equal(ethers.utils.parseEther("200"));
+    });
+
+    it("should fill what's available", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("200"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("90");
+        await exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        await exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+
+        const balance1 = await tokenA.balanceOf(wallets[0].address);
+        const balance2 = await tokenA.balanceOf(wallets[1].address);
+        const balance3 = await tokenA.balanceOf(wallets[2].address);
+        const balance4 = await tokenB.balanceOf(wallets[0].address);
+        const balance5 = await tokenB.balanceOf(wallets[1].address);
+        const balance6 = await tokenB.balanceOf(wallets[2].address);
+        const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
+        const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
+        console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
+        console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
+        console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
+        console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
+
+        expect(balance2).to.equal(ethers.utils.parseEther("99.95"));
+        expect(balance4).to.equal(ethers.utils.parseEther("200"));
+    });
+
+    it("should fail without fillAvailable when over-ordering", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("200"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("90");
+        await exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        const tx2 = exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
+        await expect(tx2).to.be.revertedWith('fill amount exceeds available size');
+    });
+
+    it("should fail without fillAvailable when over-ordering", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("200"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("90");
+        await exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        const tx2 = exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
+        await expect(tx2).to.be.revertedWith('fill amount exceeds available size');
+    });
+
+
+    it("should disallow self swap", async function () {
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.utils.parseEther("100"),
+            buyAmount: ethers.utils.parseEther("200"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("90");
+        const tx = exchangeContract.connect(wallets[0]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        await expect(tx).to.be.revertedWith("self swap not allowed");
+    });
 });

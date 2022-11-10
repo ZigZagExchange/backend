@@ -57,6 +57,8 @@ contract ZigZagExchange is EIP712 {
     uint fillAmount,
     bool fillAvailable
   ) public returns (bool) {
+    require(msg.sender != makerOrder.user, 'self swap not allowed');
+
     LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
 
     //validate signature
