@@ -155,7 +155,7 @@ describe("RFQ", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance7).to.equal(ethers.utils.parseEther("0.015"));
+        expect(balance8).to.equal(ethers.utils.parseEther("0.15"));
     });
 
 });

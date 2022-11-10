@@ -42,11 +42,10 @@ contract ZigZagExchange is EIP712 {
     FEE_ADDRESS = fee_address;
   }
 
+  // Canceling an order prevents it from being filled 
   function cancelOrder(LibOrder.Order memory order) public {
     require(msg.sender == order.user, 'only user may cancel order');
-
     bytes32 orderHash = order.getOrderHash();
-
     cancelled[orderHash] = true;
   }
 
@@ -65,7 +64,7 @@ contract ZigZagExchange is EIP712 {
 
     // adjust size if the user wants to fill whatever is available
     uint availableSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
-    if (fillAvailable) fillAmount = availableSize;
+    if (fillAvailable && availableSize < fillAmount) fillAmount = availableSize;
     require(fillAmount <= availableSize, 'fill amount exceeds available size');
 
     uint buyAmount = fillAmount * makerOrder.buyAmount / makerOrder.sellAmount;
