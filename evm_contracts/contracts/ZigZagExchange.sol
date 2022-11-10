@@ -70,8 +70,11 @@ contract ZigZagExchange is EIP712 {
 
     LibOrder.Order memory takerOrder;
     takerOrder.user = msg.sender;
+    takerOrder.buyToken = makerOrder.sellToken;
+    takerOrder.sellToken = makerOrder.buyToken;
     takerOrder.buyAmount = fillAmount;
-    takerOrder.sellAmount = (makerOrder.sellAmount / makerOrder.buyAmount) * fillAmount;
+    takerOrder.sellAmount = fillAmount * makerOrder.buyAmount / makerOrder.sellAmount;
+    takerOrder.expirationTimeSeconds = block.timestamp + 1000;
 
     filled[makerOrderInfo.orderHash] += fillAmount;
 
