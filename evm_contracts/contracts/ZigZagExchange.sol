@@ -125,7 +125,7 @@ contract ZigZagExchange is EIP712 {
     uint256 takerSellFilledAmount
   ) internal {
     uint makerSellAmountRemaining = makerOrder.sellAmount - makerSellFilledAmount;
-    uint takerSellAmountRemaining = takerOrder.buyAmount - takerSellFilledAmount;
+    uint takerSellAmountRemaining = takerOrder.sellAmount - takerSellFilledAmount;
     uint makerBuyAmountRemaining = makerSellAmountRemaining * makerOrder.buyAmount / makerOrder.sellAmount;
 
     // Calculate the maximum fill results for the maker and taker assets. At least one of the orders will be fully filled.
@@ -148,7 +148,7 @@ contract ZigZagExchange is EIP712 {
       takerSellAmount = makerBuyAmountRemaining;
     }
 
-    require(IERC20(makerOrder.buyToken).balanceOf(takerOrder.user) >= takerSellAmount, 'taker order not enough balance');
+    require(IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= takerSellAmount, 'taker order not enough balance');
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= makerSellAmount, 'maker order not enough balance');
 
     // mark fills in storage
