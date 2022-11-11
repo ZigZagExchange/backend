@@ -1,3 +1,6 @@
+//SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
@@ -15,7 +18,7 @@ contract ZigZagVault is ERC20 {
     manager = newManager;
   }
 
-  function approveToken(address token, address spender, uint amount) {
+  function approveToken(address token, address spender, uint amount) public {
     require(msg.sender == manager, "only manager can approve tokens");
     IERC20(token).approve(spender, amount);
   }
