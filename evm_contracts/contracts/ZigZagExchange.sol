@@ -76,7 +76,7 @@ contract ZigZagExchange is EIP712 {
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= fillAmount, 'maker order not enough balance');
 
     // mark fills in storage
-    filled[makerOrder.getOrderHash()] += fillAmount;
+    filled[makerOrderInfo.orderHash] += fillAmount;
 
     _settleMatchedOrders(
       makerOrder.user,
