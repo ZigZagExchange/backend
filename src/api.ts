@@ -1785,15 +1785,17 @@ export default class API extends EventEmitter {
           const quoteQuantity =
             Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
           const baseQuantityWithoutFee = value.baseQuantity - marketInfo.baseFee
-          priceWithoutFee = formatPrice(quoteQuantity / baseQuantityWithoutFee)
-          priceWithoutFee = priceWithoutFee < update1.rows[0].price ? update1.rows[0].price : priceWithoutFee
+          const reportedPrice = quoteQuantity / baseQuantityWithoutFee
+          const worstPrice = update1.rows[0].price - marketInfo.baseFee
+          priceWithoutFee = formatPrice(reportedPrice < worstPrice ? worstPrice : reportedPrice)
         } else {
           const baseQuantity =
             Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
           const quoteQuantityWithoutFee =
             value.quoteQuantity - marketInfo.quoteFee
-          priceWithoutFee = formatPrice(quoteQuantityWithoutFee / baseQuantity)
-          priceWithoutFee = priceWithoutFee > update1.rows[0].price ? update1.rows[0].price : priceWithoutFee
+          const reportedPrice = quoteQuantityWithoutFee / baseQuantity
+          const worstPrice = update1.rows[0].price - marketInfo.baseFee
+          priceWithoutFee = formatPrice(reportedPrice > worstPrice ? worstPrice : reportedPrice)
         }
       } catch (e: any) {
         console.log(e.message)
