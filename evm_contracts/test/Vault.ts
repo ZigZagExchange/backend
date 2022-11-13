@@ -2,10 +2,9 @@ import { ethers } from "hardhat";
 import { expect } from "chai";
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from "./utils/PrivateKeyList"
 import { signOrder } from "./utils/SignUtil"
-import { Order } from "./utils/types"
 import { Contract, Wallet } from "ethers";
 
-describe("RFQ", function () {
+describe("Vault", function () {
 
     let exchangeContract: Contract;
     let vaultContract: Contract;
@@ -13,7 +12,7 @@ describe("RFQ", function () {
     let tokenB: Contract;
     let wallets: Wallet[] = [];
     let FEE_ADDRESS: string;
-    let manager: string;
+    let manager: any;
 
     beforeEach(async function () {
         this.timeout(30000) 
