@@ -1769,6 +1769,15 @@ export default class API extends EventEmitter {
 
     let fill
     try {
+      const valuesOrder = [orderId, chainId]
+      const update1 = await this.db.query(
+        "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id, price",
+        valuesOrder
+      )
+      if (update1.rows.length === 0)
+        // this *should* not happen, so no need to send to ws
+        throw new Error(`Order ${orderId} is not open`)
+
       let priceWithoutFee: string
       try {
         const marketInfo = await this.getMarketInfo(value.market, chainId)
@@ -1776,27 +1785,22 @@ export default class API extends EventEmitter {
           const quoteQuantity =
             Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
           const baseQuantityWithoutFee = value.baseQuantity - marketInfo.baseFee
-          priceWithoutFee = formatPrice(quoteQuantity / baseQuantityWithoutFee)
+          const reportedPrice = quoteQuantity / baseQuantityWithoutFee
+          const worstPrice = update1.rows[0].price - marketInfo.quoteFee
+          priceWithoutFee = formatPrice(reportedPrice > worstPrice ? worstPrice : reportedPrice)
         } else {
           const baseQuantity =
             Number(fillOrder.amount) / 10 ** marketInfo.baseAsset.decimals
           const quoteQuantityWithoutFee =
             value.quoteQuantity - marketInfo.quoteFee
-          priceWithoutFee = formatPrice(quoteQuantityWithoutFee / baseQuantity)
+          const reportedPrice = quoteQuantityWithoutFee / baseQuantity
+          const worstPrice = update1.rows[0].price - marketInfo.quoteFee
+          priceWithoutFee = formatPrice(reportedPrice < worstPrice ? worstPrice : reportedPrice)
         }
       } catch (e: any) {
         console.log(e.message)
         priceWithoutFee = fillPrice.toString()
       }
-
-      const valuesOrder = [orderId, chainId]
-      const update1 = await this.db.query(
-        "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id",
-        valuesOrder
-      )
-      if (update1.rows.length === 0)
-        // this *should* not happen, so no need to send to ws
-        throw new Error(`Order ${orderId} is not open`)
 
       const valuesFills = [
         chainId,
