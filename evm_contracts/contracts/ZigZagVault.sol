@@ -15,7 +15,7 @@ contract ZigZagVault is ERC20 {
     manager = newManager;
   }
 
-  function approveToken(address token, address spender, uint amount) {
+  function approveToken(address token, address spender, uint amount) public {
     require(msg.sender == manager, "only manager can approve tokens");
     IERC20(token).approve(spender, amount);
   }
