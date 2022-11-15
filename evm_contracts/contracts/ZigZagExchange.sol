@@ -103,14 +103,14 @@ contract ZigZagExchange is EIP712 {
       sellAmount
     );
 
-    if (makerOrder.buyToken == WETH_TOKEN) {
-      // send buyAmount to user
-      IERC20(makerOrder.sellToken).transfer(msg.sender, buyAmount);
-    } else {
+    if (makerOrder.sellToken == WETH_TOKEN) {
       // return ETH to user
       IWETH(WETH_TOKEN).withdraw(buyAmount);
       (bool sent, bytes memory data) = msg.sender.call{value: buyAmount}(new bytes(0));
       require(sent, "Failed to send Ether");
+    } else {
+      // send buyAmount to user
+      IERC20(makerOrder.sellToken).transfer(msg.sender, buyAmount);
     }
 
     return true;
