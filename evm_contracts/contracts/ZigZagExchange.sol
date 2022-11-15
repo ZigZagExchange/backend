@@ -82,39 +82,17 @@ contract ZigZagExchange is EIP712 {
 
     if (makerOrder.buyToken == WETH_TOKEN) {
       // wrap ETH
-      uint beforeBalance = IERC20(WETH_TOKEN).balanceOf(EXCHANGE);
       IWETH(WETH_TOKEN).deposit{ value: fillAmount }();
-      uint depositBalance = IERC20(WETH_TOKEN).balanceOf(EXCHANGE) - beforeBalance;
-
-      require(depositBalance >= sellAmount, 'msg.value not high enough');
-      require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= fillAmount, 'maker order not enough balance');
-
-      // mark fills in storage
-      filled[makerOrderInfo.orderHash] += fillAmount;
-
-      // settle maker order against EXCHANGE
-      _settleMatchedOrders(
-        makerOrder.user,
-        EXCHANGE,
-        makerOrder.sellToken,
-        makerOrder.buyToken,
-        fillAmount,
-        sellAmount
-      );
-
-      // send buyAmount to user
-      IERC20(makerOrder.sellToken).transfer(msg.sender, buyAmount);
-      return true;
+    } else {
+      // transfer taker asset to EXCHANGE
+      IERC20(makerOrder.buyToken).transferFrom(msg.sender, EXCHANGE, sellAmount);
     }
 
-    require(IERC20(makerOrder.buyToken).balanceOf(msg.sender) >= sellAmount, 'taker order not enough balance');
+    require(IERC20(makerOrder.buyToken).balanceOf(EXCHANGE) >= sellAmount, 'taker order not enough balance');
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= fillAmount, 'maker order not enough balance');
 
     // mark fills in storage
     filled[makerOrderInfo.orderHash] += fillAmount;
-
-    // transfer taker asset to EXCHANGE
-    IERC20(makerOrder.buyToken).transferFrom(msg.sender, EXCHANGE, sellAmount);
 
     // settle maker order against EXCHANGE
     _settleMatchedOrders(
@@ -126,10 +104,15 @@ contract ZigZagExchange is EIP712 {
       sellAmount
     );
 
-    // return ETH to user
-    IWETH(WETH_TOKEN).withdraw(buyAmount);
-    (bool sent, bytes memory data) = msg.sender.call{value: buyAmount}(new bytes(0));
-    require(sent, "Failed to send Ether");
+    if (makerOrder.buyToken == WETH_TOKEN) {
+      // send buyAmount to user
+      IERC20(makerOrder.sellToken).transfer(msg.sender, buyAmount);
+    } else {
+      // return ETH to user
+      IWETH(WETH_TOKEN).withdraw(buyAmount);
+      (bool sent, bytes memory data) = msg.sender.call{value: buyAmount}(new bytes(0));
+      require(sent, "Failed to send Ether");
+    }
 
     return true;
   }
