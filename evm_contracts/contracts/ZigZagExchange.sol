@@ -6,7 +6,12 @@ import { IERC20 } from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import { EIP712 } from '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
 import { SignatureChecker } from '@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol';
 
-//import "hardhat/console.sol";
+// import "hardhat/console.sol";
+
+interface IWETH {
+  function deposit() external payable;
+  function withdraw(uint) external;
+}
 
 contract ZigZagExchange is EIP712 {
   event Swap(
@@ -33,13 +38,20 @@ contract ZigZagExchange is EIP712 {
   uint256 taker_fee_numerator = 5;
   uint256 taker_fee_denominator = 10000;
 
+  address EXCHANGE;
+  address WETH_TOKEN;
+
   // initialize fee address
   constructor(
     string memory name,
     string memory version,
-    address fee_address
+    address fee_address,
+    address weth_token
   ) EIP712(name, version) {
     FEE_ADDRESS = fee_address;
+    WETH_TOKEN = weth_token;
+
+    EXCHANGE = address(this);
   }
 
   // Canceling an order prevents it from being filled 
@@ -47,6 +59,79 @@ contract ZigZagExchange is EIP712 {
     require(msg.sender == order.user, 'only user may cancel order');
     bytes32 orderHash = order.getOrderHash();
     cancelled[orderHash] = true;
+  }
+
+  receive() external payable {}
+
+  function fillOrderETH(
+    LibOrder.Order memory makerOrder,
+    bytes memory makerSignature,
+    uint fillAmount
+  ) external payable returns (bool) {
+    require(msg.sender != makerOrder.user, 'self swap not allowed');
+    LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
+
+    //validate signature
+    require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
+    
+    uint availableSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
+    require(fillAmount <= availableSize, 'fill amount exceeds available size');
+
+    uint sellAmount = fillAmount * makerOrder.buyAmount / makerOrder.sellAmount;
+    uint buyAmount = fillAmount - fillAmount * taker_fee_numerator / taker_fee_denominator;
+
+    if (makerOrder.buyToken == WETH_TOKEN) {
+      // wrap ETH
+      uint beforeBalance = IERC20(WETH_TOKEN).balanceOf(EXCHANGE);
+      IWETH(WETH_TOKEN).deposit{ value: fillAmount }();
+      uint depositBalance = IERC20(WETH_TOKEN).balanceOf(EXCHANGE) - beforeBalance;
+
+      require(depositBalance >= sellAmount, 'msg.value not high enough');
+      require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= fillAmount, 'maker order not enough balance');
+
+      // mark fills in storage
+      filled[makerOrderInfo.orderHash] += fillAmount;
+
+      // settle maker order against EXCHANGE
+      _settleMatchedOrders(
+        makerOrder.user,
+        EXCHANGE,
+        makerOrder.sellToken,
+        makerOrder.buyToken,
+        fillAmount,
+        sellAmount
+      );
+
+      // send buyAmount to user
+      IERC20(makerOrder.sellToken).transfer(msg.sender, buyAmount);
+      return true;
+    }
+
+    require(IERC20(makerOrder.buyToken).balanceOf(msg.sender) >= sellAmount, 'taker order not enough balance');
+    require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= fillAmount, 'maker order not enough balance');
+
+    // mark fills in storage
+    filled[makerOrderInfo.orderHash] += fillAmount;
+
+    // transfer taker asset to EXCHANGE
+    IERC20(makerOrder.buyToken).transferFrom(msg.sender, EXCHANGE, sellAmount);
+
+    // settle maker order against EXCHANGE
+    _settleMatchedOrders(
+      makerOrder.user,
+      EXCHANGE,
+      makerOrder.sellToken,
+      makerOrder.buyToken,
+      fillAmount,
+      sellAmount
+    );
+
+    // return ETH to user
+    IWETH(WETH_TOKEN).withdraw(buyAmount);
+    (bool sent, bytes memory data) = msg.sender.call{value: buyAmount}(new bytes(0));
+    require(sent, "Failed to send Ether");
+
+    return true;
   }
 
   // fillAmount is the amount of the makerOrder.sellAmount to fill
@@ -69,10 +154,10 @@ contract ZigZagExchange is EIP712 {
     if (fillAvailable && availableSize < fillAmount) fillAmount = availableSize;
     require(fillAmount <= availableSize, 'fill amount exceeds available size');
 
-    uint buyAmount = fillAmount * makerOrder.buyAmount / makerOrder.sellAmount;
+    uint sellAmount = fillAmount * makerOrder.buyAmount / makerOrder.sellAmount;
 
     // Verify balances
-    require(IERC20(makerOrder.buyToken).balanceOf(msg.sender) >= buyAmount, 'taker order not enough balance');
+    require(IERC20(makerOrder.buyToken).balanceOf(msg.sender) >= sellAmount, 'taker order not enough balance');
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= fillAmount, 'maker order not enough balance');
 
     // mark fills in storage
@@ -84,7 +169,7 @@ contract ZigZagExchange is EIP712 {
       makerOrder.sellToken,
       makerOrder.buyToken,
       fillAmount,
-      buyAmount
+      sellAmount
     );
 
     return true;
@@ -189,11 +274,19 @@ contract ZigZagExchange is EIP712 {
 
     // Maker fee -> fee recipient
     if (makerFee > 0) {
-      IERC20(takerSellToken).transferFrom(taker, FEE_ADDRESS, makerFee);
+      if (taker == EXCHANGE) {
+        IERC20(takerSellToken).transfer(FEE_ADDRESS, makerFee);
+      } else {
+        IERC20(takerSellToken).transferFrom(taker, FEE_ADDRESS, makerFee);
+      }
     }
 
     // taker -> maker
-    IERC20(takerSellToken).transferFrom(taker, maker, takerSellAmount - makerFee);
+    if (taker == EXCHANGE) {
+      IERC20(takerSellToken).transfer(maker, takerSellAmount - makerFee);
+    } else {
+      IERC20(takerSellToken).transferFrom(taker, maker, takerSellAmount - makerFee);
+    }
 
     // maker -> taker
     IERC20(makerSellToken).transferFrom(maker, taker, makerSellAmount - takerFee);
