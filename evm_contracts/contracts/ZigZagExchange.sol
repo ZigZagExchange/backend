@@ -78,11 +78,10 @@ contract ZigZagExchange is EIP712 {
     require(fillAmount <= availableSize, 'fill amount exceeds available size');
 
     uint sellAmount = fillAmount * makerOrder.buyAmount / makerOrder.sellAmount;
-    uint buyAmount = fillAmount - fillAmount * taker_fee_numerator / taker_fee_denominator;
 
     if (makerOrder.buyToken == WETH_TOKEN) {
       // wrap ETH
-      IWETH(WETH_TOKEN).deposit{ value: fillAmount }();
+      IWETH(WETH_TOKEN).deposit{ value: sellAmount }();
     } else {
       // transfer taker asset to EXCHANGE
       IERC20(makerOrder.buyToken).transferFrom(msg.sender, EXCHANGE, sellAmount);
@@ -95,7 +94,7 @@ contract ZigZagExchange is EIP712 {
     filled[makerOrderInfo.orderHash] += fillAmount;
 
     // settle maker order against EXCHANGE
-    _settleMatchedOrders(
+    uint buyAmount = _settleMatchedOrders(
       makerOrder.user,
       EXCHANGE,
       makerOrder.sellToken,
@@ -240,7 +239,7 @@ contract ZigZagExchange is EIP712 {
       address takerSellToken,
       uint makerSellAmount,
       uint takerSellAmount
-  ) internal {
+  ) internal returns (uint takerBuyAmount) {
 
     // The fee gets subtracted from the buy amounts so they deduct from the total instead of adding on to it
     // The taker fee comes out of the maker sell quantity, so the taker ends up with less
@@ -272,7 +271,8 @@ contract ZigZagExchange is EIP712 {
     }
 
     // maker -> taker
-    IERC20(makerSellToken).transferFrom(maker, taker, makerSellAmount - takerFee);
+    takerBuyAmount = makerSellAmount - takerFee;
+    IERC20(makerSellToken).transferFrom(maker, taker, takerBuyAmount);
 
     emit Swap(
       maker,
