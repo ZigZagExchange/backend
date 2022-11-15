@@ -198,4 +198,37 @@ describe("Vault", function () {
     it("Non-manager cannot update manager", async function () {
         await expect(vaultContract.connect(wallets[1]).updateManager(wallets[1].address)).to.be.revertedWith("only manager can update manager");
     });
+
+    it("Minting LP tokens doesn't affect circulating supply", async function () {
+        const mintAmount = ethers.utils.parseEther("100");
+        await vaultContract.connect(wallets[2]).mintLPToken(mintAmount);
+
+        const circulatingSupply = await vaultContract.circulatingSupply();
+        const totalSupply = await vaultContract.totalSupply();
+        await expect(totalSupply).to.equal(mintAmount);
+        await expect(circulatingSupply).to.equal("0");
+    });
+
+    it("Mint and swapping LP tokens affects circulating supply", async function () {
+        await vaultContract.connect(wallets[2]).mintLPToken(ethers.utils.parseEther("100"));
+        await vaultContract.connect(wallets[2]).approveToken(vaultContract.address, exchangeContract.address, ethers.utils.parseEther("100"));
+
+        const makerOrder = {
+            user: vaultContract.address,
+            sellToken: vaultContract.address,
+            buyToken: tokenA.address,
+            sellAmount: ethers.utils.parseEther("1"),
+            buyAmount: ethers.utils.parseEther("100"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
+
+        const fillAmount = ethers.utils.parseEther("1");
+        await exchangeContract.connect(wallets[0]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+
+        const circulatingSupply = await vaultContract.circulatingSupply();
+        const totalSupply = await vaultContract.totalSupply();
+        await expect(totalSupply).to.equal(ethers.utils.parseEther("100"));
+        await expect(circulatingSupply).to.equal(ethers.utils.parseEther("1"));
+    });
 });
