@@ -23,7 +23,8 @@ export default {
   },
   etherscan: {
     apiKey: {
-      arbitrumOne: ""
+      arbitrumOne: "",
+      arbitrumGoerli: "",
     }
   },
   networks: {

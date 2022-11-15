@@ -37,6 +37,11 @@ contract ZigZagVault is ERC20 {
     _burn(address(this), amount);
   }
 
+  // LP token circulating supply does not include balance of vault
+  function circulatingSupply() public view returns (uint) {
+    return totalSupply() - balanceOf(address(this));
+  }
+
 
   ////////////////////////////////////////////////////
   // EIP-1271 Smart Contract Signatures
