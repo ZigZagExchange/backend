@@ -28,11 +28,14 @@ import {
   formatPrice,
   getNetwork,
   getRPCURL,
-  getEvmEIP712Types,
-  modifyOldSignature,
   getERC20Info,
   getNewToken,
 } from 'src/utils'
+import {
+  getEvmEIP712Types,
+  modifyOldSignature,
+  verifyMessage,
+} from 'src/cryptography'
 
 export default class API extends EventEmitter {
   USER_CONNECTIONS: AnyObject = {}
@@ -1324,29 +1327,24 @@ export default class API extends EventEmitter {
     }
 
     /* validateSignature */
-    /*
-    let { signature } = zktx
+    const { signature } = zktx
     if (!signature) throw new Error('Missing order signature')
     delete zktx.signature
-    signature = modifyOldSignature(signature)
 
-    const evmEIP712Types = getEvmEIP712Types(chainId)
-    if (!evmEIP712Types) {
-      console.error(`Failed to get evmEIP712Types for ${chainId}`)
-      throw new Error('Internal error')
-    }
-    const signerAddress = ethers.utils.verifyTypedData(
-      networkProviderConfig.domain,
-      evmEIP712Types,
-      zktx,
-      signature
-    )
-    if (signerAddress !== zktx.user)
-      throw new Error('Order signature incorrect')
+    const result = await verifyMessage ({
+      provider: this.ETHERS_PROVIDERS[chainId] as ethers.providers.Provider,
+      signer: zktx.user,
+      typedData: {
+        domain: networkProviderConfig.domain,
+        types: getEvmEIP712Types(chainId),
+        message: zktx
+      },
+      signature,
+    })
+    if (!result) throw new Error('Order signature incorrect')
 
     // Re-insert signature after validation
     zktx.signature = signature
-    */
 
     const price = quoteAmount / baseAmount
 
@@ -1464,23 +1462,31 @@ export default class API extends EventEmitter {
     chainId: number,
     userId: string,
     validUntil: number,
-    signedMessage: string
+    signature: string
   ): Promise<boolean> => {
     if (Date.now() / 1000 > validUntil) throw new Error('Request expired')
 
     // validate if sender is ok to cancel
-    const message = `cancelall2:${chainId}:${validUntil}`
-    let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      signature = modifyOldSignature(signature)
+      let signerAddress = ethers.utils.verifyMessage(`cancelall2:${chainId}:${validUntil}`, signature)
       const url =
         chainId === 1
           ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
           : `https://goerli-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = (await fetch(url).then((r: any) => r.json())) as AnyObject
       signerAddress = res.result.accountId.toString()
+      if (signerAddress !== userId) throw new Error('Unauthorized')
+    } else {
+      const res = await verifyMessage({
+        provider: this.ETHERS_PROVIDERS[chainId] as ethers.providers.Provider,
+        signer: userId as string,
+        message: `cancelall2:${chainId}:${validUntil}`,
+        signature
+      })
+      if (!res) throw new Error('Unauthorized')
     }
-    if (signerAddress !== userId) throw new Error('Unauthorized')
 
     let orders: any
     if (chainId) {
@@ -1580,20 +1586,27 @@ export default class API extends EventEmitter {
       throw new Error('Order not found')
     }
 
-    // validate if sender is ok to cancel
-    const message = `cancelorder2:${chainId}:${orderId}`
-    signature = modifyOldSignature(signature)
-    let signerAddress = ethers.utils.verifyMessage(message, signature)
+    
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
+      signature = modifyOldSignature(signature)
+      let signerAddress = ethers.utils.verifyMessage(`cancelorder2:${chainId}:${orderId}`, signature)
       const url =
         chainId === 1
           ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
           : `https://goerli-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = (await fetch(url).then((r: any) => r.json())) as AnyObject
       signerAddress = res.result.accountId.toString()
+      if (signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
+    } else {
+      const res = await verifyMessage({
+        provider: this.ETHERS_PROVIDERS[chainId] as ethers.providers.Provider,
+        signer: select.rows[0].userid as string,
+        message: `cancelorder2:${chainId}:${orderId}`,
+        signature
+      })
+      if (!res) throw new Error('Unauthorized')
     }
-    if (signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
 
     if (!['o', 'pf', 'pm'].includes(select.rows[0].order_status)) {
       throw new Error('Order is no longer open')
