@@ -72,7 +72,7 @@ async function eip1271Check(
   return false
 }
 
-// you only need to pass one of: typedData, finalDigest, message
+// you only need to pass one of: typedData or message
 export async function verifyMessage(param: {
   provider: ethers.providers.Provider
   signer: string
