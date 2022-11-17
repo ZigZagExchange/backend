@@ -146,3 +146,13 @@ export function getReadableTxError(errorMsg: string): string {
   console.log(`getReadableTxError: unparsed error: ${errorMsg}`)
   return 'Internal error: A'
 }
+
+export function modifyOldSignature(signature: string): string {
+  if (signature.slice(-2) === '00')
+    return signature.slice(0, -2).concat('1B')
+
+  if (signature.slice(-2) === '01')
+    return signature.slice(0, -2).concat('1C')
+
+  return signature
+}
