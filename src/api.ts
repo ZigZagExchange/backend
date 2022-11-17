@@ -29,6 +29,7 @@ import {
   getNetwork,
   getRPCURL,
   getEvmEIP712Types,
+  modifyOldSignature,
   getERC20Info,
   getNewToken,
 } from 'src/utils'
@@ -1327,11 +1328,7 @@ export default class API extends EventEmitter {
     let { signature } = zktx
     if (!signature) throw new Error('Missing order signature')
     delete zktx.signature
-    if (signature.slice(-2) === '00')
-      signature = signature.slice(0, -2).concat('1B')
-
-    if (signature.slice(-2) === '01')
-      signature = signature.slice(0, -2).concat('1C')
+    signature = modifyOldSignature(signature)
 
     const evmEIP712Types = getEvmEIP712Types(chainId)
     if (!evmEIP712Types) {
@@ -1571,7 +1568,7 @@ export default class API extends EventEmitter {
   cancelorder2 = async (
     chainId: number,
     orderId: number,
-    signedMessage: string
+    signature: string
   ): Promise<boolean> => {
     const values = [orderId, chainId]
     const select = await this.db.query(
@@ -1585,7 +1582,8 @@ export default class API extends EventEmitter {
 
     // validate if sender is ok to cancel
     const message = `cancelorder2:${chainId}:${orderId}`
-    let signerAddress = ethers.utils.verifyMessage(message, signedMessage)
+    signature = modifyOldSignature(signature)
+    let signerAddress = ethers.utils.verifyMessage(message, signature)
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       const url =
