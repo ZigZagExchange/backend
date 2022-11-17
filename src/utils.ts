@@ -85,12 +85,14 @@ export async function getERC20Info(
   contractAddress: string,
   abi: any
 ) {
-  const tokenInfos: any = {}
   const contract = new ethers.Contract(contractAddress, abi, provider)
-  tokenInfos.decimals = await contract.decimals()
-  tokenInfos.name = await contract.name()
-  tokenInfos.symbol = await contract.symbol()
-  tokenInfos.address = contractAddress
+  const [decimalsRes, nameRes, symbolRes] = await Promise.allSettled([contract.decimals(), contract.name(), contract.symbol()]);
+
+  const tokenInfos: any = { address: contractAddress };
+  tokenInfos.decimals = decimalsRes.status === 'fulfilled' ? decimalsRes.value : null;
+  tokenInfos.name = nameRes.status === 'fulfilled' ? nameRes.value : null;
+  tokenInfos.symbol = symbolRes.status === 'fulfilled' ? symbolRes.value : null;
+
   return tokenInfos
 }
 
