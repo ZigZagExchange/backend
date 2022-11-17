@@ -23,7 +23,7 @@ export function getEvmEIP712Types(chainId: number) {
   return null
 }
 
-function modifyOldSignature(signature: string): string {
+export function modifyOldSignature(signature: string): string {
   if (signature.slice(-2) === '00') return signature.slice(0, -2).concat('1B')
   if (signature.slice(-2) === '01') return signature.slice(0, -2).concat('1C')
   return signature
