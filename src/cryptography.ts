@@ -111,7 +111,8 @@ export async function verifyMessage(param: {
   // optimistic assumtion: they are allowed to sign this time again.
   // The contract does a real signature check anyway
   const allowedAddress = ON_CHAIN_ALLOWED_SIGNER_CACHE[signer]
-  if (addrMatching(recoveredAddress, allowedAddress)) return true
+  console.log(ON_CHAIN_ALLOWED_SIGNER_CACHE)
+  if (allowedAddress && addrMatching(recoveredAddress, allowedAddress)) return true
 
   // 3st try: Getting code from deployed smart contract to call 1271 isValidSignature.
   try {
