@@ -7,7 +7,7 @@ import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/Signa
 
 contract ZigZagVault is ERC20 {
   // The manager of a vault is allowed to sign orders that a vault can execute
-  address manager;
+  address public manager;
 
   constructor(address _manager, string memory _name, string memory _symbol) ERC20(_name, _symbol) {
     manager = _manager;
