@@ -1323,6 +1323,7 @@ export default class API extends EventEmitter {
     }
 
     /* validateSignature */
+    /*
     let { signature } = zktx
     if (!signature) throw new Error('Missing order signature')
     delete zktx.signature
@@ -1348,6 +1349,7 @@ export default class API extends EventEmitter {
 
     // Re-insert signature after validation
     zktx.signature = signature
+    */
 
     const price = quoteAmount / baseAmount
 
