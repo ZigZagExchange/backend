@@ -1323,6 +1323,7 @@ export default class API extends EventEmitter {
     }
 
     /* validateSignature */
+    /*
     let { signature } = zktx
     if (!signature) throw new Error('Missing order signature')
     delete zktx.signature
@@ -1348,6 +1349,7 @@ export default class API extends EventEmitter {
 
     // Re-insert signature after validation
     zktx.signature = signature
+    */
 
     const price = quoteAmount / baseAmount
 
@@ -1771,7 +1773,7 @@ export default class API extends EventEmitter {
     try {
       const valuesOrder = [orderId, chainId]
       const update1 = await this.db.query(
-        "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id, price",
+        "UPDATE offers SET order_status='m' WHERE id=$1 AND chainid=$2 AND order_status='o' RETURNING id, base_quantity, quote_quantity",
         valuesOrder
       )
       if (update1.rows.length === 0)
@@ -1786,7 +1788,7 @@ export default class API extends EventEmitter {
             Number(fillOrder.amount) / 10 ** marketInfo.quoteAsset.decimals
           const baseQuantityWithoutFee = value.baseQuantity - marketInfo.baseFee
           const reportedPrice = quoteQuantity / baseQuantityWithoutFee
-          const worstPrice = update1.rows[0].price - marketInfo.quoteFee
+          const worstPrice = update1.rows[0].quote_quantity / (update1.rows[0].base_quantity - marketInfo.baseFee)
           priceWithoutFee = formatPrice(reportedPrice > worstPrice ? worstPrice : reportedPrice)
         } else {
           const baseQuantity =
@@ -1794,7 +1796,7 @@ export default class API extends EventEmitter {
           const quoteQuantityWithoutFee =
             value.quoteQuantity - marketInfo.quoteFee
           const reportedPrice = quoteQuantityWithoutFee / baseQuantity
-          const worstPrice = update1.rows[0].price - marketInfo.quoteFee
+          const worstPrice = (update1.rows[0].quote_quantity - marketInfo.quoteFee) / update1.rows[0].base_quantity
           priceWithoutFee = formatPrice(reportedPrice < worstPrice ? worstPrice : reportedPrice)
         }
       } catch (e: any) {
