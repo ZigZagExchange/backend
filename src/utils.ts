@@ -130,6 +130,8 @@ export function getReadableTxError(errorMsg: string): string {
 
   if (errorMsg.includes('self swap not allowed')) return 'self swap not allowed'
 
+  if (errorMsg.includes('ERC20: transfer amount exceeds allowance')) return 'ERC20: transfer amount exceeds allowance'
+
   // this might be a new error, log it
   console.log(`getReadableTxError: unparsed error: ${errorMsg}`)
   return 'Internal error: A'
