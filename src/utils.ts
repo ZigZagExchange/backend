@@ -1,7 +1,6 @@
 import * as starknet from 'starknet'
 import { ethers } from 'ethers'
 import { randomBytes } from 'crypto'
-import type { AnyObject, ZZMarketInfo, ZZOrder } from './types'
 
 export function formatPrice(input: any) {
   const inputNumber = Number(input)
@@ -57,22 +56,6 @@ export function getRPCURL(chainId: number) {
   }
 }
 
-export function getEvmEIP712Types(chainId: number) {
-  if ([42161, 421613].includes(chainId)) {
-    return {
-      Order: [
-        { name: 'user', type: 'address' },
-        { name: 'sellToken', type: 'address' },
-        { name: 'buyToken', type: 'address' },
-        { name: 'sellAmount', type: 'uint256' },
-        { name: 'buyAmount', type: 'uint256' },
-        { name: 'expirationTimeSeconds', type: 'uint256' },
-      ],
-    }
-  }
-  return null
-}
-
 /**
  * Get the full token name from L1 ERC20 contract
  * @param provider
@@ -85,12 +68,19 @@ export async function getERC20Info(
   contractAddress: string,
   abi: any
 ) {
-  const tokenInfos: any = {}
   const contract = new ethers.Contract(contractAddress, abi, provider)
-  tokenInfos.decimals = await contract.decimals()
-  tokenInfos.name = await contract.name()
-  tokenInfos.symbol = await contract.symbol()
-  tokenInfos.address = contractAddress
+  const [decimalsRes, nameRes, symbolRes] = await Promise.allSettled([
+    contract.decimals(),
+    contract.name(),
+    contract.symbol()
+  ])
+
+  const tokenInfos: any = { address: contractAddress }
+  tokenInfos.decimals =
+    decimalsRes.status === 'fulfilled' ? decimalsRes.value : null
+  tokenInfos.name = nameRes.status === 'fulfilled' ? nameRes.value : null
+  tokenInfos.symbol = symbolRes.status === 'fulfilled' ? symbolRes.value : null
+
   return tokenInfos
 }
 
@@ -139,6 +129,8 @@ export function getReadableTxError(errorMsg: string): string {
   if (errorMsg.includes('order canceled')) return 'order canceled'
 
   if (errorMsg.includes('self swap not allowed')) return 'self swap not allowed'
+
+  if (errorMsg.includes('ERC20: transfer amount exceeds allowance')) return 'ERC20: transfer amount exceeds allowance'
 
   // this might be a new error, log it
   console.log(`getReadableTxError: unparsed error: ${errorMsg}`)
