@@ -49,7 +49,7 @@ contract ZigZagExchange is EIP712 {
 
   // Canceling an order prevents it from being filled 
   // This is for smart contracts to be able to sign order cancels
-  function cancelOrder(LibOrder.Order memory order, bytes memory cancelSignature) public {
+  function cancelOrderWithSig(LibOrder.Order memory order, bytes memory cancelSignature) public {
     bytes32 orderHash = LibOrder.getOrderHash(order);
     LibOrder.CancelOrder memory cancelOrderMessage = LibOrder.CancelOrder(orderHash);
     bytes32 digest = _hashTypedDataV4(LibOrder.getCancelOrderHash(cancelOrderMessage));
