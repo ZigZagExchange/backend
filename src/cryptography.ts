@@ -108,7 +108,7 @@ export async function verifyMessage(param: {
 
   // 2nd try: Check registered vault address
   // Requires manual whitelist
-  const vaultSigner = await redis.get(`vaultsigner:${signer}`);
+  const vaultSigner = await redis.get(`vaultsigner:${signer.toLowerCase()}`);
   if (vaultSigner && addrMatching(recoveredAddress, vaultSigner)) return true
 
   return false
