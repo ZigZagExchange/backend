@@ -1,11 +1,10 @@
 import { ethers } from 'ethers'
 import type { AnyObject } from './types'
+import { redis, publisher } from './redisClient'
 
 const VALIDATOR_1271_ABI = [
   'function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)'
 ]
-
-const ON_CHAIN_ALLOWED_SIGNER_CACHE: AnyObject = {}
 
 export function getEvmEIP712Types(chainId: number) {
   if ([42161, 421613].includes(chainId)) {
@@ -107,22 +106,10 @@ export async function verifyMessage(param: {
   const recoveredAddress = recoverAddress(finalDigest, signature)
   if (addrMatching(recoveredAddress, signer)) return true
 
-  // 2nd try: ON_CHAIN_ALLOWED_SIGNER_CACHE saves previus allowed signer
-  // optimistic assumtion: they are allowed to sign this time again.
-  // The contract does a real signature check anyway
-  const allowedAddress = ON_CHAIN_ALLOWED_SIGNER_CACHE[signer]
-  if (allowedAddress && addrMatching(recoveredAddress, allowedAddress)) return true
-
-  // 3st try: Getting code from deployed smart contract to call 1271 isValidSignature.
-  try {
-    if (await eip1271Check(provider, signer, finalDigest, signature)) {
-      ON_CHAIN_ALLOWED_SIGNER_CACHE[signer] = recoveredAddress
-      return true
-    }
-  } catch (err: any) {
-    console.error(`Failed to check signature on chain: ${err.message}`)
-    return true // better accept orders, as this check is optinal anyway
-  }
+  // 2nd try: Check registered vault address
+  // Requires manual whitelist
+  const vaultSigner = await redis.get(`vaultsigner:${signer.toLowerCase()}`);
+  if (vaultSigner && addrMatching(recoveredAddress, vaultSigner)) return true
 
   return false
 }
