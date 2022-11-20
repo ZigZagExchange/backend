@@ -49,6 +49,19 @@ contract ZigZagExchange is EIP712 {
     cancelled[orderHash] = true;
   }
 
+  // Canceling an order prevents it from being filled 
+  // This is for smart contracts to be able to sign order cancels
+  // To sign a cancel, set the sellAmount to 0, then sign the order
+  // There is some potential for a replay with this, but generally 
+  // the combination of the other 4 fields should be unique
+  function cancelOrderWithSig(LibOrder.Order memory order, bytes32 cancelSignature) public {
+    bytes32 orderHash = order.getOrderHash();
+    order.sellAmount = 0;
+    bytes32 cancelOrderHash = order.getOrderHash();
+    require(_isValidSignatureHash(order.user, cancelOrderHash, cancelSignature), 'invalid cancel signature');
+    cancelled[orderHash] = true;
+  }
+
   // fillAmount is the amount of the makerOrder.sellAmount to fill
   // (fillAvailable = true) fills whatever is available if the makerOrder.sellAmount < fillAmount
   function fillOrder(
