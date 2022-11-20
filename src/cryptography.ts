@@ -110,6 +110,7 @@ export async function verifyMessage(param: {
   // Requires manual whitelist
   const vaultSigner = await redis.get(`vaultsigner:${signer.toLowerCase()}`);
   if (vaultSigner && addrMatching(recoveredAddress, vaultSigner)) return true
+  console.log(`Expected ${signer}, recovered ${recoveredAddress}`);
 
   return false
 }
