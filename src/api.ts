@@ -1344,7 +1344,7 @@ export default class API extends EventEmitter {
     if (!result) throw new Error('Order signature incorrect')
 
     // Re-insert signature after validation
-    zktx.signature = signature
+    zktx.signature = modifyOldSignature(signature)
 
     const price = quoteAmount / baseAmount
 

@@ -20,8 +20,6 @@ contract ZigZagExchange is EIP712 {
     uint256 takerVolumeFee
   );
 
-  using LibOrder for LibOrder.Order;
-
   mapping(bytes32 => uint256) public filled;
 
   mapping(bytes32 => bool) public cancelled;
@@ -45,7 +43,16 @@ contract ZigZagExchange is EIP712 {
   // Canceling an order prevents it from being filled 
   function cancelOrder(LibOrder.Order memory order) public {
     require(msg.sender == order.user, 'only user may cancel order');
-    bytes32 orderHash = order.getOrderHash();
+    bytes32 orderHash = LibOrder.getOrderHash(order);
+    cancelled[orderHash] = true;
+  }
+
+  // Canceling an order prevents it from being filled 
+  // This is for smart contracts to be able to sign order cancels
+  function cancelOrderWithSig(LibOrder.Order memory order, bytes memory cancelSignature) public {
+    bytes32 orderHash = LibOrder.getOrderHash(order);
+    bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
+    require(_isValidSignatureHash(order.user, cancelHash, cancelSignature), "invalid cancel signature");
     cancelled[orderHash] = true;
   }
 
@@ -150,8 +157,8 @@ contract ZigZagExchange is EIP712 {
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= makerSellAmount, 'maker order not enough balance');
 
     // mark fills in storage
-    filled[makerOrder.getOrderHash()] += makerSellAmount;
-    filled[takerOrder.getOrderHash()] += takerSellAmount;
+    filled[LibOrder.getOrderHash(makerOrder)] += makerSellAmount;
+    filled[LibOrder.getOrderHash(takerOrder)] += takerSellAmount;
 
     _settleMatchedOrders(
       makerOrder.user,
@@ -211,7 +218,7 @@ contract ZigZagExchange is EIP712 {
   }
 
   function getOpenOrder(LibOrder.Order memory order) public view returns (LibOrder.OrderInfo memory orderInfo) {
-    orderInfo.orderHash = order.getOrderHash();
+    orderInfo.orderHash = LibOrder.getOrderHash(order);
     orderInfo.orderSellFilledAmount = filled[orderInfo.orderHash];
 
     require(orderInfo.orderSellFilledAmount < order.sellAmount, 'order is filled');
@@ -219,18 +226,24 @@ contract ZigZagExchange is EIP712 {
     require(!cancelled[orderInfo.orderHash], 'order canceled');
   }
 
-  function isValidSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
-    bytes32 orderHash = order.getOrderHash();
-
+  function isValidOrderSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
+    bytes32 orderHash = LibOrder.getOrderHash(order);
     return _isValidSignatureHash(order.user, orderHash, signature);
   }
 
+  function isValidCancelSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
+    bytes32 orderHash = LibOrder.getOrderHash(order);
+    bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
+    return _isValidSignatureHash(order.user, cancelHash, signature);
+  }
+
+  // hash can be an order hash or a cancel order hash
   function _isValidSignatureHash(
     address user,
-    bytes32 orderHash,
+    bytes32 hash,
     bytes memory signature
   ) private view returns (bool) {
-    bytes32 digest = _hashTypedDataV4(orderHash);
+    bytes32 digest = _hashTypedDataV4(hash);
 
     return SignatureChecker.isValidSignatureNow(user, digest, signature);
   }

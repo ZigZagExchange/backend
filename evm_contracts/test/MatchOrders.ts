@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from "./utils/PrivateKeyList"
-import { signOrder } from "./utils/SignUtil"
+import { signOrder, signCancelOrder } from "./utils/SignUtil"
 import { Order } from "./utils/types"
 import { Contract, Wallet } from "ethers";
 
@@ -268,6 +268,62 @@ describe("Order Matching", function () {
         await exchangeContract.connect(wallets[1]).cancelOrder(Object.values(takerOrder))
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("order canceled")
+    });
+
+    it("Should revert when taker order is canceled with signature", async function () {
+
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.BigNumber.from("120"),
+            buyAmount: ethers.BigNumber.from("970"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const takerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
+            sellAmount: ethers.BigNumber.from("890"),
+            buyAmount: ethers.BigNumber.from("10"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+
+        const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+        await exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(takerOrder), signedCancelOrder)
+
+        await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("order canceled")
+    });
+
+    it("Bad cancel signature should revert", async function () {
+
+        const makerOrder = {
+            user: wallets[0].address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.BigNumber.from("120"),
+            buyAmount: ethers.BigNumber.from("970"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const takerOrder = {
+            user: wallets[1].address,
+            sellToken: tokenB.address,
+            buyToken: tokenA.address,
+            sellAmount: ethers.BigNumber.from("890"),
+            buyAmount: ethers.BigNumber.from("10"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+
+        const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
+        await expect(exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(takerOrder), signedCancelOrder)).to.be.revertedWith('invalid cancel signature')
     });
 
     it("Should revert when order time is expired", async function () {
