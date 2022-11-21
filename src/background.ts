@@ -233,39 +233,60 @@ async function updatePendingOrders() {
   console.timeEnd('updatePendingOrders')
 }
 
+async function getPricesInfo(chainId: number) {
+  const redisRes = await Promise.allSettled([
+    redis.HGETALL(`lastprices:${chainId}`),
+    redis.HGETALL(`volume:${chainId}:quote`),
+    redis.HGETALL(`volume:${chainId}:base`),
+    redis.SMEMBERS(`activemarkets:${chainId}`),
+  ])
+
+  const failedRes: any[] = redisRes
+    .filter((x): x is PromiseRejectedResult => x.status === 'rejected')
+    .map((x) => x.reason)
+
+  if (failedRes.length > 0) {
+    throw new Error('Some prices info is lost!')
+  }
+
+  return redisRes
+    .filter((x): x is PromiseFulfilledResult<any> => x.status === 'fulfilled')
+    .map((x) => x.value)
+}
+
 async function updateLastPrices() {
   console.time('updateLastPrices')
 
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
 
-    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
-    const redisPricesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
-    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
-    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const [redisPrices, redisPricesQuote, redisVolumesBase, redisMarkets] =
+      await getPricesInfo(chainId)
 
-    const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const marketInfo = await getMarketInfo(marketId, chainId).catch(
-        () => null
-      )
-      if (!marketInfo) return
-      const lastPriceInfo: any = {}
-      const yesterday = new Date(Date.now() - 86400 * 1000)
-        .toISOString()
-        .slice(0, 10)
-      const yesterdayPrice = Number(
-        await redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
-      )
-      lastPriceInfo.price = +redisPrices[marketId]
-      lastPriceInfo.priceChange = yesterdayPrice
-        ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
-        : 0
+    const results1: Promise<any>[] = (redisMarkets as any[]).map(
+      async (marketId) => {
+        const marketInfo = await getMarketInfo(marketId, chainId).catch(
+          () => null
+        )
+        if (!marketInfo) return
+        const lastPriceInfo: any = {}
+        const yesterday = new Date(Date.now() - 86400 * 1000)
+          .toISOString()
+          .slice(0, 10)
+        const yesterdayPrice = Number(
+          await redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
+        )
+        lastPriceInfo.price = +(redisPrices?.[marketId] || 0)
+        lastPriceInfo.priceChange = yesterdayPrice
+          ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
+          : 0
 
-      lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
-      lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
+        lastPriceInfo.quoteVolume = redisPricesQuote?.[marketId] || 0
+        lastPriceInfo.baseVolume = redisVolumesBase?.[marketId] || 0
 
-      redis.HSET(redisKeyPriceInfo, marketId, JSON.stringify(lastPriceInfo))
-    })
+        redis.HSET(redisKeyPriceInfo, marketId, JSON.stringify(lastPriceInfo))
+      }
+    )
     await Promise.all(results1)
   })
   await Promise.all(results0)
@@ -1308,9 +1329,11 @@ async function checkEVMChainAllowance() {
   await Promise.all(results0)
 }
 
-async function deleteOldOrders () {
+async function deleteOldOrders() {
   console.time('deleteOldOrders')
-  await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '10 MINUTES')")
+  await db.query(
+    "DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '10 MINUTES')"
+  )
   console.timeEnd('deleteOldOrders')
 }
 
@@ -1328,10 +1351,7 @@ async function start() {
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
   const EVMContractABI = JSON.parse(
-    fs.readFileSync(
-      'abi/EVM_Exchange.json',
-      'utf8'
-    )
+    fs.readFileSync('abi/EVM_Exchange.json', 'utf8')
   ).abi
 
   // connect infura providers
