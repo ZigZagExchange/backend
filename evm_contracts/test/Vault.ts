@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from "./utils/PrivateKeyList"
-import { signOrder } from "./utils/SignUtil"
+import { signOrder, signCancelOrder } from "./utils/SignUtil"
 import { Contract, Wallet } from "ethers";
 
 describe("Vault", function () {
@@ -230,5 +230,40 @@ describe("Vault", function () {
         const totalSupply = await vaultContract.totalSupply();
         await expect(totalSupply).to.equal(ethers.utils.parseEther("100"));
         await expect(circulatingSupply).to.equal(ethers.utils.parseEther("1"));
+    });
+
+    it("Vault cancel order", async function () {
+
+        const makerOrder = {
+            user: vaultContract.address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.BigNumber.from("120"),
+            buyAmount: ethers.BigNumber.from("970"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
+        const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
+
+        await exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)
+
+        const fillAmount = ethers.utils.parseEther("1");
+        await expect(exchangeContract.connect(wallets[1]).fillOrder(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order canceled');
+    });
+
+    it("Bad cancel signature should revert", async function () {
+        const makerOrder = {
+            user: vaultContract.address,
+            sellToken: tokenA.address,
+            buyToken: tokenB.address,
+            sellAmount: ethers.BigNumber.from("120"),
+            buyAmount: ethers.BigNumber.from("970"),
+            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+        }
+
+        const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+        await expect(exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)).to.be.revertedWith('invalid cancel signature')
     });
 });

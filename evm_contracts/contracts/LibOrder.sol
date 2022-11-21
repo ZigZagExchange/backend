@@ -33,9 +33,10 @@ library LibOrder {
     );
   }
 
-  function getCancelOrderHash(CancelOrder memory cancelOrder) internal pure returns (bytes32 orderHash) {
-    orderHash = keccak256(
-      abi.encode(_EIP712_ORDER_SCHEMA_HASH, cancelOrder.orderHash)
+  // https://eips.ethereum.org/EIPS/eip-712#definition-of-hashstruct
+  function getCancelOrderHash(bytes32 orderHash) internal pure returns (bytes32 cancelOrderHash) {
+    cancelOrderHash = keccak256(
+      abi.encode(_EIP712_CANCEL_ORDER_SCHEMA_HASH, orderHash)
     );
   }
 }

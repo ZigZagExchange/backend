@@ -51,9 +51,8 @@ contract ZigZagExchange is EIP712 {
   // This is for smart contracts to be able to sign order cancels
   function cancelOrderWithSig(LibOrder.Order memory order, bytes memory cancelSignature) public {
     bytes32 orderHash = LibOrder.getOrderHash(order);
-    LibOrder.CancelOrder memory cancelOrderMessage = LibOrder.CancelOrder(orderHash);
-    bytes32 digest = _hashTypedDataV4(LibOrder.getCancelOrderHash(cancelOrderMessage));
-    require(SignatureChecker.isValidSignatureNow(order.user, digest, cancelSignature), "invalid cancel signature");
+    bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
+    require(_isValidSignatureHash(order.user, cancelHash, cancelSignature), "invalid cancel signature");
     cancelled[orderHash] = true;
   }
 
@@ -227,18 +226,24 @@ contract ZigZagExchange is EIP712 {
     require(!cancelled[orderInfo.orderHash], 'order canceled');
   }
 
-  function isValidSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
+  function isValidOrderSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
     bytes32 orderHash = LibOrder.getOrderHash(order);
-
     return _isValidSignatureHash(order.user, orderHash, signature);
   }
 
+  function isValidCancelSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
+    bytes32 orderHash = LibOrder.getOrderHash(order);
+    bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
+    return _isValidSignatureHash(order.user, cancelHash, signature);
+  }
+
+  // hash can be an order hash or a cancel order hash
   function _isValidSignatureHash(
     address user,
-    bytes32 orderHash,
+    bytes32 hash,
     bytes memory signature
   ) private view returns (bool) {
-    bytes32 digest = _hashTypedDataV4(orderHash);
+    bytes32 digest = _hashTypedDataV4(hash);
 
     return SignatureChecker.isValidSignatureNow(user, digest, signature);
   }
