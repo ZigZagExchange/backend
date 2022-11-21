@@ -190,12 +190,12 @@ contract ZigZagExchange is EIP712 {
     uint makerFee = takerSellAmount * maker_fee_numerator / maker_fee_denominator;
 
     // Taker fee -> fee recipient
-    if (takerFee > 0) {
+    if (takerFee != 0) {
       IERC20(makerSellToken).transferFrom(maker, FEE_ADDRESS, takerFee);
     }
 
     // Maker fee -> fee recipient
-    if (makerFee > 0) {
+    if (makerFee != 0) {
       IERC20(takerSellToken).transferFrom(taker, FEE_ADDRESS, makerFee);
     }
 
