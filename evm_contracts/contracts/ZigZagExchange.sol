@@ -247,7 +247,17 @@ contract ZigZagExchange is EIP712 {
   ) private view returns (bool) {
     bytes32 digest = _hashTypedDataV4(hash);
 
-    return SignatureChecker.isValidSignatureNow(user, digest, signature) || SignatureChecker.isValidSignatureNow(sessionKeys[user], digest, signature);
+    if (SignatureChecker.isValidSignatureNow(user, digest, signature)) return true;
+
+    // If the signature check fails, check the session key
+    // ecrecover yields address(0) for any signature with v not in [27,28]
+    // the default value for addresses in a mapping is address(0), so you have to ban this address 
+    // to prevent hackers from generating valid signatures for the session key
+    address sessionKey = sessionKeys[user];
+    if (sessionKey == address(0)) return false;
+
+    // session keys can also be contracts
+    return SignatureChecker.isValidSignatureNow(sessionKey, digest, signature);
   }
 
   function setFees(
