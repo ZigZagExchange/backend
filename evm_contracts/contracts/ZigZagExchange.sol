@@ -252,7 +252,7 @@ contract ZigZagExchange is EIP712 {
     // If the signature check fails, check the session key
     // ecrecover yields address(0) for any signature with v not in [27,28]
     // the default value for addresses in a mapping is address(0), so you have to ban this address 
-    // to prevent hackers from generating valid signatures for the session key
+    // to prevent hackers from generating valid signatures for an unset session key
     address sessionKey = sessionKeys[user];
     if (sessionKey == address(0)) return false;
 
