@@ -24,6 +24,8 @@ contract ZigZagExchange is EIP712 {
 
   mapping(bytes32 => bool) public cancelled;
 
+  mapping(address => address) public sessionKeys;
+
   // fees
   address FEE_ADDRESS;
   uint256 maker_fee_numerator = 0;
@@ -245,7 +247,7 @@ contract ZigZagExchange is EIP712 {
   ) private view returns (bool) {
     bytes32 digest = _hashTypedDataV4(hash);
 
-    return SignatureChecker.isValidSignatureNow(user, digest, signature);
+    return SignatureChecker.isValidSignatureNow(user, digest, signature) || SignatureChecker.isValidSignatureNow(sessionKeys[user], digest, signature);
   }
 
   function setFees(
@@ -260,5 +262,9 @@ contract ZigZagExchange is EIP712 {
     taker_fee_denominator = _taker_fee_denominator;
     maker_fee_numerator = _maker_fee_numerator;
     maker_fee_denominator = _maker_fee_denominator;
+  }
+
+  function setSessionKey(address sessionKey) public {
+    sessionKeys[msg.sender] = sessionKey;
   }
 }
