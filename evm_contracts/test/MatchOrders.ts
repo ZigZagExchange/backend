@@ -710,4 +710,61 @@ describe("Order Matching", function () {
 
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('self swap not allowed');
     });
+
+  it("Should revert cancelOrder if already filled", async function () {
+
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.BigNumber.from("120"),
+      buyAmount: ethers.BigNumber.from("970"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const takerOrder = {
+      user: wallets[1].address,
+      sellToken: tokenB.address,
+      buyToken: tokenA.address,
+      sellAmount: ethers.BigNumber.from("970"),
+      buyAmount: ethers.BigNumber.from("120"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+
+    await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
+
+    await expect(exchangeContract.connect(wallets[1]).cancelOrder(Object.values(takerOrder))).to.be.revertedWith("order already filled")
+  });
+
+  it("Should revert cancelOrderWithSig if already filled", async function () {
+
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.BigNumber.from("120"),
+      buyAmount: ethers.BigNumber.from("970"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const takerOrder = {
+      user: wallets[1].address,
+      sellToken: tokenB.address,
+      buyToken: tokenA.address,
+      sellAmount: ethers.BigNumber.from("970"),
+      buyAmount: ethers.BigNumber.from("120"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+
+    await exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)
+
+    const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+    await expect(exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(takerOrder), signedCancelOrder)).to.be.revertedWith("order already filled")
+    });
 });

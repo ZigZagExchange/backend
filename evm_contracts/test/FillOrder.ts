@@ -5,7 +5,7 @@ import { signOrder, signCancelOrder } from "./utils/SignUtil"
 import { Order } from "./utils/types"
 import { Contract, Wallet } from "ethers";
 
-describe("RFQ", function () {
+describe("FillOrder", function () {
 
     let exchangeContract: Contract;
     let tokenA: Contract;
