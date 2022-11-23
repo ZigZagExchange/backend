@@ -46,6 +46,7 @@ contract ZigZagExchange is EIP712 {
   function cancelOrder(LibOrder.Order memory order) public {
     require(msg.sender == order.user, 'only user may cancel order');
     bytes32 orderHash = LibOrder.getOrderHash(order);
+    require(order.sellAmount < filled[orderHash], 'order already filled');
     cancelled[orderHash] = true;
   }
 
@@ -53,6 +54,7 @@ contract ZigZagExchange is EIP712 {
   // This is for smart contracts to be able to sign order cancels
   function cancelOrderWithSig(LibOrder.Order memory order, bytes memory cancelSignature) public {
     bytes32 orderHash = LibOrder.getOrderHash(order);
+    require(order.sellAmount < filled[orderHash], 'order already filled');
     bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
     require(_isValidSignatureHash(order.user, cancelHash, cancelSignature), "invalid cancel signature");
     cancelled[orderHash] = true;
