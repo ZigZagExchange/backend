@@ -24,8 +24,6 @@ contract ZigZagExchange is EIP712 {
 
   mapping(bytes32 => bool) public cancelled;
 
-  mapping(address => address) public sessionKeys;
-
   // fees
   address FEE_ADDRESS;
   uint256 maker_fee_numerator = 0;
@@ -254,18 +252,7 @@ contract ZigZagExchange is EIP712 {
     bytes memory signature
   ) private view returns (bool) {
     bytes32 digest = _hashTypedDataV4(hash);
-
-    if (SignatureChecker.isValidSignatureNow(user, digest, signature)) return true;
-
-    // If the signature check fails, check the session key
-    // ecrecover yields address(0) for any signature with v not in [27,28]
-    // the default value for addresses in a mapping is address(0), so you have to ban this address 
-    // to prevent hackers from generating valid signatures for an unset session key
-    address sessionKey = sessionKeys[user];
-    if (sessionKey == address(0)) return false;
-
-    // session keys can also be contracts
-    return SignatureChecker.isValidSignatureNow(sessionKey, digest, signature);
+    return SignatureChecker.isValidSignatureNow(user, digest, signature);
   }
 
   function setFees(
@@ -282,7 +269,4 @@ contract ZigZagExchange is EIP712 {
     maker_fee_denominator = _maker_fee_denominator;
   }
 
-  function setSessionKey(address sessionKey) public {
-    sessionKeys[msg.sender] = sessionKey;
-  }
 }
