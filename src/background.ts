@@ -1030,7 +1030,7 @@ async function updateEVMMarketInfo() {
           updated = true
         }
         if (
-          Number(marketInfo.contractVersion) !== Number(evmConfig.domain.version)
+          marketInfo.contractVersion !== evmConfig.domain.version
         ) {
           console.log(`Updating contractVersion: ${marketInfo.contractVersion} -> ${evmConfig.domain.version}`)
           updated = true
@@ -1046,7 +1046,7 @@ async function updateEVMMarketInfo() {
 
         const marketInfo = JSON.parse(marketInfos[market])
         marketInfo.exchangeAddress = evmConfig.exchangeAddress
-        marketInfo.contractVersion = Number(evmConfig.domain.version)
+        marketInfo.contractVersion = evmConfig.domain.version
         marketInfo.baseFee = 0
         marketInfo.quoteFee = 0
         redis.HSET(`marketinfo:${chainId}`, market, JSON.stringify(marketInfo))

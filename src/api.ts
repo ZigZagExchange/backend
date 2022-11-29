@@ -1332,7 +1332,6 @@ export default class API extends EventEmitter {
     delete zktx.signature
 
     const result = await verifyMessage ({
-      provider: this.ETHERS_PROVIDERS[chainId] as ethers.providers.Provider,
       signer: zktx.user,
       typedData: {
         domain: networkProviderConfig.domain,
@@ -1480,7 +1479,6 @@ export default class API extends EventEmitter {
       if (signerAddress !== userId) throw new Error('Unauthorized')
     } else {
       const res = await verifyMessage({
-        provider: this.ETHERS_PROVIDERS[chainId] as ethers.providers.Provider,
         signer: userId as string,
         message: `cancelall2:${chainId}:${validUntil}`,
         signature
@@ -1600,7 +1598,6 @@ export default class API extends EventEmitter {
       if (signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
     } else {
       const res = await verifyMessage({
-        provider: this.ETHERS_PROVIDERS[chainId] as ethers.providers.Provider,
         signer: select.rows[0].userid as string,
         message: `cancelorder2:${chainId}:${orderId}`,
         signature
