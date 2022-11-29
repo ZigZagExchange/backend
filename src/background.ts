@@ -1024,11 +1024,17 @@ async function updateEVMMarketInfo() {
       if (testPairString) {
         const marketInfo = JSON.parse(testPairString)
         if (
-          marketInfo.exchangeAddress !== evmConfig.exchangeAddress ||
-          Number(marketInfo.contractVersion) !==
-            Number(evmConfig.domain.version)
-        )
+          marketInfo.exchangeAddress !== evmConfig.exchangeAddress
+        ) {
+          console.log(`Updating marketinfo: ${marketInfo.exchangeAddress} -> ${evmConfig.exchangeAddress}`)
           updated = true
+        }
+        if (
+          Number(marketInfo.contractVersion) !== Number(evmConfig.domain.version)
+        ) {
+          console.log(`Updating contractVersion: ${marketInfo.contractVersion} -> ${evmConfig.domain.version}`)
+          updated = true
+        }
       }
       if (!updated) return
 
@@ -1308,7 +1314,7 @@ async function checkEVMChainAllowance() {
   await Promise.all(results0)
 }
 
-async function deleteOldOrders () {
+async function deleteOldOrders() {
   console.time('deleteOldOrders')
   await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '10 MINUTES')")
   console.timeEnd('deleteOldOrders')
