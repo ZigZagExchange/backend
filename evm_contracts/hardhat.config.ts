@@ -28,7 +28,7 @@ export default {
     }
   },
   networks: {
-      arbitrum: {
+      arbitrumOne: {
         url: "https://arb1.arbitrum.io/rpc",
         accounts: []
       },
