@@ -1,10 +1,8 @@
 import { ethers } from 'ethers'
 import type { AnyObject } from './types'
-import { redis, publisher } from './redisClient'
+import { redis } from './redisClient'
 
-const VALIDATOR_1271_ABI = [
-  'function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)'
-]
+const VALIDATOR_1271_ABI = ['function isValidSignature(bytes32 hash, bytes signature) view returns (bytes4)']
 
 export function getEvmEIP712Types(chainId: number) {
   if ([42161, 421613].includes(chainId)) {
@@ -46,6 +44,7 @@ function addrMatching(recoveredAddr: string, targetAddr: string) {
   return recoveredAddr.toLowerCase() === targetAddr.toLowerCase()
 }
 
+/*
 // EIP 1271 check
 async function eip1271Check(
   provider: ethers.providers.Provider,
@@ -70,16 +69,16 @@ async function eip1271Check(
   }
   return false
 }
+*/
 
 // you only need to pass one of: typedData or message
 export async function verifyMessage(param: {
-  provider: ethers.providers.Provider
   signer: string
   message?: string
   typedData?: AnyObject
   signature: string
 }): Promise<boolean> {
-  const { message, typedData, provider, signer } = param
+  const { message, typedData, signer } = param
   const signature = modifyOldSignature(param.signature)
   let finalDigest: string
 
@@ -108,9 +107,9 @@ export async function verifyMessage(param: {
 
   // 2nd try: Check registered vault address
   // Requires manual whitelist
-  const vaultSigner = await redis.get(`vaultsigner:${signer.toLowerCase()}`);
+  const vaultSigner = await redis.get(`vaultsigner:${signer.toLowerCase()}`)
   if (vaultSigner && addrMatching(recoveredAddress, vaultSigner)) return true
-  console.log(`Expected ${signer}, recovered ${recoveredAddress}`);
+  console.log(`Expected ${signer}, recovered ${recoveredAddress}`)
 
   return false
 }

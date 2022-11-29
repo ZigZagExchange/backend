@@ -36,7 +36,7 @@ describe("Vault", function () {
 
         manager = wallets[2];
         FEE_ADDRESS = wallets[3].address;
-        exchangeContract = await Exchange.deploy("ZigZag", "2.0", FEE_ADDRESS);
+        exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS);
         vaultContract = await Vault.deploy(manager.address, "ZigZag LP 1", "ZZLP1");
 
         await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);

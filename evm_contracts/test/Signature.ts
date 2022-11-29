@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Contract, Wallet } from 'ethers'
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from './utils/PrivateKeyList'
-import { signOrder } from './utils/SignUtil'
+import { signOrder, signCancelOrder } from './utils/SignUtil'
 import { Order } from './utils/types'
 
 describe('Signature Validation', () => {
@@ -17,7 +17,7 @@ describe('Signature Validation', () => {
     const Exchange = await ethers.getContractFactory('ZigZagExchange')
     exchangeContract = await Exchange.deploy(
       'ZigZag',
-      '2.0',
+      '2.1',
       ethers.constants.AddressZero
     )
 
@@ -33,10 +33,10 @@ describe('Signature Validation', () => {
       sellAmount: ethers.BigNumber.from('12'),
       buyAmount: ethers.BigNumber.from('13'),
       expirationTimeSeconds: ethers.BigNumber.from('0'),
-    }
+    }    
   })
 
-  it('Should validate signature', async () => {
+  it('Should validate order signature', async () => {
     const signedMessage = await signOrder(
       TESTRPC_PRIVATE_KEYS_STRINGS[0],
       order,
@@ -44,23 +44,51 @@ describe('Signature Validation', () => {
     )
 
     expect(
-      await exchangeContract.isValidSignature(
+      await exchangeContract.isValidOrderSignature(
         Object.values(order),
         signedMessage
       )
     ).to.equal(true)
   })
 
-  it("Shouldn't validate signature with different Private Key", async () => {
+  it("Shouldn't validate order signature with different Private Key", async () => {
     const incorrenctlySignedMessage = await signOrder(
       TESTRPC_PRIVATE_KEYS_STRINGS[1],
       order,
       exchangeContract.address
     )
     expect(
-      await exchangeContract.isValidSignature(
+      await exchangeContract.isValidOrderSignature(
         Object.values(order),
         incorrenctlySignedMessage
+      )
+    ).to.equal(false)
+  })
+
+  it("Should validate cancel order signature", async () => {
+    const signedCancelOrder = await signCancelOrder(
+      TESTRPC_PRIVATE_KEYS_STRINGS[0],
+      order,
+      exchangeContract.address
+    )
+    expect(
+      await exchangeContract.isValidCancelSignature(
+        Object.values(order),
+        signedCancelOrder
+      )
+    ).to.equal(true)
+  })
+
+  it("Shouldn't validate cancel order signature with different Private Key", async () => {
+    const signedCancelOrder = await signCancelOrder(
+      TESTRPC_PRIVATE_KEYS_STRINGS[1],
+      order,
+      exchangeContract.address
+    )
+    expect(
+      await exchangeContract.isValidCancelSignature(
+        Object.values(order),
+        signedCancelOrder
       )
     ).to.equal(false)
   })

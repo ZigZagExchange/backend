@@ -7,18 +7,18 @@
       "name": "ZigZag",
       "version": "2.0",
       "chainId": "42161",
-      "verifyingContract": "0x8b84CAE3ec8E9481cCBb41f92CBDb8422bBadf4F"
+      "verifyingContract": "0x8b84cae3ec8e9481ccbb41f92cbdb8422bbadf4f"
     }
   },
   "421613": {
-    "exchangeAddress": "0x91F186a1564AC76Ce40F6A5B839796B4E9DEe72B",
+    "exchangeAddress": "0x43b2FF69196a1b9641C1fCBaB6A869B4e256Fb12",
     "minMakerVolumeFee": 0.00,
     "minTakerVolumeFee": 0.0005,
     "domain": {
       "name": "ZigZag",
-      "version": "2.0",
+      "version": "2.1",
       "chainId": "421613",
-      "verifyingContract": "0x91F186a1564AC76Ce40F6A5B839796B4E9DEe72B"
+      "verifyingContract": "0x43b2FF69196a1b9641C1fCBaB6A869B4e256Fb12"
     }
   }
 }

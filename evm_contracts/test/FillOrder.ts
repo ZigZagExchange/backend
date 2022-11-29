@@ -5,7 +5,7 @@ import { signOrder, signCancelOrder } from "./utils/SignUtil"
 import { Order } from "./utils/types"
 import { Contract, Wallet } from "ethers";
 
-describe("RFQ", function () {
+describe("FillOrder", function () {
 
     let exchangeContract: Contract;
     let tokenA: Contract;
@@ -33,7 +33,7 @@ describe("RFQ", function () {
         }
 
         FEE_ADDRESS = wallets[3].address;
-        exchangeContract = await Exchange.deploy("ZigZag", "2.0", FEE_ADDRESS);
+        exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS);
 
         await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);
         await tokenB.mint(ethers.utils.parseEther("10000"), wallets[1].address);
