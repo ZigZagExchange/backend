@@ -1597,7 +1597,7 @@ export default class API extends EventEmitter {
       signerAddress = res.result.accountId.toString()
       if (signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
     } else {
-      const res = await verifyMessage({verifyMessage
+      const res = await verifyMessage({
         signer: select.rows[0].userid as string,
         message: `cancelorder2:${chainId}:${orderId}`,
         signature
