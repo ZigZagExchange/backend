@@ -261,14 +261,14 @@ export default class API extends EventEmitter {
       // get arweave default marketinfo
       const controller = new AbortController()
       setTimeout(() => controller.abort(), 15000)
+      console.log(`Arweave request ${`https://arweave.net/${marketArweaveId}`}`)
       const fetchResult = await fetch(
         `https://arweave.net/${marketArweaveId}`,
         {
           signal: controller.signal,
         }
       ).then((r: any) => r.json())
-
-      console.log(`Arweave request ${`https://arweave.net/${marketArweaveId}`}, result: ${fetchResult}`)
+      console.log(`Arweave result: ${fetchResult}`)
 
       if (!fetchResult) return marketInfo
       marketInfo = fetchResult
@@ -311,7 +311,7 @@ export default class API extends EventEmitter {
         !marketInfoDefaults ||
         Number(marketInfoDefaults.zigzagChainId) !== chainId
       ) {
-        console.log(marketInfoDefaults)
+        console.log(`getDefaultValuesFromArweave error: ${marketInfoDefaults}`)
         throw new Error(
           `Can't get marketInfo for market: ${market} and chainId: ${chainId}`
         )
