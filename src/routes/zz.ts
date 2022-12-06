@@ -47,8 +47,8 @@ export default function zzRoutes(app: ZZHttpServer) {
     const UTCFlag = req.query.utc === 'true'
     const markets: string[] = []
     if (req.query.market) {
-      ;(req.query.market as string).split(',').forEach((market: string) => {
-        market = market.replace('_', '-').replace('/', '-')
+      ; (req.query.market as string).split(',').forEach((market: string) => {
+        if (market.length < 20) market = market.replace('_', '-').replace('/', '-')
         markets.push(market)
       })
     }
@@ -102,8 +102,8 @@ export default function zzRoutes(app: ZZHttpServer) {
 
     const markets: ZZMarket[] = []
     if (req.query.market) {
-      ;(req.query.market as string).split(',').forEach((market: string) => {
-        market = market.replace('_', '-').replace('/', '-')
+      ; (req.query.market as string).split(',').forEach((market: string) => {
+        if (market.length < 20) market = market.replace('_', '-').replace('/', '-')
         markets.push(market)
         markets.push(market.toUpperCase())
       })
@@ -312,7 +312,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     const markets: ZZMarket[] = []
     if (req.query.market) {
       ;(req.query.market as string).split(',').forEach((market: string) => {
-        market = market.replace('_', '-').replace('/', '-')
+        if (market.length < 20) market = market.replace('_', '-').replace('/', '-')
         markets.push(market)
       })
     } else {
