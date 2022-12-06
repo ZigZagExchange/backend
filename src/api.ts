@@ -346,6 +346,7 @@ export default class API extends EventEmitter {
     } else if (this.VALID_EVM_CHAINS.includes(chainId)) {
       ;[baseTokenLike, quoteTokenLike] = market.split('-')
     } else {
+      console.log(`Listing market, bad chain ${chainId}`)
       throw new Error('Bad chainId')
     }
 
@@ -463,6 +464,7 @@ export default class API extends EventEmitter {
       }
       tokenInfo.id = tokenInfo.address
     } else {
+      console.log(`getTokenInfo bad chain ${chainId}`)
       throw new Error('Bad chainId')
     }
 
