@@ -268,6 +268,8 @@ export default class API extends EventEmitter {
         }
       ).then((r: any) => r.json())
 
+      console.log(`Arweave request ${`https://arweave.net/${marketArweaveId}`}, result: ${fetchResult}`)
+
       if (!fetchResult) return marketInfo
       marketInfo = fetchResult
     } catch (err: any) {
@@ -309,6 +311,7 @@ export default class API extends EventEmitter {
         !marketInfoDefaults ||
         Number(marketInfoDefaults.zigzagChainId) !== chainId
       ) {
+        console.log(marketInfoDefaults)
         throw new Error(
           `Can't get marketInfo for market: ${market} and chainId: ${chainId}`
         )
