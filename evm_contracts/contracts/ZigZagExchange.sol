@@ -20,6 +20,8 @@ contract ZigZagExchange is EIP712 {
     uint256 takerVolumeFee
   );
 
+  event CancelOrder(bytes32 orderHash);
+
   mapping(bytes32 => uint256) public filled;
 
   mapping(bytes32 => bool) public cancelled;
@@ -46,6 +48,7 @@ contract ZigZagExchange is EIP712 {
     bytes32 orderHash = LibOrder.getOrderHash(order);
     require(filled[orderHash] < order.sellAmount, 'order already filled');
     cancelled[orderHash] = true;
+    emit CancelOrder(orderHash);
   }
 
   // Canceling an order prevents it from being filled 
@@ -56,6 +59,7 @@ contract ZigZagExchange is EIP712 {
     bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
     require(_isValidSignatureHash(order.user, cancelHash, cancelSignature), "invalid cancel signature");
     cancelled[orderHash] = true;
+    emit CancelOrder(orderHash);
   }
 
   // fillAmount is the amount of the makerOrder.sellAmount to fill
