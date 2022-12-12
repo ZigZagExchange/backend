@@ -21,6 +21,7 @@ contract ZigZagExchange is EIP712 {
   );
 
   event CancelOrder(bytes32 orderHash);
+  event OrderStatus(bytes32 orderHash, uint filled, uint remaining);
 
   mapping(bytes32 => uint256) public filled;
 
@@ -100,6 +101,9 @@ contract ZigZagExchange is EIP712 {
       buyAmount
     );
 
+    uint makerOrderFilled = filled[makerOrderInfo.orderHash];
+    emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
+
     return true;
   }
 
@@ -163,8 +167,10 @@ contract ZigZagExchange is EIP712 {
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= makerSellAmount, 'maker order not enough balance');
 
     // mark fills in storage
-    filled[LibOrder.getOrderHash(makerOrder)] += makerSellAmount;
-    filled[LibOrder.getOrderHash(takerOrder)] += takerSellAmount;
+    bytes32 makerOrderHash = LibOrder.getOrderHash(makerOrder);
+    bytes32 takerOrderHash = LibOrder.getOrderHash(takerOrder);
+    filled[makerOrderHash] += makerSellAmount;
+    filled[takerOrderHash] += takerSellAmount;
 
     _settleMatchedOrders(
       makerOrder.user,
@@ -174,6 +180,11 @@ contract ZigZagExchange is EIP712 {
       makerSellAmount,
       takerSellAmount
     );
+
+    uint makerOrderFilled = filled[makerOrderHash];
+    uint takerOrderFilled = filled[takerOrderHash];
+    emit OrderStatus(makerOrderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
+    emit OrderStatus(takerOrderHash, takerOrderFilled, takerOrder.sellAmount - takerOrderFilled);
 
     return true;
   }
