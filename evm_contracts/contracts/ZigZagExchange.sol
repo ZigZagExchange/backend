@@ -12,8 +12,8 @@ contract ZigZagExchange is EIP712 {
   event Swap(
     address maker,
     address taker,
-    address makerSellToken,
-    address takerSellToken,
+    address indexed makerSellToken,
+    address indexed takerSellToken,
     uint256 makerSellAmount,
     uint256 takerSellAmount,
     uint256 makerVolumeFee,
