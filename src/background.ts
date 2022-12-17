@@ -236,36 +236,57 @@ async function updatePendingOrders() {
 async function updateLastPrices() {
   console.time('updateLastPrices')
 
+  async function getData(chainId: number) {
+    const redisRes = await Promise.allSettled([
+      redis.HGETALL(`lastprices:${chainId}`),
+      redis.HGETALL(`volume:${chainId}:quote`),
+      redis.HGETALL(`volume:${chainId}:base`),
+      redis.SMEMBERS(`activemarkets:${chainId}`),
+    ])
+
+    const failedRes: any[] = redisRes
+      .filter((x): x is PromiseRejectedResult => x.status === 'rejected')
+      .map((x) => x.reason)
+
+    if (failedRes.length > 0) {
+      throw new Error('Some prices info is lost!')
+    }
+
+    return redisRes
+      .filter((x): x is PromiseFulfilledResult<any> => x.status === 'fulfilled')
+      .map((x) => x.value)
+  }
+
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
 
-    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
-    const redisPricesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
-    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
-    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const [redisPrices, redisPricesQuote, redisVolumesBase, redisMarkets] =
+      await getData(chainId)
 
-    const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const marketInfo = await getMarketInfo(marketId, chainId).catch(
-        () => null
-      )
-      if (!marketInfo) return
-      const lastPriceInfo: any = {}
-      const yesterday = new Date(Date.now() - 86400 * 1000)
-        .toISOString()
-        .slice(0, 10)
-      const yesterdayPrice = Number(
-        await redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
-      )
-      lastPriceInfo.price = +redisPrices[marketId]
-      lastPriceInfo.priceChange = yesterdayPrice
-        ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
-        : 0
+    const results1: Promise<any>[] = (redisMarkets as any[]).map(
+      async (marketId) => {
+        const marketInfo = await getMarketInfo(marketId, chainId).catch(
+          () => null
+        )
+        if (!marketInfo) return
+        const lastPriceInfo: any = {}
+        const yesterday = new Date(Date.now() - 86400 * 1000)
+          .toISOString()
+          .slice(0, 10)
+        const yesterdayPrice = Number(
+          await redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
+        )
+        lastPriceInfo.price = +(redisPrices?.[marketId] || 0)
+        lastPriceInfo.priceChange = yesterdayPrice
+          ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
+          : 0
 
-      lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
-      lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
+        lastPriceInfo.quoteVolume = redisPricesQuote?.[marketId] || 0
+        lastPriceInfo.baseVolume = redisVolumesBase?.[marketId] || 0
 
-      redis.HSET(redisKeyPriceInfo, marketId, JSON.stringify(lastPriceInfo))
-    })
+        redis.HSET(redisKeyPriceInfo, marketId, JSON.stringify(lastPriceInfo))
+      }
+    )
     await Promise.all(results1)
   })
   await Promise.all(results0)
@@ -275,27 +296,54 @@ async function updateLastPrices() {
 async function updateMarketSummarys() {
   console.time('updateMarketSummarys')
 
+  async function getData(chainId: number) {
+    const redisRes = await Promise.allSettled([
+      redis.HGETALL(`volume:${chainId}:quote`),
+      redis.HGETALL(`volume:${chainId}:base`),
+      redis.HGETALL(`lastprices:${chainId}`),
+      redis.HGETALL(`price:${chainId}:low`),
+      redis.HGETALL(`price:${chainId}:high`),
+      redis.HGETALL(`bestask:${chainId}`),
+      redis.HGETALL(`bestbid:${chainId}`),
+      redis.SMEMBERS(`activemarkets:${chainId}`),
+      redis.HGETALL(`volume:utc:${chainId}:quote`),
+      redis.HGETALL(`volume:utc:${chainId}:base`),
+      redis.HGETALL(`price:utc:${chainId}:low`),
+      redis.HGETALL(`price:utc:${chainId}:high`),
+    ])
+
+    const failedRes: any[] = redisRes
+      .filter((x): x is PromiseRejectedResult => x.status === 'rejected')
+      .map((x) => x.reason)
+
+    if (failedRes.length > 0) {
+      throw new Error('Some prices info is lost!')
+    }
+
+    return redisRes
+      .filter((x): x is PromiseFulfilledResult<any> => x.status === 'fulfilled')
+      .map((x) => x.value)
+  }
+
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
     const redisKeyMarketSummary = `marketsummary:${chainId}`
     const redisKeyMarketSummaryUTC = `marketsummary:utc:${chainId}`
 
     // fetch needed data
-    const redisVolumesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
-    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
-    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
-    const redisPricesLow = await redis.HGETALL(`price:${chainId}:low`)
-    const redisPricesHigh = await redis.HGETALL(`price:${chainId}:high`)
-    const redisBestAsk = await redis.HGETALL(`bestask:${chainId}`)
-    const redisBestBid = await redis.HGETALL(`bestbid:${chainId}`)
-    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const redisVolumesQuoteUTC = await redis.HGETALL(
-      `volume:utc:${chainId}:quote`
-    )
-    const redisVolumesBaseUTC = await redis.HGETALL(
-      `volume:utc:${chainId}:base`
-    )
-    const redisPricesLowUTC = await redis.HGETALL(`price:utc:${chainId}:low`)
-    const redisPricesHighUTC = await redis.HGETALL(`price:utc:${chainId}:high`)
+    const [
+      redisVolumesQuote,
+      redisVolumesBase,
+      redisPrices,
+      redisPricesLow,
+      redisPricesHigh,
+      redisBestAsk,
+      redisBestBid,
+      markets,
+      redisVolumesQuoteUTC,
+      redisVolumesBaseUTC,
+      redisPricesLowUTC,
+      redisPricesHighUTC,
+    ] = await getData(chainId)
 
     const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(
@@ -1316,7 +1364,9 @@ async function checkEVMChainAllowance() {
 
 async function deleteOldOrders() {
   console.time('deleteOldOrders')
-  await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '10 MINUTES')")
+  await db.query(
+    "DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '10 MINUTES')"
+  )
   console.timeEnd('deleteOldOrders')
 }
 
@@ -1334,10 +1384,7 @@ async function start() {
   ERC20_ABI = JSON.parse(fs.readFileSync('abi/ERC20.abi', 'utf8'))
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
   const EVMContractABI = JSON.parse(
-    fs.readFileSync(
-      'abi/EVM_Exchange.json',
-      'utf8'
-    )
+    fs.readFileSync('abi/EVM_Exchange.json', 'utf8')
   ).abi
 
   // connect infura providers
