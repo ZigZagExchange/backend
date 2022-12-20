@@ -43,7 +43,8 @@ contract ZigZagExchange is EIP712 {
     FEE_ADDRESS = fee_address;
   }
 
-  // Canceling an order prevents it from being filled 
+  /// @notice Cancel an order so it can no longer be filled 
+  /// @param order order that should get cancelled
   function cancelOrder(LibOrder.Order memory order) public {
     require(msg.sender == order.user, 'only user may cancel order');
     bytes32 orderHash = LibOrder.getOrderHash(order);
@@ -52,8 +53,9 @@ contract ZigZagExchange is EIP712 {
     emit CancelOrder(orderHash);
   }
 
-  // Canceling an order prevents it from being filled 
-  // This is for smart contracts to be able to sign order cancels
+  /// @notice Cancel an order so it can no longer be filled with an EIP712 signature
+  /// @param order order that should get cancelled
+  /// @param cancelSignature signature using the EIP712 format
   function cancelOrderWithSig(LibOrder.Order memory order, bytes memory cancelSignature) public {
     bytes32 orderHash = LibOrder.getOrderHash(order);
     require(filled[orderHash] < order.sellAmount, 'order already filled');
@@ -63,49 +65,108 @@ contract ZigZagExchange is EIP712 {
     emit CancelOrder(orderHash);
   }
 
-  // fillAmount is the amount of the makerOrder.sellAmount to fill
-  // (fillAvailable = true) fills whatever is available if the makerOrder.sellAmount < fillAmount
-  function fillOrder(
+  /// @notice Fills an order with an exact amount too sell
+  /// @param makerOrder Order that will be used to make this swap
+  /// @param makerSignature  Signature for the order used
+  /// @param sellAmount amount send from the sender to the maker
+  /// @return returns true if successfull
+  function fillOrderExactInput(
     LibOrder.Order memory makerOrder,
     bytes memory makerSignature,
-    uint fillAmount,
+    uint sellAmount,
     bool fillAvailable
-  ) public returns (bool) {
+  ) public returns (bool)  {
     require(msg.sender != makerOrder.user, 'self swap not allowed');
 
-    LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
-
     //validate signature
+    LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
     require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
 
     // adjust size if the user wants to fill whatever is available
-    uint availableSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
-    if (fillAvailable && availableSize < fillAmount) fillAmount = availableSize;
-    require(fillAmount <= availableSize, 'fill amount exceeds available size');
+    uint availableSellSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
+    uint availableBuySize = availableSellSize * makerOrder.buyAmount / makerOrder.sellAmount;
+    if (fillAvailable && availableBuySize < sellAmount) sellAmount = availableBuySize;
 
-    uint buyAmount = fillAmount * makerOrder.buyAmount / makerOrder.sellAmount;
+    require(sellAmount <= availableBuySize, 'sellAmount exceeds available size');
 
+    uint buyAmount = sellAmount * makerOrder.sellAmount / makerOrder.buyAmount;
+    
     // Verify balances
-    require(IERC20(makerOrder.buyToken).balanceOf(msg.sender) >= buyAmount, 'taker order not enough balance');
-    require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= fillAmount, 'maker order not enough balance');
+    require(IERC20(makerOrder.buyToken).balanceOf(msg.sender) >= sellAmount, 'taker order not enough balance');
+    require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= buyAmount, 'maker order not enough balance');
+
+    // Verify allowance
+    require(IERC20(makerOrder.buyToken).allowance(msg.sender, address(this)) >= sellAmount, 'taker order not enough allowance');
+    require(IERC20(makerOrder.sellToken).allowance(makerOrder.user, address(this)) >= buyAmount, 'maker order not enough allowance');
 
     // mark fills in storage
-    filled[makerOrderInfo.orderHash] += fillAmount;
+    filled[makerOrderInfo.orderHash] += buyAmount;
 
     _settleMatchedOrders(
       makerOrder.user,
       msg.sender,
       makerOrder.sellToken,
       makerOrder.buyToken,
-      fillAmount,
-      buyAmount
+      buyAmount,
+      sellAmount
     );
 
     uint makerOrderFilled = filled[makerOrderInfo.orderHash];
     emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
-
-    return true;
+    return true;   
   }
+
+  /// @notice Fills an order with an exact amount too buy
+  /// @param makerOrder Order that will be used to make this swap
+  /// @param makerSignature  Signature for the order used
+  /// @param buyAmount amount send to the sender from the maker
+  /// @param fillAvailable Should the maximum buyAmount possible be used
+  /// @return returns true if successfull
+  function fillOrderExactOutput(
+    LibOrder.Order memory makerOrder,
+    bytes memory makerSignature,
+    uint buyAmount,
+    bool fillAvailable
+  ) public returns (bool)  {
+    require(msg.sender != makerOrder.user, 'self swap not allowed');
+
+    //validate signature
+    LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
+    require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
+
+    // adjust size if the user wants to fill whatever is available
+    uint availableSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
+    if (fillAvailable && availableSize < buyAmount) buyAmount = availableSize;
+
+    require(buyAmount <= availableSize, 'buyAmount exceeds available size');
+
+    uint sellAmount = buyAmount * makerOrder.buyAmount / makerOrder.sellAmount;
+
+    // Verify balances
+    require(IERC20(makerOrder.buyToken).balanceOf(msg.sender) >= sellAmount, 'taker order not enough balance');
+    require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= buyAmount, 'maker order not enough balance');
+
+    // Verify allowance
+    require(IERC20(makerOrder.buyToken).allowance(msg.sender, address(this)) >= sellAmount, 'taker order not enough allowance');
+    require(IERC20(makerOrder.sellToken).allowance(makerOrder.user, address(this)) >= buyAmount, 'maker order not enough allowance');
+
+    // mark fills in storage
+    filled[makerOrderInfo.orderHash] += buyAmount;
+
+    _settleMatchedOrders(
+      makerOrder.user,
+      msg.sender,
+      makerOrder.sellToken,
+      makerOrder.buyToken,
+      buyAmount,
+      sellAmount
+    );
+
+    uint makerOrderFilled = filled[makerOrderInfo.orderHash];   
+    emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
+    return true;    
+  }
+
 
   function matchOrders(
     LibOrder.Order memory makerOrder,
@@ -166,6 +227,10 @@ contract ZigZagExchange is EIP712 {
     require(IERC20(takerOrder.sellToken).balanceOf(takerOrder.user) >= takerSellAmount, 'taker order not enough balance');
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= makerSellAmount, 'maker order not enough balance');
 
+    // Verify allowance
+    require(IERC20(takerOrder.sellToken).allowance(takerOrder.user, address(this)) >= takerSellAmount, 'taker order not enough allowance');
+    require(IERC20(makerOrder.sellToken).allowance(makerOrder.user, address(this)) >= makerSellAmount, 'maker order not enough allowance');
+
     // mark fills in storage
     filled[makerOrderInfo.orderHash] += makerSellAmount;
     filled[takerOrderInfo.orderHash] += takerSellAmount;
@@ -193,7 +258,6 @@ contract ZigZagExchange is EIP712 {
       uint makerSellAmount,
       uint takerSellAmount
   ) internal {
-
     // The fee gets subtracted from the buy amounts so they deduct from the total instead of adding on to it
     // The taker fee comes out of the maker sell quantity, so the taker ends up with less
     // The maker fee comes out of the taker sell quantity, so the maker ends up with less
