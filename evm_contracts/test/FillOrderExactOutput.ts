@@ -1,8 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from "./utils/PrivateKeyList"
-import { signOrder, signCancelOrder } from "./utils/SignUtil"
-import { Order } from "./utils/types"
+import { signOrder, signCancelOrder, getOrderHash } from "./utils/SignUtil"
 import { Contract, Wallet } from "ethers";
 
 describe("fillOrderExactOutput", function () {
@@ -402,4 +401,102 @@ describe("fillOrderExactOutput", function () {
         const tx = exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
         await expect(tx).to.be.revertedWith("self swap not allowed");
     });
+
+  it("Should emit OrderStatus fill a order", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("200"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const orderHash = await getOrderHash(makerOrder)
+
+    const fillAmount = ethers.utils.parseEther("100");
+
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+      .to.emit(exchangeContract, 'OrderStatus')
+      .withArgs(orderHash, ethers.utils.parseEther("50"), ethers.utils.parseEther("50"))
+  });
+
+  it("Should emit OrderStatus fill a full order", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("200"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const orderHash = await getOrderHash(makerOrder)
+
+    const fillAmount = ethers.utils.parseEther("200");
+
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+      .to.emit(exchangeContract, 'OrderStatus')
+      .withArgs(orderHash, ethers.utils.parseEther("200"), ethers.constants.Zero)
+  });
+
+  it("Should emit Swap fill a order", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("200"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const orderHash = await getOrderHash(makerOrder)
+
+    const fillAmount = ethers.utils.parseEther("100");
+
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+      .to.emit(exchangeContract, 'Swap')
+      .withArgs(
+        wallets[0].address,
+        wallets[1].address,
+        tokenA.address,
+        tokenB.address,
+        ethers.utils.parseEther("49.975"),
+        ethers.utils.parseEther("100"),
+        ethers.utils.parseEther("0"),
+        ethers.utils.parseEther("0.015")
+      )
+  });
+
+  it("Should emit Swap fill a full order", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("200"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const orderHash = await getOrderHash(makerOrder)
+
+    const fillAmount = ethers.utils.parseEther("200");
+
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+      .to.emit(exchangeContract, 'Swap')
+      .withArgs(
+        wallets[0].address,
+        wallets[1].address,
+        tokenA.address,
+        tokenB.address,
+        ethers.utils.parseEther("99.95"),
+        ethers.utils.parseEther("200"),
+        ethers.utils.parseEther("0"),
+        ethers.utils.parseEther("0.015")
+    )
+  });
 });

@@ -96,7 +96,7 @@ describe('Signature Validation', () => {
   it("Should emit event cancel order", async () => {
     const orderHash = await getOrderHash(order)
 
-    await expect(await exchangeContract.connect(wallet).cancelOrder(
+    expect(await exchangeContract.connect(wallet).cancelOrder(
       Object.values(order)
     )).to.emit(exchangeContract, 'CancelOrder')
       .withArgs(orderHash)
@@ -110,7 +110,7 @@ describe('Signature Validation', () => {
     )
     const orderHash = await getOrderHash(order)
 
-    await expect(await exchangeContract.cancelOrderWithSig(
+    expect(await exchangeContract.cancelOrderWithSig(
       Object.values(order),
       signedCancelOrder
     )).to.emit(exchangeContract, 'CancelOrder')
