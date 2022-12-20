@@ -160,6 +160,60 @@ describe("Order Matching", function () {
         await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith('maker order not enough balance');
     });
 
+  it("Should revert with 'maker order not enough allowance' ", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("500"),
+      buyAmount: ethers.utils.parseEther("50"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const takerOrder = {
+      user: wallets[1].address,
+      sellToken: tokenB.address,
+      buyToken: tokenA.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("1000"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+
+    await tokenA.connect(wallets[0]).approve(exchangeContract.address, "0");
+
+    await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("maker order not enough allowance")
+});
+
+  it("Should revert with 'taker order not enough allowance' ", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("500"),
+      buyAmount: ethers.utils.parseEther("50"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const takerOrder = {
+      user: wallets[1].address,
+      sellToken: tokenB.address,
+      buyToken: tokenA.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("1000"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+    const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], takerOrder, exchangeContract.address)
+
+    await tokenB.connect(wallets[1]).approve(exchangeContract.address, "0");
+
+    await expect(exchangeContract.connect(wallets[2]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage)).to.be.revertedWith("taker order not enough allowance")
+  });
+
 
     it("Should execute with spread of 0", async function () {
 

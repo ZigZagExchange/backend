@@ -74,6 +74,42 @@ describe("fillOrderExactOutput", function () {
         await expect(exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('maker order not enough balance');
     });
 
+  it("Should revert with 'maker order not enough allowance' ", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("200"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+    await tokenA.connect(wallets[0]).approve(exchangeContract.address, "0");
+
+    const fillAmount = ethers.utils.parseEther("100");
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('maker order not enough allowance');
+  });
+
+  it("Should revert with 'taker order not enough allowance' ", async function () {
+    const makerOrder = {
+      user: wallets[0].address,
+      sellToken: tokenA.address,
+      buyToken: tokenB.address,
+      sellAmount: ethers.utils.parseEther("100"),
+      buyAmount: ethers.utils.parseEther("200"),
+      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
+    }
+
+    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
+
+    await tokenB.connect(wallets[1]).approve(exchangeContract.address, "0");
+
+    const fillAmount = ethers.utils.parseEther("100");
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('taker order not enough allowance');
+  });
+
     it("Should revert when maker order is already filled", async function () {
 
         const makerOrder = {
