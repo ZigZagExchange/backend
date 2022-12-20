@@ -2,6 +2,30 @@
 import { ethers } from 'ethers'
 import { Order } from './types'
 
+export async function getOrderHash(order: Order) {
+  const types = {
+    Order: [
+      { name: 'user', type: 'address' },
+      { name: 'sellToken', type: 'address' },
+      { name: 'buyToken', type: 'address' },
+      { name: 'sellAmount', type: 'uint256' },
+      { name: 'buyAmount', type: 'uint256' },
+      { name: 'expirationTimeSeconds', type: 'uint256' },
+    ]
+  }
+  const orderMessage = {
+    user: order.user,
+    sellToken: order.sellToken,
+    buyToken: order.buyToken,
+    sellAmount: order.sellAmount,
+    buyAmount: order.buyAmount,
+    expirationTimeSeconds: order.expirationTimeSeconds,
+  }
+
+  // eslint-disable-next-line no-underscore-dangle
+  return ethers.utils._TypedDataEncoder.from({ Order: types.Order }).hash(orderMessage)
+}
+
 export async function signOrder(
   privateKey: string,
   order: Order,
@@ -90,7 +114,8 @@ export async function signCancelOrder(
     expirationTimeSeconds: order.expirationTimeSeconds,
   }
 
-  const orderHash = ethers.utils._TypedDataEncoder.from({ Order: types.Order }).hash(orderMessage);
+  // eslint-disable-next-line no-underscore-dangle
+  const orderHash = ethers.utils._TypedDataEncoder.from({ Order: types.Order }).hash(orderMessage)
 
   const cancelOrderMessage = {
     orderHash
