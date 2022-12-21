@@ -358,7 +358,7 @@ describe("fillOrderExactOutput", function () {
         const fillAmount = ethers.utils.parseEther("90");
         await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
         const tx2 = exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
-      await expect(tx2).to.be.revertedWith('takerBuyAmount exceeds available size');
+      await expect(tx2).to.be.revertedWith('amount exceeds available size');
     });
 
     it("should not fail with fillAvailable when over-ordering", async function () {

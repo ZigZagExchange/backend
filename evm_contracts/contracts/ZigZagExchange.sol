@@ -72,26 +72,8 @@ contract ZigZagExchange is EIP712 {
     uint takerSellAmount,
     bool fillAvailable
   ) public returns (bool) {
-    //validate signature
-    LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
-    require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
-
-    // adjust size if the user wants to fill whatever is available
-    uint availableTakerSellSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
-    uint availableTakerBuySize = (availableTakerSellSize * makerOrder.buyAmount) / makerOrder.sellAmount;
-    if (fillAvailable && availableTakerBuySize < takerSellAmount) takerSellAmount = availableTakerBuySize;
     uint takerBuyAmount = (takerSellAmount * makerOrder.sellAmount) / makerOrder.buyAmount;
-
-    require(takerBuyAmount <= availableTakerSellSize, 'takerSellAmount exceeds available size');
-
-    // mark fills in storage
-    filled[makerOrderInfo.orderHash] += takerBuyAmount;
-
-    _settleMatchedOrders(makerOrder.user, msg.sender, makerOrder.sellToken, makerOrder.buyToken, takerBuyAmount, takerSellAmount);
-
-    uint makerOrderFilled = filled[makerOrderInfo.orderHash];
-    emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
-    return true;
+    return fillOrderExactOutput(makerOrder, makerSignature, takerBuyAmount, fillAvailable);
   }
 
   /// @notice Fills an order with an exact amount too buy
@@ -115,7 +97,7 @@ contract ZigZagExchange is EIP712 {
     if (fillAvailable && availableTakerSellSize < takerBuyAmount) takerBuyAmount = availableTakerSellSize;    
     uint takerSellAmount = (takerBuyAmount * makerOrder.buyAmount) / makerOrder.sellAmount;
 
-    require(takerBuyAmount <= availableTakerSellSize, 'takerBuyAmount exceeds available size');
+    require(takerBuyAmount <= availableTakerSellSize, 'amount exceeds available size');
 
     // mark fills in storage
     filled[makerOrderInfo.orderHash] += takerBuyAmount;
