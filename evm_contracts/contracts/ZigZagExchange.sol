@@ -57,7 +57,7 @@ contract ZigZagExchange is EIP712 {
 
   /// @notice Cancel an order so it can no longer be filled
   /// @param order order that should get cancelled
-  function cancelOrder(LibOrder.Order memory order) public {
+  function cancelOrder(LibOrder.Order calldata  order) public {
     require(msg.sender == order.user, 'only user may cancel order');
     bytes32 orderHash = LibOrder.getOrderHash(order);
     require(filled[orderHash] < order.sellAmount, 'order already filled');
@@ -68,7 +68,7 @@ contract ZigZagExchange is EIP712 {
   /// @notice Cancel an order so it can no longer be filled with an EIP712 signature
   /// @param order order that should get cancelled
   /// @param cancelSignature signature using the EIP712 format
-  function cancelOrderWithSig(LibOrder.Order memory order, bytes memory cancelSignature) public {
+  function cancelOrderWithSig(LibOrder.Order calldata  order, bytes calldata  cancelSignature) public {
     bytes32 orderHash = LibOrder.getOrderHash(order);
     require(filled[orderHash] < order.sellAmount, 'order already filled');
     bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
@@ -83,8 +83,8 @@ contract ZigZagExchange is EIP712 {
   /// @param takerSellAmount amount send from the sender to the maker
   /// @return returns true if successfull
   function fillOrderExactInputETH(
-    LibOrder.Order memory makerOrder,
-    bytes memory makerSignature,
+    LibOrder.Order calldata  makerOrder,
+    bytes calldata  makerSignature,
     uint takerSellAmount,
     bool fillAvailable
   ) public payable returns (bool) {
@@ -108,8 +108,8 @@ contract ZigZagExchange is EIP712 {
   /// @param fillAvailable Should the maximum buyAmount possible be used
   /// @return returns true if successfull
   function fillOrderExactOutputETH(
-    LibOrder.Order memory makerOrder,
-    bytes memory makerSignature,
+    LibOrder.Order calldata  makerOrder,
+    bytes calldata  makerSignature,
     uint takerBuyAmount,
     bool fillAvailable
   ) public payable returns (bool) {
@@ -133,8 +133,8 @@ contract ZigZagExchange is EIP712 {
   /// @param takerSellAmount amount send from the sender to the maker
   /// @return returns true if successfull
   function fillOrderExactInput(
-    LibOrder.Order memory makerOrder,
-    bytes memory makerSignature,
+    LibOrder.Order calldata  makerOrder,
+    bytes calldata  makerSignature,
     uint takerSellAmount,
     bool fillAvailable
   ) public returns (bool) {
@@ -150,8 +150,8 @@ contract ZigZagExchange is EIP712 {
   /// @param fillAvailable Should the maximum buyAmount possible be used
   /// @return returns true if successfull
   function fillOrderExactOutput(
-    LibOrder.Order memory makerOrder,
-    bytes memory makerSignature,
+    LibOrder.Order calldata  makerOrder,
+    bytes calldata  makerSignature,
     uint takerBuyAmount,
     bool fillAvailable
   ) public returns (bool) {
@@ -162,15 +162,15 @@ contract ZigZagExchange is EIP712 {
   }
 
   function _fillOrder(
-    LibOrder.Order memory makerOrder,
-    bytes memory makerSignature,
+    LibOrder.Order calldata  makerOrder,
+    bytes calldata  makerSignature,
     address sellToken,
     address buyToken,
     uint takerBuyAmount,
     bool fillAvailable
   ) internal {
     //validate signature
-    LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
+    LibOrder.OrderInfo memory  makerOrderInfo = getOpenOrder(makerOrder);
     require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
     
     uint availableTakerSellSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
@@ -196,10 +196,10 @@ contract ZigZagExchange is EIP712 {
   }
 
   function matchOrders(
-    LibOrder.Order memory makerOrder,
-    LibOrder.Order memory takerOrder,
-    bytes memory makerSignature,
-    bytes memory takerSignature
+    LibOrder.Order calldata  makerOrder,
+    LibOrder.Order calldata  takerOrder,
+    bytes calldata  makerSignature,
+    bytes calldata  takerSignature
   ) public returns (bool) {
     // check that tokens address match
     require(takerOrder.sellToken == makerOrder.buyToken, 'mismatched tokens');
@@ -336,7 +336,7 @@ contract ZigZagExchange is EIP712 {
     emit Swap(maker, taker, makerSellToken, takerSellToken, makerSellAmount, takerSellAmount, makerFee, takerFee);
   }
 
-  function getOpenOrder(LibOrder.Order memory order) public view returns (LibOrder.OrderInfo memory orderInfo) {
+  function getOpenOrder(LibOrder.Order calldata  order) public view returns (LibOrder.OrderInfo memory orderInfo) {
     orderInfo.orderHash = LibOrder.getOrderHash(order);
     orderInfo.orderSellFilledAmount = filled[orderInfo.orderHash];
 
@@ -345,19 +345,19 @@ contract ZigZagExchange is EIP712 {
     require(!cancelled[orderInfo.orderHash], 'order canceled');
   }
 
-  function isValidOrderSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
+  function isValidOrderSignature(LibOrder.Order calldata  order, bytes calldata  signature) public view returns (bool) {
     bytes32 orderHash = LibOrder.getOrderHash(order);
     return _isValidSignatureHash(order.user, orderHash, signature);
   }
 
-  function isValidCancelSignature(LibOrder.Order memory order, bytes memory signature) public view returns (bool) {
+  function isValidCancelSignature(LibOrder.Order calldata  order, bytes calldata  signature) public view returns (bool) {
     bytes32 orderHash = LibOrder.getOrderHash(order);
     bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
     return _isValidSignatureHash(order.user, cancelHash, signature);
   }
 
   // hash can be an order hash or a cancel order hash
-  function _isValidSignatureHash(address user, bytes32 hash, bytes memory signature) private view returns (bool) {
+  function _isValidSignatureHash(address user, bytes32 hash, bytes calldata  signature) private view returns (bool) {
     bytes32 digest = _hashTypedDataV4(hash);
     return SignatureChecker.isValidSignatureNow(user, digest, signature);
   }
