@@ -27,17 +27,17 @@ describe("fillOrderExactOutput", function () {
 
             await owner.sendTransaction({
                 to: wallets[i].address,
-                value: ethers.utils.parseEther("1") // 1 ether
+                value: ethers.utils.parseEther("0.1") // 0.1 ether
             })
         }
 
         FEE_ADDRESS = wallets[3].address;
-        exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS);
+        exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS, ethers.constants.AddressZero);
 
-        await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);
-        await tokenB.mint(ethers.utils.parseEther("10000"), wallets[1].address);
-        await tokenA.connect(wallets[0]).approve(exchangeContract.address, ethers.utils.parseEther("10000"));
-        await tokenB.connect(wallets[1]).approve(exchangeContract.address, ethers.utils.parseEther("10000"));
+        await tokenA.mint(ethers.utils.parseEther("1000"), wallets[0].address);
+        await tokenB.mint(ethers.utils.parseEther("1000"), wallets[1].address);
+        await tokenA.connect(wallets[0]).approve(exchangeContract.address, ethers.utils.parseEther("1000"));
+        await tokenB.connect(wallets[1]).approve(exchangeContract.address, ethers.utils.parseEther("1000"));
 
         await exchangeContract.connect(wallets[3]).setFees(5, 10000, 0, 10000);
 
@@ -257,7 +257,7 @@ describe("fillOrderExactOutput", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance7).to.equal(ethers.utils.parseEther("0.015"));
+        expect(balance7).to.equal(ethers.utils.parseEther("0.015007503751875937"));
     });
 
     it("should fail when filled twice", async function () {
@@ -290,7 +290,7 @@ describe("fillOrderExactOutput", function () {
 
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
-        const fillAmount = ethers.utils.parseEther("100");
+        const fillAmount = ethers.utils.parseEther("50");
         await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
 
         const balance1 = await tokenA.balanceOf(wallets[0].address);
@@ -306,8 +306,8 @@ describe("fillOrderExactOutput", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance2).to.equal(ethers.utils.parseEther("99.95"));
-        expect(balance4).to.equal(ethers.utils.parseEther("200"));
+        expect(balance2).to.equal(ethers.utils.parseEther("50"));
+        expect(balance4).to.equal(ethers.utils.parseEther("100.050025012506253126"));
     });
 
     it("should fill what's available", async function () {
@@ -339,7 +339,7 @@ describe("fillOrderExactOutput", function () {
         console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
         console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
 
-        expect(balance2).to.equal(ethers.utils.parseEther("99.95"));
+        expect(balance2).to.equal(ethers.utils.parseEther("99.950000000000000001"));
         expect(balance4).to.equal(ethers.utils.parseEther("200"));
     });
 
@@ -361,29 +361,6 @@ describe("fillOrderExactOutput", function () {
       await expect(tx2).to.be.revertedWith('amount exceeds available size');
     });
 
-    it("should not fail with fillAvailable when over-ordering", async function () {
-        const makerOrder = {
-            user: wallets[0].address,
-            sellToken: tokenA.address,
-            buyToken: tokenB.address,
-            sellAmount: ethers.utils.parseEther("100"),
-            buyAmount: ethers.utils.parseEther("200"),
-            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
-        }
-
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
-
-        const fillAmount = ethers.utils.parseEther("90");
-        await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
-        await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
-        
-        const balance2 = await tokenA.balanceOf(wallets[1].address);
-        const balance4 = await tokenB.balanceOf(wallets[0].address);
-        
-        expect(balance2).to.equal(ethers.utils.parseEther("99.95"));
-        expect(balance4).to.equal(ethers.utils.parseEther("200"));
-    });
-
   it("Should emit OrderStatus fill a order", async function () {
     const makerOrder = {
       user: wallets[0].address,
@@ -397,11 +374,11 @@ describe("fillOrderExactOutput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
     const orderHash = await getOrderHash(makerOrder)
 
-    const fillAmount = ethers.utils.parseEther("100");
+    const fillAmount = ethers.utils.parseEther("50");
 
     expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
       .to.emit(exchangeContract, 'OrderStatus')
-      .withArgs(orderHash, ethers.utils.parseEther("50"), ethers.utils.parseEther("50"))
+      .withArgs(orderHash, ethers.utils.parseEther("100"), ethers.utils.parseEther("50"))
   });
 
   it("Should emit OrderStatus fill a full order", async function () {
@@ -417,7 +394,7 @@ describe("fillOrderExactOutput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
     const orderHash = await getOrderHash(makerOrder)
 
-    const fillAmount = ethers.utils.parseEther("200");
+    const fillAmount = ethers.utils.parseEther("100");
 
     expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
       .to.emit(exchangeContract, 'OrderStatus')
@@ -437,7 +414,7 @@ describe("fillOrderExactOutput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
     const orderHash = await getOrderHash(makerOrder)
 
-    const fillAmount = ethers.utils.parseEther("100");
+    const fillAmount = ethers.utils.parseEther("50");
 
     expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
       .to.emit(exchangeContract, 'Swap')
@@ -446,10 +423,10 @@ describe("fillOrderExactOutput", function () {
         wallets[1].address,
         tokenA.address,
         tokenB.address,
-        ethers.utils.parseEther("49.975"),
+        ethers.utils.parseEther("50"),
         ethers.utils.parseEther("100"),
         ethers.utils.parseEther("0"),
-        ethers.utils.parseEther("0.015")
+        ethers.utils.parseEther("0.0075")
       )
   });
 
@@ -466,7 +443,7 @@ describe("fillOrderExactOutput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
     const orderHash = await getOrderHash(makerOrder)
 
-    const fillAmount = ethers.utils.parseEther("200");
+    const fillAmount = ethers.utils.parseEther("100");
 
     expect(await exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
       .to.emit(exchangeContract, 'Swap')
@@ -475,7 +452,7 @@ describe("fillOrderExactOutput", function () {
         wallets[1].address,
         tokenA.address,
         tokenB.address,
-        ethers.utils.parseEther("99.95"),
+        ethers.utils.parseEther("100"),
         ethers.utils.parseEther("200"),
         ethers.utils.parseEther("0"),
         ethers.utils.parseEther("0.015")

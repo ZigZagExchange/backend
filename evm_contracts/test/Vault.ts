@@ -30,13 +30,13 @@ describe("Vault", function () {
 
             await owner.sendTransaction({
                 to: wallets[i].address,
-                value: ethers.utils.parseEther("1") // 1 ether
+                value: ethers.utils.parseEther("0.1") // 0.1 ether
             })
         }
 
         manager = wallets[2];
         FEE_ADDRESS = wallets[3].address;
-        exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS);
+        exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS, ethers.constants.AddressZero);
         vaultContract = await Vault.deploy(manager.address, "ZigZag LP 1", "ZZLP1");
 
         await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);

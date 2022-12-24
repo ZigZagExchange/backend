@@ -28,17 +28,17 @@ describe("fillOrderExactInput", function () {
 
       await owner.sendTransaction({
         to: wallets[i].address,
-        value: ethers.utils.parseEther("1") // 1 ether
+        value: ethers.utils.parseEther("0.1") // 0.1 ether
       })
     }
 
     FEE_ADDRESS = wallets[3].address;
-    exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS);
+    exchangeContract = await Exchange.deploy("ZigZag", "2.1", FEE_ADDRESS, ethers.constants.AddressZero);
 
-    await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);
-    await tokenB.mint(ethers.utils.parseEther("10000"), wallets[1].address);
-    await tokenA.connect(wallets[0]).approve(exchangeContract.address, ethers.utils.parseEther("10000"));
-    await tokenB.connect(wallets[1]).approve(exchangeContract.address, ethers.utils.parseEther("10000"));
+    await tokenA.mint(ethers.utils.parseEther("1000"), wallets[0].address);
+    await tokenB.mint(ethers.utils.parseEther("1000"), wallets[1].address);
+    await tokenA.connect(wallets[0]).approve(exchangeContract.address, ethers.utils.parseEther("1000"));
+    await tokenB.connect(wallets[1]).approve(exchangeContract.address, ethers.utils.parseEther("1000"));
 
     await exchangeContract.connect(wallets[3]).setFees(5, 10000, 0, 10000);
 
