@@ -21,8 +21,7 @@ pragma solidity ^0.8.0;
 import "./IWETH9.sol";
 import "../ERC20/Token.sol";
 
-
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 /// @title Arbitrum extended WETH
 /// @notice DEPRECATED - see new repo(https://github.com/OffchainLabs/token-bridge-contracts) for new updates
