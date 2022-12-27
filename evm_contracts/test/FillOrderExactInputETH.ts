@@ -269,46 +269,19 @@ describe("fillOrderExactInputETH_Deposit", function () {
     const balance6 = await weth.balanceOf(wallets[2].address);
     const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
     const balance8 = await weth.balanceOf(FEE_ADDRESS);
+    const balance9 = await weth.balanceOf(exchangeContract.address);
+    const balance10 = await tokenA.balanceOf(exchangeContract.address);
     console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
     console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
     console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
     console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
+    console.log(ethers.utils.formatEther(balance9), ethers.utils.formatEther(balance10));
 
     expect(balance2).to.equal(ethers.utils.parseEther("199.9"));
     expect(balance4).to.equal(ethers.utils.parseEther("100"));
-  });
-
-  it("should fill what's available", async function () {
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: weth.address,
-      sellAmount: ethers.utils.parseEther("200"),
-      buyAmount: ethers.utils.parseEther("100"),
-      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
-    }
-
-    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
-
-    const fillAmount = ethers.utils.parseEther("90");
-    await exchangeContract.connect(wallets[1]).fillOrderExactInputETH(Object.values(makerOrder), signedLeftMessage, fillAmount, false, { value: fillAmount })
-    await exchangeContract.connect(wallets[1]).fillOrderExactInputETH(Object.values(makerOrder), signedLeftMessage, fillAmount, true, { value: fillAmount })
-
-    const balance1 = await tokenA.balanceOf(wallets[0].address);
-    const balance2 = await tokenA.balanceOf(wallets[1].address);
-    const balance3 = await tokenA.balanceOf(wallets[2].address);
-    const balance4 = await weth.balanceOf(wallets[0].address);
-    const balance5 = await provider.getBalance(wallets[1].address);
-    const balance6 = await weth.balanceOf(wallets[2].address);
-    const balance7 = await tokenA.balanceOf(FEE_ADDRESS);
-    const balance8 = await weth.balanceOf(FEE_ADDRESS);
-    console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
-    console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
-    console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
-    console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
-
-    expect(balance2).to.equal(ethers.utils.parseEther("199.9"));
-    expect(balance4).to.equal(ethers.utils.parseEther("100"));
+    // exchange contract should have no ETH or WETH left over
+    expect(balance9).to.equal(ethers.utils.parseEther("0"));
+    expect(balance10).to.equal(ethers.utils.parseEther("0"));
   });
 
   it("should fail without fillAvailable when over-ordering", async function () {
@@ -788,52 +761,21 @@ describe("fillOrderExactInputETH_Withdraw", function () {
     const balance6 = await tokenB.balanceOf(wallets[2].address);
     const balance7 = await weth.balanceOf(FEE_ADDRESS);
     const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
+    const balance9 = await weth.balanceOf(exchangeContract.address);
+    const balance10 = await tokenB.balanceOf(exchangeContract.address);
     console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
     console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
     console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
     console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
+    console.log(ethers.utils.formatEther(balance9), ethers.utils.formatEther(balance10));
 
     expect(balance2).to.equal(ethers.utils.parseEther("199.9"));
     expect(balance4).to.equal(ethers.utils.parseEther("100"));
+    // exchange contract should have no ETH or WETH left over
+    expect(balance9).to.equal(ethers.utils.parseEther("0"));
+    expect(balance10).to.equal(ethers.utils.parseEther("0"));
 
     console.log("GAS FEE: ", ethers.utils.formatEther(res.cumulativeGasUsed.mul(res.effectiveGasPrice)))
-  });
-
-  it("should fill what's available", async function () {
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: weth.address,
-      buyToken: tokenB.address,
-      sellAmount: ethers.utils.parseEther("200"),
-      buyAmount: ethers.utils.parseEther("100"),
-      expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
-    }
-
-    const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
-
-    const fillAmount = ethers.utils.parseEther("90");
-    const balance2Before = await provider.getBalance(wallets[1].address);
-    const tx1 = await exchangeContract.connect(wallets[1]).fillOrderExactInputETH(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
-    const tx2 = await exchangeContract.connect(wallets[1]).fillOrderExactInputETH(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
-    const res1 = await tx1.wait();
-    const res2 = await tx2.wait();
-    const gasFee = res1.cumulativeGasUsed.mul(res1.effectiveGasPrice).add(res2.cumulativeGasUsed.mul(res2.effectiveGasPrice));
-
-    const balance1 = await weth.balanceOf(wallets[0].address);
-    const balance2 = (await provider.getBalance(wallets[1].address)).sub(balance2Before).add(gasFee);
-    const balance3 = await weth.balanceOf(wallets[2].address);
-    const balance4 = await tokenB.balanceOf(wallets[0].address);
-    const balance5 = await tokenB.balanceOf(wallets[1].address);
-    const balance6 = await tokenB.balanceOf(wallets[2].address);
-    const balance7 = await weth.balanceOf(FEE_ADDRESS);
-    const balance8 = await tokenB.balanceOf(FEE_ADDRESS);
-    console.log(ethers.utils.formatEther(balance1), ethers.utils.formatEther(balance4));
-    console.log(ethers.utils.formatEther(balance2), ethers.utils.formatEther(balance5));
-    console.log(ethers.utils.formatEther(balance3), ethers.utils.formatEther(balance6));
-    console.log(ethers.utils.formatEther(balance7), ethers.utils.formatEther(balance8));
-
-    expect(balance2).to.equal(ethers.utils.parseEther("199.9"));
-    expect(balance4).to.equal(ethers.utils.parseEther("100"));
   });
 
   it("should fail without fillAvailable when over-ordering", async function () {
