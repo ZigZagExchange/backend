@@ -2,7 +2,6 @@ import { ethers } from "hardhat";
 import { expect } from "chai";
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from "./utils/PrivateKeyList"
 import { signOrder, signCancelOrder, getOrderHash } from "./utils/SignUtil"
-import { Order } from "./utils/types"
 import { Contract, Wallet } from "ethers";
 
 describe("fillOrderExactInput", function () {
@@ -56,7 +55,7 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("1");
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('maker order not enough balance');
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('maker order not enough balance');
   });
 
   it("Should revert with 'taker order not enough balance' ", async function () {
@@ -71,7 +70,7 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("15000");
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('taker order not enough balance');
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('taker order not enough balance');
   });
 
 
@@ -89,7 +88,7 @@ describe("fillOrderExactInput", function () {
     await tokenA.connect(wallets[0]).approve(exchangeContract.address, "0");
 
     const fillAmount = ethers.utils.parseEther("100");
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('maker order not enough allowance');
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('maker order not enough allowance');
   });
 
   it("Should revert with 'taker order not enough allowance' ", async function () {
@@ -107,7 +106,7 @@ describe("fillOrderExactInput", function () {
 
 
     const fillAmount = ethers.utils.parseEther("100");
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('taker order not enough allowance');
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('taker order not enough allowance');
   });
 
   it("Should revert when maker order is already filled", async function () {
@@ -123,9 +122,9 @@ describe("fillOrderExactInput", function () {
 
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
-    const fillAmount = ethers.utils.parseEther("120");
-    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order is filled');
+    const fillAmount = ethers.BigNumber.from("120");
+    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('order is filled');
   });
 
   it("Should revert when maker order is canceled", async function () {
@@ -143,7 +142,7 @@ describe("fillOrderExactInput", function () {
 
     const fillAmount = ethers.utils.parseEther("1");
     await exchangeContract.connect(wallets[0]).cancelOrder(Object.values(makerOrder))
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order canceled');
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('order canceled');
   });
 
   it("Should revert when maker order is canceled with signature", async function () {
@@ -163,7 +162,7 @@ describe("fillOrderExactInput", function () {
     await exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)
 
     const fillAmount = ethers.utils.parseEther("1");
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order canceled');
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('order canceled');
   });
 
   it("Bad cancel signature should revert", async function () {
@@ -196,7 +195,7 @@ describe("fillOrderExactInput", function () {
 
     const fillAmount = ethers.utils.parseEther("1");
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order expired');
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith('order expired');
   });
 
   it("feeRecipient should take Maker Fee", async function () {
@@ -213,7 +212,7 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("30");
-    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
 
     const balance1 = await tokenA.balanceOf(wallets[0].address);
     const balance2 = await tokenA.balanceOf(wallets[1].address);
@@ -243,7 +242,7 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("30");
-    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
 
     const balance1 = await tokenA.balanceOf(wallets[0].address);
     const balance2 = await tokenA.balanceOf(wallets[1].address);
@@ -274,8 +273,8 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("100");
-    const tx = await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
-    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+    const tx = await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
+    await expect(exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false))
       .to.be.revertedWith('order is filled');
   });
 
@@ -292,7 +291,7 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("100");
-    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
 
     const balance1 = await tokenA.balanceOf(wallets[0].address);
     const balance2 = await tokenA.balanceOf(wallets[1].address);
@@ -324,7 +323,7 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("90");
-    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
     const tx2 = exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
     await expect(tx2).to.be.revertedWith('amount exceeds available size');
   });
@@ -342,7 +341,7 @@ describe("fillOrderExactInput", function () {
     const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther("90");
-    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+    await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
     await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
 
     const balance2 = await tokenA.balanceOf(wallets[1].address);
@@ -367,7 +366,7 @@ describe("fillOrderExactInput", function () {
 
     const fillAmount = ethers.utils.parseEther("50");
 
-    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false))
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(orderHash, ethers.utils.parseEther("100"), ethers.utils.parseEther("100"))
   });
@@ -387,7 +386,7 @@ describe("fillOrderExactInput", function () {
 
     const fillAmount = ethers.utils.parseEther("100");
 
-    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false))
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(orderHash, ethers.utils.parseEther("200"), ethers.constants.Zero)
   });
@@ -406,7 +405,7 @@ describe("fillOrderExactInput", function () {
 
     const fillAmount = ethers.utils.parseEther("50");
 
-    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false))
       .to.emit(exchangeContract, 'Swap')
       .withArgs(
         wallets[0].address,
@@ -434,7 +433,7 @@ describe("fillOrderExactInput", function () {
 
     const fillAmount = ethers.utils.parseEther("100");
 
-    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, true))
+    expect(await exchangeContract.connect(wallets[1]).fillOrderExactInput(Object.values(makerOrder), signedLeftMessage, fillAmount, false))
       .to.emit(exchangeContract, 'Swap')
       .withArgs(
         wallets[0].address,
