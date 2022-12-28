@@ -9,11 +9,7 @@ import { SignatureChecker } from '@openzeppelin/contracts/utils/cryptography/Sig
 // import "hardhat/console.sol";
 
 interface IWETH9 {
-  function deposit() external payable;
-
   function depositTo(address) external payable;
-
-  function withdraw(uint256) external;
 
   function withdrawTo(address, uint256) external;
 
@@ -40,10 +36,10 @@ contract ZigZagExchange is EIP712 {
   mapping(bytes32 => bool) public cancelled;
 
   // fees
-  address FEE_ADDRESS;
-  address WETH_ADDRESS;
-  address EXCHANGE_ADDRESS;
-  address ETH_ADDRESS = address(0);
+  address immutable FEE_ADDRESS;
+  address immutable WETH_ADDRESS;
+  address immutable EXCHANGE_ADDRESS;
+  address constant ETH_ADDRESS = address(0);
 
   uint256 maker_fee_numerator = 0;
   uint256 maker_fee_denominator = 10000;
