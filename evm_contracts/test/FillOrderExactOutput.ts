@@ -658,85 +658,7 @@ describe('fillOrderExactOutput', () => {
     expect(balance4).to.equal(ethers.utils.parseEther('200'))
   })
 
-  it('Should emit OrderStatus fill a order', async () => {
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: tokenB.address,
-      sellAmount: ethers.utils.parseEther('100'),
-      buyAmount: ethers.utils.parseEther('200'),
-      expirationTimeSeconds: ethers.BigNumber.from(
-        String(Math.floor(Date.now() / 1000) + 3600)
-      )
-    }
-
-    const signedLeftMessage = await signOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      makerOrder,
-      exchangeContract.address
-    )
-    const orderHash = await getOrderHash(makerOrder)
-
-    const fillAmount = ethers.utils.parseEther('50')
-
-    expect(
-      await exchangeContract
-        .connect(wallets[1])
-        .fillOrderExactOutput(
-          Object.values(makerOrder),
-          signedLeftMessage,
-          fillAmount,
-          true
-        )
-    )
-      .to.emit(exchangeContract, 'OrderStatus')
-      .withArgs(
-        orderHash,
-        ethers.utils.parseEther('100'),
-        ethers.utils.parseEther('50')
-      )
-  })
-
-  it('Should emit OrderStatus fill a full order', async () => {
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: tokenB.address,
-      sellAmount: ethers.utils.parseEther('100'),
-      buyAmount: ethers.utils.parseEther('200'),
-      expirationTimeSeconds: ethers.BigNumber.from(
-        String(Math.floor(Date.now() / 1000) + 3600)
-      )
-    }
-
-    const signedLeftMessage = await signOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      makerOrder,
-      exchangeContract.address
-    )
-    const orderHash = await getOrderHash(makerOrder)
-
-    const fillAmount = ethers.utils.parseEther('100')
-
-    expect(
-      await exchangeContract
-        .connect(wallets[1])
-        .fillOrderExactOutput(
-          Object.values(makerOrder),
-          signedLeftMessage,
-          fillAmount,
-          true
-        )
-    )
-      .to.emit(exchangeContract, 'OrderStatus')
-      .withArgs(
-        orderHash,
-        ethers.utils.parseEther('200'),
-        ethers.constants.Zero
-      )
-  })
-
-  it('Should emit Swap fill a order', async () => {
+  it('Should emit events for a partial order', async () => {
     const makerOrder = {
       user: wallets[0].address,
       sellToken: tokenA.address,
@@ -778,9 +700,15 @@ describe('fillOrderExactOutput', () => {
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.0075')
       )
+      .to.emit(exchangeContract, 'OrderStatus')
+      .withArgs(
+        orderHash,
+        ethers.utils.parseEther('100'),
+        ethers.utils.parseEther('50')
+      )
   })
 
-  it('Should emit Swap fill a full order', async () => {
+  it('Should emit events for a full order', async () => {
     const makerOrder = {
       user: wallets[0].address,
       sellToken: tokenA.address,
@@ -821,6 +749,12 @@ describe('fillOrderExactOutput', () => {
         ethers.utils.parseEther('200'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.015')
+      )
+      .to.emit(exchangeContract, 'OrderStatus')
+      .withArgs(
+        orderHash,
+        ethers.utils.parseEther('200'),
+        ethers.constants.Zero
       )
   })
 })
