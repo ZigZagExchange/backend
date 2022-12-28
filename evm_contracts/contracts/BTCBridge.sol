@@ -13,15 +13,15 @@ contract ZigZagBTCBridge is ERC20 {
   address immutable public WBTC_ADDRESS;
   uint public constant WBTC_DECIMALS = 8;
 
-  // LP_PRICE is calculated against WBTC
-  // The initial price is set to 1, then updated based on the deposit rate
-  uint constant LP_PRICE_DENOMINATOR = 1e12;
-  uint LP_PRICE_NUMERATOR = LP_PRICE_DENOMINATOR;
-  uint LAST_PRICE_UPDATE;
-
   // Deposit Rates are on a per second basis
   uint DEPOSIT_RATE_NUMERATOR = 0;
-  uint constant DEPOSIT_RATE_DENOMINATOR = LP_PRICE_DENOMINATOR;
+  uint constant DEPOSIT_RATE_DENOMINATOR = 1e12;
+
+  // LP_PRICE is calculated against WBTC
+  // The initial price is set to 1, then updated based on the deposit rate
+  uint LP_PRICE_NUMERATOR = DEPOSIT_RATE_DENOMINATOR;
+  uint constant LP_PRICE_DENOMINATOR = DEPOSIT_RATE_DENOMINATOR;
+  uint LAST_PRICE_UPDATE;
 
   // Hash Tracking for swaps
   // The key for the mappings is the hash
