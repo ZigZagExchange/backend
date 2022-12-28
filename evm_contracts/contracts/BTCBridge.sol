@@ -46,6 +46,7 @@ contract ZigZagBTCBridge is ERC20 {
 
   function setDepositRate(uint deposit_rate_numerator) public {
     require(msg.sender == manager, "only manager can update deposit rate");
+    updateLPPrice();
     DEPOSIT_RATE_NUMERATOR = deposit_rate_numerator;
   }
 
