@@ -15,7 +15,7 @@ describe('fillOrderExactInput', () => {
     this.timeout(30000)
     const Exchange = await ethers.getContractFactory('ZigZagExchange')
     const Token = await ethers.getContractFactory('Token')
-    const {provider} = ethers
+    const { provider } = ethers
 
     tokenA = await Token.deploy()
     tokenB = await Token.deploy()
@@ -731,6 +731,6 @@ describe('fillOrderExactInput', () => {
         orderHash,
         ethers.utils.parseEther('200'),
         ethers.constants.Zero
-    )
+      )
   })
 })

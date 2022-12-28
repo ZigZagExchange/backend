@@ -18,7 +18,7 @@ describe('fillOrderRoute', () => {
     this.timeout(30000)
     const Exchange = await ethers.getContractFactory('ZigZagExchange')
     const Token = await ethers.getContractFactory('Token')
-    const {provider} = ethers
+    const { provider } = ethers
 
     tokenA = await Token.deploy()
     tokenB = await Token.deploy()
@@ -85,12 +85,12 @@ describe('fillOrderRoute', () => {
       makerOrder,
       exchangeContract.address
     )
-    
+
     const orderHash = await getOrderHash(makerOrder)
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(
-      await exchangeContract
+      exchangeContract
         .connect(wallets[1])
         .fillOrderRoute(
           [Object.values(makerOrder)],
@@ -184,7 +184,7 @@ describe('fillOrderRoute', () => {
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(
-      await exchangeContract
+      exchangeContract
         .connect(wallets[0])
         .fillOrderRoute(
           [Object.values(makerOrderOne), Object.values(makerOrderTwo)],
@@ -351,10 +351,14 @@ describe('fillOrderRoute', () => {
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(
-      await exchangeContract
+      exchangeContract
         .connect(wallets[0])
         .fillOrderRoute(
-          [Object.values(makerOrderOne), Object.values(makerOrderTwo), Object.values(makerOrderThree)],
+          [
+            Object.values(makerOrderOne),
+            Object.values(makerOrderTwo),
+            Object.values(makerOrderThree)
+          ],
           [signedMessageOne, signedMessageTwo, signedMessageThree],
           fillAmount,
           false
@@ -484,7 +488,7 @@ describe('fillOrderRoute', () => {
     // check address1 (user)
     expect(balance1).to.equal(ethers.utils.parseEther('900')) // mint (1000) - fillAmount (100)
     expect(balance5).to.equal(ethers.utils.parseEther('0'))
-    expect(balance9).to.equal(ethers.utils.parseEther('0')) 
+    expect(balance9).to.equal(ethers.utils.parseEther('0'))
     expect(balance13).to.equal(ethers.utils.parseEther('199.700149975')) // 100 * 2 * 0.9995 * 2 * 0.9995 * 0.5 * 0.9995
 
     // check address2 (mm one)
@@ -501,7 +505,7 @@ describe('fillOrderRoute', () => {
 
     // check address4 (mm three)
     expect(balance4).to.equal(ethers.utils.parseEther('0'))
-    expect(balance8).to.equal(ethers.utils.parseEther('0')) 
+    expect(balance8).to.equal(ethers.utils.parseEther('0'))
     expect(balance12).to.equal(ethers.utils.parseEther('399.6001')) // fillAmount = mm two buy amount = 100 * 2 * 0.9995 * 2 * 0.9995
     expect(balance16).to.equal(ethers.utils.parseEther('800.19995')) // mint (1000) - mm two sell amount (100 * 2 * 0.9995 * 2 * 0.9995 * 0.5)
 
@@ -591,11 +595,21 @@ describe('fillOrderRoute', () => {
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(
-      await exchangeContract
+      exchangeContract
         .connect(wallets[0])
         .fillOrderRoute(
-          [Object.values(makerOrderOne), Object.values(makerOrderTwo), Object.values(makerOrderThree), Object.values(makerOrderFour)],
-          [signedMessageOne, signedMessageTwo, signedMessageThree, signedMessageFour],
+          [
+            Object.values(makerOrderOne),
+            Object.values(makerOrderTwo),
+            Object.values(makerOrderThree),
+            Object.values(makerOrderFour)
+          ],
+          [
+            signedMessageOne,
+            signedMessageTwo,
+            signedMessageThree,
+            signedMessageFour
+          ],
           fillAmount,
           false
         )
@@ -794,7 +808,7 @@ describe('fillOrderRoute', () => {
     // check address5 (mm four)
     expect(balance5).to.equal(ethers.utils.parseEther('0'))
     expect(balance10).to.equal(ethers.utils.parseEther('0'))
-    expect(balance15).to.equal(ethers.utils.parseEther('0')) 
+    expect(balance15).to.equal(ethers.utils.parseEther('0'))
     expect(balance20).to.equal(ethers.utils.parseEther('199.700149975')) // fillAmount = mm three buy amount = 100 * 2 * 0.9995 * 2 * 0.9995 * 0.5 * 0.9995
     expect(balance25).to.equal(ethers.utils.parseEther('900.1499250125')) // mint (1000) - mm three sell amount (100 * 2 * 0.9995 * 2 * 0.9995 * 0.5 * 0.9995 * 0.5)
 

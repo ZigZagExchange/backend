@@ -19,7 +19,7 @@ interface IWETH9 {
 contract ZigZagExchange is EIP712 {
   event Swap(
     address maker,
-    address taker,
+    address indexed taker,
     address indexed makerSellToken,
     address indexed takerSellToken,
     uint256 makerSellAmount,
@@ -28,8 +28,8 @@ contract ZigZagExchange is EIP712 {
     uint256 takerVolumeFee
   );
 
-  event CancelOrder(bytes32 orderHash);
-  event OrderStatus(bytes32 orderHash, uint filled, uint remaining);
+  event CancelOrder(bytes32 indexed orderHash);
+  event OrderStatus(bytes32 indexed orderHash, uint filled, uint remaining);
 
   mapping(bytes32 => uint256) public filled;
 
@@ -77,6 +77,51 @@ contract ZigZagExchange is EIP712 {
     emit CancelOrder(orderHash);
   }
 
+  function fillOrderRouteETH(
+    LibOrder.Order[] calldata makerOrder,
+    bytes[] calldata makerSignature,
+    uint takerAmount,
+    bool fillAvailable
+  ) public payable returns (bool) {
+    require(makerOrder.length == makerSignature.length, 'Length of makerOrders and makerSignatures does not match');
+    require(makerOrder.length > 0, 'Length of makerOrders can not be 0');
+
+    if (makerOrder.length == 1) {
+      return fillOrderExactInputETH(makerOrder[0], makerSignature[0], takerAmount, fillAvailable);
+    }
+
+    uint256 n = makerOrder.length - 1;
+    for (uint i = 0; i <= n; i++) {
+      require(i == 0 || makerOrder[i - 1].sellToken == makerOrder[i].buyToken, 'Tokens on route do not match');
+
+      // takerAmountOut = takerAmountIn * price
+      takerAmount = (takerAmount * makerOrder[i].sellAmount) / makerOrder[i].buyAmount;
+
+      // first or last tx might need to (un-)wrap ETH
+      if (i == 0 && makerOrder[0].buyToken == WETH_ADDRESS) {
+        _fillOrderETH(makerOrder[0], makerSignature[0], msg.sender, EXCHANGE_ADDRESS, takerAmount, fillAvailable);
+      } else if (i == n && makerOrder[n].sellToken == WETH_ADDRESS) {
+        _fillOrderETH(makerOrder[n], makerSignature[n], EXCHANGE_ADDRESS, msg.sender, takerAmount, fillAvailable);
+      } else {
+        _fillOrder(
+          makerOrder[i],
+          makerSignature[i],
+          i == 0 ? msg.sender : EXCHANGE_ADDRESS,
+          i == n ? msg.sender : EXCHANGE_ADDRESS,
+          makerOrder[i].sellToken,
+          makerOrder[i].buyToken,
+          takerAmount,
+          fillAvailable
+        );
+      }
+
+      // adjust the takerAmountOut by the tx fee paid by the taker
+      takerAmount = takerAmount - (takerAmount * taker_fee_numerator) / taker_fee_denominator;
+    }
+
+    _refundETH();
+    return true;
+  }
 
   function fillOrderRoute(
     LibOrder.Order[] calldata makerOrder,
@@ -84,28 +129,35 @@ contract ZigZagExchange is EIP712 {
     uint takerAmount,
     bool fillAvailable
   ) public payable returns (bool) {
+    require(makerOrder.length == makerSignature.length, 'Length of makerOrders and makerSignatures does not match');
+    require(makerOrder.length > 0, 'Length of makerOrders can not be 0');
+
     if (makerOrder.length == 1) {
       return fillOrderExactInput(makerOrder[0], makerSignature[0], takerAmount, fillAvailable);
     }
-    require(makerOrder.length == makerSignature.length, 'Length of makerOrders and makerSignatures does not match');
 
-    uint256 n = makerOrder.length;
-    for (uint i = 0; i < n; i++) {
+    uint256 n = makerOrder.length - 1;
+    for (uint i = 0; i <= n; i++) {
       require(i == 0 || makerOrder[i - 1].sellToken == makerOrder[i].buyToken, 'Tokens on route do not match');
+
+      // takerAmountOut = takerAmountIn * price
       takerAmount = (takerAmount * makerOrder[i].sellAmount) / makerOrder[i].buyAmount;
+
       _fillOrder(
         makerOrder[i],
         makerSignature[i],
         i == 0 ? msg.sender : EXCHANGE_ADDRESS,
-        i == n-1 ? msg.sender : EXCHANGE_ADDRESS,
+        i == n ? msg.sender : EXCHANGE_ADDRESS,
         makerOrder[i].sellToken,
         makerOrder[i].buyToken,
         takerAmount,
         fillAvailable
       );
+
+      // adjust the takerAmountOut by the tx fee paid by the taker
       takerAmount = takerAmount - (takerAmount * taker_fee_numerator) / taker_fee_denominator;
     }
-    
+
     return true;
   }
 
@@ -122,6 +174,7 @@ contract ZigZagExchange is EIP712 {
   ) public payable returns (bool) {
     uint takerBuyAmount = (takerSellAmount * makerOrder.sellAmount) / makerOrder.buyAmount;
     _fillOrderETH(makerOrder, makerSignature, msg.sender, msg.sender, takerBuyAmount, fillAvailable);
+    _refundETH();
     return true;
   }
 
@@ -140,6 +193,7 @@ contract ZigZagExchange is EIP712 {
     // add the takerFee to the buy amount to recive the exact amount after fees
     takerBuyAmount = (takerBuyAmount * taker_fee_denominator) / (taker_fee_denominator - taker_fee_numerator);
     _fillOrderETH(makerOrder, makerSignature, msg.sender, msg.sender, takerBuyAmount, fillAvailable);
+    _refundETH();
     return true;
   }
 
@@ -155,7 +209,6 @@ contract ZigZagExchange is EIP712 {
 
     if (makerOrder.buyToken == WETH_ADDRESS) {
       _fillOrder(makerOrder, makerSignature, taker, takerReciver, makerOrder.sellToken, ETH_ADDRESS, takerBuyAmountAdjusted, fillAvailable);
-      _refundETH();
     } else {
       _fillOrder(makerOrder, makerSignature, taker, takerReciver, ETH_ADDRESS, makerOrder.buyToken, takerBuyAmountAdjusted, fillAvailable);
     }
@@ -230,7 +283,8 @@ contract ZigZagExchange is EIP712 {
     require(_isValidSignatureHash(makerOrder.user, makerOrderInfo.orderHash, makerSignature), 'invalid maker signature');
 
     uint takerSellAmount;
-    { // prevent Stack too deep      
+    {
+      // prevent Stack too deep
       uint availableTakerSellSize = makerOrder.sellAmount - makerOrderInfo.orderSellFilledAmount;
       if (fillAvailable && availableTakerSellSize < takerBuyAmountAdjusted) takerBuyAmountAdjusted = availableTakerSellSize;
       takerSellAmount = (takerBuyAmountAdjusted * makerOrder.buyAmount) / makerOrder.sellAmount;
@@ -246,7 +300,7 @@ contract ZigZagExchange is EIP712 {
     // The taker fee comes out of the maker sell quantity, so the taker ends up with less
     // makerFee = (takerSellAmount * maker_fee_numerator) / maker_fee_denominator
     // takerFee = (takerBuyAmountAdjusted * taker_fee_numerator) / taker_fee_denominator
-    
+
     _settleMatchedOrders(
       makerOrder.user,
       taker,
