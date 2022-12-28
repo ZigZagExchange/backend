@@ -10,7 +10,7 @@ contract ZigZagBTCBridge is ERC20 {
   address public manager;
 
   // Set this address on construction to restrict token transfers
-  address public WBTC_ADDRESS;
+  address immutable public WBTC_ADDRESS;
   uint public constant WBTC_DECIMALS = 8;
 
   // LP_PRICE is calculated against WBTC
