@@ -14,14 +14,14 @@ contract ZigZagBTCBridge is ERC20 {
   uint public constant WBTC_DECIMALS = 8;
 
   // Deposit Rates are on a per second basis
-  uint DEPOSIT_RATE_NUMERATOR = 0;
-  uint constant DEPOSIT_RATE_DENOMINATOR = 1e12;
+  uint public DEPOSIT_RATE_NUMERATOR = 0;
+  uint public constant DEPOSIT_RATE_DENOMINATOR = 1e12;
 
   // LP_PRICE is calculated against WBTC
   // The initial price is set to 1, then updated based on the deposit rate
-  uint LP_PRICE_NUMERATOR = DEPOSIT_RATE_DENOMINATOR;
-  uint constant LP_PRICE_DENOMINATOR = DEPOSIT_RATE_DENOMINATOR;
-  uint LAST_PRICE_UPDATE;
+  uint public LP_PRICE_NUMERATOR = DEPOSIT_RATE_DENOMINATOR;
+  uint public constant LP_PRICE_DENOMINATOR = DEPOSIT_RATE_DENOMINATOR;
+  uint public LAST_PRICE_UPDATE;
 
   // Hash Tracking for swaps
   // The key for the mappings is the hash
@@ -45,7 +45,7 @@ contract ZigZagBTCBridge is ERC20 {
   }
 
   function setDepositRate(uint deposit_rate_numerator) public {
-    require(msg.sender == manager, "only manager can update deposit rate");
+    require(msg.sender == manager, "only manager can set deposit rate");
     updateLPPrice();
     DEPOSIT_RATE_NUMERATOR = deposit_rate_numerator;
   }
@@ -59,14 +59,14 @@ contract ZigZagBTCBridge is ERC20 {
     IERC20(WBTC_ADDRESS).transferFrom(msg.sender, address(this), wbtc_amount);
 
     updateLPPrice();
-    uint lp_amount = wbtc_amount * LP_PRICE_NUMERATOR * 10**decimals() / 10**WBTC_DECIMALS / LP_PRICE_DENOMINATOR;
+    uint lp_amount = wbtc_amount * LP_PRICE_DENOMINATOR * 10**decimals() / 10**WBTC_DECIMALS / LP_PRICE_NUMERATOR;
 
     _mint(msg.sender, lp_amount);
   }
 
   function withdrawWBTCFromLP(uint lp_amount) public {
     updateLPPrice();
-    uint wbtc_amount = lp_amount * LP_PRICE_DENOMINATOR * 10**WBTC_DECIMALS / LP_PRICE_NUMERATOR / 10**decimals();
+    uint wbtc_amount = lp_amount * LP_PRICE_NUMERATOR * 10**WBTC_DECIMALS / LP_PRICE_DENOMINATOR / 10**decimals();
 
     _burn(msg.sender, lp_amount);
     IERC20(WBTC_ADDRESS).transfer(msg.sender, wbtc_amount);
