@@ -60,6 +60,7 @@ export type ZZMarketSummary = {
   priceChangePercent_24h: number
   highestPrice_24h: number
   lowestPrice_24h: number
+  numberOfTrades_24h: number
 }
 
 export type ZZOrder = {
