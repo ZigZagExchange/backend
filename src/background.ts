@@ -1471,13 +1471,13 @@ async function start() {
   setInterval(cacheRecentTrades, 60000)
   setInterval(removeOldLiquidity, 10000)
   setInterval(updateLastPrices, 15000)
-  setInterval(updateMarketSummarys, 20000)
+  setInterval(updateMarketSummarys, 15000)
   setInterval(updateUsdPrice, 20000)
   setInterval(updateFeesZkSync, 25000)
-  setInterval(updatePriceHighLow, 600000)
-  setInterval(updateVolumes, 900000)
-  setInterval(updateNumberOfTrades, 900000)
-  setInterval(deleteOldOrders, 90000)
+  setInterval(updatePriceHighLow, 30000)
+  setInterval(updateVolumes, 30000)
+  setInterval(updateNumberOfTrades, 30000)
+  setInterval(deleteOldOrders, 30000)
 
   setTimeout(sendMatchedOrders, 5000)
 }
