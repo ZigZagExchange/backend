@@ -12,13 +12,16 @@ contract ZigZagExchange is EIP712 {
   event Swap(
     address maker,
     address taker,
-    address makerSellToken,
-    address takerSellToken,
+    address indexed makerSellToken,
+    address indexed takerSellToken,
     uint256 makerSellAmount,
     uint256 takerSellAmount,
     uint256 makerVolumeFee,
     uint256 takerVolumeFee
   );
+
+  event CancelOrder(bytes32 orderHash);
+  event OrderStatus(bytes32 orderHash, uint filled, uint remaining);
 
   mapping(bytes32 => uint256) public filled;
 
@@ -46,6 +49,7 @@ contract ZigZagExchange is EIP712 {
     bytes32 orderHash = LibOrder.getOrderHash(order);
     require(filled[orderHash] < order.sellAmount, 'order already filled');
     cancelled[orderHash] = true;
+    emit CancelOrder(orderHash);
   }
 
   // Canceling an order prevents it from being filled 
@@ -56,6 +60,7 @@ contract ZigZagExchange is EIP712 {
     bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
     require(_isValidSignatureHash(order.user, cancelHash, cancelSignature), "invalid cancel signature");
     cancelled[orderHash] = true;
+    emit CancelOrder(orderHash);
   }
 
   // fillAmount is the amount of the makerOrder.sellAmount to fill
@@ -95,6 +100,9 @@ contract ZigZagExchange is EIP712 {
       fillAmount,
       buyAmount
     );
+
+    uint makerOrderFilled = filled[makerOrderInfo.orderHash];
+    emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
 
     return true;
   }
@@ -159,8 +167,8 @@ contract ZigZagExchange is EIP712 {
     require(IERC20(makerOrder.sellToken).balanceOf(makerOrder.user) >= makerSellAmount, 'maker order not enough balance');
 
     // mark fills in storage
-    filled[LibOrder.getOrderHash(makerOrder)] += makerSellAmount;
-    filled[LibOrder.getOrderHash(takerOrder)] += takerSellAmount;
+    filled[makerOrderInfo.orderHash] += makerSellAmount;
+    filled[takerOrderInfo.orderHash] += takerSellAmount;
 
     _settleMatchedOrders(
       makerOrder.user,
@@ -170,6 +178,9 @@ contract ZigZagExchange is EIP712 {
       makerSellAmount,
       takerSellAmount
     );
+
+    emit OrderStatus(makerOrderInfo.orderHash, filled[makerOrderInfo.orderHash], makerOrder.sellAmount - filled[makerOrderInfo.orderHash]);
+    emit OrderStatus(takerOrderInfo.orderHash, filled[takerOrderInfo.orderHash], takerOrder.sellAmount - filled[takerOrderInfo.orderHash]);
 
     return true;
   }

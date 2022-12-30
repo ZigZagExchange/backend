@@ -183,6 +183,42 @@ async function updateVolumes() {
   console.timeEnd('updateVolumes')
 }
 
+async function updateNumberOfTrades() {
+  console.time('updateNumberOfTrades')
+
+  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
+  const queryUTC = {
+    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    values: [midnight],
+  }
+  const selectUTC = await db.query(queryUTC)
+  selectUTC.rows.forEach(async (row) => {
+    try {
+      redis.HSET(`tradecount:utc:${row.chainid}`, row.market, row.trades || 0)
+    } catch (err) {
+      console.error(err)
+      console.log('Could not update tradecount')
+    }
+  })
+
+  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
+  const query = {
+    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    values: [oneDayAgo],
+  }
+  const select = await db.query(query)
+  select.rows.forEach(async (row) => {
+    try {
+      redis.HSET(`tradecount:${row.chainid}`, row.market, row.trades || 0)
+    } catch (err) {
+      console.error(err)
+      console.log('Could not update tradecount')
+    }
+  })
+
+  console.timeEnd('updateNumberOfTrades')
+}
+
 async function updatePendingOrders() {
   console.time('updatePendingOrders')
 
@@ -296,6 +332,8 @@ async function updateMarketSummarys() {
     )
     const redisPricesLowUTC = await redis.HGETALL(`price:utc:${chainId}:low`)
     const redisPricesHighUTC = await redis.HGETALL(`price:utc:${chainId}:high`)
+    const redisNumberOfTrades = await redis.HGETALL(`tradecount:${chainId}`)
+    const redisNumberOfTradesUTC = await redis.HGETALL(`tradecount:utc:${chainId}`)
 
     const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
       const marketInfo = await getMarketInfo(marketId, chainId).catch(
@@ -355,6 +393,9 @@ async function updateMarketSummarys() {
       const lowestAsk = Number(formatPrice(redisBestAsk[marketId]))
       const highestBid = Number(formatPrice(redisBestBid[marketId]))
 
+      const numberOfTrades_24h = Number(redisNumberOfTrades[marketId] || 0)
+      const numberOfTrades_24hUTC = Number(redisNumberOfTradesUTC[marketId] || 0)
+
       const marketSummary: ZZMarketSummary = {
         market: marketId,
         baseSymbol: marketInfo.baseAsset.symbol,
@@ -368,6 +409,7 @@ async function updateMarketSummarys() {
         priceChangePercent_24h,
         highestPrice_24h,
         lowestPrice_24h,
+        numberOfTrades_24h,
       }
       const marketSummaryUTC: ZZMarketSummary = {
         market: marketId,
@@ -382,6 +424,7 @@ async function updateMarketSummarys() {
         priceChangePercent_24h: priceChangePercent_24hUTC,
         highestPrice_24h: highestPrice_24hUTC,
         lowestPrice_24h: lowestPrice_24hUTC,
+        numberOfTrades_24h: numberOfTrades_24hUTC,
       }
       redis.HSET(
         redisKeyMarketSummaryUTC,
@@ -968,17 +1011,6 @@ async function sendMatchedOrders() {
 
       console.timeEnd('sendMatchedOrders: post processing broadcast')
       console.time('sendMatchedOrders: post processing filled')
-      //// wait for tx to be processed before sending the result
-      //if (transaction.hash) {
-      //  try {
-      //    await ETHERS_PROVIDERS[chainId].waitForTransaction(transaction.hash)
-      //  } catch (e: any) {
-      //    console.error(
-      //      `Failed to wait for tx ${transaction.hash} because ${e.message}`
-      //    )
-      //  }
-      //}
-
       if (orderUpdatesBroadcastMinted.length) {
         sendUpdates(
           chainId,
@@ -1444,6 +1476,7 @@ async function start() {
   setInterval(updateFeesZkSync, 25000)
   setInterval(updatePriceHighLow, 600000)
   setInterval(updateVolumes, 900000)
+  setInterval(updateNumberOfTrades, 900000)
   setInterval(deleteOldOrders, 90000)
 
   setTimeout(sendMatchedOrders, 5000)

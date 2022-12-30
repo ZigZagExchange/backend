@@ -30,6 +30,7 @@
   "dependencies": {
     "@0x/utils": "^6.5.3",
     "@noble/hashes": "^1.1.1",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.7",
     "@openzeppelin/contracts": "^4.8.0-rc.1",
     "crypto": "^1.0.1",
     "eip-712": "^1.0.0",
