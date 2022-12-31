@@ -165,9 +165,9 @@ export default function cmcRoutes(app: ZZHttpServer) {
       const market = req.params.market_pair.replace('_', '-').toUpperCase()
       const altMarket = req.params.market_pair.replace('_', '-')
       try {
-        let fills = await app.api.getfills(chainId, market)
+        let fills = await app.api.getfills(chainId, market, 25)
         if (fills.length === 0) {
-          fills = await app.api.getfills(chainId, altMarket)
+          fills = await app.api.getfills(chainId, altMarket, 25)
         }
 
         if (fills.length === 0) {
