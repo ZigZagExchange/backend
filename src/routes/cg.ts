@@ -185,13 +185,13 @@ export default function cgRoutes(app: ZZHttpServer) {
           chainId,
           market,
           limit,
-          0,
+          25,
           type,
           startTime,
           endTime
         )
         if (fills.length === 0) {
-          fills = await app.api.getfills(chainId, altMarket)
+          fills = await app.api.getfills(chainId, altMarket, 25)
         }
 
         if (fills.length === 0) {
