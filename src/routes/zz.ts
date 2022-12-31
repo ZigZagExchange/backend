@@ -221,7 +221,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
     const type: string = req.query.type as string
     const direction = req.query.direction as string
-    const limit = req.query.limit ? Number(req.query.limit) : 0
+    const limit = req.query.limit ? Number(req.query.limit) : 25
     const orderId = req.query.order_id ? Number(req.query.order_id) : 0
     const startTime = req.query.start_time ? Number(req.query.start_time) : 0
     const endTime = req.query.end_time ? Number(req.query.end_time) : 0

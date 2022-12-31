@@ -2303,7 +2303,7 @@ export default class API extends EventEmitter {
       text += ` AND (maker_user_id='${accountId}' OR taker_user_id='${accountId}')`
     }
 
-    limit = limit ? Math.min(25, Number(limit)) : 25
+    limit = limit ? Math.min(50, Number(limit)) : 50
     text += ` ORDER BY id ${sqlDirection} LIMIT ${limit}`
 
     try {
