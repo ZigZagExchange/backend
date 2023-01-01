@@ -51,174 +51,6 @@ async function getMarketInfo(market: ZZMarket, chainId: number) {
   return null
 }
 
-async function updatePriceHighLow() {
-  console.time('updatePriceHighLow')
-
-  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
-  const selecUTC = await db.query(
-    "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    [midnight]
-  )
-  selecUTC.rows.forEach(async (row) => {
-    const redisKeyLow = `price:utc:${row.chainid}:low`
-    const redisKeyHigh = `price:utc:${row.chainid}:high`
-    redis.HSET(redisKeyLow, row.market, row.min_price)
-    redis.HSET(redisKeyHigh, row.market, row.max_price)
-  })
-
-  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
-  const select = await db.query(
-    "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    [oneDayAgo]
-  )
-  select.rows.forEach(async (row) => {
-    const redisKeyLow = `price:${row.chainid}:low`
-    const redisKeyHigh = `price:${row.chainid}:high`
-    redis.HSET(redisKeyLow, row.market, row.min_price)
-    redis.HSET(redisKeyHigh, row.market, row.max_price)
-  })
-
-  // delete inactive markets
-  VALID_CHAINS.forEach(async (chainId) => {
-    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const priceKeysLow = await redis.HKEYS(`price:${chainId}:low`)
-    const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
-    delKeysLow.forEach(async (key) => {
-      redis.HDEL(`price:${chainId}:low`, key)
-    })
-    const priceKeysHigh = await redis.HKEYS(`price:${chainId}:high`)
-    const delKeysHigh = priceKeysHigh.filter((k) => !markets.includes(k))
-    delKeysHigh.forEach(async (key) => {
-      redis.HDEL(`price:${chainId}:high`, key)
-    })
-  })
-  console.timeEnd('updatePriceHighLow')
-}
-
-async function updateVolumes() {
-  console.time('updateVolumes')
-
-  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
-  const queryUTC = {
-    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [midnight],
-  }
-  const selectUTC = await db.query(queryUTC)
-  selectUTC.rows.forEach(async (row) => {
-    try {
-      let quoteVolume = row.quote_volume.toPrecision(6)
-      let baseVolume = row.base_volume.toPrecision(6)
-      // Prevent exponential notation
-      if (quoteVolume.includes('e')) {
-        quoteVolume = row.quote_volume.toFixed(0)
-      }
-      if (baseVolume.includes('e')) {
-        baseVolume = row.base_volume.toFixed(0)
-      }
-      const redisKeyBase = `volume:utc:${row.chainid}:base`
-      const redisKeyQuote = `volume:utc:${row.chainid}:quote`
-      redis.HSET(redisKeyBase, row.market, baseVolume)
-      redis.HSET(redisKeyQuote, row.market, quoteVolume)
-    } catch (err) {
-      console.error(err)
-      console.log('Could not update volumes')
-    }
-  })
-
-  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
-  const query = {
-    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [oneDayAgo],
-  }
-  const select = await db.query(query)
-  select.rows.forEach(async (row) => {
-    try {
-      let quoteVolume = row.quote_volume.toPrecision(6)
-      let baseVolume = row.base_volume.toPrecision(6)
-      // Prevent exponential notation
-      if (quoteVolume.includes('e')) {
-        quoteVolume = row.quote_volume.toFixed(0)
-      }
-      if (baseVolume.includes('e')) {
-        baseVolume = row.base_volume.toFixed(0)
-      }
-      const redisKeyBase = `volume:${row.chainid}:base`
-      const redisKeyQuote = `volume:${row.chainid}:quote`
-      redis.HSET(redisKeyBase, row.market, baseVolume)
-      redis.HSET(redisKeyQuote, row.market, quoteVolume)
-    } catch (err) {
-      console.error(err)
-      console.log('Could not update volumes')
-    }
-  })
-
-  try {
-    // remove zero volumes
-    VALID_CHAINS.forEach(async (chainId) => {
-      const nonZeroMarkets = select.rows
-        .filter((row) => row.chainid === chainId)
-        .map((row) => row.market)
-
-      const baseVolumeMarkets = await redis.HKEYS(`volume:${chainId}:base`)
-      const quoteVolumeMarkets = await redis.HKEYS(`volume:${chainId}:quote`)
-
-      const keysToDelBase = baseVolumeMarkets.filter(
-        (m) => !nonZeroMarkets.includes(m)
-      )
-      const keysToDelQuote = quoteVolumeMarkets.filter(
-        (m) => !nonZeroMarkets.includes(m)
-      )
-
-      keysToDelBase.forEach((key) => {
-        redis.HDEL(`volume:${chainId}:base`, key)
-      })
-      keysToDelQuote.forEach((key) => {
-        redis.HDEL(`volume:${chainId}:quote`, key)
-      })
-    })
-  } catch (err) {
-    console.error(err)
-    console.log('Could not remove zero volumes')
-  }
-  console.timeEnd('updateVolumes')
-}
-
-async function updateNumberOfTrades() {
-  console.time('updateNumberOfTrades')
-
-  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
-  const queryUTC = {
-    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [midnight],
-  }
-  const selectUTC = await db.query(queryUTC)
-  selectUTC.rows.forEach(async (row) => {
-    try {
-      redis.HSET(`tradecount:utc:${row.chainid}`, row.market, row.trades || 0)
-    } catch (err) {
-      console.error(err)
-      console.log('Could not update tradecount')
-    }
-  })
-
-  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
-  const query = {
-    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [oneDayAgo],
-  }
-  const select = await db.query(query)
-  select.rows.forEach(async (row) => {
-    try {
-      redis.HSET(`tradecount:${row.chainid}`, row.market, row.trades || 0)
-    } catch (err) {
-      console.error(err)
-      console.log('Could not update tradecount')
-    }
-  })
-
-  console.timeEnd('updateNumberOfTrades')
-}
-
 async function updatePendingOrders() {
   console.time('updatePendingOrders')
 
@@ -267,177 +99,6 @@ async function updatePendingOrders() {
     })
   }
   console.timeEnd('updatePendingOrders')
-}
-
-async function updateLastPrices() {
-  console.time('updateLastPrices')
-
-  const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
-    const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
-
-    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
-    const redisPricesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
-    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
-    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-
-    const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const marketInfo = await getMarketInfo(marketId, chainId).catch(
-        () => null
-      )
-      if (!marketInfo) return
-      const lastPriceInfo: any = {}
-      const yesterday = new Date(Date.now() - 86400 * 1000)
-        .toISOString()
-        .slice(0, 10)
-      const yesterdayPrice = Number(
-        await redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
-      )
-      lastPriceInfo.price = +redisPrices[marketId]
-      lastPriceInfo.priceChange = yesterdayPrice
-        ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
-        : 0
-
-      lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
-      lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
-
-      redis.HSET(redisKeyPriceInfo, marketId, JSON.stringify(lastPriceInfo))
-    })
-    await Promise.all(results1)
-  })
-  await Promise.all(results0)
-  console.timeEnd('updateLastPrices')
-}
-
-async function updateMarketSummarys() {
-  console.time('updateMarketSummarys')
-
-  const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
-    const redisKeyMarketSummary = `marketsummary:${chainId}`
-    const redisKeyMarketSummaryUTC = `marketsummary:utc:${chainId}`
-
-    // fetch needed data
-    const redisVolumesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
-    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
-    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
-    const redisPricesLow = await redis.HGETALL(`price:${chainId}:low`)
-    const redisPricesHigh = await redis.HGETALL(`price:${chainId}:high`)
-    const redisBestAsk = await redis.HGETALL(`bestask:${chainId}`)
-    const redisBestBid = await redis.HGETALL(`bestbid:${chainId}`)
-    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-    const redisVolumesQuoteUTC = await redis.HGETALL(
-      `volume:utc:${chainId}:quote`
-    )
-    const redisVolumesBaseUTC = await redis.HGETALL(
-      `volume:utc:${chainId}:base`
-    )
-    const redisPricesLowUTC = await redis.HGETALL(`price:utc:${chainId}:low`)
-    const redisPricesHighUTC = await redis.HGETALL(`price:utc:${chainId}:high`)
-    const redisNumberOfTrades = await redis.HGETALL(`tradecount:${chainId}`)
-    const redisNumberOfTradesUTC = await redis.HGETALL(`tradecount:utc:${chainId}`)
-
-    const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
-      const marketInfo = await getMarketInfo(marketId, chainId).catch(
-        () => null
-      )
-      if (!marketInfo) return
-      const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
-      const yesterdayPrice = Number(
-        await redis.get(
-          `dailyprice:${chainId}:${marketId}:${yesterday.slice(0, 10)}`
-        )
-      )
-      const today = new Date(Date.now()).toISOString()
-      const todayPrice = Number(
-        await redis.get(
-          `dailyprice:${chainId}:${marketId}:${today.slice(0, 10)}`
-        )
-      )
-
-      const lastPrice = +redisPrices[marketId]
-
-      let priceChange = 0
-      let priceChangeUTC = 0
-      let priceChangePercent_24h = 0
-      let priceChangePercent_24hUTC = 0
-      if (yesterdayPrice) {
-        priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
-        priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
-      } else {
-        priceChange = 0
-        priceChangePercent_24h = 0
-      }
-
-      if (todayPrice) {
-        priceChangeUTC = Number(formatPrice(lastPrice - todayPrice))
-        priceChangePercent_24hUTC = Number(
-          formatPrice(priceChangeUTC / lastPrice)
-        )
-      } else {
-        priceChangeUTC = 0
-        priceChangePercent_24hUTC = 0
-      }
-
-      // get low/high price
-      const lowestPrice_24h = Number(redisPricesLow[marketId])
-      const highestPrice_24h = Number(redisPricesHigh[marketId])
-      const lowestPrice_24hUTC = Number(redisPricesLowUTC[marketId])
-      const highestPrice_24hUTC = Number(redisPricesHighUTC[marketId])
-
-      // get volume
-      const quoteVolume = Number(redisVolumesQuote[marketId] || 0)
-      const baseVolume = Number(redisVolumesBase[marketId] || 0)
-      const quoteVolumeUTC = Number(redisVolumesQuoteUTC[marketId] || 0)
-      const baseVolumeUTC = Number(redisVolumesBaseUTC[marketId] || 0)
-
-      // get best ask/bid
-      const lowestAsk = Number(formatPrice(redisBestAsk[marketId]))
-      const highestBid = Number(formatPrice(redisBestBid[marketId]))
-
-      const numberOfTrades_24h = Number(redisNumberOfTrades[marketId] || 0)
-      const numberOfTrades_24hUTC = Number(redisNumberOfTradesUTC[marketId] || 0)
-
-      const marketSummary: ZZMarketSummary = {
-        market: marketId,
-        baseSymbol: marketInfo.baseAsset.symbol,
-        quoteSymbol: marketInfo.quoteAsset.symbol,
-        lastPrice,
-        lowestAsk,
-        highestBid,
-        baseVolume,
-        quoteVolume,
-        priceChange,
-        priceChangePercent_24h,
-        highestPrice_24h,
-        lowestPrice_24h,
-        numberOfTrades_24h,
-      }
-      const marketSummaryUTC: ZZMarketSummary = {
-        market: marketId,
-        baseSymbol: marketInfo.baseAsset.symbol,
-        quoteSymbol: marketInfo.quoteAsset.symbol,
-        lastPrice,
-        lowestAsk,
-        highestBid,
-        baseVolume: baseVolumeUTC,
-        quoteVolume: quoteVolumeUTC,
-        priceChange: priceChangeUTC,
-        priceChangePercent_24h: priceChangePercent_24hUTC,
-        highestPrice_24h: highestPrice_24hUTC,
-        lowestPrice_24h: lowestPrice_24hUTC,
-        numberOfTrades_24h: numberOfTrades_24hUTC,
-      }
-      redis.HSET(
-        redisKeyMarketSummaryUTC,
-        marketId,
-        JSON.stringify(marketSummaryUTC)
-      )
-      redis.HSET(redisKeyMarketSummary, marketId, JSON.stringify(marketSummary))
-    })
-    await Promise.all(results1)
-  })
-  await Promise.all(results0)
-
-  console.timeEnd('updateMarketSummarys')
 }
 
 async function updateUsdPrice() {
@@ -730,12 +391,6 @@ async function removeOldLiquidity() {
   })
   await Promise.all(results0)
   console.timeEnd('removeOldLiquidity')
-}
-
-async function runDbMigration() {
-  console.log('running db migration')
-  const migration = fs.readFileSync('schema.sql', 'utf8')
-  await db.query(migration).catch(console.error)
 }
 
 /**
@@ -1090,196 +745,6 @@ async function updateEVMMarketInfo() {
   console.timeEnd('Update EVM marketinfo')
 }
 
-async function seedArbitrumMarkets() {
-  console.time('seeding arbitrum markets')
-  /*
-  const marketSummaryWethUsdc = {
-    market: 'WETH-USDC',
-    baseSymbol: 'WETH',
-    quoteSymbol: 'USDC',
-    lastPrice: 1200,
-    lowestAsk: 1201,
-    highestBid: 1999,
-    baseVolume: 0,
-    quoteVolume: 0,
-    priceChange: 0,
-    priceChangePercent_24h: 0,
-    highestPrice_24h: 1250,
-    lowestPrice_24h: 1150
-  }
-  const marketSummaryWbtcUsdc = {
-    market: 'WBTC-USDC',
-    baseSymbol: 'WBTC',
-    quoteSymbol: 'USDC',
-    lastPrice: 20000,
-    lowestAsk: 20100,
-    highestBid: 19900,
-    baseVolume: 0,
-    quoteVolume: 0,
-    priceChange: 0,
-    priceChangePercent_24h: 0,
-    highestPrice_24h: 21000,
-    lowestPrice_24h: 19000
-  }
-  const marketSummaryUsdcUsdt = {
-    market: 'USDC-USDT',
-    baseSymbol: 'USDC',
-    quoteSymbol: 'USDT',
-    lastPrice: 1,
-    lowestAsk: 1,
-    highestBid: 1,
-    baseVolume: 0,
-    quoteVolume: 0,
-    priceChange: 0,
-    priceChangePercent_24h: 0,
-    highestPrice_24h: 1,
-    lowestPrice_24h: 1
-  }
-  const marketSummaryZzUsdc = {
-    market: 'ZZ-USDC',
-    baseSymbol: 'ZZ',
-    quoteSymbol: 'USDC',
-    lastPrice: 3,
-    lowestAsk: 3,
-    highestBid: 1,
-    baseVolume: 0,
-    quoteVolume: 0,
-    priceChange: 0,
-    priceChangePercent_24h: 0,
-    highestPrice_24h: 3,
-    lowestPrice_24h: 3
-  }
-  const wethTokenInfo = {
-    id: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
-    address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
-    symbol: 'WETH',
-    decimals: 18,
-    enabledForFees: true,
-    usdPrice: '1081.75',
-    name: 'Wrapped Ether'
-  }
-  const usdcTokenInfo = {
-    id: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
-    address: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
-    symbol: 'USDC',
-    decimals: 6,
-    enabledForFees: true,
-    usdPrice: '1',
-    name: 'USD Coin'
-  }
-  const wbtcTokenInfo = {
-    id: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
-    address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
-    symbol: 'WBTC',
-    decimals: 8,
-    enabledForFees: true,
-    usdPrice: '20000',
-    name: 'Wrapped Bitcoin'
-  }
-  const usdtTokenInfo = {
-    id: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-    address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-    symbol: 'USDT',
-    decimals: 6,
-    enabledForFees: true,
-    usdPrice: '1',
-    name: 'Tether'
-  }
-  const zzTokenInfo = {
-    id: '0xADA42bb73b42e0472A994218fb3799dFCDA21237',
-    address: '0xADA42bb73b42e0472A994218fb3799dFCDA21237',
-    symbol: 'ZZ',
-    decimals: 18,
-    enabledForFees: true,
-    usdPrice: '3',
-    name: 'ZigZag'
-  }
-  const lastPriceInfoWethUsdc = {
-    price: 1200,
-    priceChange: -72.18,
-    quoteVolume: '3945712',
-    baseVolume: '3584.25'
-  }
-  const lastPriceInfoWbtcUsdc = {
-    price: 20000,
-    priceChange: -700,
-    quoteVolume: '0',
-    baseVolume: '0'
-  }
-  const lastPriceInfoUsdcUsdt = {
-    price: 1,
-    priceChange: 0,
-    quoteVolume: '0',
-    baseVolume: '0'
-  }
-  const lastPriceInfoZzUsdc = {
-    price: 3,
-    priceChange: 0,
-    quoteVolume: '0',
-    baseVolume: '0'
-  }
-  //await redis.HSET(
-  //  'marketsummary:42161',
-  //  'WETH-USDC',
-  //  JSON.stringify(marketSummaryWethUsdc)
-  //)
-  //await redis.HSET(
-  //  'marketsummary:42161',
-  //  'WBTC-USDC',
-  //  JSON.stringify(marketSummaryWbtcUsdc)
-  //)
-  //await redis.HSET(
-  //  'marketsummary:42161',
-  //  'USDC-USDT',
-  //  JSON.stringify(marketSummaryUsdcUsdt)
-  //)
-  await redis.HSET(
-    'marketsummary:42161',
-    'ZZ-USDC',
-    JSON.stringify(marketSummaryZzUsdc)
-  )
-  //await redis.SADD('activemarkets:42161', 'WETH-USDC')
-  //await redis.SADD('activemarkets:42161', 'WBTC-USDC')
-  //await redis.SADD('activemarkets:42161', 'USDT-USDC')
-  await redis.SADD('activemarkets:42161', 'ZZ-USDC')
-  //await redis.HSET('tokenfee:42161', 'WETH', '0.001')
-  //await redis.HSET('tokenfee:42161', 'USDC', '1')
-  //await redis.HSET('tokenfee:42161', 'USDT', '1')
-  //await redis.HSET('tokenfee:42161', 'WBTC', '0.00005')
-  await redis.HSET('tokenfee:42161', 'ZZ', '0.3')
-  //await redis.HSET('tokeninfo:42161', 'WETH', JSON.stringify(wethTokenInfo))
-  //await redis.HSET('tokeninfo:42161', 'USDC', JSON.stringify(usdcTokenInfo))
-  //await redis.HSET('tokeninfo:42161', 'WBTC', JSON.stringify(wbtcTokenInfo))
-  //await redis.HSET('tokeninfo:42161', 'USDT', JSON.stringify(usdtTokenInfo))
-  await redis.HSET('tokeninfo:42161', 'ZZ', JSON.stringify(zzTokenInfo))
-  //await redis.HSET('lastprices:42161', 'WETH-USDC', '1200')
-  //await redis.HSET('lastprices:42161', 'WBTC-USDC', '20000')
-  //await redis.HSET('lastprices:42161', 'USDC-USDT', '1')
-  await redis.HSET('lastprices:42161', 'ZZ-USDC', '3')
-  //await redis.HSET(
-  //  'lastpriceinfo:42161',
-  //  'WETH-USDC',
-  //  JSON.stringify(lastPriceInfoWethUsdc)
-  //)
-  //await redis.HSET(
-  //  'lastpriceinfo:42161',
-  //  'WBTC-USDC',
-  //  JSON.stringify(lastPriceInfoWbtcUsdc)
-  //)
-  //await redis.HSET(
-  //  'lastpriceinfo:42161',
-  //  'USDC-USDT',
-  //  JSON.stringify(lastPriceInfoUsdcUsdt)
-  //)
-  await redis.HSET(
-    'lastpriceinfo:42161',
-    'ZZ-USDC',
-    JSON.stringify(lastPriceInfoZzUsdc)
-  )
-  */
-  console.timeEnd('seeding arbitrum markets')
-}
-
 async function cacheRecentTrades() {
   console.time('cacheRecentTrades')
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
@@ -1351,6 +816,355 @@ async function deleteOldOrders() {
   await db.query("DELETE FROM offers WHERE order_status NOT IN ('o', 'pm', 'pf', 'b', 'm') AND update_timestamp < (NOW() - INTERVAL '10 MINUTES')")
   console.timeEnd('deleteOldOrders')
 }
+
+/* ################ V3 functions  ################ */
+
+async function updatePriceHighLow() {
+  console.time('updatePriceHighLow')
+
+  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
+  const selecUTC = await db.query(
+    "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    [midnight]
+  )
+  selecUTC.rows.forEach(async (row) => {
+    const redisKeyLow = `price:utc:${row.chainid}:low`
+    const redisKeyHigh = `price:utc:${row.chainid}:high`
+    redis.HSET(redisKeyLow, row.market, row.min_price)
+    redis.HSET(redisKeyHigh, row.market, row.max_price)
+  })
+
+  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
+  const select = await db.query(
+    "SELECT chainid, market, MIN(price) AS min_price, MAX(price) AS max_price FROM fills WHERE insert_timestamp > $1 AND fill_status='f' AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    [oneDayAgo]
+  )
+  select.rows.forEach(async (row) => {
+    const redisKeyLow = `price:${row.chainid}:low`
+    const redisKeyHigh = `price:${row.chainid}:high`
+    redis.HSET(redisKeyLow, row.market, row.min_price)
+    redis.HSET(redisKeyHigh, row.market, row.max_price)
+  })
+
+  // delete inactive markets
+  VALID_CHAINS.forEach(async (chainId) => {
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const priceKeysLow = await redis.HKEYS(`price:${chainId}:low`)
+    const delKeysLow = priceKeysLow.filter((k) => !markets.includes(k))
+    delKeysLow.forEach(async (key) => {
+      redis.HDEL(`price:${chainId}:low`, key)
+    })
+    const priceKeysHigh = await redis.HKEYS(`price:${chainId}:high`)
+    const delKeysHigh = priceKeysHigh.filter((k) => !markets.includes(k))
+    delKeysHigh.forEach(async (key) => {
+      redis.HDEL(`price:${chainId}:high`, key)
+    })
+  })
+  console.timeEnd('updatePriceHighLow')
+}
+
+async function updateVolumes() {
+  console.time('updateVolumes')
+
+  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
+  const queryUTC = {
+    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    values: [midnight],
+  }
+  const selectUTC = await db.query(queryUTC)
+  selectUTC.rows.forEach(async (row) => {
+    try {
+      let quoteVolume = row.quote_volume.toPrecision(6)
+      let baseVolume = row.base_volume.toPrecision(6)
+      // Prevent exponential notation
+      if (quoteVolume.includes('e')) {
+        quoteVolume = row.quote_volume.toFixed(0)
+      }
+      if (baseVolume.includes('e')) {
+        baseVolume = row.base_volume.toFixed(0)
+      }
+      const redisKeyBase = `volume:utc:${row.chainid}:base`
+      const redisKeyQuote = `volume:utc:${row.chainid}:quote`
+      redis.HSET(redisKeyBase, row.market, baseVolume)
+      redis.HSET(redisKeyQuote, row.market, quoteVolume)
+    } catch (err) {
+      console.error(err)
+      console.log('Could not update volumes')
+    }
+  })
+
+  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
+  const query = {
+    text: "SELECT chainid, market, SUM(amount) AS base_volume, SUM(amount * price) AS quote_volume FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    values: [oneDayAgo],
+  }
+  const select = await db.query(query)
+  select.rows.forEach(async (row) => {
+    try {
+      let quoteVolume = row.quote_volume.toPrecision(6)
+      let baseVolume = row.base_volume.toPrecision(6)
+      // Prevent exponential notation
+      if (quoteVolume.includes('e')) {
+        quoteVolume = row.quote_volume.toFixed(0)
+      }
+      if (baseVolume.includes('e')) {
+        baseVolume = row.base_volume.toFixed(0)
+      }
+      const redisKeyBase = `volume:${row.chainid}:base`
+      const redisKeyQuote = `volume:${row.chainid}:quote`
+      redis.HSET(redisKeyBase, row.market, baseVolume)
+      redis.HSET(redisKeyQuote, row.market, quoteVolume)
+    } catch (err) {
+      console.error(err)
+      console.log('Could not update volumes')
+    }
+  })
+
+  try {
+    // remove zero volumes
+    VALID_CHAINS.forEach(async (chainId) => {
+      const nonZeroMarkets = select.rows
+        .filter((row) => row.chainid === chainId)
+        .map((row) => row.market)
+
+      const baseVolumeMarkets = await redis.HKEYS(`volume:${chainId}:base`)
+      const quoteVolumeMarkets = await redis.HKEYS(`volume:${chainId}:quote`)
+
+      const keysToDelBase = baseVolumeMarkets.filter(
+        (m) => !nonZeroMarkets.includes(m)
+      )
+      const keysToDelQuote = quoteVolumeMarkets.filter(
+        (m) => !nonZeroMarkets.includes(m)
+      )
+
+      keysToDelBase.forEach((key) => {
+        redis.HDEL(`volume:${chainId}:base`, key)
+      })
+      keysToDelQuote.forEach((key) => {
+        redis.HDEL(`volume:${chainId}:quote`, key)
+      })
+    })
+  } catch (err) {
+    console.error(err)
+    console.log('Could not remove zero volumes')
+  }
+  console.timeEnd('updateVolumes')
+}
+
+async function updateNumberOfTrades() {
+  console.time('updateNumberOfTrades')
+
+  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
+  const queryUTC = {
+    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    values: [midnight],
+  }
+  const selectUTC = await db.query(queryUTC)
+  selectUTC.rows.forEach(async (row) => {
+    try {
+      redis.HSET(`tradecount:utc:${row.chainid}`, row.market, row.trades || 0)
+    } catch (err) {
+      console.error(err)
+      console.log('Could not update tradecount')
+    }
+  })
+
+  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
+  const query = {
+    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
+    values: [oneDayAgo],
+  }
+  const select = await db.query(query)
+  select.rows.forEach(async (row) => {
+    try {
+      redis.HSET(`tradecount:${row.chainid}`, row.market, row.trades || 0)
+    } catch (err) {
+      console.error(err)
+      console.log('Could not update tradecount')
+    }
+  })
+
+  console.timeEnd('updateNumberOfTrades')
+}
+
+async function updateLastPrices() {
+  console.time('updateLastPrices')
+
+  const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
+    const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
+
+    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
+    const redisPricesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
+    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+
+    const results1: Promise<any>[] = markets.map(async (marketId) => {
+      const marketInfo = await getMarketInfo(marketId, chainId).catch(
+        () => null
+      )
+      if (!marketInfo) return
+      const lastPriceInfo: any = {}
+      const yesterday = new Date(Date.now() - 86400 * 1000)
+        .toISOString()
+        .slice(0, 10)
+      const yesterdayPrice = Number(
+        await redis.get(`dailyprice:${chainId}:${marketId}:${yesterday}`)
+      )
+      lastPriceInfo.price = +redisPrices[marketId]
+      lastPriceInfo.priceChange = yesterdayPrice
+        ? Number(formatPrice(lastPriceInfo.price - yesterdayPrice))
+        : 0
+
+      lastPriceInfo.quoteVolume = redisPricesQuote[marketId] || 0
+      lastPriceInfo.baseVolume = redisVolumesBase[marketId] || 0
+
+      redis.HSET(redisKeyPriceInfo, marketId, JSON.stringify(lastPriceInfo))
+    })
+    await Promise.all(results1)
+  })
+  await Promise.all(results0)
+  console.timeEnd('updateLastPrices')
+}
+
+
+async function updateMarketSummarys() {
+  console.time('updateMarketSummarys')
+
+  const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
+    const redisKeyMarketSummary = `marketsummary:${chainId}`
+    const redisKeyMarketSummaryUTC = `marketsummary:utc:${chainId}`
+
+    // fetch needed data
+    const redisVolumesQuote = await redis.HGETALL(`volume:${chainId}:quote`)
+    const redisVolumesBase = await redis.HGETALL(`volume:${chainId}:base`)
+    const redisPrices = await redis.HGETALL(`lastprices:${chainId}`)
+    const redisPricesLow = await redis.HGETALL(`price:${chainId}:low`)
+    const redisPricesHigh = await redis.HGETALL(`price:${chainId}:high`)
+    const redisBestAsk = await redis.HGETALL(`bestask:${chainId}`)
+    const redisBestBid = await redis.HGETALL(`bestbid:${chainId}`)
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const redisVolumesQuoteUTC = await redis.HGETALL(
+      `volume:utc:${chainId}:quote`
+    )
+    const redisVolumesBaseUTC = await redis.HGETALL(
+      `volume:utc:${chainId}:base`
+    )
+    const redisPricesLowUTC = await redis.HGETALL(`price:utc:${chainId}:low`)
+    const redisPricesHighUTC = await redis.HGETALL(`price:utc:${chainId}:high`)
+    const redisNumberOfTrades = await redis.HGETALL(`tradecount:${chainId}`)
+    const redisNumberOfTradesUTC = await redis.HGETALL(`tradecount:utc:${chainId}`)
+
+    const results1: Promise<any>[] = markets.map(async (marketId: ZZMarket) => {
+      const marketInfo = await getMarketInfo(marketId, chainId).catch(
+        () => null
+      )
+      if (!marketInfo) return
+      const yesterday = new Date(Date.now() - 86400 * 1000).toISOString()
+      const yesterdayPrice = Number(
+        await redis.get(
+          `dailyprice:${chainId}:${marketId}:${yesterday.slice(0, 10)}`
+        )
+      )
+      const today = new Date(Date.now()).toISOString()
+      const todayPrice = Number(
+        await redis.get(
+          `dailyprice:${chainId}:${marketId}:${today.slice(0, 10)}`
+        )
+      )
+
+      const lastPrice = +redisPrices[marketId]
+
+      let priceChange = 0
+      let priceChangeUTC = 0
+      let priceChangePercent_24h = 0
+      let priceChangePercent_24hUTC = 0
+      if (yesterdayPrice) {
+        priceChange = Number(formatPrice(lastPrice - yesterdayPrice))
+        priceChangePercent_24h = Number(formatPrice(priceChange / lastPrice))
+      } else {
+        priceChange = 0
+        priceChangePercent_24h = 0
+      }
+
+      if (todayPrice) {
+        priceChangeUTC = Number(formatPrice(lastPrice - todayPrice))
+        priceChangePercent_24hUTC = Number(
+          formatPrice(priceChangeUTC / lastPrice)
+        )
+      } else {
+        priceChangeUTC = 0
+        priceChangePercent_24hUTC = 0
+      }
+
+      // get low/high price
+      const lowestPrice_24h = Number(redisPricesLow[marketId])
+      const highestPrice_24h = Number(redisPricesHigh[marketId])
+      const lowestPrice_24hUTC = Number(redisPricesLowUTC[marketId])
+      const highestPrice_24hUTC = Number(redisPricesHighUTC[marketId])
+
+      // get volume
+      const quoteVolume = Number(redisVolumesQuote[marketId] || 0)
+      const baseVolume = Number(redisVolumesBase[marketId] || 0)
+      const quoteVolumeUTC = Number(redisVolumesQuoteUTC[marketId] || 0)
+      const baseVolumeUTC = Number(redisVolumesBaseUTC[marketId] || 0)
+
+      // get best ask/bid
+      const lowestAsk = Number(formatPrice(redisBestAsk[marketId]))
+      const highestBid = Number(formatPrice(redisBestBid[marketId]))
+
+      const numberOfTrades_24h = Number(redisNumberOfTrades[marketId] || 0)
+      const numberOfTrades_24hUTC = Number(redisNumberOfTradesUTC[marketId] || 0)
+
+      const marketSummary: ZZMarketSummary = {
+        market: marketId,
+        baseSymbol: marketInfo.baseAsset.symbol,
+        quoteSymbol: marketInfo.quoteAsset.symbol,
+        lastPrice,
+        lowestAsk,
+        highestBid,
+        baseVolume,
+        quoteVolume,
+        priceChange,
+        priceChangePercent_24h,
+        highestPrice_24h,
+        lowestPrice_24h,
+        numberOfTrades_24h,
+      }
+      const marketSummaryUTC: ZZMarketSummary = {
+        market: marketId,
+        baseSymbol: marketInfo.baseAsset.symbol,
+        quoteSymbol: marketInfo.quoteAsset.symbol,
+        lastPrice,
+        lowestAsk,
+        highestBid,
+        baseVolume: baseVolumeUTC,
+        quoteVolume: quoteVolumeUTC,
+        priceChange: priceChangeUTC,
+        priceChangePercent_24h: priceChangePercent_24hUTC,
+        highestPrice_24h: highestPrice_24hUTC,
+        lowestPrice_24h: lowestPrice_24hUTC,
+        numberOfTrades_24h: numberOfTrades_24hUTC,
+      }
+      redis.HSET(
+        redisKeyMarketSummaryUTC,
+        marketId,
+        JSON.stringify(marketSummaryUTC)
+      )
+      redis.HSET(redisKeyMarketSummary, marketId, JSON.stringify(marketSummary))
+    })
+    await Promise.all(results1)
+  })
+  await Promise.all(results0)
+
+  console.timeEnd('updateMarketSummarys')
+}
+
+async function runDbMigration() {
+  console.log('running db migration')
+  const migration = fs.readFileSync('schema.sql', 'utf8')
+  await db.query(migration).catch(console.error)
+}
+
 
 async function start() {
   console.log('background.ts: Run checks')
