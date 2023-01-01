@@ -1026,7 +1026,6 @@ async function updateLastPrices() {
   console.timeEnd('updateLastPrices')
 }
 
-
 async function updateMarketSummarys() {
   console.time('updateMarketSummarys')
 
@@ -1165,6 +1164,37 @@ async function runDbMigration() {
   await db.query(migration).catch(console.error)
 }
 
+async function cacheTradeData() {
+  console.time('cacheTradeData')
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
+    const redisTradeDataKey = `tradedata:${chainId}`
+    const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+    const results1: Promise<any>[] = markets.map(async (marketId) => {
+      const text =
+        "SELECT price,amount,insert_timestamp FROM fills WHERE chainid=$1 AND market=$2 AND fill_status='f' AND insert_timestamp > $3"
+      const query = {
+        text,
+        values: [chainId, marketId, oneWeekAgo]
+      }
+      const select = await db.query(query)
+      const tradeData: [number, number, number][] = select.rows.map(o =>
+        [
+          Number(o.insert_timestamp) / 1000 | 0,
+          o.price,
+          o.amount
+        ]
+      )
+
+      redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
+    })
+    await Promise.all(results1)
+  })
+  await Promise.all(results0)
+
+  console.timeEnd('cacheTradeData')
+}
 
 async function start() {
   console.log('background.ts: Run checks')
@@ -1276,9 +1306,6 @@ async function start() {
     console.error(`Failed to updateTokenInfoZkSync: ${e}`)
   }
 
-  // Seed Arbitrum Markets
-  await seedArbitrumMarkets()
-
   console.log('background.ts: Starting Update Functions')
   setInterval(updateBestAskBidEVM, 5000)
   setInterval(updatePendingOrders, updatePendingOrdersDelay * 1000)
@@ -1291,6 +1318,7 @@ async function start() {
   setInterval(updatePriceHighLow, 30000)
   setInterval(updateVolumes, 30000)
   setInterval(updateNumberOfTrades, 30000)
+  setInterval(cacheTradeData, 30000)
   setInterval(deleteOldOrders, 30000)
 
   setTimeout(sendMatchedOrders, 5000)

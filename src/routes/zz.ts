@@ -294,6 +294,43 @@ export default function zzRoutes(app: ZZHttpServer) {
     }
   })
 
+  app.get('/api/v1/tradedata/:chainId?', getChainId, async (req, res) => {
+    const { chainId } = req
+
+    if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
+      res.status(400).send({
+        op: 'error',
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+      })
+      return
+    }
+
+    let market = req.query.market as string
+    let altMarket = req.query.market as string
+    if (market) {
+      market = market.replace('_', '-')
+      altMarket = market.replace('_', '-').toUpperCase()
+    }
+
+
+    try {
+      let tradeData = await app.api.getTradeData(chainId, market)
+      if (tradeData.length === 0) {
+        tradeData = await app.api.getfills(chainId, altMarket)
+      }
+
+      if (tradeData.length === 0) {
+        res.send({ op: 'error', message: `Can not find fills for ${market}` })
+        return
+      }
+
+      res.send(tradeData)
+    } catch (error: any) {
+      console.log(error.message)
+      res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
+    }
+  })
+
   app.get('/api/v1/marketinfos/:chainId?', async (req, res) => {
     let chainId = req.params.chainId ? Number(req.params.chainId) : null
 
