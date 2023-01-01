@@ -14,12 +14,19 @@ task("accounts", "Prints the list of accounts", async (args, hre) => {
  * @type import('hardhat/config').HardhatUserConfig
  */
 export default {
-  solidity: "0.8.10",
-  settings: {
-    optimizer: {
-      enabled: true,
-      runs: 1000,
-    },
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.10",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000,
+          },
+        },
+      },
+    ],
+
   },
   etherscan: {
     apiKey: {
