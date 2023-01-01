@@ -2315,11 +2315,11 @@ export default class API extends EventEmitter {
     }
   }
 
-  getTradeData = async (chainId: number, markets: ZZMarket): Promise<[number, number, number][]> => {
+  getTradeData = async (chainId: number, markets: ZZMarket): Promise<[number, number, number, string][]> => {
     const resString: string | undefined = await this.redis.HGET(`tradedata:${chainId}`, markets)
     if (!resString) return []
 
-    const res: [number, number, number][] = JSON.parse(resString)
+    const res: [number, number, number, string][] = JSON.parse(resString)
     return res
   }
 
