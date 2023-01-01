@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Contract, Wallet } from 'ethers'
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from './utils/PrivateKeyList'
-import { signOrder, signCancelOrder } from './utils/SignUtil'
+import { signOrder, signCancelOrder, getOrderHash } from './utils/SignUtil'
 import { Order } from './utils/types'
 
 describe('Signature Validation', () => {
@@ -18,12 +18,13 @@ describe('Signature Validation', () => {
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
+      ethers.constants.AddressZero, 
       ethers.constants.AddressZero
     )
 
     wallet = new ethers.Wallet(
       TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      ethers.getDefaultProvider()
+      ethers.provider
     )
 
     order = {
@@ -91,5 +92,29 @@ describe('Signature Validation', () => {
         signedCancelOrder
       )
     ).to.equal(false)
+  })
+
+  it("Should emit event cancel order", async () => {
+    const orderHash = await getOrderHash(order)
+
+    expect(await exchangeContract.connect(wallet).cancelOrder(
+      Object.values(order)
+    )).to.emit(exchangeContract, 'CancelOrder')
+      .withArgs(orderHash)
+  })
+
+  it("Should emit event cancel order signature", async () => {
+    const signedCancelOrder = await signCancelOrder(
+      TESTRPC_PRIVATE_KEYS_STRINGS[0],
+      order,
+      exchangeContract.address
+    )
+    const orderHash = await getOrderHash(order)
+
+    expect(await exchangeContract.cancelOrderWithSig(
+      Object.values(order),
+      signedCancelOrder
+    )).to.emit(exchangeContract, 'CancelOrder')
+      .withArgs(orderHash)
   })
 })

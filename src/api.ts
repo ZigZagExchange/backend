@@ -2320,6 +2320,14 @@ export default class API extends EventEmitter {
     }
   }
 
+  getTradeData = async (chainId: number, markets: ZZMarket): Promise<[number, number, number][]> => {
+    const resString: string | undefined = await this.redis.HGET(`tradedata:${chainId}`, markets)
+    if (!resString) return []
+
+    const res: [number, number, number][] = JSON.parse(resString)
+    return res
+  }
+
   getLastPrices = async (chainId: number, markets: ZZMarket[] = []) => {
     const redisKeyPriceInfo = `lastpriceinfo:${chainId}`
 
