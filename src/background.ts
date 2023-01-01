@@ -1173,17 +1173,18 @@ async function cacheTradeData() {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
       const text =
-        "SELECT price,amount,insert_timestamp FROM fills WHERE chainid=$1 AND market=$2 AND fill_status='f' AND insert_timestamp > $3"
+        "SELECT price,amount,side,insert_timestamp FROM fills WHERE chainid=$1 AND market=$2 AND fill_status='f' AND insert_timestamp > $3"
       const query = {
         text,
         values: [chainId, marketId, oneWeekAgo]
       }
       const select = await db.query(query)
-      const tradeData: [number, number, number][] = select.rows.map(o =>
+      const tradeData: [number, number, number, string][] = select.rows.map(o =>
         [
           Number(o.insert_timestamp) / 1000 | 0,
           o.price,
-          o.amount
+          o.amount,
+          o.side === 's' ? 'sell' : 'buy'
         ]
       )
 
