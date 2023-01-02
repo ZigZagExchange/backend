@@ -1237,7 +1237,7 @@ async function cacheTradeData() {
               const bucketLow = bucketTrades.reduce((min, trade) => Math.min(min, trade.price), Number.MAX_SAFE_INTEGER)
 
               tradeData.push([
-                bucketStart,
+                bucketStart | 0,
                 bucketAverage,
                 bucketTrades[0].price,
                 bucketHigh,
@@ -1246,7 +1246,7 @@ async function cacheTradeData() {
                 bucketVolume
               ])
             } else {
-              tradeData.push([bucketStart, 0, 0, 0, 0, 0, 0])
+              tradeData.push([bucketStart | 0, 0, 0, 0, 0, 0, 0])
             }       
           }
           redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
