@@ -1210,7 +1210,6 @@ async function cacheTradeData() {
           const startTime = endTime - interval.seconds * 24 * 60 * 60
           const stepTime = (interval.seconds * 24 * 60 * 60) / BUCKET_COUNT
 
-          console.log("select", select)
           const tradeData: [
             number, // unix
             number, // average
@@ -1224,27 +1223,29 @@ async function cacheTradeData() {
             redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
             return
           }
-          console.log("parsedTrades", parsedTrades)
           for (let i = 0; i < BUCKET_COUNT; i++) {
             const bucketStart = startTime + i * stepTime
             const bucketEnd = bucketStart + stepTime
 
             const bucketTrades = parsedTrades.filter(trade => trade.time > bucketStart && trade.time < bucketEnd)
+            if (bucketTrades.length > 0) {
+              const bucketVolume = bucketTrades.reduce((sum, trade) => sum + trade.amount, 0)
+              const bucketAverage = bucketTrades.reduce((sum, trade) => sum + trade.price, 0) / bucketTrades.length
+              const bucketHigh = bucketTrades.reduce((max, trade) => Math.max(max, trade.price), 0)
+              const bucketLow = bucketTrades.reduce((min, trade) => Math.min(min, trade.price), Number.MAX_SAFE_INTEGER)
 
-            const bucketVolume = bucketTrades.reduce((sum, trade) => sum + trade.amount, 0)
-            const bucketAverage = bucketTrades.reduce((sum, trade) => sum + trade.price, 0) / bucketTrades.length
-            const bucketHigh = bucketTrades.reduce((max, trade) => Math.max(max, trade.price), 0)
-            const bucketLow = bucketTrades.reduce((min, trade) => Math.min(min, trade.price), Number.MAX_SAFE_INTEGER)
-
-            tradeData.push([
-              bucketStart,
-              bucketAverage,
-              bucketTrades[0].price,
-              bucketHigh,
-              bucketLow,
-              bucketTrades[bucketTrades.length - 1].price,
-              bucketVolume
-            ])
+              tradeData.push([
+                bucketStart,
+                bucketAverage,
+                bucketTrades[0].price,
+                bucketHigh,
+                bucketLow,
+                bucketTrades[bucketTrades.length - 1].price,
+                bucketVolume
+              ])
+            } else {
+              tradeData.push([bucketStart, 0, 0, 0, 0, 0, 0])
+            }       
           }
           redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
         })
