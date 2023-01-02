@@ -1185,30 +1185,32 @@ async function cacheTradeData() {
 
     const SQLTime = Date.now() - (intervals.reduce((max, i) => Math.max(max, i.seconds), 0)) * 1000
     const SQLFetchStart = new Date(SQLTime).toISOString()
+    const text =
+      "SELECT chainid,market,price,amount,insert_timestamp FROM fills WHERE fill_status='f' AND insert_timestamp > $1;"
+    const query = {
+      text,
+      values: [SQLFetchStart]
+    }
+    const select = await db.query(query)
 
     const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
+      const tradesThisChain = select.rows.filter(o => o.chainid === chainId)
       const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-      const results1: Promise<any>[] = markets.map(async (marketId) => {
-        const text =
-          "SELECT price,amount,side,insert_timestamp FROM fills WHERE chainid=$1 AND market=$2 AND fill_status='f' AND insert_timestamp > $3"
-        const query = {
-          text,
-          values: [chainId, marketId, SQLFetchStart]
-        }
-        const select = await db.query(query)
+      markets.forEach(marketId => {
 
-        const parsedTrades = select.rows.map(o => ({
-          time: Number(o.insert_timestamp) / 1000 | 0,
-          price: o.price,
-          amount: o.amount,
-          side: o.side === 's' ? 'sell' : 'buy'
-        }))
+        const parsedTrades = tradesThisChain
+          .filter(o => o.market === marketId)
+          .map(o => ({
+            time: Number(o.insert_timestamp) / 1000 | 0,
+            price: o.price,
+            amount: o.amount
+          }))
 
-        const results2: Promise<any>[] = intervals.map(async (interval: { days: number, seconds: number }) => {
+        intervals.forEach((interval: { days: number, seconds: number }) => {
           const redisTradeDataKey = `tradedata:${chainId}:${interval.days}`
 
-          const startTime = endTime - interval.seconds * 24 * 60 * 60
-          const stepTime = (interval.seconds * 24 * 60 * 60) / BUCKET_COUNT
+          const startTime = endTime - interval.seconds
+          const stepTime = interval.seconds / BUCKET_COUNT
 
           const tradeData: [
             number, // unix
@@ -1249,9 +1251,7 @@ async function cacheTradeData() {
           }
           redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
         })
-        await Promise.all(results2)
       })
-      await Promise.all(results1)
     })
     await Promise.all(results0)
   } catch(e: any) {
