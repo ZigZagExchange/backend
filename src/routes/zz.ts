@@ -305,6 +305,10 @@ export default function zzRoutes(app: ZZHttpServer) {
       return
     }
 
+    const daysInput = Number(req.query.days ? req.query.days : 7) 
+    let days: 1 | 7 | 31 = 7
+    if (daysInput === 1 || daysInput === 31) days = daysInput
+
     let market = req.query.market as string
     let altMarket = req.query.market as string
     if (market) {
@@ -314,9 +318,9 @@ export default function zzRoutes(app: ZZHttpServer) {
 
 
     try {
-      let tradeData = await app.api.getTradeData(chainId, market)
+      let tradeData = await app.api.getTradeData(chainId, market, days)
       if (tradeData.length === 0) {
-        tradeData = await app.api.getfills(chainId, altMarket)
+        tradeData = await app.api.getTradeData(chainId, altMarket, days)
       }
 
       if (tradeData.length === 0) {

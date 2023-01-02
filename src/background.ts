@@ -1165,34 +1165,88 @@ async function runDbMigration() {
 }
 
 async function cacheTradeData() {
+  const BUCKET_COUNT = 250 // used to set the precission of the data
   console.time('cacheTradeData')
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const endTime = (Date.now() / 1000 | 0)
+  const intervals = [{
+      days: 1,
+      seconds: 86400
+    },
+    {
+      days: 7,
+      seconds: 604800
+    },
+    {
+      days: 31,
+      seconds: 2678400
+    }
+  ]
+
+  const SQLTime = Date.now() - (intervals.reduce((max, i) => Math.max(max, i.seconds), 0)) * 1000
+  const SQLFetchStart = new Date(SQLTime).toISOString()
 
   const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
-    const redisTradeDataKey = `tradedata:${chainId}`
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
       const text =
         "SELECT price,amount,side,insert_timestamp FROM fills WHERE chainid=$1 AND market=$2 AND fill_status='f' AND insert_timestamp > $3"
       const query = {
         text,
-        values: [chainId, marketId, oneWeekAgo]
-      }
+        values: [chainId, marketId, SQLFetchStart]
+      }        
       const select = await db.query(query)
-      const tradeData: [number, number, number, string][] = select.rows.map(o =>
-        [
-          Number(o.insert_timestamp) / 1000 | 0,
-          o.price,
-          o.amount,
-          o.side === 's' ? 'sell' : 'buy'
-        ]
-      )
 
-      redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
+      const parsedTrades = select.rows.map(o => ({
+          time: Number(o.insert_timestamp) / 1000 | 0,
+          price: o.price,
+          amount: o.amount,
+          side: o.side === 's' ? 'sell' : 'buy'
+        }))
+
+      const results2: Promise<any>[] = intervals.map(async (interval: {days: number, seconds: number}) => {
+        const redisTradeDataKey = `tradedata:${chainId}:${interval.days}`
+
+        const startTime = endTime - interval.seconds * 24 * 60 * 60
+        const stepTime = (interval.seconds * 24 * 60 * 60) / BUCKET_COUNT
+
+        const tradeData: [
+          number, // unix
+          number, // average
+          number, // open
+          number, // high
+          number, // low
+          number, // close
+          number, // volume
+        ][] = []
+        for (let i = 0; i < BUCKET_COUNT; i++) {
+          const bucketStart = startTime + i * stepTime
+          const bucketEnd = bucketStart + stepTime
+
+          const bucketTrades = parsedTrades.filter(trade => trade.time > bucketStart && trade.time < bucketEnd)
+
+          const bucketVolume = bucketTrades.reduce((sum, trade) => sum + trade.amount, 0)
+          const bucketAverage = bucketTrades.reduce((sum, trade) => sum + trade.price, 0) / bucketTrades.length
+          const bucketHigh = bucketTrades.reduce((max, trade) => Math.max(max, trade.price), 0)
+          const bucketLow = bucketTrades.reduce((min, trade) => Math.min(min, trade.price), Number.MAX_SAFE_INTEGER)
+
+          tradeData.push([
+            bucketStart,
+            bucketAverage,
+            bucketTrades[0].price,
+            bucketHigh,
+            bucketLow,
+            bucketTrades[bucketTrades.length-1].price,
+            bucketVolume
+          ])
+        }
+        redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
+      })
+      await Promise.all(results2)
     })
     await Promise.all(results1)
   })
   await Promise.all(results0)
+  
 
   console.timeEnd('cacheTradeData')
 }
