@@ -2,7 +2,7 @@ import type {
   ZZHttpServer,
   ZZMarket,
   ZZMarketInfo,
-  ZZMarketSummary,
+  ZZMarketSummary
 } from 'src/types'
 
 export default function zzRoutes(app: ZZHttpServer) {
@@ -39,7 +39,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res.status(400).send({
         op: 'error',
-        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`
       })
       return
     }
@@ -73,11 +73,13 @@ export default function zzRoutes(app: ZZHttpServer) {
 
       if (!marketSummarys) {
         if (markets.length === 0) {
-          res.send({ op: 'error', message: `Can't find any markets.` })
+          res
+            .status(400)
+            .send({ op: 'error', message: `Can't find any markets.` })
         } else {
-          res.send({
+          res.status(400).send({
             op: 'error',
-            message: `Can't find a summary for ${markets}.`,
+            message: `Can't find a summary for ${markets}.`
           })
         }
         return
@@ -85,7 +87,7 @@ export default function zzRoutes(app: ZZHttpServer) {
       res.json(marketSummarys)
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: 'Failed to fetch markets' })
+      res.status(400).send({ op: 'error', message: 'Failed to fetch markets' })
     }
   })
 
@@ -95,7 +97,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res.status(400).send({
         op: 'error',
-        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`
       })
       return
     }
@@ -114,14 +116,14 @@ export default function zzRoutes(app: ZZHttpServer) {
       const lastPrices: any = await app.api.getLastPrices(chainId, markets)
       if (lastPrices.length === 0) {
         if (markets.length === 0) {
-          res.send({
+          res.status(400).send({
             op: 'error',
-            message: `Can't find any lastPrices for any markets.`,
+            message: `Can't find any lastPrices for any markets.`
           })
         } else {
-          res.send({
+          res.status(400).send({
             op: 'error',
-            message: `Can't find a lastPrice for ${req.query.market}.`,
+            message: `Can't find a lastPrice for ${req.query.market}.`
           })
         }
         return
@@ -131,14 +133,16 @@ export default function zzRoutes(app: ZZHttpServer) {
           lastPrice: price[1],
           priceChange: price[2],
           baseVolume: price[4],
-          quoteVolume: price[3],
+          quoteVolume: price[3]
         }
         ticker[price[0]] = entry
       })
       res.json(ticker)
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: 'Failed to fetch ticker prices' })
+      res
+        .status(400)
+        .send({ op: 'error', message: 'Failed to fetch ticker prices' })
     }
   })
 
@@ -151,7 +155,7 @@ export default function zzRoutes(app: ZZHttpServer) {
       if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
         res.status(400).send({
           op: 'error',
-          message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+          message: `ChainId not found, use ${app.api.VALID_CHAINS}`
         })
         return
       }
@@ -170,7 +174,7 @@ export default function zzRoutes(app: ZZHttpServer) {
       if (![1, 2, 3].includes(level)) {
         res.send({
           op: 'error',
-          message: `Level: ${level} is not a valid level. Use 1, 2 or 3.`,
+          message: `Level: ${level} is not a valid level. Use 1, 2 or 3.`
         })
         return
       }
@@ -196,7 +200,7 @@ export default function zzRoutes(app: ZZHttpServer) {
         console.log(error.message)
         res.send({
           op: 'error',
-          message: `Failed to fetch orderbook for ${market}, ${error.message}`,
+          message: `Failed to fetch orderbook for ${market}, ${error.message}`
         })
       }
     }
@@ -208,7 +212,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res.status(400).send({
         op: 'error',
-        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`
       })
       return
     }
@@ -230,7 +234,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     if (type && !['s', 'b', 'sell', 'buy'].includes(type)) {
       res.send({
         op: 'error',
-        message: `Type: ${type} is not a valid type. Use 's', 'b', 'sell', 'buy'`,
+        message: `Type: ${type} is not a valid type. Use 's', 'b', 'sell', 'buy'`
       })
       return
     }
@@ -262,7 +266,9 @@ export default function zzRoutes(app: ZZHttpServer) {
       }
 
       if (fills.length === 0) {
-        res.send({ op: 'error', message: `Can not find fills for ${market}` })
+        res
+          .status(400)
+          .send({ op: 'error', message: `Can not find fills for ${market}` })
         return
       }
 
@@ -282,7 +288,7 @@ export default function zzRoutes(app: ZZHttpServer) {
           takerId: chainId === 1 ? Number(fill[8]) : fill[8], // chainId === 1 backward compatible
           makerId: chainId === 1 ? Number(fill[9]) : fill[9], // chainId === 1 backward compatible
           feeAmount: fill[10],
-          feeToken: fill[11],
+          feeToken: fill[11]
         }
         response.push(entry)
       })
@@ -290,7 +296,9 @@ export default function zzRoutes(app: ZZHttpServer) {
       res.send(response)
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
+      res
+        .status(400)
+        .send({ op: 'error', message: `Failed to fetch trades for ${market}` })
     }
   })
 
@@ -300,12 +308,12 @@ export default function zzRoutes(app: ZZHttpServer) {
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res.status(400).send({
         op: 'error',
-        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`
       })
       return
     }
 
-    const daysInput = Number(req.query.days ? req.query.days : 7) 
+    const daysInput = Number(req.query.days ? req.query.days : 7)
     let days: 1 | 7 | 31 = 7
     if (daysInput === 1 || daysInput === 31) days = daysInput
 
@@ -316,7 +324,6 @@ export default function zzRoutes(app: ZZHttpServer) {
       altMarket = market.replace('_', '-').toUpperCase()
     }
 
-
     try {
       let tradeData = await app.api.getTradeData(chainId, market, days)
       if (tradeData.length === 0) {
@@ -324,14 +331,18 @@ export default function zzRoutes(app: ZZHttpServer) {
       }
 
       if (tradeData.length === 0) {
-        res.send({ op: 'error', message: `Can not find fills for ${market}` })
+        res
+          .status(400)
+          .send({ op: 'error', message: `Can not find fills for ${market}` })
         return
       }
 
       res.send(tradeData)
     } catch (error: any) {
       console.log(error.message)
-      res.send({ op: 'error', message: `Failed to fetch trades for ${market}` })
+      res
+        .status(400)
+        .send({ op: 'error', message: `Failed to fetch trades for ${market}` })
     }
   })
 
@@ -345,7 +356,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     if (!chainId || !app.api.VALID_CHAINS.includes(chainId)) {
       res.status(400).send({
         op: 'error',
-        message: `ChainId not found, use ${app.api.VALID_CHAINS}`,
+        message: `ChainId not found, use ${app.api.VALID_CHAINS}`
       })
       return
     }
@@ -359,7 +370,7 @@ export default function zzRoutes(app: ZZHttpServer) {
     } else {
       res.send({
         op: 'error',
-        message: `Set a requested pair with '?market=___'`,
+        message: `Set a requested pair with '?market=___'`
       })
       return
     }
@@ -382,7 +393,7 @@ export default function zzRoutes(app: ZZHttpServer) {
       } catch (err: any) {
         marketInfos[market] = {
           error: err.message,
-          market,
+          market
         }
       }
     })
