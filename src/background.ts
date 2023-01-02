@@ -1209,8 +1209,8 @@ async function cacheTradeData() {
         intervals.forEach((interval: { days: number, seconds: number }) => {
           const redisTradeDataKey = `tradedata:${chainId}:${interval.days}`
 
-          const startTime = endTime - interval.seconds * 24 * 60 * 60
-          const stepTime = (interval.seconds * 24 * 60 * 60) / BUCKET_COUNT
+          const startTime = endTime - interval.seconds
+          const stepTime = interval.seconds / BUCKET_COUNT
 
           const tradeData: [
             number, // unix
