@@ -59,7 +59,7 @@ describe("Vault", function () {
         }
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
 
-        const fillAmount = ethers.utils.parseEther("1");
+        const fillAmount = ethers.utils.parseEther("0.5");
         await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
     });
 
@@ -74,7 +74,7 @@ describe("Vault", function () {
         }
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
 
-        const fillAmount = ethers.utils.parseEther("1");
+        const fillAmount = ethers.utils.parseEther("0.5");
         await expect(exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith("invalid maker signature");
     });
 
@@ -87,18 +87,10 @@ describe("Vault", function () {
             buyAmount: ethers.utils.parseEther("100"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
         }
-        const takerOrder = {
-            user: wallets[0].address,
-            sellToken: tokenA.address,
-            buyToken: tokenB.address,
-            sellAmount: ethers.utils.parseEther("100"),
-            buyAmount: ethers.utils.parseEther("1"),
-            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
-        }
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
 
-        await expect(exchangeContract.connect(wallets[0]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage))
+        const fillAmount = ethers.utils.parseEther("0.5");
+        await expect(exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, false))
           .to.be.revertedWith("invalid maker signature");
     });
 
@@ -111,18 +103,10 @@ describe("Vault", function () {
             buyAmount: ethers.utils.parseEther("100"),
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
         }
-        const takerOrder = {
-            user: wallets[0].address,
-            sellToken: tokenA.address,
-            buyToken: tokenB.address,
-            sellAmount: ethers.utils.parseEther("100"),
-            buyAmount: ethers.utils.parseEther("1"),
-            expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
-        }
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
-        const signedRightMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], takerOrder, exchangeContract.address)
 
-        await exchangeContract.connect(wallets[0]).matchOrders(Object.values(makerOrder), Object.values(takerOrder), signedLeftMessage, signedRightMessage);
+        const fillAmount = ethers.utils.parseEther("0.5");
+        await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, false);
     });
 
     it("Vault mint LP tokens", async function () {
@@ -162,8 +146,8 @@ describe("Vault", function () {
         }
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
 
-        const fillAmount = ethers.utils.parseEther("1");
-        await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        const fillAmount = ethers.utils.parseEther("0.5");
+        await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
     });
 
     it("Cannot burn after mint and swap LP tokens", async function () {
@@ -180,8 +164,8 @@ describe("Vault", function () {
         }
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
 
-        const fillAmount = ethers.utils.parseEther("1");
-        await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        const fillAmount = ethers.utils.parseEther("0.5");
+        await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
 
         await expect(vaultContract.connect(wallets[2]).burnLPToken(ethers.utils.parseEther("100"))).to.be.reverted
     });
@@ -223,13 +207,13 @@ describe("Vault", function () {
         }
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
 
-        const fillAmount = ethers.utils.parseEther("1");
-        await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)
+        const fillAmount = ethers.utils.parseEther("0.5");
+        await exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)
 
         const circulatingSupply = await vaultContract.circulatingSupply();
         const totalSupply = await vaultContract.totalSupply();
         await expect(totalSupply).to.equal(ethers.utils.parseEther("100"));
-        await expect(circulatingSupply).to.equal(ethers.utils.parseEther("1"));
+        await expect(circulatingSupply).to.equal(ethers.utils.parseEther("0.500250125062531265")); // user amount and fees
     });
 
     it("Vault cancel order", async function () {
@@ -248,7 +232,7 @@ describe("Vault", function () {
 
         await exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)
 
-        const fillAmount = ethers.utils.parseEther("1");
+        const fillAmount = ethers.utils.parseEther("0.5");
         await expect(exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order canceled');
     });
 

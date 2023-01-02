@@ -313,17 +313,6 @@ contract ZigZagExchange is EIP712 {
       (takerBuyAmountAdjusted * taker_fee_numerator) / taker_fee_denominator
     );
 
-    emit Swap(
-      makerOrder.user,
-      msg.sender,
-      sellToken,
-      buyToken,
-      takerBuyAmountAdjusted,
-      takerSellAmount,
-      (takerSellAmount * maker_fee_numerator) / maker_fee_denominator,
-      (takerBuyAmountAdjusted * taker_fee_numerator) / taker_fee_denominator
-    );
-
     emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
   }
 
@@ -391,6 +380,8 @@ contract ZigZagExchange is EIP712 {
     } else {
       IERC20(makerSellToken).transferFrom(maker, takerReciver, makerSellAmount - takerFee);
     }
+    
+    emit Swap(maker, taker, makerSellToken, takerSellToken, makerSellAmount, takerSellAmount, makerFee, takerFee);
   }
 
   function getOpenOrder(LibOrder.Order calldata order) public view returns (LibOrder.OrderInfo memory orderInfo) {
