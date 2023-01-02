@@ -1218,6 +1218,10 @@ async function cacheTradeData() {
           number, // close
           number, // volume
         ][] = []
+        if (parsedTrades.length === 0) {
+          redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
+          return
+        }
         for (let i = 0; i < BUCKET_COUNT; i++) {
           const bucketStart = startTime + i * stepTime
           const bucketEnd = bucketStart + stepTime
