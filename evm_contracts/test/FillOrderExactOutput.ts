@@ -47,7 +47,6 @@ describe('fillOrderExactOutput', () => {
       .connect(wallets[1])
       .approve(exchangeContract.address, ethers.utils.parseEther('1000'))
 
-    await exchangeContract.connect(wallets[3]).setFees(5, 10000, 0, 10000)
   })
 
   it("Should revert with 'taker order not enough balance' ", async () => {
@@ -249,75 +248,6 @@ describe('fillOrderExactOutput', () => {
     ).to.be.revertedWith('order canceled')
   })
 
-  it('Should revert when maker order is canceled with signature', async () => {
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: tokenB.address,
-      sellAmount: ethers.BigNumber.from('120'),
-      buyAmount: ethers.BigNumber.from('970'),
-      expirationTimeSeconds: ethers.BigNumber.from(
-        String(Math.floor(Date.now() / 1000) + 3600)
-      )
-    }
-
-    const signedLeftMessage = await signOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      makerOrder,
-      exchangeContract.address
-    )
-
-    const signedCancelOrder = await signCancelOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      makerOrder,
-      exchangeContract.address
-    )
-    await exchangeContract
-      .connect(wallets[2])
-      .cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)
-
-    const fillAmount = ethers.utils.parseEther('1')
-    await expect(
-      exchangeContract
-        .connect(wallets[1])
-        .fillOrderExactOutput(
-          Object.values(makerOrder),
-          signedLeftMessage,
-          fillAmount,
-          true
-        )
-    ).to.be.revertedWith('order canceled')
-  })
-
-  it('Bad cancel signature should revert', async () => {
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: tokenB.address,
-      sellAmount: ethers.BigNumber.from('120'),
-      buyAmount: ethers.BigNumber.from('970'),
-      expirationTimeSeconds: ethers.BigNumber.from(
-        String(Math.floor(Date.now() / 1000) + 3600)
-      )
-    }
-
-    const signedLeftMessage = await signOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      makerOrder,
-      exchangeContract.address
-    )
-
-    const signedCancelOrder = await signCancelOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[1],
-      makerOrder,
-      exchangeContract.address
-    )
-    await expect(
-      exchangeContract
-        .connect(wallets[2])
-        .cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)
-    ).to.be.revertedWith('invalid cancel signature')
-  })
 
   it('Should revert when maker order is expired', async () => {
     const makerOrder = {
@@ -348,7 +278,6 @@ describe('fillOrderExactOutput', () => {
   })
 
   it('feeRecipient should take Maker Fee', async () => {
-    await exchangeContract.connect(wallets[3]).setFees(0, 10000, 5, 10000)
 
     const makerOrder = {
       user: wallets[0].address,
@@ -401,7 +330,7 @@ describe('fillOrderExactOutput', () => {
       ethers.utils.formatEther(balance8)
     )
 
-    expect(balance8).to.equal(ethers.utils.parseEther('0.15'))
+    expect(balance8).to.equal(ethers.utils.parseEther('0.0'))
   })
 
   it('feeRecipient should take Taker Fee', async () => {

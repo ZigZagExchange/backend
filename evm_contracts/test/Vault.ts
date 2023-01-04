@@ -44,7 +44,6 @@ describe("Vault", function () {
         await tokenA.connect(wallets[0]).approve(exchangeContract.address, ethers.utils.parseEther("10000"));
         await vaultContract.connect(manager).approveToken(tokenB.address, exchangeContract.address, ethers.utils.parseEther("10000"));
 
-        //await exchangeContract.connect(wallets[3]).setFees(5, 10000, 0, 10000);
 
     });
 
@@ -230,7 +229,6 @@ describe("Vault", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
         const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
 
-        await exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)
 
         const fillAmount = ethers.utils.parseEther("0.5");
         await expect(exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order canceled');
@@ -248,6 +246,5 @@ describe("Vault", function () {
 
         const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrder, exchangeContract.address)
 
-        await expect(exchangeContract.connect(wallets[2]).cancelOrderWithSig(Object.values(makerOrder), signedCancelOrder)).to.be.revertedWith('invalid cancel signature')
     });
 });

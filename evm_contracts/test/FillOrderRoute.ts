@@ -65,7 +65,6 @@ describe('fillOrderRoute', () => {
       .connect(wallets[4])
       .approve(exchangeContract.address, ethers.utils.parseEther('1000'))
 
-    await exchangeContract.connect(wallets[5]).setFees(5, 10000, 0, 10000)
   })
 
   it('fill a full order, n=1', async () => {

@@ -65,18 +65,6 @@ contract ZigZagExchange is EIP712 {
     emit CancelOrder(orderHash);
   }
 
-  /// @notice Cancel an order so it can no longer be filled with an EIP712 signature
-  /// @param order order that should get cancelled
-  /// @param cancelSignature signature using the EIP712 format
-  function cancelOrderWithSig(LibOrder.Order calldata order, bytes calldata cancelSignature) public {
-    bytes32 orderHash = LibOrder.getOrderHash(order);
-    require(filled[orderHash] < order.sellAmount, 'order already filled');
-    bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
-    require(_isValidSignatureHash(order.user, cancelHash, cancelSignature), 'invalid cancel signature');
-    cancelled[orderHash] = true;
-    emit CancelOrder(orderHash);
-  }
-
   function fillOrderRouteETH(
     LibOrder.Order[] calldata makerOrder,
     bytes[] calldata makerSignature,
@@ -398,30 +386,10 @@ contract ZigZagExchange is EIP712 {
     return _isValidSignatureHash(order.user, orderHash, signature);
   }
 
-  function isValidCancelSignature(LibOrder.Order calldata order, bytes calldata signature) public view returns (bool) {
-    bytes32 orderHash = LibOrder.getOrderHash(order);
-    bytes32 cancelHash = LibOrder.getCancelOrderHash(orderHash);
-    return _isValidSignatureHash(order.user, cancelHash, signature);
-  }
-
   // hash can be an order hash or a cancel order hash
   function _isValidSignatureHash(address user, bytes32 hash, bytes calldata signature) private view returns (bool) {
     bytes32 digest = _hashTypedDataV4(hash);
     return SignatureChecker.isValidSignatureNow(user, digest, signature);
-  }
-
-  function setFees(
-    uint256 _taker_fee_numerator,
-    uint256 _taker_fee_denominator,
-    uint256 _maker_fee_numerator,
-    uint256 _maker_fee_denominator
-  ) public {
-    require(msg.sender == FEE_ADDRESS, 'only fee address may update fees');
-
-    taker_fee_numerator = _taker_fee_numerator;
-    taker_fee_denominator = _taker_fee_denominator;
-    maker_fee_numerator = _maker_fee_numerator;
-    maker_fee_denominator = _maker_fee_denominator;
   }
 
   function _refundETH() internal {
