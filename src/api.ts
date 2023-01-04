@@ -1331,6 +1331,10 @@ export default class API extends EventEmitter {
       feeToken = marketInfo.quoteAsset.symbol
     }
 
+    if (marketInfo.quoteAsset.address.toLowerCase() === '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8' && quoteAmount <= 5) {
+      throw new Error(`Lower than minimum size`)
+    }
+
     /* validateSignature */
     const { signature } = zktx
     if (!signature) throw new Error('Missing order signature')
