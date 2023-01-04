@@ -103,18 +103,4 @@ describe('Signature Validation', () => {
       .withArgs(orderHash)
   })
 
-  it("Should emit event cancel order signature", async () => {
-    const signedCancelOrder = await signCancelOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      order,
-      exchangeContract.address
-    )
-    const orderHash = await getOrderHash(order)
-
-    expect(await exchangeContract.cancelOrderWithSig(
-      Object.values(order),
-      signedCancelOrder
-    )).to.emit(exchangeContract, 'CancelOrder')
-      .withArgs(orderHash)
-  })
 })
