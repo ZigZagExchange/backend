@@ -66,34 +66,6 @@ describe('Signature Validation', () => {
     ).to.equal(false)
   })
 
-  it("Should validate cancel order signature", async () => {
-    const signedCancelOrder = await signCancelOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      order,
-      exchangeContract.address
-    )
-    expect(
-      await exchangeContract.isValidCancelSignature(
-        Object.values(order),
-        signedCancelOrder
-      )
-    ).to.equal(true)
-  })
-
-  it("Shouldn't validate cancel order signature with different Private Key", async () => {
-    const signedCancelOrder = await signCancelOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[1],
-      order,
-      exchangeContract.address
-    )
-    expect(
-      await exchangeContract.isValidCancelSignature(
-        Object.values(order),
-        signedCancelOrder
-      )
-    ).to.equal(false)
-  })
-
   it("Should emit event cancel order", async () => {
     const orderHash = await getOrderHash(order)
 

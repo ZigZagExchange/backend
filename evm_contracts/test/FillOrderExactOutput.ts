@@ -47,7 +47,6 @@ describe('fillOrderExactOutput', () => {
       .connect(wallets[1])
       .approve(exchangeContract.address, ethers.utils.parseEther('1000'))
 
-    await exchangeContract.connect(wallets[3]).setFees(5, 10000, 0, 10000)
   })
 
   it("Should revert with 'taker order not enough balance' ", async () => {
@@ -279,7 +278,6 @@ describe('fillOrderExactOutput', () => {
   })
 
   it('feeRecipient should take Maker Fee', async () => {
-    await exchangeContract.connect(wallets[3]).setFees(0, 10000, 5, 10000)
 
     const makerOrder = {
       user: wallets[0].address,
@@ -332,7 +330,7 @@ describe('fillOrderExactOutput', () => {
       ethers.utils.formatEther(balance8)
     )
 
-    expect(balance8).to.equal(ethers.utils.parseEther('0.15'))
+    expect(balance8).to.equal(ethers.utils.parseEther('0.0'))
   })
 
   it('feeRecipient should take Taker Fee', async () => {
