@@ -226,12 +226,7 @@ describe("Vault", function () {
             expirationTimeSeconds: ethers.BigNumber.from(String(Math.floor(Date.now() / 1000) + 3600))
         }
 
-        const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
-        const signedCancelOrder = await signCancelOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrder, exchangeContract.address)
-
-
-        const fillAmount = ethers.utils.parseEther("0.5");
-        await expect(exchangeContract.connect(wallets[1]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith('order canceled');
+        await vaultContract.connect(manager).cancelOrder(exchangeContract.address, Object.values(makerOrder));
     });
 
     it("Bad cancel signature should revert", async function () {

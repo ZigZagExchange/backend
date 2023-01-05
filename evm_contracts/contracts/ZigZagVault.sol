@@ -4,6 +4,12 @@ pragma solidity ^0.8.0;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import './LibOrder.sol';
+
+interface IExchange {
+  function cancelOrder(LibOrder.Order calldata order) external;
+}
+
 
 contract ZigZagVault is ERC20 {
   // The manager of a vault is allowed to sign orders that a vault can execute
@@ -55,6 +61,14 @@ contract ZigZagVault is ERC20 {
   // EIP-1271 requires isValidSignature to return a magic number if true and 0x00 if false 
   function isValidSignature(bytes32 digest, bytes memory signature) public view returns (bytes4) {
     return SignatureChecker.isValidSignatureNow(manager, digest, signature) ? bytes4(0x1626ba7e) : bytes4(0x00000000);
+  }
+
+  ////////////////////////////////////////////////////
+  // Canceling Orders
+
+  function cancelOrder(address exchange, LibOrder.Order calldata order) public {
+    require(msg.sender == manager, "only manager can cancel orders");
+    IExchange(exchange).cancelOrder(order);
   }
 
 }
