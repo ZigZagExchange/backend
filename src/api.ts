@@ -2722,4 +2722,11 @@ export default class API extends EventEmitter {
     }
     return 0
   }
+  
+  /* ################ V3 functions  ################ */
+ sendInitialPastOrders = async (chainId: number, market: string, ws: WebSocket, count = 45) => {
+  const msgStrings: string[] = await this.redis.LRANGE(`swap_event:${chainId}:${market}`, 0, count-1)
+  const msg = msgStrings.map((msgString: string) => JSON.parse(msgString))
+  ws.send(JSON.stringify({ op: 'swap_event', args: [msg] }))
+ }
 }

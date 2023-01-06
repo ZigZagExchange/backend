@@ -151,3 +151,26 @@ BEGIN
 
 END;
 $$;
+
+/* ################ V3 functions  ################ */
+CREATE TABLE IF NOT EXISTS past_orders_V3 (
+  id                 SERIAL          PRIMARY KEY,
+  txhash             TEXT            NOT NULL,
+  chainid            INTEGER         NOT NULL,
+  taker_address      TEXT            NOT NULL,
+  maker_address      TEXT            NOT NULL,
+  taker_buy_token    TEXT            NOT NULL,
+  taker_sell_token   TEXT            NOT NULL,
+  taker_buy_amount   NUMERIC(32, 16) NOT NULL,
+  taker_sell_amount  NUMERIC(32, 16) NOT NULL,
+  maker_fee          NUMERIC(32, 16) NOT NULL DEFAULT 0.0,
+  taker_fee          NUMERIC(32, 16) NOT NULL DEFAULT 0.0,
+  txtime             TIMESTAMPTZ     NOT NULL DEFAULT now(),
+);
+
+CREATE INDEX IF NOT EXISTS fills_chainid_taker_buy_token_taker_sell_token ON past_orders_V3(chainid, taker_buy_token, taker_sell_token);
+CREATE INDEX IF NOT EXISTS fills_chainid ON fills(chainid);
+CREATE INDEX IF NOT EXISTS fills_chainid_taker_address ON fills(chainid, taker_address);
+CREATE INDEX IF NOT EXISTS fills_taker_address ON fills(taker_address);
+CREATE INDEX IF NOT EXISTS fills_chainid_maker_address ON fills(chainid, maker_address);
+CREATE INDEX IF NOT EXISTS fills_maker_address ON fills(maker_address);
