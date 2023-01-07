@@ -36,7 +36,7 @@ export const subscribeswapevents: ZZServiceHandler = async (
     market = sortMarketPair(tokenA, tokenB)
     await api.sendInitialPastOrders(chainId, market, ws)
   } catch (e: any) {
-    console.error(e.message)
+    console.error(e)
     const errorMsg: WSMessage = {
       op: 'error',
       args: ['subscribeswapevents', e.message],
