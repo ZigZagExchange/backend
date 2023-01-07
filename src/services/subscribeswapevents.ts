@@ -19,7 +19,7 @@ export const subscribeswapevents: ZZServiceHandler = async (
     return
   }
 
-  if (!market.includes('-') || market !== 'all') {
+  if (!market.includes('-') && market !== 'all') {
     const errorMsg: WSMessage = {
       op: 'error',
       args: [
