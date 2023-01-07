@@ -32,8 +32,11 @@ export const subscribeswapevents: ZZServiceHandler = async (
   }
 
   try {
-    const [tokenA, tokenB] = market.split('-')
-    market = sortMarketPair(tokenA, tokenB)
+    // sort market key
+    if (market.toLowerCase() !== 'all') {
+      const [tokenA, tokenB] = market.split('-')
+      market = sortMarketPair(tokenA, tokenB)
+    }
     await api.sendInitialPastOrders(chainId, market, ws)
   } catch (e: any) {
     console.error(e)
