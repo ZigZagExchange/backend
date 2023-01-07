@@ -1353,7 +1353,7 @@ async function handleSwapEvent(
 
   const market = sortMarketPair(makerSellToken, takerSellToken)
   const text =
-    'INSERT INTO past_orders_V3 (txhash, chainid, market, taker_address, maker_address, taker_buy_token, taker_sell_token, taker_buy_amount, taker_sell_amount, maker_fee, taker_fee, tx_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);'
+    'INSERT INTO past_orders_V3 (txhash, chainid, market, taker_address, maker_address, taker_buy_token, taker_sell_token, taker_buy_amount, taker_sell_amount, maker_fee, taker_fee, txtime) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);'
   const values = [
     hash,
     chainId,
