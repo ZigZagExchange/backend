@@ -19,3 +19,6 @@ export * from './unsubscribemarket'
 export * from './orderstatusupdate'
 export * from './dailyvolumereq'
 export * from './fillreceiptreq'
+
+/* ################ V3 functions  ################ */
+export * from './subscribeswapevents'

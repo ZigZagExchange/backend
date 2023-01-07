@@ -18,20 +18,6 @@ export type ZZFillOrder = {
 
 export type ZZMarketSide = 'b' | 's'
 
-export type WSocket = WebSocket & {
-  uuid: string
-  isAlive: boolean
-  marketSubscriptions: string[]
-  chainId: number
-  userId: string
-  origin: string
-}
-
-export type ZZAPITransport = { api: API }
-export type ZZServiceHandler = (api: API, ws: WSocket, args: any[]) => any
-export type ZZSocketServer = WebSocketServer & ZZAPITransport
-export type ZZHttpServer = Application & ZZAPITransport
-
 export type ZkTx = {
   accountId: string
   tokenSell: string
@@ -40,11 +26,6 @@ export type ZkTx = {
   ratio: [number, number]
   amount: number
   validUntil: number
-}
-
-export type WSMessage = {
-  op: string
-  args: any[]
 }
 
 export type ZZMarketSummary = {
@@ -71,4 +52,39 @@ export type ZZOrder = {
   buyAmount: string
   expirationTimeSeconds: string
   signature?: string
+}
+
+/* ################ V3 functions  ################ */
+export type WSMessage = {
+  op: string
+  args: any[]
+}
+
+export type WSocket = WebSocket & {
+  uuid: string
+  isAlive: boolean
+  marketSubscriptions: string[]
+  chainId: number
+  userId: string
+  origin: string
+  swapEventSubscription: string
+}
+
+export type ZZAPITransport = { api: API }
+export type ZZServiceHandler = (api: API, ws: WSocket, args: any[]) => any
+export type ZZSocketServer = WebSocketServer & ZZAPITransport
+export type ZZHttpServer = Application & ZZAPITransport
+
+export type ZZPastOrder = {
+  chainId: number
+  taker: string
+  maker: string
+  makerSellToken: string
+  takerSellToken: string
+  takerBuyAmount: number
+  takerSellAmount: number
+  makerFee: number
+  takerFee: number
+  transactionHash: string
+  transactionTime: number
 }

@@ -72,7 +72,7 @@ export async function getERC20Info(
   const [decimalsRes, nameRes, symbolRes] = await Promise.allSettled([
     contract.decimals(),
     contract.name(),
-    contract.symbol()
+    contract.symbol(),
   ])
 
   const tokenInfos: any = { address: contractAddress }
@@ -130,9 +130,25 @@ export function getReadableTxError(errorMsg: string): string {
 
   if (errorMsg.includes('self swap not allowed')) return 'self swap not allowed'
 
-  if (errorMsg.includes('ERC20: transfer amount exceeds allowance')) return 'ERC20: transfer amount exceeds allowance'
+  if (errorMsg.includes('ERC20: transfer amount exceeds allowance'))
+    return 'ERC20: transfer amount exceeds allowance'
 
   // this might be a new error, log it
   console.log(`getReadableTxError: unparsed error: ${errorMsg}`)
   return 'Internal error: A'
+}
+
+export function sortMarketPair(
+  tokenInputA: string,
+  tokenInputB: string
+): string {
+  const tokenA = ethers.BigNumber.from(tokenInputA)
+  const tokenB = ethers.BigNumber.from(tokenInputB)
+  if (tokenA.lt(tokenB)) {
+    return `${tokenA.toString().toLowerCase()}-${tokenB
+      .toString()
+      .toLowerCase()}`
+  }
+
+  return `${tokenB.toString().toLowerCase()}-${tokenA.toString().toLowerCase()}`
 }
