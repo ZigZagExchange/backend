@@ -1388,7 +1388,7 @@ async function handleSwapEvent(
   cacheGameMsg(chainId, market, msgString)
   publisher.PUBLISH(
     `broadcastmsg:swap_event:${chainId}:${market}`,
-    JSON.stringify({ op: 'swap_event', args: [msgString] })
+    JSON.stringify({ op: 'swap_event', args: [msg] })
   )
 }
 
