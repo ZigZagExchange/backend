@@ -204,6 +204,8 @@ export default class API extends EventEmitter {
           this.broadcastMessage(chainId, target, message)
         } else if (broadcastChannel === 'maker') {
           this.sendMessageToMM(chainId, target, message)
+        } else if (broadcastChannel === 'swap_event') {
+          this.sendSwapEventV3(chainId, target, message)
         } else {
           console.error(
             `redisSubscriber wrong broadcastChannel: ${broadcastChannel}`
@@ -2729,6 +2731,15 @@ export default class API extends EventEmitter {
   if(!msgStrings) return
   
   const msg = msgStrings.map((msgString: string) => JSON.parse(msgString))
-  ws.send(JSON.stringify({ op: 'swap_event', args: [msg] }))
+  ws.send(JSON.stringify({ op: 'swap_event', args: msg }))
  }
+
+  sendSwapEventV3 = async (chainId: number, market: ZZMarket, msg: string) => {
+    (this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
+      if (ws.readyState !== WebSocket.OPEN) return
+      if (chainId !== -1 && ws.chainId !== chainId) return
+      if (market !== 'all' && !ws.swapEventSubscription.includes(market)) return
+      ws.send(msg)
+    })
+  }
 }
