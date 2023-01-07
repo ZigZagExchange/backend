@@ -156,6 +156,7 @@ $$;
 CREATE TABLE IF NOT EXISTS past_orders_V3 (
   id                 SERIAL          PRIMARY KEY,
   txhash             TEXT            NOT NULL,
+  market             TEXT            NOT NULL,
   chainid            INTEGER         NOT NULL,
   taker_address      TEXT            NOT NULL,
   maker_address      TEXT            NOT NULL,
@@ -174,3 +175,5 @@ CREATE INDEX IF NOT EXISTS fills_chainid_taker_address ON fills(chainid, taker_a
 CREATE INDEX IF NOT EXISTS fills_taker_address ON fills(taker_address);
 CREATE INDEX IF NOT EXISTS fills_chainid_maker_address ON fills(chainid, maker_address);
 CREATE INDEX IF NOT EXISTS fills_maker_address ON fills(maker_address);
+CREATE INDEX IF NOT EXISTS fills_chainid_market ON fills(chainid, market);
+CREATE INDEX IF NOT EXISTS fills_market ON fills(market);
