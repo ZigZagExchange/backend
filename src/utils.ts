@@ -145,10 +145,8 @@ export function sortMarketPair(
   const tokenA = ethers.BigNumber.from(tokenInputA)
   const tokenB = ethers.BigNumber.from(tokenInputB)
   if (tokenA.lt(tokenB)) {
-    return `${tokenA.toString().toLowerCase()}-${tokenB
-      .toString()
-      .toLowerCase()}`
+    return `${tokenInputA.toLowerCase()}-${tokenInputB.toLowerCase()}`
   }
 
-  return `${tokenB.toString().toLowerCase()}-${tokenA.toString().toLowerCase()}`
+  return `${tokenInputB.toLowerCase()}-${tokenInputA.toLowerCase()}`
 }
