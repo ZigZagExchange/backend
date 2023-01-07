@@ -166,14 +166,14 @@ CREATE TABLE IF NOT EXISTS past_orders_V3 (
   taker_sell_amount  NUMERIC(32, 16) NOT NULL,
   maker_fee          NUMERIC(32, 16) NOT NULL DEFAULT 0.0,
   taker_fee          NUMERIC(32, 16) NOT NULL DEFAULT 0.0,
-  txtime             TIMESTAMPTZ     NOT NULL DEFAULT now(),
+  txtime             TIMESTAMPTZ     NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS fills_chainid_taker_buy_token_taker_sell_token ON past_orders_V3(chainid, taker_buy_token, taker_sell_token);
-CREATE INDEX IF NOT EXISTS fills_chainid ON fills(chainid);
-CREATE INDEX IF NOT EXISTS fills_chainid_taker_address ON fills(chainid, taker_address);
-CREATE INDEX IF NOT EXISTS fills_taker_address ON fills(taker_address);
-CREATE INDEX IF NOT EXISTS fills_chainid_maker_address ON fills(chainid, maker_address);
-CREATE INDEX IF NOT EXISTS fills_maker_address ON fills(maker_address);
-CREATE INDEX IF NOT EXISTS fills_chainid_market ON fills(chainid, market);
-CREATE INDEX IF NOT EXISTS fills_market ON fills(market);
+CREATE INDEX IF NOT EXISTS past_orders_V3_chainid_taker_buy_token_taker_sell_token ON past_orders_V3(chainid, taker_buy_token, taker_sell_token);
+CREATE INDEX IF NOT EXISTS past_orders_V3_chainid                                  ON past_orders_V3(chainid);
+CREATE INDEX IF NOT EXISTS past_orders_V3_chainid_taker_address                    ON past_orders_V3(chainid, taker_address);
+CREATE INDEX IF NOT EXISTS past_orders_V3_taker_address                            ON past_orders_V3(taker_address);
+CREATE INDEX IF NOT EXISTS past_orders_V3_chainid_maker_address                    ON past_orders_V3(chainid, maker_address);
+CREATE INDEX IF NOT EXISTS past_orders_V3_maker_address                            ON past_orders_V3(maker_address);
+CREATE INDEX IF NOT EXISTS past_orders_V3_chainid_market                           ON past_orders_V3(chainid, market);
+CREATE INDEX IF NOT EXISTS past_orders_V3_market                                   ON past_orders_V3(market);
