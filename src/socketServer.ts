@@ -35,12 +35,11 @@ export const createSocketServer = (): ZZSocketServer => {
               'submitorder3',
               'submitorder4',
               'ping',
-              'fillrequest',
             ].includes(msg.op)
           ) {
             console.log(`WS[${ws.origin}]: %s`, json)
           } else if (
-            ['submitorder2', 'submitorder3', 'submitorder4', 'fillrequest'].includes(msg.op)
+            ['submitorder2', 'submitorder3', 'submitorder4'].includes(msg.op)
           ) {
             console.log(
               `WS[${ws.origin}]: {"op":${msg.op},"args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`
