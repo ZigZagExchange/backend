@@ -12,8 +12,6 @@ export const submitorder3: ZZServiceHandler = async (
   try {
     if (api.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       msg = await api.processorderzksync(chainId, market, zktx)
-    } else if (api.VALID_EVM_CHAINS.includes(chainId)) {
-      msg = await api.processOrderEVM(chainId, market, zktx)
     } else {
       msg = { op: 'error', args: ['submitorder3', `'${chainId}' is an invalid chainId`] }
     }
