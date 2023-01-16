@@ -216,8 +216,8 @@ export default class API extends EventEmitter {
 
     this.watchers = [
       setInterval(this.clearDeadConnections, 30000),
-      setInterval(this.broadcastLiquidity, 5000),
-      setInterval(this.broadcastLastPrice, 5000),
+      setInterval(this.broadcastLiquidity, 10000),
+      setInterval(this.broadcastLastPrice, 10000),
     ]
 
     this.started = true
