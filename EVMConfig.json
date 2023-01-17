@@ -1,13 +1,13 @@
 {
   "42161": {
-    "exchangeAddress": "0x20e7FCC377CB96805c6Ae8dDE7BB302b344dc42f",
+    "exchangeAddress": "0x094cab67fbb074b7797ab0975c69a341b7a40641",
     "minMakerVolumeFee": 0.00,
     "minTakerVolumeFee": 0.0005,
     "domain": {
       "name": "ZigZag",
       "version": "2.1",
       "chainId": "42161",
-      "verifyingContract": "0x20e7FCC377CB96805c6Ae8dDE7BB302b344dc42f"
+      "verifyingContract": "0x094cab67fbb074b7797ab0975c69a341b7a40641"
     }
   },
   "421613": {
