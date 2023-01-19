@@ -1407,7 +1407,7 @@ async function start() {
   EVMConfig = JSON.parse(fs.readFileSync('EVMConfig.json', 'utf8'))
   const EVMContractABI = JSON.parse(
     fs.readFileSync('abi/EVM_Exchange.json', 'utf8')
-  ).abi
+  )
 
   // connect infura providers
   const operatorKeysString = process.env.OPERATOR_KEY as any
