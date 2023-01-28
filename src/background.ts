@@ -347,7 +347,7 @@ async function removeOldLiquidity() {
       const asks = new Array(lenghtAsks)
       const bids = new Array(lengthBids)
 
-      // Update last price
+      // Bucket bids and asks
       let askPrice = 0
       let askAmount = 0
       let bidPrice = 0
@@ -367,10 +367,8 @@ async function removeOldLiquidity() {
           Number(uniqueBuy[bidSet[bidSet.length - i]]),
         ]
       }
-      const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
-      console.log(mid);
 
-      // Store best bids, asks, and mid per market
+      // Store best bids and asks per market
       const bestAskPrice = asks[0]?.[1] ? asks[0][1] : '0'
       const bestBidPrice = bids[0]?.[1] ? bids[0][1] : '0'
       const bestLiquidity = asks.concat(bids)
@@ -381,6 +379,9 @@ async function removeOldLiquidity() {
         JSON.stringify(bestLiquidity),
         { EX: 45 }
       )
+
+      // Update last price
+      const mid = (Number(bestAskPrice) + Number(bestBidPrice)) / 2
       if (!Number.isNaN(mid) && mid > 0) {
         redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(mid))
       }
