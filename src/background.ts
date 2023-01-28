@@ -368,13 +368,9 @@ async function removeOldLiquidity() {
         ]
       }
       const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
+      console.log(mid);
 
-      // only update is valid mid price
-      if (!Number.isNaN(mid) && mid > 0) {
-        redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(mid))
-      }
-
-      // Store best bids and asks per market
+      // Store best bids, asks, and mid per market
       const bestAskPrice = asks[0]?.[1] ? asks[0][1] : '0'
       const bestBidPrice = bids[0]?.[1] ? bids[0][1] : '0'
       const bestLiquidity = asks.concat(bids)
@@ -385,6 +381,9 @@ async function removeOldLiquidity() {
         JSON.stringify(bestLiquidity),
         { EX: 45 }
       )
+      if (!Number.isNaN(mid) && mid > 0) {
+        redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(mid))
+      }
 
       // Clear old liquidity every 10 seconds
       redis.DEL(redisKeyLiquidity)
