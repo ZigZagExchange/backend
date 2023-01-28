@@ -347,36 +347,10 @@ async function removeOldLiquidity() {
       const asks = new Array(lenghtAsks)
       const bids = new Array(lengthBids)
 
-      // Update last price
-      let askPrice = 0
-      let askAmount = 0
-      let bidPrice = 0
-      let bidAmount = 0
-      for (let i = 0; i < lenghtAsks; i++) {
-        askPrice += +askSet[i] * uniqueAsk[askSet[i]]
-        askAmount += uniqueAsk[askSet[i]]
-        asks[i] = ['s', Number(askSet[i]), Number(uniqueAsk[askSet[i]])]
-      }
-      for (let i = 1; i <= lengthBids; i++) {
-        bidPrice +=
-          +bidSet[bidSet.length - i] * uniqueBuy[bidSet[bidSet.length - i]]
-        bidAmount += uniqueBuy[bidSet[bidSet.length - i]]
-        bids[i - 1] = [
-          'b',
-          Number(bidSet[bidSet.length - i]),
-          Number(uniqueBuy[bidSet[bidSet.length - i]]),
-        ]
-      }
-      const mid = (askPrice / askAmount + bidPrice / bidAmount) / 2
-
-      // only update is valid mid price
-      if (!Number.isNaN(mid) && mid > 0) {
-        redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(mid))
-      }
-
-      // Store best bids and asks per market
+      // Store best bids, asks, and mid price per market
       const bestAskPrice = asks[0]?.[1] ? asks[0][1] : '0'
       const bestBidPrice = bids[0]?.[1] ? bids[0][1] : '0'
+      const mid = (bestAskPrice + bestBidBrice) / 2;
       const bestLiquidity = asks.concat(bids)
       redis.HSET(`bestask:${chainId}`, marketId, bestAskPrice)
       redis.HSET(`bestbid:${chainId}`, marketId, bestBidPrice)
@@ -385,6 +359,9 @@ async function removeOldLiquidity() {
         JSON.stringify(bestLiquidity),
         { EX: 45 }
       )
+      if (!Number.isNaN(mid) && mid > 0) {
+        redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(mid))
+      }
 
       // Clear old liquidity every 10 seconds
       redis.DEL(redisKeyLiquidity)
