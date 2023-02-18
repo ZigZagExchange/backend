@@ -12,6 +12,19 @@ export const subscribemarket: ZZServiceHandler = async (
   ws,
   [chainId, market, UTCFlag]
 ) => {
+  const ratelimit = await api.redis.sendCommand(['SET', `subscribemarket:${ws.uuid}:${chainId}:${market}`, '1', 'GET', 'EX', '5']);
+  if (ratelimit) {
+    const errorMsg: WSMessage = {
+      op: 'error',
+      args: [
+        'subscribemarket',
+        `Cannot subscribe to ${market} more than once per 5 seconds`,
+      ],
+    }
+    ws.send(JSON.stringify(errorMsg))
+    return
+  }
+
   if (!api.VALID_CHAINS.includes(chainId)) {
     const errorMsg: WSMessage = {
       op: 'error',

@@ -362,6 +362,7 @@ async function removeOldLiquidity() {
       // Store best bids and asks per market
       const bestAskPrice: number = asks[0]?.[1] ? asks[0][1] : 0
       const bestBidPrice: number = bids[0]?.[1] ? bids[0][1] : 0
+
       const bestLiquidity = asks.concat(bids)
       redis.HSET(`bestask:${chainId}`, marketId, bestAskPrice)
       redis.HSET(`bestbid:${chainId}`, marketId, bestBidPrice)
@@ -1529,7 +1530,7 @@ async function start() {
   setInterval(updatePriceHighLow, 30000)
   setInterval(updateVolumes, 30000)
   setInterval(updateNumberOfTrades, 30000)
-  setInterval(cacheTradeData, 30000)
+  // setInterval(cacheTradeData, 30000)
   setInterval(deleteOldOrders, 30000)
 
   setTimeout(sendMatchedOrders, 5000)

@@ -690,11 +690,6 @@ export default class API extends EventEmitter {
         'Wrong expiry: sync your PC clock to the correct time to fix this error'
       )
 
-    // TODO: Activate nonce check here
-    // if(NONCES[zktx.accountId] && NONCES[zktx.accountId][chainId] && NONCES[zktx.accountId][chainId] > zktx.nonce) {
-    //    throw new Error("badnonce");
-    // }
-
     // Prevent DOS attacks. Rate limit one order every 3 seconds.
     const redisRateLimitKey = `ratelimit:zksync:${chainId}:${zktx.accountId}`
     const ratelimit = await this.redis.get(redisRateLimitKey)
@@ -1851,7 +1846,7 @@ export default class API extends EventEmitter {
   getopenorders = async (chainId: number, market: string) => {
     chainId = Number(chainId)
     const query = {
-      text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE market=$1 AND chainid=$2 AND order_status IN ('o', 'pm', 'pf')",
+      text: "SELECT chainid,id,market,side,price,base_quantity,quote_quantity,expires,userid,order_status,unfilled,txhash FROM offers WHERE market=$1 AND chainid=$2 AND order_status='o'",
       values: [market, chainId],
       rowMode: 'array',
     }
@@ -2326,7 +2321,10 @@ export default class API extends EventEmitter {
     const basePrice = await this.getUsdPrice(chainId, baseToken)
 
     // $100 min size
-    const minSize = basePrice ? 100 / basePrice : marketInfo.baseFee
+    let minSize = 0
+    if (baseToken !== 'ZZ') {
+      minSize = basePrice ? 100 / basePrice : marketInfo.baseFee
+    }
 
     const redisKeyLiquidity = `liquidity2:${chainId}:${market}`
 
@@ -2346,7 +2344,7 @@ export default class API extends EventEmitter {
         errorMsg.push('Price cant be negative')
       } else if (Number.isNaN(amount)) {
         errorMsg.push('Amount is not a number')
-      } else if (amount < minSize && baseToken !== 'ZZ') {
+      } else if (amount <= minSize) {
         // don't show this error to users
         // errorMsg.push('Amount to small')
       } else {
