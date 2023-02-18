@@ -351,13 +351,12 @@ async function removeOldLiquidity() {
       for (let i = 0; i < lenghtAsks; i++) {
         asks[i] = ['s', Number(askSet[i]), Number(uniqueAsk[askSet[i]])]
       }
-      for (let i = 1; i <= lengthBids; i++) {
-        bids[i - 1] = [
-          'b',
-          Number(bidSet[bidSet.length - i]),
-          Number(uniqueBuy[bidSet[bidSet.length - i]]),
-        ]
+      for (let i = 0; i < lengthBids; i++) {
+        bids[i] = ['b', Number(bidSet[i]), Number(uniqueBuy[bidSet[i]])]
       }
+
+      asks.sort((a, b) => a[1] - b[1])
+      bids.sort((a, b) => b[1] - a[1])
 
       // Store best bids and asks per market
       const bestAskPrice: number = asks[0]?.[1] ? asks[0][1] : 0
