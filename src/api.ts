@@ -2344,7 +2344,7 @@ export default class API extends EventEmitter {
         errorMsg.push('Price cant be negative')
       } else if (Number.isNaN(amount)) {
         errorMsg.push('Amount is not a number')
-      } else if (amount < minSize) {
+      } else if (amount <= minSize) {
         // don't show this error to users
         // errorMsg.push('Amount to small')
       } else {
