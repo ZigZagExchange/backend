@@ -17,9 +17,6 @@ CREATE TABLE IF NOT EXISTS offers (
     unfilled          NUMERIC        NOT NULL CHECK (unfilled <= base_quantity)
 );
 CREATE INDEX IF NOT EXISTS offers_order_status_by_market_idx ON offers(chainid, market, order_status);
-CREATE INDEX IF NOT EXISTS offers_order_status_update_timestamp ON offers(order_status, update_timestamp);
-CREATE INDEX IF NOT EXISTS offers_order_status_unfilled ON offers(order_status, unfilled);
-CREATE INDEX IF NOT EXISTS offers_order_status_expires ON offers(order_status, expires);
 
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS txhash TEXT;
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS token TEXT; 
