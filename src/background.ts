@@ -566,11 +566,13 @@ async function deleteOldOrders() {
 
 /* ################ V3 functions  ################ */
 
-const TOKENS: { [key: string]: { decimals: number; name: string } } = {}
+const TOKENS: {
+  [key: string]: { decimals: number; name: string; symbol: string }
+} = {}
 async function getTokeninfo(
   chainId: number,
   tokenAddress: string
-): Promise<{ decimals: number; name: string } | null> {
+): Promise<{ decimals: number; name: string; symbol: string } | null> {
   if (!tokenAddress) return null
 
   if (!TOKENS[tokenAddress]) {
@@ -581,13 +583,15 @@ async function getTokeninfo(
         ERC20_ABI,
         ETHERS_PROVIDERS[chainId]
       )
-      const [newDecimals, newName] = await Promise.all([
+      const [newDecimals, newName, newSymbol] = await Promise.all([
         tokenContract.decimals(),
         tokenContract.name(),
+        tokenContract.symbol(),
       ])
       TOKENS[tokenAddress] = {
         decimals: newDecimals,
         name: newName,
+        symbol: newSymbol,
       }
     } catch (e: any) {
       console.error('Cant get token info')
@@ -618,6 +622,16 @@ async function getTokenName(
   if (!tokenInfo) return null
 
   return tokenInfo.name
+}
+
+async function getTokenSymbol(
+  chainId: number,
+  tokenAddress: string
+): Promise<string | null> {
+  const tokenInfo = await getTokeninfo(chainId, tokenAddress)
+  if (!tokenInfo) return null
+
+  return tokenInfo.symbol
 }
 
 async function updatePriceHighLow() {
@@ -1170,18 +1184,26 @@ async function handleSwapEvent(
     JSON.stringify({ op: 'swap_event', args: [msg] })
   )
 
-  const makerSellTokenName = await getTokenName(chainId, makerSellToken)
-  const takerSellTokenName = await getTokenName(chainId, takerSellToken)
-  await redis.HSET(
-    `lastprices:${chainId}`,
-    `${makerSellTokenName}-${takerSellTokenName}`,
-    formatPrice(takerBuyAmountFormatted / takerSellAmountFormatted)
-  )
-  await redis.HSET(
-    `lastprices:${chainId}`,
-    `${takerSellTokenName}-${makerSellTokenName}`,
-    formatPrice(takerSellAmountFormatted / takerBuyAmountFormatted)
-  )
+  const [makerSellTokenName, takerSellTokenName] = await Promise.all([
+    getTokenSymbol(chainId, makerSellToken),
+    getTokenSymbol(chainId, takerSellToken),
+  ])
+  if (makerSellTokenName && takerSellTokenName) {
+    await redis.HSET(
+      `lastprices:${chainId}`,
+      `${makerSellTokenName}-${takerSellTokenName}`,
+      formatPrice(takerBuyAmountFormatted / takerSellAmountFormatted)
+    )
+    await redis.HSET(
+      `lastprices:${chainId}`,
+      `${takerSellTokenName}-${makerSellTokenName}`,
+      formatPrice(takerSellAmountFormatted / takerBuyAmountFormatted)
+    )
+  } else {
+    console.warn(
+      `Missing name for chainId ${chainId}, makerSellToken ${makerSellToken}, ${takerSellToken}`
+    )
+  }
 }
 
 async function start() {
