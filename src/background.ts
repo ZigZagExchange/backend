@@ -880,7 +880,7 @@ async function cacheTradeData() {
 
         const parsedTradesA = tradesThisMarket.map((o) => ({
           time: (Number(o.txtime) / 1000) | 0,
-          price: o.taker_sell_token / o.taker_buy_token,
+          price: o.taker_buy_token / o.taker_sell_token,
           amount: o.taker_buy_token,
         }))
 
@@ -888,7 +888,7 @@ async function cacheTradeData() {
 
         const parsedTradesB = tradesThisMarket.map((o) => ({
           time: (Number(o.txtime) / 1000) | 0,
-          price: o.taker_buy_token / o.taker_sell_token,
+          price: o.taker_sell_token / o.taker_buy_token,
           amount: o.taker_sell_token,
         }))
 
