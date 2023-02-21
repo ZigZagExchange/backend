@@ -63,21 +63,12 @@ export function getRPCURL(chainId: number) {
  * @param abi
  * @returns tokenInfos
  */
-export async function getERC20Info(
-  provider: any,
-  contractAddress: string,
-  abi: any
-) {
+export async function getERC20Info(provider: any, contractAddress: string, abi: any) {
   const contract = new ethers.Contract(contractAddress, abi, provider)
-  const [decimalsRes, nameRes, symbolRes] = await Promise.allSettled([
-    contract.decimals(),
-    contract.name(),
-    contract.symbol(),
-  ])
+  const [decimalsRes, nameRes, symbolRes] = await Promise.allSettled([contract.decimals(), contract.name(), contract.symbol()])
 
   const tokenInfos: any = { address: contractAddress }
-  tokenInfos.decimals =
-    decimalsRes.status === 'fulfilled' ? decimalsRes.value : null
+  tokenInfos.decimals = decimalsRes.status === 'fulfilled' ? decimalsRes.value : null
   tokenInfos.name = nameRes.status === 'fulfilled' ? nameRes.value : null
   tokenInfos.symbol = symbolRes.status === 'fulfilled' ? symbolRes.value : null
 
@@ -104,23 +95,17 @@ export function getReadableTxError(errorMsg: string): string {
 
   if (errorMsg.includes('mismatched tokens')) return 'mismatched tokens'
 
-  if (errorMsg.includes('invalid taker signature'))
-    return 'invalid taker signature'
+  if (errorMsg.includes('invalid taker signature')) return 'invalid taker signature'
 
-  if (errorMsg.includes('invalid maker signature'))
-    return 'invalid maker signature'
+  if (errorMsg.includes('invalid maker signature')) return 'invalid maker signature'
 
-  if (errorMsg.includes('taker order not enough balance'))
-    return 'taker order not enough balance'
+  if (errorMsg.includes('taker order not enough balance')) return 'taker order not enough balance'
 
-  if (errorMsg.includes('maker order not enough balance'))
-    return 'maker order not enough balance'
+  if (errorMsg.includes('maker order not enough balance')) return 'maker order not enough balance'
 
-  if (errorMsg.includes('taker order not enough balance for fee'))
-    return 'taker order not enough balance for fee'
+  if (errorMsg.includes('taker order not enough balance for fee')) return 'taker order not enough balance for fee'
 
-  if (errorMsg.includes('maker order not enough balance for fee'))
-    return 'maker order not enough balance for fee'
+  if (errorMsg.includes('maker order not enough balance for fee')) return 'maker order not enough balance for fee'
 
   if (errorMsg.includes('order is filled')) return 'order is filled'
 
@@ -130,18 +115,14 @@ export function getReadableTxError(errorMsg: string): string {
 
   if (errorMsg.includes('self swap not allowed')) return 'self swap not allowed'
 
-  if (errorMsg.includes('ERC20: transfer amount exceeds allowance'))
-    return 'ERC20: transfer amount exceeds allowance'
+  if (errorMsg.includes('ERC20: transfer amount exceeds allowance')) return 'ERC20: transfer amount exceeds allowance'
 
   // this might be a new error, log it
   console.log(`getReadableTxError: unparsed error: ${errorMsg}`)
   return 'Internal error: A'
 }
 
-export function sortMarketPair(
-  tokenInputA: string,
-  tokenInputB: string
-): string {
+export function sortMarketPair(tokenInputA: string, tokenInputB: string): string {
   const tokenA = ethers.BigNumber.from(tokenInputA)
   const tokenB = ethers.BigNumber.from(tokenInputB)
   if (tokenA.lt(tokenB)) {

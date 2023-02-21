@@ -13,8 +13,8 @@ export function getEvmEIP712Types(chainId: number) {
         { name: 'buyToken', type: 'address' },
         { name: 'sellAmount', type: 'uint256' },
         { name: 'buyAmount', type: 'uint256' },
-        { name: 'expirationTimeSeconds', type: 'uint256' }
-      ]
+        { name: 'expirationTimeSeconds', type: 'uint256' },
+      ],
     }
   }
   return null
@@ -38,8 +38,7 @@ function recoverAddress(hash: string, signature: string): string {
 // Comparing addresses. targetAddr is already checked upstream
 function addrMatching(recoveredAddr: string, targetAddr: string) {
   if (recoveredAddr === '') return false
-  if (!ethers.utils.isAddress(recoveredAddr))
-    throw new Error(`Invalid recovered address: ${recoveredAddr}`)
+  if (!ethers.utils.isAddress(recoveredAddr)) throw new Error(`Invalid recovered address: ${recoveredAddr}`)
 
   return recoveredAddr.toLowerCase() === targetAddr.toLowerCase()
 }
@@ -86,17 +85,11 @@ export async function verifyMessage(param: {
     finalDigest = ethers.utils.hashMessage(message)
   } else if (typedData) {
     if (!typedData.domain || !typedData.types || !typedData.message) {
-      throw Error(
-        'Missing one or more properties for typedData (domain, types, message)'
-      )
+      throw Error('Missing one or more properties for typedData (domain, types, message)')
     }
 
     // eslint-disable-next-line no-underscore-dangle
-    finalDigest = ethers.utils._TypedDataEncoder.hash(
-      typedData.domain,
-      typedData.types,
-      typedData.message
-    )
+    finalDigest = ethers.utils._TypedDataEncoder.hash(typedData.domain, typedData.types, typedData.message)
   } else {
     throw Error('Missing one of the properties: message or typedData')
   }
