@@ -867,7 +867,7 @@ async function cacheTradeData() {
         text: 'SELECT DISTINCT(taker_buy_token, taker_sell_token) FROM past_orders_V3 WHERE chainid=$1;',
         values: [chainId],
       })
-      const markets = selectMarkets.rows.map((e) => [e.taker_buy_token, e.taker_sell_token])
+      const markets = selectMarkets.rows.map((e) => e.slice(1, -1).split(','))
       console.log('selectMarkets.rows', selectMarkets.rows)
       console.log('markets', markets)
       const tradesThisChain = selectEVM.rows.filter((o) => o.chainid === chainId)
