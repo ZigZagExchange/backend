@@ -556,31 +556,52 @@ async function deleteOldOrders() {
 
 /* ################ V3 functions  ################ */
 
-const TOKENS: { [key: string]: number } = {}
-async function formatTokenAmount(
+const TOKENS: { [key: string]: { decimals: number; name: string } } = {}
+async function getTokeninfo(
   chainId: number,
-  tokenAddress: string,
-  amount: ethers.BigNumber
-): Promise<number> {
-  if (!tokenAddress) return 0
+  tokenAddress: string
+): Promise<{ decimals: number; name: string } | null> {
+  if (!tokenAddress) return null
 
   if (!TOKENS[tokenAddress]) {
-    console.log(`No decmials for ${tokenAddress}, fetching...`)
+    console.log(`No info for ${tokenAddress}, fetching...`)
     try {
       const tokenContract = new ethers.Contract(
         tokenAddress,
         ERC20_ABI,
         ETHERS_PROVIDERS[chainId]
       )
-      TOKENS[tokenAddress] = await tokenContract.decimals()
+      TOKENS[tokenAddress].decimals = await tokenContract.decimals()
+      TOKENS[tokenAddress].name = await tokenContract.name()
     } catch (e: any) {
-      console.error('Cant get token decimals')
+      console.error('Cant get token info')
       console.error(e)
     }
   }
-  if (!TOKENS[tokenAddress]) return 0
+  if (!TOKENS[tokenAddress]) return null
 
-  return Number(ethers.utils.formatUnits(amount, TOKENS[tokenAddress]))
+  return TOKENS[tokenAddress]
+}
+
+async function formatTokenAmount(
+  chainId: number,
+  tokenAddress: string,
+  amount: ethers.BigNumber
+): Promise<number> {
+  const tokenInfo = await getTokeninfo(chainId, tokenAddress)
+  if (!tokenInfo) return 0
+
+  return Number(ethers.utils.formatUnits(amount, tokenInfo.decimals))
+}
+
+async function getTokenName(
+  chainId: number,
+  tokenAddress: string
+): Promise<string | null> {
+  const tokenInfo = await getTokeninfo(chainId, tokenAddress)
+  if (!tokenInfo) return null
+
+  return tokenInfo.name
 }
 
 async function updatePriceHighLow() {
@@ -1131,6 +1152,19 @@ async function handleSwapEvent(
   publisher.PUBLISH(
     `broadcastmsg:swap_event:${chainId}:${market}`,
     JSON.stringify({ op: 'swap_event', args: [msg] })
+  )
+
+  const makerSellTokenName = await getTokenName(chainId, makerSellToken)
+  const takerSellTokenName = await getTokenName(chainId, takerSellToken)
+  await redis.HSET(
+    `lastprices:${chainId}`,
+    `${makerSellTokenName}-${takerSellTokenName}`,
+    formatPrice(takerBuyAmountFormatted / takerSellAmountFormatted)
+  )
+  await redis.HSET(
+    `lastprices:${chainId}`,
+    `${takerSellTokenName}-${makerSellTokenName}`,
+    formatPrice(takerSellAmountFormatted / takerBuyAmountFormatted)
   )
 }
 
