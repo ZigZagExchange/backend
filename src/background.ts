@@ -1182,12 +1182,12 @@ async function handleSwapEvent(
     await redis.HSET(
       `lastprices:${chainId}`,
       `${makerSellTokenName}-${takerSellTokenName}`,
-      formatPrice(takerBuyAmountFormatted / takerSellAmountFormatted)
+      formatPrice(takerSellAmountFormatted / takerBuyAmountFormatted)
     )
     await redis.HSET(
       `lastprices:${chainId}`,
       `${takerSellTokenName}-${makerSellTokenName}`,
-      formatPrice(takerSellAmountFormatted / takerBuyAmountFormatted)
+      formatPrice(takerBuyAmountFormatted / takerSellAmountFormatted)
     )
   } else {
     console.warn(
