@@ -1329,6 +1329,15 @@ async function handleSwapEvent(
   const { hash } = await blockData.getTransaction()
   const { timestamp } = await blockData.getBlock()
   console.log(`New swap on ${chainId}: ${hash}`)
+
+  // ETH trades get logged as WETH trades
+  if (makerSellToken === ethers.constants.AddressZero) {
+    makerSellToken = EVMConfig[chainId].wethAddress
+  }
+  if (takerSellToken === ethers.constants.AddressZero) {
+    takerSellToken = EVMConfig[chainId].wethAddress
+  }
+
   const [
     takerBuyAmountFormatted,
     takerSellAmountFormatted,

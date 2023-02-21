@@ -1,5 +1,6 @@
 {
   "42161": {
+    "wethAddress": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     "exchangeAddress": "0x094cab67fbb074b7797ab0975c69a341b7a40641",
     "minMakerVolumeFee": 0.00,
     "minTakerVolumeFee": 0.0005,
