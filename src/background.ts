@@ -540,22 +540,6 @@ async function cacheRecentTrades() {
   console.timeEnd('cacheRecentTrades')
 }
 
-async function updateBestAskBidEVM() {
-  console.time('updateBestAskBidEVM')
-  const query = {
-    text: "SELECT market, chainid, MAX(price) AS best_bid, MIN(price) AS best_ask FROM offers WHERE chainid = ANY($1::INT[]) AND order_status IN ('o', 'pm', 'pf') AND side = 'b' GROUP BY market, chainid;",
-    values: [VALID_EVM_CHAINS],
-  }
-  const select = await db.query(query)
-  const results: Promise<any>[] = select.rows.map(async (row: any) => {
-    redis.HSET(`bestask:${row.chainid}`, row.market, row.best_ask)
-    redis.HSET(`bestbid:${row.chainid}`, row.market, row.best_bid)
-  })
-  await Promise.all(results)
-
-  console.timeEnd('updateBestAskBidEVM')
-}
-
 async function deleteOldOrders() {
   console.time('deleteOldOrders')
   await db.query(
@@ -766,42 +750,6 @@ async function updateVolumes() {
   console.timeEnd('updateVolumes')
 }
 
-async function updateNumberOfTrades() {
-  console.time('updateNumberOfTrades')
-
-  const midnight = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString()
-  const queryUTC = {
-    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [midnight],
-  }
-  const selectUTC = await db.query(queryUTC)
-  selectUTC.rows.forEach(async (row) => {
-    try {
-      redis.HSET(`tradecount:utc:${row.chainid}`, row.market, row.trades || 0)
-    } catch (err) {
-      console.error(err)
-      console.log('Could not update tradecount')
-    }
-  })
-
-  const oneDayAgo = new Date(Date.now() - 86400 * 1000).toISOString()
-  const query = {
-    text: "SELECT chainid, market, count(*) as trades FROM fills WHERE fill_status IN ('f', 'pf') AND insert_timestamp > $1 AND chainid IS NOT NULL GROUP BY (chainid, market)",
-    values: [oneDayAgo],
-  }
-  const select = await db.query(query)
-  select.rows.forEach(async (row) => {
-    try {
-      redis.HSET(`tradecount:${row.chainid}`, row.market, row.trades || 0)
-    } catch (err) {
-      console.error(err)
-      console.log('Could not update tradecount')
-    }
-  })
-
-  console.timeEnd('updateNumberOfTrades')
-}
-
 async function updateLastPrices() {
   console.time('updateLastPrices')
 
@@ -983,111 +931,193 @@ async function runDbMigration() {
   await db.query(migration).catch(console.error)
 }
 
+const BUCKET_COUNT = 250 // used to set the precission of the data
+const intervals = [
+  {
+    days: 1,
+    seconds: 86400,
+  },
+  {
+    days: 7,
+    seconds: 604800,
+  },
+  {
+    days: 31,
+    seconds: 2678400,
+  },
+]
+async function saveTradeData(
+  chainId: number,
+  marketId: string,
+  parsedTrades: {
+    time: number
+    price: any
+    amount: any
+  }[]
+) {
+  const endTime = (Date.now() / 1000) | 0
+  const oneDayAgo = endTime - 86400
+  const oneDayAgoUTC = (new Date().setUTCHours(0, 0, 0, 0) / 1000) | 0
+
+  const tradesLastDay = parsedTrades.filter((trade) => trade.time > oneDayAgo)
+  redis.HSET(`tradecount:${chainId}`, marketId, tradesLastDay.length)
+
+  const tradesLastDayUTC = parsedTrades.filter(
+    (trade) => trade.time > oneDayAgoUTC
+  )
+  redis.HSET(`tradecount:utc:${chainId}`, marketId, tradesLastDayUTC.length)
+
+  intervals.forEach((interval: { days: number; seconds: number }) => {
+    const redisTradeDataKey = `tradedata:${chainId}:${interval.days}`
+
+    const startTime = endTime - interval.seconds
+    const stepTime = interval.seconds / BUCKET_COUNT
+
+    const tradeData: [
+      number, // unix
+      number, // average
+      number, // open
+      number, // high
+      number, // low
+      number, // close
+      number // volume
+    ][] = []
+    if (parsedTrades.length === 0) {
+      redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
+      return
+    }
+    for (let i = 0; i < BUCKET_COUNT; i++) {
+      const bucketStart = startTime + i * stepTime
+      const bucketEnd = bucketStart + stepTime
+
+      const bucketTrades = parsedTrades.filter(
+        (trade) => trade.time > bucketStart && trade.time < bucketEnd
+      )
+      if (bucketTrades.length > 0) {
+        const bucketVolume = bucketTrades.reduce(
+          (sum, trade) => sum + trade.amount,
+          0
+        )
+        const bucketAverage =
+          bucketTrades.reduce((sum, trade) => sum + trade.price, 0) /
+          bucketTrades.length
+        const bucketHigh = bucketTrades.reduce(
+          (max, trade) => Math.max(max, trade.price),
+          0
+        )
+        const bucketLow = bucketTrades.reduce(
+          (min, trade) => Math.min(min, trade.price),
+          Number.MAX_SAFE_INTEGER
+        )
+
+        tradeData.push([
+          bucketStart | 0,
+          bucketAverage,
+          bucketTrades[0].price,
+          bucketHigh,
+          bucketLow,
+          bucketTrades[bucketTrades.length - 1].price,
+          bucketVolume,
+        ])
+      } else {
+        tradeData.push([bucketStart | 0, 0, 0, 0, 0, 0, 0])
+      }
+    }
+    redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
+  })
+}
+
 async function cacheTradeData() {
-  const BUCKET_COUNT = 250 // used to set the precission of the data
   console.time('cacheTradeData')
   try {
-    const endTime = (Date.now() / 1000) | 0
-    const intervals = [
-      {
-        days: 1,
-        seconds: 86400,
-      },
-      {
-        days: 7,
-        seconds: 604800,
-      },
-      {
-        days: 31,
-        seconds: 2678400,
-      },
-    ]
-
     const SQLTime =
       Date.now() -
       intervals.reduce((max, i) => Math.max(max, i.seconds), 0) * 1000
     const SQLFetchStart = new Date(SQLTime).toISOString()
-    const text =
+    const textZKSync =
       "SELECT chainid,market,price,amount,insert_timestamp FROM fills WHERE fill_status='f' AND insert_timestamp > $1;"
-    const query = {
-      text,
+    const selectZKSync = await db.query({
+      text: textZKSync,
       values: [SQLFetchStart],
-    }
-    const select = await db.query(query)
+    })
 
-    const results0: Promise<any>[] = VALID_CHAINS.map(async (chainId) => {
-      const tradesThisChain = select.rows.filter((o) => o.chainid === chainId)
-      const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
-      markets.forEach((marketId) => {
-        const parsedTrades = tradesThisChain
-          .filter((o) => o.market === marketId)
-          .map((o) => ({
-            time: (Number(o.insert_timestamp) / 1000) | 0,
-            price: o.price,
-            amount: o.amount,
-          }))
+    const results0: Promise<any>[] = VALID_CHAINS_ZKSYNC.map(
+      async (chainId) => {
+        const tradesThisChain = selectZKSync.rows.filter(
+          (o) => o.chainid === chainId
+        )
+        const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
+        markets.forEach((marketId) => {
+          const parsedTrades = tradesThisChain
+            .filter((o) => o.market === marketId)
+            .map((o) => ({
+              time: (Number(o.insert_timestamp) / 1000) | 0,
+              price: o.price,
+              amount: o.amount,
+            }))
 
-        intervals.forEach((interval: { days: number; seconds: number }) => {
-          const redisTradeDataKey = `tradedata:${chainId}:${interval.days}`
-
-          const startTime = endTime - interval.seconds
-          const stepTime = interval.seconds / BUCKET_COUNT
-
-          const tradeData: [
-            number, // unix
-            number, // average
-            number, // open
-            number, // high
-            number, // low
-            number, // close
-            number // volume
-          ][] = []
-          if (parsedTrades.length === 0) {
-            redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
-            return
-          }
-          for (let i = 0; i < BUCKET_COUNT; i++) {
-            const bucketStart = startTime + i * stepTime
-            const bucketEnd = bucketStart + stepTime
-
-            const bucketTrades = parsedTrades.filter(
-              (trade) => trade.time > bucketStart && trade.time < bucketEnd
-            )
-            if (bucketTrades.length > 0) {
-              const bucketVolume = bucketTrades.reduce(
-                (sum, trade) => sum + trade.amount,
-                0
-              )
-              const bucketAverage =
-                bucketTrades.reduce((sum, trade) => sum + trade.price, 0) /
-                bucketTrades.length
-              const bucketHigh = bucketTrades.reduce(
-                (max, trade) => Math.max(max, trade.price),
-                0
-              )
-              const bucketLow = bucketTrades.reduce(
-                (min, trade) => Math.min(min, trade.price),
-                Number.MAX_SAFE_INTEGER
-              )
-
-              tradeData.push([
-                bucketStart | 0,
-                bucketAverage,
-                bucketTrades[0].price,
-                bucketHigh,
-                bucketLow,
-                bucketTrades[bucketTrades.length - 1].price,
-                bucketVolume,
-              ])
-            } else {
-              tradeData.push([bucketStart | 0, 0, 0, 0, 0, 0, 0])
-            }
-          }
-          redis.HSET(redisTradeDataKey, marketId, JSON.stringify(tradeData))
+          saveTradeData(chainId, marketId, parsedTrades)
         })
+      }
+    )
+    await Promise.all(results0)
+
+    const textEVM =
+      'SELECT chainid,taker_buy_token,taker_sell_token,taker_buy_amount,taker_sell_amount,txtime FROM past_orders_V3 WHERE txtime > $1;'
+    const selectEVM = await db.query({
+      text: textEVM,
+      values: [SQLFetchStart],
+    })
+    const results1: Promise<any>[] = VALID_EVM_CHAINS.map(async (chainId) => {
+      const selectMarkets = await db.query({
+        text: 'SELECT DISTINCT(taker_buy_token, taker_sell_token) FROM past_orders_V3 WHERE txtime > $1 AND chainid=$2;',
+        values: [SQLFetchStart, chainId],
+      })
+      const markets = selectMarkets.rows.map(
+        (e) => `${e.taker_buy_token}-${e.taker_sell_token}`
+      )
+      const tradesThisChain = selectEVM.rows.filter(
+        (o) => o.chainid === chainId
+      )
+      markets.forEach(async (market) => {
+        const [takerBuyToken, takerSellToken] = market.split('-')
+        const tradesThisMarket = tradesThisChain.filter(
+          (o) =>
+            o.taker_buy_token === takerBuyToken &&
+            o.taker_sell_token === takerSellToken
+        )
+
+        const [takerBuyTokenName, takerSellTokenName] = await Promise.all([
+          getTokenSymbol(chainId, takerBuyToken),
+          getTokenSymbol(chainId, takerSellToken),
+        ])
+
+        const parsedTradesA = tradesThisMarket.map((o) => ({
+          time: (Number(o.insert_timestamp) / 1000) | 0,
+          price: o.taker_sell_token / o.taker_buy_token,
+          amount: o.taker_buy_token,
+        }))
+
+        saveTradeData(
+          chainId,
+          `${takerBuyTokenName}-${takerSellTokenName}`,
+          parsedTradesA
+        )
+
+        const parsedTradesB = tradesThisMarket.map((o) => ({
+          time: (Number(o.insert_timestamp) / 1000) | 0,
+          price: o.taker_buy_token / o.taker_sell_token,
+          amount: o.taker_sell_token,
+        }))
+
+        saveTradeData(
+          chainId,
+          `${takerSellTokenName}-${takerBuyTokenName}`,
+          parsedTradesB
+        )
       })
     })
-    await Promise.all(results0)
+    await Promise.all(results1)
   } catch (e: any) {
     console.error(`Failed to cacheTradeData: ${e}`)
   }
@@ -1335,7 +1365,6 @@ async function start() {
   }
 
   console.log('background.ts: Starting Update Functions')
-  setInterval(updateBestAskBidEVM, 5000)
   setInterval(updatePendingOrders, updatePendingOrdersDelay * 1000)
   setInterval(cacheRecentTrades, 60000)
   setInterval(removeOldLiquidity, 10000)
