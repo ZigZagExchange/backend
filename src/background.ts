@@ -864,11 +864,11 @@ async function cacheTradeData() {
     })
     const results1: Promise<any>[] = VALID_EVM_CHAINS.map(async (chainId) => {
       const selectMarkets = await db.query({
-        text: 'SELECT DISTINCT(taker_buy_token, taker_sell_token) FROM past_orders_V3 WHERE chainid=$1;',
+        text: 'SELECT DISTINCT(taker_buy_token, taker_sell_token) AS distinct_market FROM past_orders_V3 WHERE chainid=$1;',
         values: [chainId],
       })
-      const markets = selectMarkets.rows.map((e) => e.slice(1, -1).split(','))
       console.log('selectMarkets.rows', selectMarkets.rows)
+      const markets = selectMarkets.rows.map((e) => e.distinct_market.slice(1, -1).split(','))
       console.log('markets', markets)
       const tradesThisChain = selectEVM.rows.filter((o) => o.chainid === chainId)
       console.log('totalTrades', selectEVM.rowCount)
