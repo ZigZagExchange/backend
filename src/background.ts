@@ -581,8 +581,14 @@ async function getTokeninfo(
         ERC20_ABI,
         ETHERS_PROVIDERS[chainId]
       )
-      TOKENS[tokenAddress].decimals = await tokenContract.decimals()
-      TOKENS[tokenAddress].name = await tokenContract.name()
+      const [newDecimals, newName] = await Promise.all([
+        tokenContract.decimals(),
+        tokenContract.name(),
+      ])
+      TOKENS[tokenAddress] = {
+        decimals: newDecimals,
+        name: newName,
+      }
     } catch (e: any) {
       console.error('Cant get token info')
       console.error(e)
