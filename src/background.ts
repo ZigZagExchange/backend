@@ -868,6 +868,8 @@ async function cacheTradeData() {
         values: [chainId],
       })
       const markets = selectMarkets.rows.map((e) => [e.taker_buy_token, e.taker_sell_token])
+      console.log('selectMarkets.rows', selectMarkets.rows)
+      console.log('markets', markets)
       const tradesThisChain = selectEVM.rows.filter((o) => o.chainid === chainId)
       console.log('totalTrades', selectEVM.rowCount)
       markets.forEach(async (market) => {
