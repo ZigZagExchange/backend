@@ -867,19 +867,11 @@ async function cacheTradeData() {
         text: 'SELECT DISTINCT(taker_buy_token, taker_sell_token) AS distinct_market FROM past_orders_V3 WHERE chainid=$1;',
         values: [chainId],
       })
-      console.log('selectMarkets.rows', selectMarkets.rows)
       const markets = selectMarkets.rows.map((e) => e.distinct_market.slice(1, -1).split(','))
-      console.log('markets', markets)
       const tradesThisChain = selectEVM.rows.filter((o) => o.chainid === chainId)
-      console.log('totalTrades', selectEVM.rowCount)
       markets.forEach(async (market) => {
         const [takerBuyToken, takerSellToken] = market
-        console.log('tradesThisChain', tradesThisChain.length)
-        console.log('market', market)
-        console.log('takerBuyToken', takerBuyToken)
-        console.log('takerSellToken', takerSellToken)
         const tradesThisMarket = tradesThisChain.filter((o) => o.taker_buy_token === takerBuyToken && o.taker_sell_token === takerSellToken)
-        console.log('tradesThisMarket', tradesThisMarket.length)
 
         const [takerBuyTokenName, takerSellTokenName] = await Promise.all([
           getTokenSymbol(chainId, takerBuyToken),
@@ -887,7 +879,7 @@ async function cacheTradeData() {
         ])
 
         const parsedTradesA = tradesThisMarket.map((o) => ({
-          time: (Number(o.insert_timestamp) / 1000) | 0,
+          time: (Number(o.txtime) / 1000) | 0,
           price: o.taker_sell_token / o.taker_buy_token,
           amount: o.taker_buy_token,
         }))
@@ -895,7 +887,7 @@ async function cacheTradeData() {
         saveTradeData(chainId, `${takerBuyTokenName}-${takerSellTokenName}`, parsedTradesA)
 
         const parsedTradesB = tradesThisMarket.map((o) => ({
-          time: (Number(o.insert_timestamp) / 1000) | 0,
+          time: (Number(o.txtime) / 1000) | 0,
           price: o.taker_buy_token / o.taker_sell_token,
           amount: o.taker_sell_token,
         }))
