@@ -1539,7 +1539,7 @@ async function start() {
   setInterval(updatePriceHighLow, 30000)
   setInterval(updateVolumes, 30000)
   setInterval(updateNumberOfTrades, 30000)
-  // setInterval(cacheTradeData, 30000)
+  setInterval(cacheTradeData, 30000)
   setInterval(deleteOldOrders, 30000)
 
   setTimeout(sendMatchedOrders, 5000)
