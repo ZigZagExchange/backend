@@ -442,7 +442,7 @@ async function getTokeninfo(chainId: number, tokenAddress: string): Promise<{ de
         symbol: newSymbol,
       }
     } catch (e: any) {
-      console.error('Cant get token info')
+      console.error('Cant get token info for address: ', tokenAddress)
       console.error(e)
     }
   }
@@ -867,10 +867,9 @@ async function cacheTradeData() {
         text: 'SELECT DISTINCT(taker_buy_token, taker_sell_token) FROM past_orders_V3 WHERE txtime > $1 AND chainid=$2;',
         values: [SQLFetchStart, chainId],
       })
-      const markets = selectMarkets.rows.map((e) => `${e.taker_buy_token}-${e.taker_sell_token}`)
+      const markets = selectMarkets.rows.map((e) => [e.taker_buy_token, e.taker_sell_token])
       const tradesThisChain = selectEVM.rows.filter((o) => o.chainid === chainId)
-      markets.forEach(async (market) => {
-        const [takerBuyToken, takerSellToken] = market.split('-')
+      markets.forEach(async ([takerBuyToken, takerSellToken]) => {
         const tradesThisMarket = tradesThisChain.filter((o) => o.taker_buy_token === takerBuyToken && o.taker_sell_token === takerSellToken)
 
         const [takerBuyTokenName, takerSellTokenName] = await Promise.all([
