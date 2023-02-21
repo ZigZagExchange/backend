@@ -873,6 +873,9 @@ async function cacheTradeData() {
       markets.forEach(async (market) => {
         const [takerBuyToken, takerSellToken] = market
         console.log('tradesThisChain', tradesThisChain.length)
+        console.log('market', market)
+        console.log('takerBuyToken', takerBuyToken)
+        console.log('takerSellToken', takerSellToken)
         const tradesThisMarket = tradesThisChain.filter((o) => o.taker_buy_token === takerBuyToken && o.taker_sell_token === takerSellToken)
         console.log('tradesThisMarket', tradesThisMarket.length)
 
