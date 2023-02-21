@@ -37,7 +37,6 @@ const ZKSYNC_BASE_URL: AnyObject = {}
 const SYNC_PROVIDER: AnyObject = {}
 const ETHERS_PROVIDERS: AnyObject = {}
 const EXCHANGE_CONTRACTS: AnyObject = {}
-const WALLET: AnyObject = {}
 let EVMConfig: AnyObject = {}
 let ERC20_ABI: any
 
@@ -465,237 +464,6 @@ async function updateTokenInfoZkSync(chainId: number) {
   await Promise.all(resultsUpdateMarketInfos)
 }
 
-async function sendUpdates(
-  chainId: number,
-  market: ZZMarket,
-  makerId: string,
-  takerId: string,
-  op: string,
-  args: any
-) {
-  publisher.PUBLISH(
-    `broadcastmsg:all:${chainId}:${market}`,
-    JSON.stringify({ op, args })
-  )
-  publisher.PUBLISH(
-    `broadcastmsg:user:${chainId}:${makerId}`,
-    JSON.stringify({ op, args })
-  )
-  publisher.PUBLISH(
-    `broadcastmsg:user:${chainId}:${takerId}`,
-    JSON.stringify({ op, args })
-  )
-}
-
-/**
- * Used to send send matched orders
- */
-async function sendMatchedOrders() {
-  const results: Promise<any>[] = VALID_EVM_CHAINS.map(
-    async (chainId: number) => {
-      const matchChainString = await redis.RPOP(`matchedorders:${chainId}`)
-      if (!matchChainString) return
-      console.time('sendMatchedOrders: pre processing')
-
-      console.log(
-        `sendMatchedOrders: chainId ==> ${chainId}, matchChainString ==> ${matchChainString}`
-      )
-      const match = JSON.parse(matchChainString)
-      const marketInfo = await getMarketInfo(match.market, match.chainId)
-      const { makerOrder, takerOrder, feeToken } = match
-
-      if (!makerOrder?.signature || !takerOrder?.signature) return
-
-      console.timeEnd('sendMatchedOrders: pre processing')
-      console.time('sendMatchedOrders: sending')
-      let transaction: any
-      try {
-        transaction = await EXCHANGE_CONTRACTS[chainId].matchOrders(
-          [
-            makerOrder.user,
-            makerOrder.sellToken,
-            makerOrder.buyToken,
-            makerOrder.sellAmount,
-            makerOrder.buyAmount,
-            makerOrder.expirationTimeSeconds,
-          ],
-          [
-            takerOrder.user,
-            takerOrder.sellToken,
-            takerOrder.buyToken,
-            takerOrder.sellAmount,
-            takerOrder.buyAmount,
-            takerOrder.expirationTimeSeconds,
-          ],
-          makerOrder.signature,
-          takerOrder.signature
-        )
-      } catch (e: any) {
-        console.error(`Failed EVM transaction: ${e.message}`)
-        transaction = {
-          hash: null,
-          reason: e.message,
-        }
-      }
-
-      console.timeEnd('sendMatchedOrders: sending')
-      console.time('sendMatchedOrders: post processing broadcast')
-      /* txStatus: s - success, b - broadcasted (pending), r - rejected */
-      let txStatus: string
-      if (transaction.hash) {
-        // update user
-        // on arbitrum if the node returns a tx hash, it means it was accepted
-        // on other EVM chains, the result of the transaction needs to be awaited
-        if ([42161, 421613].includes(chainId)) {
-          txStatus = 's'
-        } else {
-          txStatus = 'b'
-          sendUpdates(
-            chainId,
-            match.market,
-            match.makerId,
-            match.takerId,
-            'fillstatus',
-            [
-              [
-                [
-                  chainId,
-                  match.fillId,
-                  txStatus,
-                  transaction.hash,
-                  0, // remaining
-                  0,
-                  0,
-                  new Date().toISOString(), // timestamp
-                ],
-              ],
-            ]
-          )
-        }
-      } else {
-        txStatus = 'r'
-      }
-
-      // This is for non-arbitrum EVM chains to confirm the tx status
-      if (![42161, 421613].includes(chainId)) {
-        const receipt = await ETHERS_PROVIDERS[chainId].waitForTransaction(
-          transaction.hash
-        )
-        txStatus = receipt.status === 1 ? 's' : 'r'
-      }
-
-      const fillupdateBroadcastMinted = await db.query(
-        'UPDATE fills SET fill_status=$1, txhash=$2, feeamount=$3, feetoken=$4 WHERE id=$5 RETURNING id, fill_status, txhash, price',
-        [
-          txStatus === 's' ? 'f' : 'r', // filled only has f or r
-          transaction.hash,
-          0, // temp 0, use events later
-          transaction.hash ? feeToken : null,
-          match.fillId,
-        ]
-      )
-
-      // Update lastprice
-      if (txStatus === 's') {
-        const today = new Date().toISOString().slice(0, 10)
-        redis.SET(
-          `dailyprice:${chainId}:${match.market}:${today}`,
-          fillupdateBroadcastMinted.rows[0].price,
-          { EX: 604800 }
-        )
-        redis.HSET(
-          `lastprices:${chainId}`,
-          match.market,
-          fillupdateBroadcastMinted.rows[0].price
-        )
-      }
-
-      let orderUpdateBroadcastMinted: AnyObject
-      let readableTxError: string
-      if (txStatus === 's') {
-        orderUpdateBroadcastMinted = await db.query(
-          "UPDATE offers SET order_status = (CASE WHEN unfilled <= $1 THEN 'f' ELSE 'pf' END), update_timestamp=NOW() WHERE id IN ($2, $3) RETURNING id, order_status, unfilled",
-          [
-            marketInfo?.baseFee ? marketInfo.baseFee : 0,
-            match.takerId,
-            match.makerId,
-          ]
-        )
-      } else {
-        const startIndex = transaction.reason.indexOf('execution reverted')
-        const endIndex = transaction.reason.indexOf('code')
-        const reason = transaction.reason.slice(startIndex, endIndex)
-        readableTxError = getReadableTxError(reason)
-        console.log(reason)
-        const rejectedOrderIds = []
-        if (reason.includes('right')) {
-          rejectedOrderIds.push(match.takerId)
-        } else if (reason.includes('left')) {
-          rejectedOrderIds.push(match.makerId)
-        } else if (reason.includes('not profitable spread')) {
-          // ignore. nothing needs to be rejected
-        } else {
-          // default: both got rejected
-          rejectedOrderIds.push(match.makerId)
-          rejectedOrderIds.push(match.takerId)
-        }
-        orderUpdateBroadcastMinted = await db.query(
-          `UPDATE offers SET order_status='r', zktx=NULL, update_timestamp=NOW(), unfilled=0 WHERE id = ANY($1::int[]) RETURNING id, order_status, unfilled`,
-          [rejectedOrderIds]
-        )
-      }
-      const orderUpdatesBroadcastMinted = orderUpdateBroadcastMinted.rows.map(
-        (row: any) => [
-          chainId,
-          row.id,
-          row.order_status,
-          null, // tx hash
-          readableTxError || row.unfilled,
-        ]
-      )
-      const fillUpdatesBroadcastMinted = fillupdateBroadcastMinted.rows.map(
-        (row) => [
-          chainId,
-          row.id,
-          row.fill_status,
-          row.txhash,
-          readableTxError || 0, // remaing for fills is always 0; but current msg format sends error reson if it failed here
-          0, // temp 0, use events later
-          feeToken,
-          new Date().toISOString(), // timestamp
-        ]
-      )
-
-      console.timeEnd('sendMatchedOrders: post processing broadcast')
-      console.time('sendMatchedOrders: post processing filled')
-      if (orderUpdatesBroadcastMinted.length) {
-        sendUpdates(
-          chainId,
-          match.market,
-          match.makerId,
-          match.takerId,
-          'orderstatus',
-          [orderUpdatesBroadcastMinted]
-        )
-      }
-      if (fillUpdatesBroadcastMinted.length) {
-        sendUpdates(
-          chainId,
-          match.market,
-          match.makerId,
-          match.takerId,
-          'fillstatus',
-          [fillUpdatesBroadcastMinted]
-        )
-      }
-      console.timeEnd('sendMatchedOrders: post processing filled')
-    }
-  )
-
-  await Promise.all(results)
-  setTimeout(sendMatchedOrders, 200)
-}
-
 /* update mm info after chainging the settings in EVMConfig */
 async function updateEVMMarketInfo() {
   console.time('Update EVM marketinfo')
@@ -786,31 +554,6 @@ async function updateBestAskBidEVM() {
   await Promise.all(results)
 
   console.timeEnd('updateBestAskBidEVM')
-}
-
-async function checkEVMChainAllowance() {
-  const results0: Promise<any>[] = VALID_EVM_CHAINS.map(async (chainId) => {
-    const { exchangeAddress } = EVMConfig[chainId]
-    const testAddress = await WALLET[chainId].getAddress()
-    const markets = getFeeEstimationMarket(chainId).split('-')
-    for (let i = 0; i < markets.length; i++) {
-      const tokenSymbol = markets[i]
-      const tokenInfoString = await redis.HGET(
-        `tokeninfo:${chainId}`,
-        tokenSymbol
-      )
-      if (!tokenInfoString) return
-
-      const { address, decimals } = JSON.parse(tokenInfoString)
-      const contract = new ethers.Contract(address, ERC20_ABI, WALLET[chainId])
-      const allowanceBN = await contract.allowance(testAddress, exchangeAddress)
-      const allowanceNeededBN = ethers.utils.parseUnits('10', decimals)
-      if (allowanceBN.lt(allowanceNeededBN)) {
-        await contract.approve(exchangeAddress, allowanceNeededBN.toString())
-      }
-    }
-  })
-  await Promise.all(results0)
 }
 
 async function deleteOldOrders() {
@@ -1432,7 +1175,8 @@ async function start() {
       console.log(`Connected JsonRpcProvider for ${chainId}`)
     } catch (e: any) {
       console.warn(
-        `Could not connect JsonRpcProvider for ${chainId}, trying Infura...`
+        `Could not connect JsonRpcProvider for ${chainId}, trying Infura...`,
+        e
       )
       ETHERS_PROVIDERS[chainId] = new ethers.providers.InfuraProvider(
         getNetwork(chainId),
@@ -1443,23 +1187,16 @@ async function start() {
 
     if (VALID_EVM_CHAINS.includes(chainId) && operatorKeys) {
       const address = EVMConfig[chainId].exchangeAddress
-      const key = operatorKeys[chainId]
       try {
-        if (!address || !key) {
-          throw new Error(`MISSING PKEY OR ADDRESS FOR ${chainId}`)
+        if (!address) {
+          throw new Error(`MISSING ADDRESS FOR ${chainId}`)
         }
-
-        WALLET[chainId] = new ethers.Wallet(
-          key,
-          ETHERS_PROVIDERS[chainId]
-        ).connect(ETHERS_PROVIDERS[chainId])
 
         EXCHANGE_CONTRACTS[chainId] = new ethers.Contract(
           address,
           EVMContractABI,
-          WALLET[chainId]
+          ETHERS_PROVIDERS[chainId]
         )
-        EXCHANGE_CONTRACTS[chainId].connect(WALLET[chainId])
         const filter = EXCHANGE_CONTRACTS[chainId].filters.Swap()
         EXCHANGE_CONTRACTS[chainId].on(
           filter,
@@ -1489,7 +1226,7 @@ async function start() {
           }
         )
       } catch (e: any) {
-        console.log(`Failed to setup ${chainId}. Disabling...`)
+        console.log(`Failed to setup ${chainId}. Disabling...`, e)
         const indexA = VALID_CHAINS.indexOf(chainId)
         VALID_CHAINS.splice(indexA, 1)
         const indexB = VALID_EVM_CHAINS.indexOf(chainId)
@@ -1526,7 +1263,6 @@ async function start() {
 
   /* startup */
   await updateEVMMarketInfo()
-  await checkEVMChainAllowance()
   try {
     const updateResult = VALID_CHAINS_ZKSYNC.map(async (chainId) =>
       updateTokenInfoZkSync(chainId)
@@ -1550,8 +1286,6 @@ async function start() {
   setInterval(updateNumberOfTrades, 30000)
   setInterval(cacheTradeData, 30000)
   setInterval(deleteOldOrders, 30000)
-
-  setTimeout(sendMatchedOrders, 5000)
 }
 
 start()
