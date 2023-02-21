@@ -7,9 +7,7 @@ import cmcRoutes from 'src/routes/cmc'
 import cgRoutes from 'src/routes/cg'
 import zzRoutes from 'src/routes/zz'
 
-export const createHttpServer = (
-  socketServer: WebSocketServer
-): ZZHttpServer => {
+export const createHttpServer = (socketServer: WebSocketServer): ZZHttpServer => {
   const expressApp = express() as any as ZZHttpServer
   const server = createServer(expressApp)
 
@@ -53,12 +51,8 @@ export const createHttpServer = (
     try {
       responseMessage = await expressApp.api.serviceHandler(req.body)
     } catch (e: any) {
-      console.error(
-        `Unexpected error while processing HTTP request: ${e.message}`
-      )
-      res
-        .status(400)
-        .json(`Unexpected error while processing your request: ${e.message}`)
+      console.error(`Unexpected error while processing HTTP request: ${e.message}`)
+      res.status(400).json(`Unexpected error while processing your request: ${e.message}`)
     }
     clearTimeout(timeOutLog)
 
