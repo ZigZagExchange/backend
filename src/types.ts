@@ -67,7 +67,7 @@ export type WSocket = WebSocket & {
   chainId: number
   userId: string
   origin: string
-  swapEventSubscription: string
+  swapEventSubscription: string | null
 }
 
 export type ZZAPITransport = { api: API }
