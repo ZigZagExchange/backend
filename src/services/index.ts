@@ -19,3 +19,4 @@ export * from './fillreceiptreq'
 
 /* ################ V3 functions  ################ */
 export * from './subscribeswapevents'
+export * from './unsubscribeswapevents'
