@@ -2423,7 +2423,7 @@ export default class API extends EventEmitter {
     (this.wss.clients as Set<WSocket>).forEach((ws: WSocket) => {
       if (ws.readyState !== WebSocket.OPEN) return
       if (chainId !== -1 && ws.chainId !== chainId) return
-      if (market !== 'all' && !ws.swapEventSubscription.includes(market)) return
+      if (market !== 'all' && ws.swapEventSubscription !== market) return
       ws.send(msg)
     })
   }
