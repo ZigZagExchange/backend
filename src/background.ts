@@ -272,7 +272,7 @@ async function removeOldLiquidity() {
       const bestLiquidity = asks.concat(bids)
       redis.HSET(`bestask:${chainId}`, marketId, bestAskPrice)
       redis.HSET(`bestbid:${chainId}`, marketId, bestBidPrice)
-      redis.SET(`bestliquidity:${chainId}:${marketId}`, JSON.stringify(bestLiquidity), { EX: 45 })
+      redis.SET(`bestliquidity:${chainId}:${marketId}`, JSON.stringify(bestLiquidity), { EX: 450 })
 
       if (bestAskPrice > 0 && bestBidPrice > 0) {
         const midPrice: number = (bestAskPrice + bestBidPrice) / 2
