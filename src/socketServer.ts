@@ -39,18 +39,11 @@ export const createSocketServer = (): ZZSocketServer => {
             ].includes(msg.op)
           ) {
             console.log(`WS[${ws.origin}]: %s`, json)
-          } else if (
-            ['submitorder2', 'submitorder3', 'submitorder4'].includes(msg.op)
-          ) {
-            console.log(
-              `WS[${ws.origin}]: {"op":${msg.op},"args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`
-            )
+          } else if (['submitorder2', 'submitorder3', 'submitorder4'].includes(msg.op)) {
+            console.log(`WS[${ws.origin}]: {"op":${msg.op},"args":[${msg.args[0]},${msg.args[1]}, "ZZMessage"]}`)
           }
 
-          const debugLog = setTimeout(
-            () => console.log(`Failed to process ${msg.op}, arg: ${msg.args} in under 5 seconds.`),
-            5000
-          )
+          const debugLog = setTimeout(() => console.log(`Failed to process ${msg.op}, arg: ${msg.args} in under 5 seconds.`), 5000)
           if (wss.api) {
             const res = wss.api.serviceHandler(msg, ws)
             clearTimeout(debugLog)
