@@ -34,6 +34,7 @@ export const createSocketServer = (): ZZSocketServer => {
               'submitorder2',
               'submitorder3',
               'submitorder4',
+              'subscribemarket',
               'ping',
             ].includes(msg.op)
           ) {
