@@ -216,78 +216,82 @@ async function removeOldLiquidity() {
   const results0: Promise<any>[] = VALID_CHAINS_ZKSYNC.map(async (chainId) => {
     const markets = await redis.SMEMBERS(`activemarkets:${chainId}`)
     const results1: Promise<any>[] = markets.map(async (marketId) => {
-      const redisKeyLiquidity = `liquidity2:${chainId}:${marketId}`
-      const liquidityList = await redis.HGETALL(redisKeyLiquidity)
-      const liquidity = []
-      // eslint-disable-next-line no-restricted-syntax, guard-for-in
-      for (const clientId in liquidityList) {
-        const liquidityPosition = JSON.parse(liquidityList[clientId])
-        liquidity.push(...liquidityPosition)
-      }
-
-      // remove from activemarkets if no liquidity exists
-      if (liquidity.length === 0) {
-        redis.SREM(`activemarkets:${chainId}`, marketId)
-        return
-      }
-
-      const uniqueAsk: any = {}
-      const uniqueBuy: any = {}
-      for (let i = 0; i < liquidity.length; i++) {
-        const entry = liquidity[i]
-        const price = Number(entry[1])
-        const amount = Number(entry[2])
-
-        // merge positions in object
-        if (entry[0] === 'b') {
-          uniqueBuy[price] = uniqueBuy[price] ? uniqueBuy[price] + amount : amount
-        } else {
-          uniqueAsk[price] = uniqueAsk[price] ? uniqueAsk[price] + amount : amount
+      try {
+        const redisKeyLiquidity = `liquidity2:${chainId}:${marketId}`
+        const liquidityList = await redis.HGETALL(redisKeyLiquidity)
+        const liquidity = []
+        // eslint-disable-next-line no-restricted-syntax, guard-for-in
+        for (const clientId in liquidityList) {
+          const liquidityPosition = JSON.parse(liquidityList[clientId])
+          liquidity.push(...liquidityPosition)
         }
+
+        // remove from activemarkets if no liquidity exists
+        if (liquidity.length === 0) {
+          redis.SREM(`activemarkets:${chainId}`, marketId)
+          return
+        }
+
+        const uniqueAsk: any = {}
+        const uniqueBuy: any = {}
+        for (let i = 0; i < liquidity.length; i++) {
+          const entry = liquidity[i]
+          const price = Number(entry[1])
+          const amount = Number(entry[2])
+
+          // merge positions in object
+          if (entry[0] === 'b') {
+            uniqueBuy[price] = uniqueBuy[price] ? uniqueBuy[price] + amount : amount
+          } else {
+            uniqueAsk[price] = uniqueAsk[price] ? uniqueAsk[price] + amount : amount
+          }
+        }
+
+        // sort ask and bid keys
+        const askSet = [...new Set(Object.keys(uniqueAsk))]
+        const bidSet = [...new Set(Object.keys(uniqueBuy))]
+        const lenghtAsks = askSet.length < NUMBER_OF_SNAPSHOT_POSITIONS ? askSet.length : NUMBER_OF_SNAPSHOT_POSITIONS
+        const lengthBids = bidSet.length < NUMBER_OF_SNAPSHOT_POSITIONS ? bidSet.length : NUMBER_OF_SNAPSHOT_POSITIONS
+        const asks = new Array(lenghtAsks)
+        const bids = new Array(lengthBids)
+
+        // Update last price
+        for (let i = 0; i < lenghtAsks; i++) {
+          asks[i] = ['s', Number(askSet[i]), Number(uniqueAsk[askSet[i]])]
+        }
+        for (let i = 0; i < lengthBids; i++) {
+          bids[i] = ['b', Number(bidSet[i]), Number(uniqueBuy[bidSet[i]])]
+        }
+
+        asks.sort((a, b) => a[1] - b[1])
+        bids.sort((a, b) => b[1] - a[1])
+
+        // Store best bids and asks per market
+        const bestAskPrice: number = asks[0]?.[1] ? asks[0][1] : 0
+        const bestBidPrice: number = bids[0]?.[1] ? bids[0][1] : 0
+
+        const bestLiquidity = asks.concat(bids)
+        redis.HSET(`bestask:${chainId}`, marketId, bestAskPrice)
+        redis.HSET(`bestbid:${chainId}`, marketId, bestBidPrice)
+        redis.SET(`bestliquidity:${chainId}:${marketId}`, JSON.stringify(bestLiquidity), { EX: 45 })
+
+        if (bestAskPrice > 0 && bestBidPrice > 0) {
+          const midPrice: number = (bestAskPrice + bestBidPrice) / 2
+          redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(midPrice))
+        }
+
+        if (bestAskPrice > 0 && bestBidPrice > 0) {
+          const midPrice: number = (bestAskPrice + bestBidPrice) / 2
+          redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(midPrice))
+        }
+
+        // Clear old liquidity every 10 seconds
+        redis.DEL(redisKeyLiquidity)
+      } catch (e) {
+        console.error(e);
       }
-
-      // sort ask and bid keys
-      const askSet = [...new Set(Object.keys(uniqueAsk))]
-      const bidSet = [...new Set(Object.keys(uniqueBuy))]
-      const lenghtAsks = askSet.length < NUMBER_OF_SNAPSHOT_POSITIONS ? askSet.length : NUMBER_OF_SNAPSHOT_POSITIONS
-      const lengthBids = bidSet.length < NUMBER_OF_SNAPSHOT_POSITIONS ? bidSet.length : NUMBER_OF_SNAPSHOT_POSITIONS
-      const asks = new Array(lenghtAsks)
-      const bids = new Array(lengthBids)
-
-      // Update last price
-      for (let i = 0; i < lenghtAsks; i++) {
-        asks[i] = ['s', Number(askSet[i]), Number(uniqueAsk[askSet[i]])]
-      }
-      for (let i = 0; i < lengthBids; i++) {
-        bids[i] = ['b', Number(bidSet[i]), Number(uniqueBuy[bidSet[i]])]
-      }
-
-      asks.sort((a, b) => a[1] - b[1])
-      bids.sort((a, b) => b[1] - a[1])
-
-      // Store best bids and asks per market
-      const bestAskPrice: number = asks[0]?.[1] ? asks[0][1] : 0
-      const bestBidPrice: number = bids[0]?.[1] ? bids[0][1] : 0
-
-      const bestLiquidity = asks.concat(bids)
-      redis.HSET(`bestask:${chainId}`, marketId, bestAskPrice)
-      redis.HSET(`bestbid:${chainId}`, marketId, bestBidPrice)
-      redis.SET(`bestliquidity:${chainId}:${marketId}`, JSON.stringify(bestLiquidity), { EX: 450 })
-
-      if (bestAskPrice > 0 && bestBidPrice > 0) {
-        const midPrice: number = (bestAskPrice + bestBidPrice) / 2
-        redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(midPrice))
-      }
-
-      if (bestAskPrice > 0 && bestBidPrice > 0) {
-        const midPrice: number = (bestAskPrice + bestBidPrice) / 2
-        redis.HSET(`lastprices:${chainId}`, marketId, formatPrice(midPrice))
-      }
-
-      // Clear old liquidity every 10 seconds
-      redis.DEL(redisKeyLiquidity)
     })
-    await Promise.all(results1)
+      await Promise.all(results1)
   })
   await Promise.all(results0)
   console.timeEnd('removeOldLiquidity')
