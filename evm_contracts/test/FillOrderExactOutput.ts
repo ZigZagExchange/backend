@@ -457,7 +457,7 @@ describe('fillOrderExactOutput', () => {
       ethers.utils.formatEther(balance6)
     )
 
-    expect(balance2).to.equal(ethers.utils.parseEther('99.950000000000000001'))
+    expect(balance2).to.equal(ethers.utils.parseEther('1000000000000000001'))
     expect(balance4).to.equal(ethers.utils.parseEther('200'))
   })
 

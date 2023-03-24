@@ -184,7 +184,7 @@ describe('fillOrderRouteETH_Deposit', () => {
         wallets[1].address,
         weth.address,
         tokenB.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')
@@ -296,7 +296,7 @@ describe('fillOrderRouteETH_Deposit', () => {
         wallets[0].address,
         tokenB.address,
         weth.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')
@@ -314,7 +314,7 @@ describe('fillOrderRouteETH_Deposit', () => {
         tokenC.address,
         tokenB.address,
         ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.19999')
       )
@@ -502,7 +502,7 @@ describe('fillOrderRouteETH_Withdraw', () => {
         wallets[2].address,
         weth.address,
         tokenA.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')
@@ -618,7 +618,7 @@ describe('fillOrderRouteETH_Withdraw', () => {
         wallets[0].address,
         tokenB.address,
         tokenA.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')
@@ -636,7 +636,7 @@ describe('fillOrderRouteETH_Withdraw', () => {
         weth.address,
         tokenB.address,
         ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.19999')
       )

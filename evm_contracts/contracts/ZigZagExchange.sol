@@ -19,7 +19,6 @@ interface IWETH9 {
 contract ZigZagExchange is EIP712 {
   event Swap(
     address maker,
-    bytes32 makerOrderHash,
     address indexed taker,
     address indexed makerSellToken,
     address indexed takerSellToken,
@@ -271,8 +270,7 @@ contract ZigZagExchange is EIP712 {
       sellToken,
       buyToken,
       takerBuyAmountAdjusted,
-      takerSellAmount,
-      makerOrderInfo.orderHash
+      takerSellAmount
     );
 
     emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
@@ -285,8 +283,7 @@ contract ZigZagExchange is EIP712 {
     address makerSellToken,
     address takerSellToken,
     uint makerSellAmount,
-    uint takerSellAmount,
-    bytes32 makerOrderHash
+    uint takerSellAmount
   ) internal {
     if (takerSellToken == ETH_ADDRESS) {
       require(msg.value >= takerSellAmount, 'msg value not high enough');
@@ -320,7 +317,7 @@ contract ZigZagExchange is EIP712 {
       IERC20(makerSellToken).transferFrom(maker, takerReciver, makerSellAmount);
     }
     
-    emit Swap(maker, makerOrderHash, taker, makerSellToken, takerSellToken, makerSellAmount, takerSellAmount);
+    emit Swap(maker, taker, makerSellToken, takerSellToken, makerSellAmount, takerSellAmount);
   }
 
   function getOpenOrder(LibOrder.Order calldata order) public view returns (LibOrder.OrderInfo memory orderInfo) {

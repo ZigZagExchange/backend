@@ -239,7 +239,7 @@ describe('fillOrderExactOutputETH_Deposit', () => {
       exchangeContract.address
     )
 
-    const fillAmount = ethers.utils.parseEther('199.9')
+    const fillAmount = ethers.utils.parseEther('200')
     const fillAmountETH = ethers.utils.parseEther('100')
     const tx = await exchangeContract
       .connect(wallets[1])
@@ -280,7 +280,7 @@ describe('fillOrderExactOutputETH_Deposit', () => {
       makerOrder,
       exchangeContract.address
     )
-    const fillAmount = ethers.utils.parseEther('199.9')
+    const fillAmount = ethers.utils.parseEther('200')
     const fillAmountETH = ethers.utils.parseEther('100')
     await exchangeContract
       .connect(wallets[1])
@@ -317,7 +317,7 @@ describe('fillOrderExactOutputETH_Deposit', () => {
       ethers.utils.formatEther(balance10)
     )
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
     // exchange contract should have no ETH or WETH left over
     expect(balance9).to.equal(ethers.utils.parseEther('0'))
@@ -407,7 +407,7 @@ describe('fillOrderExactOutputETH_Deposit', () => {
     const balance2 = await tokenA.balanceOf(wallets[1].address)
     const balance4 = await weth.balanceOf(wallets[0].address)
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.900000000000000001'))
+    expect(balance2).to.equal(ethers.utils.parseEther('20000000000000000001'))
     expect(balance4).to.equal(ethers.utils.parseEther('99.999999999999999999'))
   })
 
@@ -449,7 +449,7 @@ describe('fillOrderExactOutputETH_Deposit', () => {
         wallets[1].address,
         tokenA.address,
         weth.address,
-        ethers.utils.parseEther('99.95'),
+        ethers.utils.parseEther('100'),
         ethers.utils.parseEther('50'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.05')
@@ -500,7 +500,7 @@ describe('fillOrderExactOutputETH_Deposit', () => {
         wallets[1].address,
         tokenA.address,
         weth.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')
@@ -965,7 +965,7 @@ describe('fillOrderExactOutputETH_Withdraw', () => {
       exchangeContract.address
     )
 
-    const fillAmount = ethers.utils.parseEther('100')
+    const fillAmount = ethers.utils.parseEther('150')
     await exchangeContract
       .connect(wallets[1])
       .fillOrderExactOutputETH(

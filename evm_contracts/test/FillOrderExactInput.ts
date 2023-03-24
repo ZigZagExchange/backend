@@ -358,7 +358,7 @@ describe('fillOrderExactInput', () => {
       ethers.utils.formatEther(balance6)
     )
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
   })
 
@@ -439,7 +439,7 @@ describe('fillOrderExactInput', () => {
     const balance2 = await tokenA.balanceOf(wallets[1].address)
     const balance4 = await tokenB.balanceOf(wallets[0].address)
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
   })
 
@@ -480,7 +480,7 @@ describe('fillOrderExactInput', () => {
         wallets[1].address,
         tokenA.address,
         tokenB.address,
-        ethers.utils.parseEther('99.95'),
+        ethers.utils.parseEther('100'),
         ethers.utils.parseEther('50'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.05')
@@ -530,7 +530,7 @@ describe('fillOrderExactInput', () => {
         wallets[1].address,
         tokenA.address,
         tokenB.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')

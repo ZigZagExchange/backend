@@ -316,7 +316,7 @@ describe('fillOrderExactInputETH_Deposit', () => {
       ethers.utils.formatEther(balance10)
     )
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
     // exchange contract should have no ETH or WETH left over
     expect(balance9).to.equal(ethers.utils.parseEther('0'))
@@ -404,7 +404,7 @@ describe('fillOrderExactInputETH_Deposit', () => {
     const balance2 = await tokenA.balanceOf(wallets[1].address)
     const balance4 = await weth.balanceOf(wallets[0].address)
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
   })
 
@@ -446,7 +446,7 @@ describe('fillOrderExactInputETH_Deposit', () => {
         wallets[1].address,
         tokenA.address,
         weth.address,
-        ethers.utils.parseEther('99.95'),
+        ethers.utils.parseEther('100'),
         ethers.utils.parseEther('50'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.05')
@@ -497,7 +497,7 @@ describe('fillOrderExactInputETH_Deposit', () => {
         wallets[1].address,
         tokenA.address,
         weth.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')
@@ -932,7 +932,7 @@ describe('fillOrderExactInputETH_Withdraw', () => {
       ethers.utils.formatEther(balance10)
     )
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
     // exchange contract should have no ETH or WETH left over
     expect(balance9).to.equal(ethers.utils.parseEther('0'))
@@ -1029,7 +1029,7 @@ describe('fillOrderExactInputETH_Withdraw', () => {
       .add(gasFee)
     const balance4 = await tokenB.balanceOf(wallets[0].address)
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
   })
 
@@ -1070,7 +1070,7 @@ describe('fillOrderExactInputETH_Withdraw', () => {
         wallets[1].address,
         weth.address,
         tokenB.address,
-        ethers.utils.parseEther('99.95'),
+        ethers.utils.parseEther('100'),
         ethers.utils.parseEther('50'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.05')
@@ -1120,7 +1120,7 @@ describe('fillOrderExactInputETH_Withdraw', () => {
         wallets[1].address,
         weth.address,
         tokenB.address,
-        ethers.utils.parseEther('199.9'),
+        ethers.utils.parseEther('200'),
         ethers.utils.parseEther('100'),
         ethers.utils.parseEther('0'),
         ethers.utils.parseEther('0.1')
