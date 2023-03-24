@@ -132,7 +132,7 @@ describe('fillOrderRoute', () => {
       ethers.utils.formatEther(balance6)
     )
 
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
     expect(balance4).to.equal(ethers.utils.parseEther('100'))
   })
 
@@ -189,10 +189,8 @@ describe('fillOrderRoute', () => {
         wallets[0].address,
         tokenB.address,
         tokenA.address,
-        ethers.utils.parseEther('199.9'),
-        ethers.utils.parseEther('100'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.1')
+        ethers.utils.parseEther('200'),
+        ethers.utils.parseEther('100')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
@@ -206,16 +204,14 @@ describe('fillOrderRoute', () => {
         wallets[0].address,
         tokenC.address,
         tokenB.address,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('199.9'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.19999')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('200')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
         orderHashTwo,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('0.2')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('0')
       )
 
     const balance1 = await tokenA.balanceOf(wallets[0].address)
@@ -347,10 +343,8 @@ describe('fillOrderRoute', () => {
         wallets[0].address,
         tokenB.address,
         tokenA.address,
-        ethers.utils.parseEther('199.9'),
-        ethers.utils.parseEther('100'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.1')
+        ethers.utils.parseEther('200'),
+        ethers.utils.parseEther('100')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
@@ -364,16 +358,14 @@ describe('fillOrderRoute', () => {
         wallets[0].address,
         tokenC.address,
         tokenB.address,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('199.9'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.19999')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('200')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
         orderHashTwo,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('0.2')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('0')
       )
       .to.emit(exchangeContract, 'Swap')
       .withArgs(
@@ -381,16 +373,14 @@ describe('fillOrderRoute', () => {
         wallets[0].address,
         tokenD.address,
         tokenC.address,
-        ethers.utils.parseEther('199.80005'),
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.09995')
+        ethers.utils.parseEther('200'),
+        ethers.utils.parseEther('400')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
         orderHashThree,
-        ethers.utils.parseEther('199.80005'),
-        ethers.utils.parseEther('50.19995')
+        ethers.utils.parseEther('200'),
+        ethers.utils.parseEther('50')
       )
 
     const balance1 = await tokenA.balanceOf(wallets[0].address)

@@ -297,9 +297,7 @@ describe('fillOrderRouteETH_Deposit', () => {
         tokenB.address,
         weth.address,
         ethers.utils.parseEther('200'),
-        ethers.utils.parseEther('100'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.1')
+        ethers.utils.parseEther('100')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
@@ -313,16 +311,14 @@ describe('fillOrderRouteETH_Deposit', () => {
         wallets[0].address,
         tokenC.address,
         tokenB.address,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('200'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.19999')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('200')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
         orderHashTwo,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('0.2')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('0')
       )
     const res = await tx.wait()
 
@@ -619,9 +615,7 @@ describe('fillOrderRouteETH_Withdraw', () => {
         tokenB.address,
         tokenA.address,
         ethers.utils.parseEther('200'),
-        ethers.utils.parseEther('100'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.1')
+        ethers.utils.parseEther('100')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
@@ -635,16 +629,14 @@ describe('fillOrderRouteETH_Withdraw', () => {
         wallets[0].address,
         weth.address,
         tokenB.address,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('200'),
-        ethers.utils.parseEther('0'),
-        ethers.utils.parseEther('0.19999')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('200')
       )
       .to.emit(exchangeContract, 'OrderStatus')
       .withArgs(
         orderHashTwo,
-        ethers.utils.parseEther('399.8'),
-        ethers.utils.parseEther('0.2')
+        ethers.utils.parseEther('400'),
+        ethers.utils.parseEther('0')
       )
 
     const res = await tx.wait()

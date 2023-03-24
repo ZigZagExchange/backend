@@ -361,7 +361,7 @@ describe('fillOrderExactOutput', () => {
     )
 
     expect(balance2).to.equal(ethers.utils.parseEther('50'))
-    expect(balance4).to.equal(ethers.utils.parseEther('100.050025012506253126'))
+    expect(balance4).to.equal(ethers.utils.parseEther('100'))
   })
 
   it('should fail without fillAvailable when over-ordering', async () => {
