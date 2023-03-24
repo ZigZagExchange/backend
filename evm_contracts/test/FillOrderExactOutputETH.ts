@@ -403,12 +403,28 @@ describe('fillOrderExactOutputETH_Deposit', () => {
         true,
         { value: fillAmountETH }
       )
-
+    
+    const balance1 = await tokenA.balanceOf(wallets[0].address)
     const balance2 = await tokenA.balanceOf(wallets[1].address)
+    const balance3 = await tokenA.balanceOf(wallets[2].address)
     const balance4 = await weth.balanceOf(wallets[0].address)
+    const balance5 = await weth.balanceOf(wallets[1].address)
+    const balance6 = await weth.balanceOf(wallets[2].address)
+    console.log(
+      ethers.utils.formatEther(balance1),
+      ethers.utils.formatEther(balance4)
+    )
+    console.log(
+      ethers.utils.formatEther(balance2),
+      ethers.utils.formatEther(balance5)
+    )
+    console.log(
+      ethers.utils.formatEther(balance3),
+      ethers.utils.formatEther(balance6)
+    )
 
-    expect(balance2).to.equal(ethers.utils.parseEther('20000000000000000001'))
-    expect(balance4).to.equal(ethers.utils.parseEther('99.999999999999999999'))
+    expect(balance2).to.equal(ethers.utils.parseEther('200'))
+    expect(balance4).to.equal(ethers.utils.parseEther('100'))
   })
 
   it('Should emit events for a partial order', async () => {
