@@ -9,7 +9,6 @@ describe('fillOrderExactOutput', () => {
   let tokenA: Contract
   let tokenB: Contract
   const wallets: Wallet[] = []
-  let FEE_ADDRESS: string
 
   beforeEach(async function () {
     this.timeout(30000)
@@ -30,11 +29,9 @@ describe('fillOrderExactOutput', () => {
       })
     }
 
-    FEE_ADDRESS = wallets[3].address
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      FEE_ADDRESS,
       ethers.constants.AddressZero
     )
 
@@ -277,117 +274,6 @@ describe('fillOrderExactOutput', () => {
     ).to.be.revertedWith('order expired')
   })
 
-  it('feeRecipient should take Maker Fee', async () => {
-
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: tokenB.address,
-      sellAmount: ethers.utils.parseEther('100'),
-      buyAmount: ethers.utils.parseEther('1000'),
-      expirationTimeSeconds: ethers.BigNumber.from(
-        String(Math.floor(Date.now() / 1000) + 3600)
-      )
-    }
-    const signedLeftMessage = await signOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      makerOrder,
-      exchangeContract.address
-    )
-
-    const fillAmount = ethers.utils.parseEther('30')
-    await exchangeContract
-      .connect(wallets[1])
-      .fillOrderExactOutput(
-        Object.values(makerOrder),
-        signedLeftMessage,
-        fillAmount,
-        true
-      )
-
-    const balance1 = await tokenA.balanceOf(wallets[0].address)
-    const balance2 = await tokenA.balanceOf(wallets[1].address)
-    const balance3 = await tokenA.balanceOf(wallets[2].address)
-    const balance4 = await tokenB.balanceOf(wallets[0].address)
-    const balance5 = await tokenB.balanceOf(wallets[1].address)
-    const balance6 = await tokenB.balanceOf(wallets[2].address)
-    const balance7 = await tokenA.balanceOf(FEE_ADDRESS)
-    const balance8 = await tokenB.balanceOf(FEE_ADDRESS)
-    console.log(
-      ethers.utils.formatEther(balance1),
-      ethers.utils.formatEther(balance4)
-    )
-    console.log(
-      ethers.utils.formatEther(balance2),
-      ethers.utils.formatEther(balance5)
-    )
-    console.log(
-      ethers.utils.formatEther(balance3),
-      ethers.utils.formatEther(balance6)
-    )
-    console.log(
-      ethers.utils.formatEther(balance7),
-      ethers.utils.formatEther(balance8)
-    )
-
-    expect(balance8).to.equal(ethers.utils.parseEther('0.0'))
-  })
-
-  it('feeRecipient should take Taker Fee', async () => {
-    const makerOrder = {
-      user: wallets[0].address,
-      sellToken: tokenA.address,
-      buyToken: tokenB.address,
-      sellAmount: ethers.utils.parseEther('100'),
-      buyAmount: ethers.utils.parseEther('1000'),
-      expirationTimeSeconds: ethers.BigNumber.from(
-        String(Math.floor(Date.now() / 1000) + 3600)
-      )
-    }
-    const signedLeftMessage = await signOrder(
-      TESTRPC_PRIVATE_KEYS_STRINGS[0],
-      makerOrder,
-      exchangeContract.address
-    )
-
-    const fillAmount = ethers.utils.parseEther('30')
-    await exchangeContract
-      .connect(wallets[1])
-      .fillOrderExactOutput(
-        Object.values(makerOrder),
-        signedLeftMessage,
-        fillAmount,
-        true
-      )
-
-    const balance1 = await tokenA.balanceOf(wallets[0].address)
-    const balance2 = await tokenA.balanceOf(wallets[1].address)
-    const balance3 = await tokenA.balanceOf(wallets[2].address)
-    const balance4 = await tokenB.balanceOf(wallets[0].address)
-    const balance5 = await tokenB.balanceOf(wallets[1].address)
-    const balance6 = await tokenB.balanceOf(wallets[2].address)
-    const balance7 = await tokenA.balanceOf(FEE_ADDRESS)
-    const balance8 = await tokenB.balanceOf(FEE_ADDRESS)
-    console.log(
-      ethers.utils.formatEther(balance1),
-      ethers.utils.formatEther(balance4)
-    )
-    console.log(
-      ethers.utils.formatEther(balance2),
-      ethers.utils.formatEther(balance5)
-    )
-    console.log(
-      ethers.utils.formatEther(balance3),
-      ethers.utils.formatEther(balance6)
-    )
-    console.log(
-      ethers.utils.formatEther(balance7),
-      ethers.utils.formatEther(balance8)
-    )
-
-    expect(balance7).to.equal(ethers.utils.parseEther('0.015007503751875937'))
-  })
-
   it('should fail when filled twice', async () => {
     const makerOrder = {
       user: wallets[0].address,
@@ -461,8 +347,6 @@ describe('fillOrderExactOutput', () => {
     const balance4 = await tokenB.balanceOf(wallets[0].address)
     const balance5 = await tokenB.balanceOf(wallets[1].address)
     const balance6 = await tokenB.balanceOf(wallets[2].address)
-    const balance7 = await tokenA.balanceOf(FEE_ADDRESS)
-    const balance8 = await tokenB.balanceOf(FEE_ADDRESS)
     console.log(
       ethers.utils.formatEther(balance1),
       ethers.utils.formatEther(balance4)
@@ -474,10 +358,6 @@ describe('fillOrderExactOutput', () => {
     console.log(
       ethers.utils.formatEther(balance3),
       ethers.utils.formatEther(balance6)
-    )
-    console.log(
-      ethers.utils.formatEther(balance7),
-      ethers.utils.formatEther(balance8)
     )
 
     expect(balance2).to.equal(ethers.utils.parseEther('50'))
@@ -564,8 +444,6 @@ describe('fillOrderExactOutput', () => {
     const balance4 = await tokenB.balanceOf(wallets[0].address)
     const balance5 = await tokenB.balanceOf(wallets[1].address)
     const balance6 = await tokenB.balanceOf(wallets[2].address)
-    const balance7 = await tokenA.balanceOf(FEE_ADDRESS)
-    const balance8 = await tokenB.balanceOf(FEE_ADDRESS)
     console.log(
       ethers.utils.formatEther(balance1),
       ethers.utils.formatEther(balance4)
@@ -577,10 +455,6 @@ describe('fillOrderExactOutput', () => {
     console.log(
       ethers.utils.formatEther(balance3),
       ethers.utils.formatEther(balance6)
-    )
-    console.log(
-      ethers.utils.formatEther(balance7),
-      ethers.utils.formatEther(balance8)
     )
 
     expect(balance2).to.equal(ethers.utils.parseEther('99.950000000000000001'))

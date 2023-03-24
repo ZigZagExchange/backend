@@ -212,7 +212,7 @@ describe("Vault", function () {
         const circulatingSupply = await vaultContract.circulatingSupply();
         const totalSupply = await vaultContract.totalSupply();
         await expect(totalSupply).to.equal(ethers.utils.parseEther("100"));
-        await expect(circulatingSupply).to.equal(ethers.utils.parseEther("0.500250125062531265")); // user amount and fees
+        await expect(circulatingSupply).to.equal(ethers.utils.parseEther("0.5")); // user amount and fees
     });
 
     it("Vault cancel order", async function () {

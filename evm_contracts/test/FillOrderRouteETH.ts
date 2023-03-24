@@ -10,7 +10,6 @@ describe('fillOrderRouteETH_Deposit', () => {
   let tokenB: Contract
   let tokenC: Contract
   const wallets: Wallet[] = []
-  let FEE_ADDRESS: string
   let provider: any
 
   beforeEach(async function () {
@@ -34,11 +33,9 @@ describe('fillOrderRouteETH_Deposit', () => {
       })
     }
 
-    FEE_ADDRESS = wallets[3].address
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      FEE_ADDRESS,
       weth.address
     )
 
@@ -208,8 +205,6 @@ describe('fillOrderRouteETH_Deposit', () => {
       .add(res.cumulativeGasUsed.mul(res.effectiveGasPrice))
     const balance4 = await weth.balanceOf(wallets[0].address)
     const balance5 = await weth.balanceOf(wallets[1].address)
-    const balance7 = await tokenB.balanceOf(FEE_ADDRESS)
-    const balance8 = await weth.balanceOf(FEE_ADDRESS)
     const balance9 = await weth.balanceOf(exchangeContract.address)
     const balance10 = await tokenB.balanceOf(exchangeContract.address)
     console.log(
@@ -221,16 +216,12 @@ describe('fillOrderRouteETH_Deposit', () => {
       ethers.utils.formatEther(balance5)
     )
     console.log(
-      ethers.utils.formatEther(balance7),
-      ethers.utils.formatEther(balance8)
-    )
-    console.log(
       ethers.utils.formatEther(balance9),
       ethers.utils.formatEther(balance10)
     )
 
     // user
-    expect(balance1).to.equal(ethers.utils.parseEther('199.9')) // fillAmount (100) * price (2) * 0.9995
+    expect(balance1).to.equal(ethers.utils.parseEther('200')) // fillAmount (100) * price (2)
     expect(balance3).to.equal(ethers.utils.parseEther('-100')) // delta = -fillAmount
     expect(balance4).to.equal(ethers.utils.parseEther('0')) // user has no weth
 
@@ -238,8 +229,6 @@ describe('fillOrderRouteETH_Deposit', () => {
     expect(balance2).to.equal(ethers.utils.parseEther('800')) // mint (1000) - fillAmount (100) * price (2)
     expect(balance5).to.equal(ethers.utils.parseEther('100')) // = fillAmount(100) - makerFee (0)
 
-    expect(balance7).to.equal(ethers.utils.parseEther('0.1')) // takerBuyAmount = 200 * 0.0005
-    expect(balance8).to.equal(ethers.utils.parseEther('0'))
 
     // exchange contract should have no ETH or WETH left over
     expect(balance9).to.equal(ethers.utils.parseEther('0'))
@@ -286,7 +275,6 @@ describe('fillOrderRouteETH_Deposit', () => {
     const balance1_2Before = await provider.getBalance(wallets[0].address)
     const balance2_2Before = await provider.getBalance(wallets[1].address)
     const balance3_2Before = await provider.getBalance(wallets[2].address)
-    const balance10_2Before = await provider.getBalance(FEE_ADDRESS)
     const balance13_2Before = await provider.getBalance(
       exchangeContract.address
     )
@@ -357,12 +345,6 @@ describe('fillOrderRouteETH_Deposit', () => {
     const balance7 = await tokenC.balanceOf(wallets[0].address)
     const balance8 = await tokenC.balanceOf(wallets[1].address)
     const balance9 = await tokenC.balanceOf(wallets[2].address)
-    const balance10_1 = await weth.balanceOf(FEE_ADDRESS)
-    const balance10_2 = (await provider.getBalance(FEE_ADDRESS)).sub(
-      balance10_2Before
-    )
-    const balance11 = await tokenB.balanceOf(FEE_ADDRESS)
-    const balance12 = await tokenC.balanceOf(FEE_ADDRESS)
     const balance13_1 = await weth.balanceOf(exchangeContract.address)
     const balance13_2 = (
       await provider.getBalance(exchangeContract.address)
@@ -388,12 +370,6 @@ describe('fillOrderRouteETH_Deposit', () => {
       ethers.utils.formatEther(balance9)
     )
     console.log(
-      ethers.utils.formatEther(balance10_1),
-      ethers.utils.formatEther(balance10_2),
-      ethers.utils.formatEther(balance11),
-      ethers.utils.formatEther(balance12)
-    )
-    console.log(
       ethers.utils.formatEther(balance13_1),
       ethers.utils.formatEther(balance13_2),
       ethers.utils.formatEther(balance14),
@@ -404,7 +380,7 @@ describe('fillOrderRouteETH_Deposit', () => {
     expect(balance1_1).to.equal(ethers.utils.parseEther('0')) // user has no weth
     expect(balance1_2).to.equal(ethers.utils.parseEther('-100')) // delta = -100 (outflow)
     expect(balance4).to.equal(ethers.utils.parseEther('0'))
-    expect(balance7).to.equal(ethers.utils.parseEther('399.6001')) // 100 * 2 * 0.9995 * 2 * 0.9995
+    expect(balance7).to.equal(ethers.utils.parseEther('400')) // 100 * 2 * 2
 
     // check address2 (mm one)
     expect(balance2_1).to.equal(ethers.utils.parseEther('100')) // fillAmount = mm one buy amount
@@ -415,14 +391,8 @@ describe('fillOrderRouteETH_Deposit', () => {
     // check address3 (mm two)
     expect(balance3_1).to.equal(ethers.utils.parseEther('0'))
     expect(balance3_2).to.equal(ethers.utils.parseEther('0'))
-    expect(balance6).to.equal(ethers.utils.parseEther('199.9')) // fillAmount = mm one buy amount = 100 * 2 * 0.9995
-    expect(balance9).to.equal(ethers.utils.parseEther('600.2')) // mint (1000) - mm one sell amount (100 * 2 * 0.9995 * 2)
-
-    // check fees
-    expect(balance10_1).to.equal(ethers.utils.parseEther('0'))
-    expect(balance10_2).to.equal(ethers.utils.parseEther('0'))
-    expect(balance11).to.equal(ethers.utils.parseEther('0.1')) // trade one takerAmount * 0.0005 = 100 * 2 * 0.0005
-    expect(balance12).to.equal(ethers.utils.parseEther('0.1999')) // trade two takerAmount * 0.0005 = 100 * 2 * 0.9995 * 2 * 0.0005
+    expect(balance6).to.equal(ethers.utils.parseEther('200')) // fillAmount = mm one buy amount = 100 * 2
+    expect(balance9).to.equal(ethers.utils.parseEther('600')) // mint (1000) - mm one sell amount (100 * 2 * 2)
 
     // nothing left in exchange contract
     expect(balance13_1).to.equal(ethers.utils.parseEther('0'))
@@ -443,7 +413,6 @@ describe('fillOrderRouteETH_Withdraw', () => {
   let tokenB: Contract
   let weth: Contract
   const wallets: Wallet[] = []
-  let FEE_ADDRESS: string
   let provider: any
 
   beforeEach(async function () {
@@ -467,11 +436,9 @@ describe('fillOrderRouteETH_Withdraw', () => {
       })
     }
 
-    FEE_ADDRESS = wallets[3].address
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      FEE_ADDRESS,
       weth.address
     )
 
@@ -556,8 +523,6 @@ describe('fillOrderRouteETH_Withdraw', () => {
     const balance4 = await tokenA.balanceOf(wallets[0].address)
     const balance5 = await tokenA.balanceOf(wallets[2].address)
     const balance6 = await weth.balanceOf(wallets[2].address)
-    const balance7 = await weth.balanceOf(FEE_ADDRESS)
-    const balance8 = await tokenA.balanceOf(FEE_ADDRESS)
     const balance9 = await weth.balanceOf(exchangeContract.address)
     const balance10 = await tokenA.balanceOf(exchangeContract.address)
     console.log(
@@ -570,26 +535,18 @@ describe('fillOrderRouteETH_Withdraw', () => {
       ethers.utils.formatEther(balance6)
     )
     console.log(
-      ethers.utils.formatEther(balance7),
-      ethers.utils.formatEther(balance8)
-    )
-    console.log(
       ethers.utils.formatEther(balance9),
       ethers.utils.formatEther(balance10)
     )
 
     // user
     expect(balance1).to.equal(ethers.utils.parseEther('0')) // user has no weth
-    expect(balance2).to.equal(ethers.utils.parseEther('199.9')) // fillAmount(100) * price (2) * 0.9995
+    expect(balance2).to.equal(ethers.utils.parseEther('200')) // fillAmount(100) * price (2)
     expect(balance4).to.equal(ethers.utils.parseEther('900')) // mint (1000) - fillAmount(100)
 
     // mm
     expect(balance5).to.equal(ethers.utils.parseEther('100')) // = fillAmount(100)
     expect(balance6).to.equal(ethers.utils.parseEther('300')) // mint (500) - fillAmount(100) * price(2)
-
-    // fee
-    expect(balance7).to.equal(ethers.utils.parseEther('0.1')) // fillAmount(100) * price(2) * 0.0005
-    expect(balance8).to.equal(ethers.utils.parseEther('0'))
 
     // exchange contract should have no ETH or WETH left over
     expect(balance9).to.equal(ethers.utils.parseEther('0'))
@@ -641,7 +598,6 @@ describe('fillOrderRouteETH_Withdraw', () => {
     const balance7_2Before = await provider.getBalance(wallets[0].address)
     const balance8_2Before = await provider.getBalance(wallets[1].address)
     const balance9_2Before = await provider.getBalance(wallets[2].address)
-    const balance12_2Before = await provider.getBalance(FEE_ADDRESS)
     const balance15_2Before = await provider.getBalance(
       exchangeContract.address
     )
@@ -712,12 +668,6 @@ describe('fillOrderRouteETH_Withdraw', () => {
     const balance9_2 = (await provider.getBalance(wallets[2].address)).sub(
       balance9_2Before
     )
-    const balance10 = await tokenA.balanceOf(FEE_ADDRESS)
-    const balance11 = await tokenB.balanceOf(FEE_ADDRESS)
-    const balance12_1 = await weth.balanceOf(FEE_ADDRESS)
-    const balance12_2 = (await provider.getBalance(FEE_ADDRESS)).sub(
-      balance12_2Before
-    )
     const balance13 = await weth.balanceOf(exchangeContract.address)
     const balance14 = await tokenB.balanceOf(exchangeContract.address)
     const balance15_1 = await weth.balanceOf(exchangeContract.address)
@@ -743,12 +693,6 @@ describe('fillOrderRouteETH_Withdraw', () => {
       ethers.utils.formatEther(balance9_2)
     )
     console.log(
-      ethers.utils.formatEther(balance10),
-      ethers.utils.formatEther(balance11),
-      ethers.utils.formatEther(balance12_1),
-      ethers.utils.formatEther(balance12_2)
-    )
-    console.log(
       ethers.utils.formatEther(balance13),
       ethers.utils.formatEther(balance14),
       ethers.utils.formatEther(balance15_1),
@@ -759,7 +703,7 @@ describe('fillOrderRouteETH_Withdraw', () => {
     expect(balance1).to.equal(ethers.utils.parseEther('900')) // mint (1000) - fillAmount (100)
     expect(balance4).to.equal(ethers.utils.parseEther('0'))
     expect(balance7_1).to.equal(ethers.utils.parseEther('0')) // user has no weth
-    expect(balance7_2).to.equal(ethers.utils.parseEther('399.6001')) // delta = 100 * 2 * 0.9995 * 2 * 0.9995
+    expect(balance7_2).to.equal(ethers.utils.parseEther('400')) // delta = 100 * 2 * 2
 
     // check address2 (mm one)
     expect(balance2).to.equal(ethers.utils.parseEther('100')) // fillAmount = mm one buy amount
@@ -769,15 +713,9 @@ describe('fillOrderRouteETH_Withdraw', () => {
 
     // check address3 (mm two)
     expect(balance3).to.equal(ethers.utils.parseEther('0'))
-    expect(balance6).to.equal(ethers.utils.parseEther('199.9')) // fillAmount = mm one buy amount = 100 * 2 * 0.9995
-    expect(balance9_1).to.equal(ethers.utils.parseEther('100.2')) // mint (500) - mm one sell amount (100 * 2 * 0.9995 * 2)
+    expect(balance6).to.equal(ethers.utils.parseEther('200')) // fillAmount = mm one buy amount = 100 * 2
+    expect(balance9_1).to.equal(ethers.utils.parseEther('100')) // mint (500) - mm one sell amount (100 * 2 * 2)
     expect(balance9_2).to.equal(ethers.utils.parseEther('0')) // mm two no eth
-
-    // check fees
-    expect(balance10).to.equal(ethers.utils.parseEther('0'))
-    expect(balance11).to.equal(ethers.utils.parseEther('0.1')) // trade one takerAmount * 0.0005 = 100 * 2 * 0.0005
-    expect(balance12_1).to.equal(ethers.utils.parseEther('0.1999')) // trade two takerAmount * 0.0005 = 100 * 2 * 0.9995 * 2 * 0.0005
-    expect(balance12_2).to.equal(ethers.utils.parseEther('0')) // no eth
 
     // nothing left in exchange contract
     expect(balance13).to.equal(ethers.utils.parseEther('0'))
