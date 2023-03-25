@@ -72,7 +72,7 @@ describe("Vault", function () {
         const signedLeftMessage = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[1], makerOrder, exchangeContract.address)
 
         const fillAmount = ethers.utils.parseEther("0.5");
-        await expect(exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, true)).to.be.revertedWith("invalid maker signature");
+        await expect(exchangeContract.connect(wallets[0]).fillOrderExactOutput(Object.values(makerOrder), signedLeftMessage, fillAmount, false)).to.be.revertedWith("invalid maker signature");
     });
 
     it("Non-manager cannot sign limit orders", async function () {

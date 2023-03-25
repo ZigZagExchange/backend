@@ -71,7 +71,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('taker order not enough balance')
   })
@@ -101,7 +101,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('maker order not enough balance')
   })
@@ -134,7 +134,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('maker order not enough allowance')
   })
@@ -167,7 +167,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('taker order not enough allowance')
   })
@@ -206,7 +206,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('order is filled')
   })
@@ -240,7 +240,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('order canceled')
   })
@@ -269,7 +269,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('order expired')
   })
@@ -308,7 +308,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     ).to.be.revertedWith('order is filled')
   })
@@ -489,7 +489,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     )
       .to.emit(exchangeContract, 'Swap')
@@ -539,7 +539,7 @@ describe('fillOrderExactOutput', () => {
           Object.values(makerOrder),
           signedLeftMessage,
           fillAmount,
-          true
+          false
         )
     )
       .to.emit(exchangeContract, 'Swap')
