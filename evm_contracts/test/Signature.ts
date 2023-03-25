@@ -18,7 +18,6 @@ describe('Signature Validation', () => {
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      ethers.constants.AddressZero, 
       ethers.constants.AddressZero
     )
 

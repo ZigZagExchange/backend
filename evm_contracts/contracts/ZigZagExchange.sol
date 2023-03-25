@@ -23,9 +23,7 @@ contract ZigZagExchange is EIP712 {
     address indexed makerSellToken,
     address indexed takerSellToken,
     uint256 makerSellAmount,
-    uint256 takerSellAmount,
-    uint256 makerVolumeFee,
-    uint256 takerVolumeFee
+    uint256 takerSellAmount
   );
 
   event CancelOrder(bytes32 indexed orderHash);
@@ -35,20 +33,12 @@ contract ZigZagExchange is EIP712 {
 
   mapping(bytes32 => bool) public cancelled;
 
-  // fees
-  address immutable FEE_ADDRESS;
   address immutable WETH_ADDRESS;
   address immutable EXCHANGE_ADDRESS;
   address constant ETH_ADDRESS = address(0);
 
-  uint256 maker_fee_numerator = 0;
-  uint256 maker_fee_denominator = 10000;
-  uint256 taker_fee_numerator = 5;
-  uint256 taker_fee_denominator = 10000;
-
   // initialize fee address
-  constructor(string memory name, string memory version, address fee_address, address weth_address) EIP712(name, version) {
-    FEE_ADDRESS = fee_address;
+  constructor(string memory name, string memory version, address weth_address) EIP712(name, version) {
     WETH_ADDRESS = weth_address;
     EXCHANGE_ADDRESS = address(this);
   }
@@ -102,9 +92,6 @@ contract ZigZagExchange is EIP712 {
           fillAvailable
         );
       }
-
-      // adjust the takerAmountOut by the tx fee paid by the taker
-      takerAmount = takerAmount - (takerAmount * taker_fee_numerator) / taker_fee_denominator;
     }
 
     _refundETH();
@@ -141,9 +128,6 @@ contract ZigZagExchange is EIP712 {
         takerAmount,
         fillAvailable
       );
-
-      // adjust the takerAmountOut by the tx fee paid by the taker
-      takerAmount = takerAmount - (takerAmount * taker_fee_numerator) / taker_fee_denominator;
     }
 
     return true;
@@ -178,8 +162,6 @@ contract ZigZagExchange is EIP712 {
     uint takerBuyAmount,
     bool fillAvailable
   ) public payable returns (bool) {
-    // add the takerFee to the buy amount to recive the exact amount after fees
-    takerBuyAmount = (takerBuyAmount * taker_fee_denominator) / (taker_fee_denominator - taker_fee_numerator);
     _fillOrderETH(makerOrder, makerSignature, msg.sender, msg.sender, takerBuyAmount, fillAvailable);
     _refundETH();
     return true;
@@ -239,8 +221,6 @@ contract ZigZagExchange is EIP712 {
     uint takerBuyAmount,
     bool fillAvailable
   ) public returns (bool) {
-    // add the takerFee to the buy amount to recive the exact amount after fees
-    takerBuyAmount = (takerBuyAmount * taker_fee_denominator) / (taker_fee_denominator - taker_fee_numerator);
     _fillOrder(
       makerOrder,
       makerSignature,
@@ -283,12 +263,6 @@ contract ZigZagExchange is EIP712 {
     uint makerOrderFilled = makerOrderInfo.orderSellFilledAmount + takerBuyAmountAdjusted;
     filled[makerOrderInfo.orderHash] = makerOrderFilled;
 
-    // The fee gets subtracted from the buy amounts so they deduct from the total instead of adding on to it
-    // The maker fee comes out of the taker sell quantity, so the maker ends up with less
-    // The taker fee comes out of the maker sell quantity, so the taker ends up with less
-    // makerFee = (takerSellAmount * maker_fee_numerator) / maker_fee_denominator
-    // takerFee = (takerBuyAmountAdjusted * taker_fee_numerator) / taker_fee_denominator
-
     _settleMatchedOrders(
       makerOrder.user,
       taker,
@@ -296,9 +270,7 @@ contract ZigZagExchange is EIP712 {
       sellToken,
       buyToken,
       takerBuyAmountAdjusted,
-      takerSellAmount,
-      (takerSellAmount * maker_fee_numerator) / maker_fee_denominator,
-      (takerBuyAmountAdjusted * taker_fee_numerator) / taker_fee_denominator
+      takerSellAmount
     );
 
     emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerOrder.sellAmount - makerOrderFilled);
@@ -311,9 +283,7 @@ contract ZigZagExchange is EIP712 {
     address makerSellToken,
     address takerSellToken,
     uint makerSellAmount,
-    uint takerSellAmount,
-    uint makerFee,
-    uint takerFee
+    uint takerSellAmount
   ) internal {
     if (takerSellToken == ETH_ADDRESS) {
       require(msg.value >= takerSellAmount, 'msg value not high enough');
@@ -330,46 +300,24 @@ contract ZigZagExchange is EIP712 {
       require(IERC20(makerSellToken).allowance(maker, EXCHANGE_ADDRESS) >= makerSellAmount, 'maker order not enough allowance');
     }
 
-    // Taker fee -> fee recipient
-    // taker fee is collected in takerBuyToken
-    if (takerFee > 0) {
-      if (makerSellToken == ETH_ADDRESS) {
-        IERC20(WETH_ADDRESS).transferFrom(maker, FEE_ADDRESS, takerFee);
-      } else {
-        IERC20(makerSellToken).transferFrom(maker, FEE_ADDRESS, takerFee);
-      }
-    }
-
-    // Maker fee -> fee recipient
-    // Maker fee is collected in makerBuyToken
-    if (makerFee > 0) {
-      if (takerSellToken == ETH_ADDRESS) {
-        IWETH9(WETH_ADDRESS).depositTo{ value: makerFee }(FEE_ADDRESS);
-      } else if (taker == EXCHANGE_ADDRESS) {
-        IERC20(takerSellToken).transfer(FEE_ADDRESS, makerFee);
-      } else {
-        IERC20(takerSellToken).transferFrom(taker, FEE_ADDRESS, makerFee);
-      }
-    }
-
     // taker -> maker
     if (takerSellToken == ETH_ADDRESS) {
-      IWETH9(WETH_ADDRESS).depositTo{ value: takerSellAmount - makerFee }(maker);
+      IWETH9(WETH_ADDRESS).depositTo{ value: takerSellAmount }(maker);
     } else if (taker == EXCHANGE_ADDRESS) {
-      IERC20(takerSellToken).transfer(maker, takerSellAmount - makerFee);
+      IERC20(takerSellToken).transfer(maker, takerSellAmount);
     } else {
-      IERC20(takerSellToken).transferFrom(taker, maker, takerSellAmount - makerFee);
+      IERC20(takerSellToken).transferFrom(taker, maker, takerSellAmount);
     }
 
     // maker -> taker
     if (makerSellToken == ETH_ADDRESS) {
-      IERC20(WETH_ADDRESS).transferFrom(maker, EXCHANGE_ADDRESS, makerSellAmount - takerFee);
-      IWETH9(WETH_ADDRESS).withdrawTo(takerReciver, makerSellAmount - takerFee);
+      IERC20(WETH_ADDRESS).transferFrom(maker, EXCHANGE_ADDRESS, makerSellAmount);
+      IWETH9(WETH_ADDRESS).withdrawTo(takerReciver, makerSellAmount);
     } else {
-      IERC20(makerSellToken).transferFrom(maker, takerReciver, makerSellAmount - takerFee);
+      IERC20(makerSellToken).transferFrom(maker, takerReciver, makerSellAmount);
     }
     
-    emit Swap(maker, taker, makerSellToken, takerSellToken, makerSellAmount, takerSellAmount, makerFee, takerFee);
+    emit Swap(maker, taker, makerSellToken, takerSellToken, makerSellAmount, takerSellAmount);
   }
 
   function getOpenOrder(LibOrder.Order calldata order) public view returns (LibOrder.OrderInfo memory orderInfo) {
