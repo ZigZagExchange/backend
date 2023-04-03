@@ -49,7 +49,7 @@ contract ZigZagExchange is EIP712 {
   /// @param order order that should get cancelled
   function cancelOrder(LibOrder.Order calldata order) public {
     require(msg.sender == order.user, 'only user may cancel order');
-    bytes32 orderHash = LibOrder.getOrderHash(order);
+    bytes32 orderHash = getOrderHash(order);
     require(filled[orderHash] < order.sellAmount, 'order already filled');
     cancelled[orderHash] = true;
     emit CancelOrder(orderHash);
@@ -375,19 +375,22 @@ contract ZigZagExchange is EIP712 {
   }
 
   function getOpenOrder(LibOrder.Order calldata order) public view returns (LibOrder.OrderInfo memory orderInfo) {
-    orderInfo.orderHash = LibOrder.getOrderHash(order);
+    orderInfo.orderHash = getOrderHash(order);
     orderInfo.orderSellFilledAmount = filled[orderInfo.orderHash];
   }
 
+  function getOrderHash(LibOrder.Order calldata order) public view returns (bytes32 orderHash) {
+    bytes32 contentHash = LibOrder.getContentHash(order);
+    orderHash = _hashTypedDataV4(contentHash);
+  }
+
   function isValidOrderSignature(LibOrder.Order calldata order, bytes calldata signature) public view returns (bool) {
-    bytes32 orderHash = LibOrder.getOrderHash(order);
+    bytes32 orderHash = getOrderHash(order);
     return _isValidSignatureHash(order.user, orderHash, signature);
   }
 
-  // hash can be an order hash or a cancel order hash
   function _isValidSignatureHash(address user, bytes32 hash, bytes calldata signature) private view returns (bool) {
-    bytes32 digest = _hashTypedDataV4(hash);
-    return SignatureChecker.isValidSignatureNow(user, digest, signature);
+    return SignatureChecker.isValidSignatureNow(user, hash, signature);
   }
 
   function _refundETH() internal {

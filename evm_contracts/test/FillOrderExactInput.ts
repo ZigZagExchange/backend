@@ -460,7 +460,7 @@ describe('fillOrderExactInput', () => {
       makerOrder,
       exchangeContract.address
     )
-    const orderHash = await getOrderHash(makerOrder)
+    const orderHash = await getOrderHash(makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('50')
 
@@ -510,7 +510,7 @@ describe('fillOrderExactInput', () => {
       makerOrder,
       exchangeContract.address
     )
-    const orderHash = await getOrderHash(makerOrder)
+    const orderHash = await getOrderHash(makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('100')
 

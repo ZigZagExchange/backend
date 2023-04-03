@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import { Contract, Wallet } from 'ethers'
 import { TESTRPC_PRIVATE_KEYS_STRINGS } from './utils/PrivateKeyList'
-import { signOrder, signCancelOrder, getOrderHash } from './utils/SignUtil'
+import { signOrder, getOrderHash } from './utils/SignUtil'
 import { Order } from './utils/types'
 
 describe('Signature Validation', () => {
@@ -66,7 +66,7 @@ describe('Signature Validation', () => {
   })
 
   it("Should emit event cancel order", async () => {
-    const orderHash = await getOrderHash(order)
+    const orderHash = await getOrderHash(order, exchangeContract.address)
 
     expect(await exchangeContract.connect(wallet).cancelOrder(
       Object.values(order)
