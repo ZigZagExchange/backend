@@ -162,7 +162,7 @@ describe('fillOrderRouteETH_Deposit', () => {
       makerOrder,
       exchangeContract.address
     )
-    const orderHash = await getOrderHash(makerOrder)
+    const orderHash = await getOrderHash(makerOrder, exchangeContract.address)
 
     const balance3Before = await provider.getBalance(wallets[0].address)
     const fillAmount = ethers.utils.parseEther('100')
@@ -268,8 +268,8 @@ describe('fillOrderRouteETH_Deposit', () => {
       makerOrderTwo,
       exchangeContract.address
     )
-    const orderHashOne = await getOrderHash(makerOrderOne)
-    const orderHashTwo = await getOrderHash(makerOrderTwo)
+    const orderHashOne = await getOrderHash(makerOrderOne, exchangeContract.address)
+    const orderHashTwo = await getOrderHash(makerOrderTwo, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('100')
     const balance1_2Before = await provider.getBalance(wallets[0].address)
@@ -477,7 +477,7 @@ describe('fillOrderRouteETH_Withdraw', () => {
       makerOrder,
       exchangeContract.address
     )
-    const orderHash = await getOrderHash(makerOrder)
+    const orderHash = await getOrderHash(makerOrder, exchangeContract.address)
 
     const balance2Before = await provider.getBalance(wallets[0].address)
     const fillAmount = ethers.utils.parseEther('100')
@@ -587,8 +587,8 @@ describe('fillOrderRouteETH_Withdraw', () => {
       makerOrderTwo,
       exchangeContract.address
     )
-    const orderHashOne = await getOrderHash(makerOrderOne)
-    const orderHashTwo = await getOrderHash(makerOrderTwo)
+    const orderHashOne = await getOrderHash(makerOrderOne, exchangeContract.address)
+    const orderHashTwo = await getOrderHash(makerOrderTwo, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('100')
     const balance7_2Before = await provider.getBalance(wallets[0].address)

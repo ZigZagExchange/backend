@@ -2,28 +2,33 @@
 import { ethers } from 'ethers'
 import { Order } from './types'
 
-export async function getOrderHash(order: Order) {
-  const types = {
-    Order: [
-      { name: 'user', type: 'address' },
-      { name: 'sellToken', type: 'address' },
-      { name: 'buyToken', type: 'address' },
-      { name: 'sellAmount', type: 'uint256' },
-      { name: 'buyAmount', type: 'uint256' },
-      { name: 'expirationTimeSeconds', type: 'uint256' },
-    ]
-  }
-  const orderMessage = {
-    user: order.user,
-    sellToken: order.sellToken,
-    buyToken: order.buyToken,
-    sellAmount: order.sellAmount,
-    buyAmount: order.buyAmount,
-    expirationTimeSeconds: order.expirationTimeSeconds,
-  }
-
-  // eslint-disable-next-line no-underscore-dangle
-  return ethers.utils._TypedDataEncoder.from({ Order: types.Order }).hash(orderMessage)
+export async function getOrderHash(order: Order, exchangeAddress: string) {
+  return ethers.utils._TypedDataEncoder.hash(
+    {
+      name: 'ZigZag',
+      version: '2.1',
+      chainId: '31337', // test hardhat default
+      verifyingContract: exchangeAddress,
+    },
+    {
+      Order: [
+        { name: 'user', type: 'address' },
+        { name: 'sellToken', type: 'address' },
+        { name: 'buyToken', type: 'address' },
+        { name: 'sellAmount', type: 'uint256' },
+        { name: 'buyAmount', type: 'uint256' },
+        { name: 'expirationTimeSeconds', type: 'uint256' },
+      ]
+    },
+    {
+      user: order.user,
+      sellToken: order.sellToken,
+      buyToken: order.buyToken,
+      sellAmount: order.sellAmount,
+      buyAmount: order.buyAmount,
+      expirationTimeSeconds: order.expirationTimeSeconds,
+    }
+  )
 }
 
 export async function signOrder(

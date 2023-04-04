@@ -82,7 +82,7 @@ describe('fillOrderRoute', () => {
       exchangeContract.address
     )
 
-    const orderHash = await getOrderHash(makerOrder)
+    const orderHash = await getOrderHash(makerOrder, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(
@@ -169,8 +169,8 @@ describe('fillOrderRoute', () => {
       makerOrderTwo,
       exchangeContract.address
     )
-    const orderHashOne = await getOrderHash(makerOrderOne)
-    const orderHashTwo = await getOrderHash(makerOrderTwo)
+    const orderHashOne = await getOrderHash(makerOrderOne, exchangeContract.address)
+    const orderHashTwo = await getOrderHash(makerOrderTwo, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(
@@ -318,9 +318,9 @@ describe('fillOrderRoute', () => {
       exchangeContract.address
     )
 
-    const orderHashOne = await getOrderHash(makerOrderOne)
-    const orderHashTwo = await getOrderHash(makerOrderTwo)
-    const orderHashThree = await getOrderHash(makerOrderThree)
+    const orderHashOne = await getOrderHash(makerOrderOne, exchangeContract.address)
+    const orderHashTwo = await getOrderHash(makerOrderTwo, exchangeContract.address)
+    const orderHashThree = await getOrderHash(makerOrderThree, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(
@@ -537,10 +537,10 @@ describe('fillOrderRoute', () => {
       exchangeContract.address
     )
 
-    const orderHashOne = await getOrderHash(makerOrderOne)
-    const orderHashTwo = await getOrderHash(makerOrderTwo)
-    const orderHashThree = await getOrderHash(makerOrderThree)
-    const orderHashFour = await getOrderHash(makerOrderFour)
+    const orderHashOne = await getOrderHash(makerOrderOne, exchangeContract.address)
+    const orderHashTwo = await getOrderHash(makerOrderTwo, exchangeContract.address)
+    const orderHashThree = await getOrderHash(makerOrderThree, exchangeContract.address)
+    const orderHashFour = await getOrderHash(makerOrderFour, exchangeContract.address)
 
     const fillAmount = ethers.utils.parseEther('100')
     await expect(

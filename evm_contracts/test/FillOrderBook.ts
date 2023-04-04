@@ -594,7 +594,7 @@ describe('FillOrderBook', () => {
     const signedLeftMessageA = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrderA, exchangeContract.address)
     const signedLeftMessageB = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrderB, exchangeContract.address)
 
-    const orderHashA = await getOrderHash(makerOrderA)
+    const orderHashA = await getOrderHash(makerOrderA, exchangeContract.address)
     const fillAmount = ethers.utils.parseEther('100')
 
     expect(
@@ -635,8 +635,8 @@ describe('FillOrderBook', () => {
     const signedLeftMessageA = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[0], makerOrderA, exchangeContract.address)
     const signedLeftMessageB = await signOrder(TESTRPC_PRIVATE_KEYS_STRINGS[2], makerOrderB, exchangeContract.address)
 
-    const orderHashA = await getOrderHash(makerOrderA)
-    const orderHashB = await getOrderHash(makerOrderB)
+    const orderHashA = await getOrderHash(makerOrderA, exchangeContract.address)
+    const orderHashB = await getOrderHash(makerOrderB, exchangeContract.address)
     const fillAmount = ethers.utils.parseEther('200')
 
     expect(
