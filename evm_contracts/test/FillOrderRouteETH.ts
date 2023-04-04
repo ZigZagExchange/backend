@@ -6,6 +6,7 @@ import { signOrder, getOrderHash } from './utils/SignUtil'
 
 describe('fillOrderRouteETH_Deposit', () => {
   let exchangeContract: Contract
+  let forwarderContract: Contract
   let weth: Contract
   let tokenB: Contract
   let tokenC: Contract
@@ -17,11 +18,13 @@ describe('fillOrderRouteETH_Deposit', () => {
     const Exchange = await ethers.getContractFactory('ZigZagExchange')
     const Token = await ethers.getContractFactory('Token')
     const aeWETH = await ethers.getContractFactory('aeWETH')
+    const Forwarder = await ethers.getContractFactory('MinimalForwarder')
     provider = ethers.provider
 
     weth = await aeWETH.deploy()
     tokenB = await Token.deploy()
     tokenC = await Token.deploy()
+    forwarderContract = await Forwarder.deploy()
     const [owner] = await ethers.getSigners()
 
     for (let i = 0; i < 4; i++) {
@@ -36,7 +39,8 @@ describe('fillOrderRouteETH_Deposit', () => {
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      weth.address
+      weth.address,
+      forwarderContract.address
     )
 
     await owner.sendTransaction({
@@ -405,6 +409,7 @@ describe('fillOrderRouteETH_Deposit', () => {
 
 describe('fillOrderRouteETH_Withdraw', () => {
   let exchangeContract: Contract
+  let forwarderContract: Contract
   let tokenA: Contract
   let tokenB: Contract
   let weth: Contract
@@ -416,11 +421,13 @@ describe('fillOrderRouteETH_Withdraw', () => {
     const Exchange = await ethers.getContractFactory('ZigZagExchange')
     const Token = await ethers.getContractFactory('Token')
     const aeWETH = await ethers.getContractFactory('aeWETH')
+    const Forwarder = await ethers.getContractFactory('MinimalForwarder')
     provider = ethers.provider
 
     tokenA = await Token.deploy()
     tokenB = await Token.deploy()
     weth = await aeWETH.deploy()
+    forwarderContract = await Forwarder.deploy()
     const [owner] = await ethers.getSigners()
 
     for (let i = 0; i < 4; i++) {
@@ -435,7 +442,8 @@ describe('fillOrderRouteETH_Withdraw', () => {
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      weth.address
+      weth.address,
+      forwarderContract.address
     )
 
     await tokenA.mint(ethers.utils.parseEther('1000'), wallets[0].address)

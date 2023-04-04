@@ -8,6 +8,7 @@ import { Order } from './utils/types'
 
 describe('Signature Validation', () => {
   let exchangeContract: Contract
+  let forwarderContract: Contract
   let wallet: Wallet
   let order: Order
 
@@ -15,10 +16,13 @@ describe('Signature Validation', () => {
     this.timeout(30000)
 
     const Exchange = await ethers.getContractFactory('ZigZagExchange')
+    const Forwarder = await ethers.getContractFactory('MinimalForwarder')
+    forwarderContract = await Forwarder.deploy()
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      ethers.constants.AddressZero
+      ethers.constants.AddressZero,
+      forwarderContract.address
     )
 
     wallet = new ethers.Wallet(
