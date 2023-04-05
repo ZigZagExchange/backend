@@ -68,14 +68,7 @@ contract ZigZagExchange is EIP712 {
     address payable sender = _msgSender();
     uint256 n = makerOrder.length - 1;
     for (uint i = 0; i <= n && takerAmount > 0; i++) {
-      takerAmount -= _fillOrderETH(
-        makerOrder[i],
-        makerSignature[i],
-        sender,
-        sender,
-        takerAmount,
-        true
-      );
+      takerAmount -= _fillOrderETH(makerOrder[i], makerSignature[i], sender, sender, takerAmount, true);
     }
     require(takerAmount == 0, 'Taker amount not filled');
 
@@ -83,11 +76,7 @@ contract ZigZagExchange is EIP712 {
     return true;
   }
 
-  function fillOrderBook(
-    LibOrder.Order[] calldata makerOrder,
-    bytes[] calldata makerSignature,
-    uint takerAmount
-  ) public returns (bool) {
+  function fillOrderBook(LibOrder.Order[] calldata makerOrder, bytes[] calldata makerSignature, uint takerAmount) public returns (bool) {
     require(makerOrder.length == makerSignature.length, 'Length of makerOrders and makerSignatures does not match');
     require(makerOrder.length > 0, 'Length of makerOrders can not be 0');
 
@@ -134,7 +123,14 @@ contract ZigZagExchange is EIP712 {
       if (i == 0 && makerOrder[0].buyToken == WETH_ADDRESS) {
         takerAmount = _fillOrderETH(makerOrder[0], makerSignature[0], sender, EXCHANGE_ADDRESS, takerAmount, fillAvailable);
       } else if (i == makerOrder.length - 1 && makerOrder[makerOrder.length - 1].sellToken == WETH_ADDRESS) {
-        takerAmount = _fillOrderETH(makerOrder[makerOrder.length - 1], makerSignature[makerOrder.length - 1], EXCHANGE_ADDRESS, sender, takerAmount, fillAvailable);
+        takerAmount = _fillOrderETH(
+          makerOrder[makerOrder.length - 1],
+          makerSignature[makerOrder.length - 1],
+          EXCHANGE_ADDRESS,
+          sender,
+          takerAmount,
+          fillAvailable
+        );
       } else {
         takerAmount = _fillOrder(
           makerOrder[i],
@@ -177,7 +173,7 @@ contract ZigZagExchange is EIP712 {
         makerOrder[i],
         makerSignature[i],
         i == 0 ? sender : EXCHANGE_ADDRESS,
-        i == makerOrder.length -1 ? sender : EXCHANGE_ADDRESS,
+        i == makerOrder.length - 1 ? sender : EXCHANGE_ADDRESS,
         makerOrder[i].sellToken,
         makerOrder[i].buyToken,
         takerAmount,
@@ -231,13 +227,33 @@ contract ZigZagExchange is EIP712 {
     address takerReciver,
     uint takerBuyAmountAdjusted,
     bool fillAvailable
-  ) internal returns (uint256){
+  ) internal returns (uint256) {
     require(makerOrder.buyToken == WETH_ADDRESS || makerOrder.sellToken == WETH_ADDRESS, 'Either buy or sell token should be WETH');
 
     if (makerOrder.buyToken == WETH_ADDRESS) {
-      return _fillOrder(makerOrder, makerSignature, taker, takerReciver, makerOrder.sellToken, ETH_ADDRESS, takerBuyAmountAdjusted, fillAvailable);
+      return
+        _fillOrder(
+          makerOrder,
+          makerSignature,
+          taker,
+          takerReciver,
+          makerOrder.sellToken,
+          ETH_ADDRESS,
+          takerBuyAmountAdjusted,
+          fillAvailable
+        );
     } else {
-      return _fillOrder(makerOrder, makerSignature, taker, takerReciver, ETH_ADDRESS, makerOrder.buyToken, takerBuyAmountAdjusted, fillAvailable);
+      return
+        _fillOrder(
+          makerOrder,
+          makerSignature,
+          taker,
+          takerReciver,
+          ETH_ADDRESS,
+          makerOrder.buyToken,
+          takerBuyAmountAdjusted,
+          fillAvailable
+        );
     }
   }
 
@@ -254,16 +270,7 @@ contract ZigZagExchange is EIP712 {
   ) public returns (bool) {
     address payable sender = _msgSender();
     uint takerBuyAmount = (takerSellAmount * makerOrder.sellAmount) / makerOrder.buyAmount;
-    _fillOrder(
-      makerOrder,
-      makerSignature,
-      sender,
-      sender,
-      makerOrder.sellToken,
-      makerOrder.buyToken,
-      takerBuyAmount,
-      fillAvailable
-    );
+    _fillOrder(makerOrder, makerSignature, sender, sender, makerOrder.sellToken, makerOrder.buyToken, takerBuyAmount, fillAvailable);
     return true;
   }
 
@@ -280,16 +287,7 @@ contract ZigZagExchange is EIP712 {
     bool fillAvailable
   ) public returns (bool) {
     address payable sender = _msgSender();
-    _fillOrder(
-      makerOrder,
-      makerSignature,
-      sender,
-      sender,
-      makerOrder.sellToken,
-      makerOrder.buyToken,
-      takerBuyAmount,
-      fillAvailable
-    );
+    _fillOrder(makerOrder, makerSignature, sender, sender, makerOrder.sellToken, makerOrder.buyToken, takerBuyAmount, fillAvailable);
     return true;
   }
 
@@ -304,10 +302,10 @@ contract ZigZagExchange is EIP712 {
     bool fillAvailable
   ) internal returns (uint256) {
     require(takerReciver != ETH_ADDRESS, "Can't recive to zero address");
-    
+
     LibOrder.OrderInfo memory makerOrderInfo = getOpenOrder(makerOrder);
 
-    // Check if the order is valid. We dont want to revert if the user wants to fill whats available, worst case that is 0. 
+    // Check if the order is valid. We dont want to revert if the user wants to fill whats available, worst case that is 0.
     {
       (bool isValidOrder, string memory errorMsgOrder) = _isValidOrder(makerOrderInfo, makerOrder, makerSignature);
       if (!isValidOrder && fillAvailable) return 0;
@@ -326,22 +324,14 @@ contract ZigZagExchange is EIP712 {
     // check the maker balance/allowance with the adjusted taker amount
     {
       (bool isValidMaker, string memory errorMsgMaker) = _isValidMaker(makerOrder.user, sellToken, takerBuyAmountAdjusted);
-      if (!isValidMaker && fillAvailable) return 0;    
+      if (!isValidMaker && fillAvailable) return 0;
       require(isValidMaker, errorMsgMaker);
     }
-   
+
     // mark fills in storage
     _updateOrderStatus(makerOrderInfo, makerOrder.sellAmount, takerBuyAmountAdjusted);
 
-    _settleMatchedOrders(
-      makerOrder.user,
-      taker,
-      takerReciver,
-      sellToken,
-      buyToken,
-      takerBuyAmountAdjusted,
-      takerSellAmount
-    );
+    _settleMatchedOrders(makerOrder.user, taker, takerReciver, sellToken, buyToken, takerBuyAmountAdjusted, takerSellAmount);
 
     return takerBuyAmountAdjusted;
   }
@@ -378,7 +368,7 @@ contract ZigZagExchange is EIP712 {
     } else {
       IERC20(makerSellToken).transferFrom(maker, takerReciver, makerSellAmount);
     }
-    
+
     emit Swap(maker, taker, makerSellToken, takerSellToken, makerSellAmount, takerSellAmount);
   }
 
@@ -413,7 +403,7 @@ contract ZigZagExchange is EIP712 {
     LibOrder.OrderInfo memory orderInfo,
     LibOrder.Order calldata order,
     bytes calldata signature
-  ) internal view returns (bool, string memory) {    
+  ) internal view returns (bool, string memory) {
     if (!_isValidSignatureHash(order.user, orderInfo.orderHash, signature)) return (false, 'invalid maker signature');
     if (cancelled[orderInfo.orderHash]) return (false, 'order canceled');
     if (block.timestamp > order.expirationTimeSeconds) return (false, 'order expired');
@@ -425,7 +415,7 @@ contract ZigZagExchange is EIP712 {
   function _isValidMaker(address maker, address makerSellToken, uint256 takerAmount) internal view returns (bool, string memory) {
     if (makerSellToken == ETH_ADDRESS) makerSellToken = WETH_ADDRESS;
     uint256 balance = IERC20(makerSellToken).balanceOf(maker);
-    uint256 allowance = IERC20(makerSellToken).allowance(maker, EXCHANGE_ADDRESS);    
+    uint256 allowance = IERC20(makerSellToken).allowance(maker, EXCHANGE_ADDRESS);
     if (balance < takerAmount) return (false, 'maker order not enough balance');
     if (allowance < takerAmount) return (false, 'maker order not enough allowance');
 
@@ -439,8 +429,8 @@ contract ZigZagExchange is EIP712 {
     emit OrderStatus(makerOrderInfo.orderHash, makerOrderFilled, makerSellAmount - makerOrderFilled);
   }
 
-  // EIP2771 implementation, see https://eips.ethereum.org/EIPS/eip-2771  
-  function isTrustedForwarder(address forwarder) public view returns(bool) {
+  // EIP2771 implementation, see https://eips.ethereum.org/EIPS/eip-2771
+  function isTrustedForwarder(address forwarder) public view returns (bool) {
     return forwarder == TRUSTED_FORWARDER;
   }
 
@@ -448,8 +438,8 @@ contract ZigZagExchange is EIP712 {
     signer = payable(msg.sender);
     if (msg.data.length >= 20 && isTrustedForwarder(signer)) {
       assembly {
-        signer := shr(96,calldataload(sub(calldatasize(),20)))
+        signer := shr(96, calldataload(sub(calldatasize(), 20)))
       }
-    }    
+    }
   }
 }
