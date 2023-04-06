@@ -3,6 +3,7 @@
 
 pragma solidity ^0.8.0;
 
+import "hardhat/console.sol";
 import { EIP712 } from '@openzeppelin/contracts/utils/cryptography/EIP712.sol';
 import { ECDSA } from '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
@@ -49,6 +50,10 @@ contract MinimalForwarder is EIP712 {
     _nonces[req.from] = req.nonce + 1;
 
     (bool success, bytes memory returndata) = req.to.call{ gas: req.gas, value: req.value }(abi.encodePacked(req.data, req.from));
+    if (!success) {
+      string memory _revertMsg = _getRevertMsg(returndata);
+      console.log(_revertMsg);
+    }
     require(success, "MinimalForwarder: external call failed");
 
     // Validate that the relayer has sent enough gas for the call.
@@ -71,4 +76,15 @@ contract MinimalForwarder is EIP712 {
 
     return (success, returndata);
   }
+
+  function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
+    // If the _res length is less than 68, then the transaction failed silently (without a revert message)
+    if (_returnData.length < 68) return 'Transaction reverted silently';
+
+    assembly {
+        // Slice the sighash.
+        _returnData := add(_returnData, 0x04)
+    }
+    return abi.decode(_returnData, (string)); // All that remains is the revert string
+}
 }
