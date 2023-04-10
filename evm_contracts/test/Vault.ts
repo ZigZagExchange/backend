@@ -7,6 +7,7 @@ import { Contract, Wallet } from "ethers";
 describe("Vault", function () {
 
     let exchangeContract: Contract;
+    let forwarderContract: Contract;
     let vaultContract: Contract;
     let tokenA: Contract;
     let tokenB: Contract;
@@ -18,10 +19,12 @@ describe("Vault", function () {
         const Exchange = await ethers.getContractFactory("ZigZagExchange");
         const Vault = await ethers.getContractFactory("ZigZagVault");
         const Token = await ethers.getContractFactory("Token");
+        const Forwarder = await ethers.getContractFactory('MinimalForwarder')
         const provider = ethers.provider;
 
         tokenA = await Token.deploy();
         tokenB = await Token.deploy();
+        forwarderContract = await Forwarder.deploy()
         let [owner] = await ethers.getSigners();
 
         for (let i = 0; i < 4; i++) {
@@ -34,7 +37,7 @@ describe("Vault", function () {
         }
 
         manager = wallets[2];
-        exchangeContract = await Exchange.deploy("ZigZag", "2.1", ethers.constants.AddressZero);
+        exchangeContract = await Exchange.deploy("ZigZag", "2.1", ethers.constants.AddressZero, forwarderContract.address);
         vaultContract = await Vault.deploy(manager.address, "ZigZag LP 1", "ZZLP1");
 
         await tokenA.mint(ethers.utils.parseEther("10000"), wallets[0].address);

@@ -25,5 +25,4 @@ library LibOrder {
       abi.encode(_EIP712_ORDER_SCHEMA_HASH, order.user, order.sellToken, order.buyToken, order.sellAmount, order.buyAmount, order.expirationTimeSeconds)
     );
   }
-
 }
