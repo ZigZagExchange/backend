@@ -21,7 +21,7 @@ export default {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1000,
+            runs: 1_000_000,
           },
         },
       },
@@ -30,7 +30,7 @@ export default {
   },
   etherscan: {
     apiKey: {
-      arbitrumOne: "",
+      arbitrumOne: '',
       arbitrumGoerli: "",
     }
   },
