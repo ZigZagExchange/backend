@@ -35,14 +35,12 @@ contract ZigZagExchange is EIP712 {
 
   address immutable WETH_ADDRESS;
   address immutable EXCHANGE_ADDRESS;
-  address immutable TRUSTED_FORWARDER;
   address constant ETH_ADDRESS = address(0);
 
   // initialize fee address
-  constructor(string memory name, string memory version, address weth_address, address trusted_forwarder) EIP712(name, version) {
+  constructor(string memory name, string memory version, address weth_address) EIP712(name, version) {
     WETH_ADDRESS = weth_address;
     EXCHANGE_ADDRESS = address(this);
-    TRUSTED_FORWARDER = trusted_forwarder;
   }
 
   receive() external payable {}
