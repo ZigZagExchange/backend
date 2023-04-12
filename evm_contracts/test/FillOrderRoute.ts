@@ -6,7 +6,6 @@ import { signOrder, getOrderHash } from './utils/SignUtil'
 
 describe('fillOrderRoute', () => {
   let exchangeContract: Contract
-  let forwarderContract: Contract
   let tokenA: Contract
   let tokenB: Contract
   let tokenC: Contract
@@ -18,7 +17,6 @@ describe('fillOrderRoute', () => {
     this.timeout(30000)
     const Exchange = await ethers.getContractFactory('ZigZagExchange')
     const Token = await ethers.getContractFactory('Token')
-    const Forwarder = await ethers.getContractFactory('MinimalForwarder')
     const { provider } = ethers
 
     tokenA = await Token.deploy()
@@ -26,7 +24,6 @@ describe('fillOrderRoute', () => {
     tokenC = await Token.deploy()
     tokenD = await Token.deploy()
     tokenE = await Token.deploy()
-    forwarderContract = await Forwarder.deploy()
     const [owner] = await ethers.getSigners()
 
     for (let i = 0; i < 6; i++) {
@@ -41,8 +38,7 @@ describe('fillOrderRoute', () => {
     exchangeContract = await Exchange.deploy(
       'ZigZag',
       '2.1',
-      ethers.constants.AddressZero,
-      forwarderContract.address
+      ethers.constants.AddressZero
     )
 
     await tokenA.mint(ethers.utils.parseEther('1000'), wallets[0].address)
