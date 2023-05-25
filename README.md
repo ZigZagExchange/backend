@@ -22,8 +22,6 @@ IDs < 1000 are mainnet contracts. IDs >= 1000 are testnet contracts.
 | ----------------- | ----   |
 | zkSync Mainnet    | 1      |
 | zkSync Goerli     | 1002   |
-| Arbitrum Mainnet  | 42161  |
-| Arbitrum Goerli   | 421613 |
 
 # Websocket vs REST
 
@@ -31,7 +29,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured.
 
-The current list of operations available over HTTP POST are: `submitorder3`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq` and `marketsreq`.
+The current list of operations available over HTTP POST are: `submitorder3`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq`, `marketsreq` and `cancelorder2`.
 
 # Sending orders on zksync
 
@@ -40,10 +38,6 @@ The Zksync limit order system is pretty complicated, so we've simplified it down
 There's a `requestquote` operation you can use to get an all in price including gas fees charged for relaying. The smaller the amount, the further away from spot it's going to be because of the variable fee.
 
 Using the price from the `quote` response, you can send a limit order with `submitorder3`. An order sent at the `quote` price will fill like a market order.
-
-# Sending orders on Arbitrum
-
-The Arbitrum limit order system is more traditional. Use the `submitorder3` message to submit orders and the matching engine will handle matching, filling, and relaying orders to the chain on its own. 
 
 ## Structure
 
@@ -138,103 +132,6 @@ This operation is also available over HTTP POST and returns a `userorderack` mes
 }
 ```
 
-**Arbitrum**
-
-For Arbitrum, the order is an EIP-712 typed message.
-
-An example of how to submit an order with Javascript in Arbitrum can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIArbitrumProvider.js) in the `submitorder` function.
-
-This operation is also available over HTTP POST and returns a `userorderack` message.
-
-Note: `gasFee` can be hardcoded or requested using marketsrequest.
-
-```js
-{
-  "op":"submitorder3",
-  "args": [
-    42161,
-    "USDC-USDT",
-    {
-      "user":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
-      "sellToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-      "buyToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-      "sellAmount":"8824841",
-      "buyAmount":"8804819",
-      "signature":"0xdf..."
-    }
-  ]
-}
-```
-
-Typed Data for ZigZag orders on Arbitrum:
-```js
-{
-  "types": {
-      "EIP712Domain": [
-          { "name": 'name', "type": 'string' },
-          { "name": 'version', "type": 'string' },
-          { "name": 'chainId', "type": 'uint256' },
-
-      ],
-      "Order": [
-          { "name": 'user', "type": 'address' },
-          { "name": 'sellToken', "type": 'address' },
-          { "name": 'buyToken', "type": 'address' },
-          { "name": 'sellAmount', "type": 'uint256' },
-          { "name": 'buyAmount', "type": 'uint256' },
-      ]
-  },
-  "primaryType": "Order",
-  "domain": {
-      "name": 'ZigZag',
-      "version": "2.0",
-      "chainId": 42161,
-
-  }
-}
-```
-
----
-
-###### Operation: **submitorder4**
-
-Arguments: `[chainId, market, [zkOrders], [[orderId, signedMessage], [orderId, signedMessage], ...]]`
-
-Description: Submit an array of orders. Also offers the option to specify an array of orderIds to be replaced by the new orders.
-
-Note: Only for EVM chains. Intended to be used by market makers placing a high number of orders.
-
-An example of how to submit an order with Javascript in Arbitrum can be found [here](https://github.com/ZigZagExchange/frontend/blob/master/src/lib/api/providers/APIArbitrumProvider.js) in the `submitorder` function.
-
-The orderIds array contains an orderId and a matching signedMessage signature (text: 'cancelorder2:_chainId_:_orderId_') for each old order. See cancelorder2 for detailed docs.
-
-
-```js
-{
-  "op":"submitorder4",
-  "args": [
-    42161,
-    "USDC-USDT",
-    [
-      {
-        "user":"0xE4ADed7c6515c73B83f6aC4C01930c8A40A1c43E",
-        "sellToken":"0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-        "buyToken":"0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-        "sellAmount":"8824841",
-        "buyAmount":"8804819",
-        "signature":"0xdf..."
-      }
-    ],
-    [
-      1432892,
-      "0x238fc8a23...02f"
-    ]
-  ]
-}
-```
-
----
-
 ###### Operation: **indicateliq2**
 
 Arguments: `[chainId, market, liquidity]`
@@ -305,10 +202,6 @@ Description: Fill an open order. fillOrder is the output of zksync.wallet.getOrd
 Arguments: `[chainId, takerOrder, makerOrder]
 
 Description: Indicates a successful `fillrequest`. Matched orders should be broadcasted by the client using zksync.wallet.syncSwap
-
-```json
-NO EXAMPLE AVAILABLE YET
-```
 
 ---
 
@@ -676,20 +569,6 @@ Description: ack message for a submitorder3 message
 }
 ```
 
----
-
-###### Operation: **userordermatch**
-
-Arguments: `[orderId,zkOrder,zkFillOrder]`
-
-Description: Indicates that an order match has occurred and requests the user to broadcast the swap to the chain
-
-```json
-No example available
-```
-
----
-
 ###### Operation: **cancelorder2**
 
 Arguments: `[chainId, orderId, signedMessage]`
@@ -704,12 +583,12 @@ Description: Cancel an order. To verify the sender is the original user that pla
 ```js
 // Javascript
 
-const rollupProvider = new ethers.providers.JsonRpcProvider("https://arb1.arbitrum.io/rpc");
-const WALLET = new ethers.Wallet(privatekey, rollupProvider).connect(rollupProvider);
+const provider = new ethers.providers.JsonRpcProvider(...);
+const WALLET = new ethers.Wallet(privateKey, provider);
 
 async function cancelorder(order) {
-    const CHAIN_ID = 42161;
-    const orderid = 100;
+    const CHAIN_ID = 1;
+    const orderid = 1050;
     const message = `cancelorder2:${CHAIN_ID}:${orderid}`;
     const signature = await WALLET.signMessage(message);
     zigzagws.send(JSON.stringify({ op: "cancelorder2", args: [CHAIN_ID, orderid, signature] }));

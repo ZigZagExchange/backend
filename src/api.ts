@@ -813,6 +813,8 @@ export default class API extends EventEmitter {
           ? `https://api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
           : `https://goerli-api.zksync.io/api/v0.2/accounts/${signerAddress}/committed`
       const res = (await fetch(url).then((r: any) => r.json())) as AnyObject
+      if (!res.result) throw new Error('Unauthorized')
+      
       signerAddress = res.result.accountId.toString()
       if (signerAddress !== select.rows[0].userid) throw new Error('Unauthorized')
     } else {
