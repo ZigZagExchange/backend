@@ -20,6 +20,7 @@ export const createHttpServer = (socketServer: WebSocketServer): ZZHttpServer =>
     'dailyvolumereq',
     'refreshliquidity',
     'marketsreq',
+    'cancelorder2'
   ]
 
   expressApp.use(express.json())
