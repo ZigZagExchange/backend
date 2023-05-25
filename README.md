@@ -29,7 +29,7 @@ Our API is designed to be used as a Websocket API. The message structures and re
 
 The HTTP POST API uses the same endpoint as the websocket API. It is a single endpoint API where messages are passed in the exact same structure as the Websocket message. See [Structure](#Structure) for how POST and Websocket messages should be structured.
 
-The current list of operations available over HTTP POST are: `submitorder3`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq` and `marketsreq`.
+The current list of operations available over HTTP POST are: `submitorder3`, `requestquote`, `orderreceiptreq`, `refreshliquidity`, `dailyvolumereq`, `marketsreq` and `cancelorder2`.
 
 # Sending orders on zksync
 
