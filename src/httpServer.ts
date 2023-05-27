@@ -52,7 +52,7 @@ export const createHttpServer = (socketServer: WebSocketServer): ZZHttpServer =>
     try {
       responseMessage = await expressApp.api.serviceHandler(req.body)
     } catch (e: any) {
-      console.error(`Unexpected error while processing HTTP request: ${e.message}`)
+      console.error(`Unexpected error while processing HTTP request: ${e}`)
       res.status(400).json(`Unexpected error while processing your request: ${e.message}`)
     }
     clearTimeout(timeOutLog)

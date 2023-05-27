@@ -803,7 +803,6 @@ export default class API extends EventEmitter {
       throw new Error('Order not found')
     }
 
-
     // for zksync we need to convert the 0x address to the id
     if (this.VALID_CHAINS_ZKSYNC.includes(chainId)) {
       signature = modifyOldSignature(signature)
