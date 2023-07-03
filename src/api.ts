@@ -1695,7 +1695,7 @@ export default class API extends EventEmitter {
           : baseQuantity * ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
-        softPrice = hardPrice * 1.0025
+        softPrice = hardPrice * 1.0015
       } else {
         const { bids } = liquidity
         ladderPrice = API.getQuoteFromLadder(bids as any[][], baseQuantity)
@@ -1705,7 +1705,7 @@ export default class API extends EventEmitter {
           : baseQuantity * ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
-        softPrice = hardPrice * 0.9975
+        softPrice = hardPrice * 0.9985
       }
 
       softBaseQuantity = baseQuantity
@@ -1728,7 +1728,7 @@ export default class API extends EventEmitter {
           : quoteQuantity / ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
-        softPrice = hardPrice * 1.0025
+        softPrice = hardPrice * 1.0015
       } else {
         const bids = liquidity.bids.map((l: any) => [
           l[0],
@@ -1741,7 +1741,7 @@ export default class API extends EventEmitter {
           : quoteQuantity / ladderPrice
 
         hardPrice = hardQuoteQuantity / hardBaseQuantity
-        softPrice = hardPrice * 0.9975
+        softPrice = hardPrice * 0.9985
       }
 
       softQuoteQuantity = quoteQuantity
