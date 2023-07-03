@@ -30,9 +30,9 @@ import WebSocket from 'ws';
 
 
 //Settings
-const setting_zigzagChainId = 1000;
+const setting_zigzagChainId = 1;
 const setting_market = "ETH-USDC";
-const setting_amount = 0.01;
+const setting_amount = 0.01; // in base amount
 const setting_side = 'b';
 const ethereum_key = "xxxx";
 
@@ -52,7 +52,7 @@ let MARKETS = {};
 
 
 // Connect to zksync
-const ETH_NETWORK = (setting_zigzagChainId === 1) ? "mainnet" : "rinkeby";
+const ETH_NETWORK = (setting_zigzagChainId === 1) ? "mainnet" : "goerli";
 const ethersProvider = ethers.getDefaultProvider(ETH_NETWORK);
 try {
     syncProvider = await zksync.getDefaultProvider(ETH_NETWORK);    
@@ -130,7 +130,8 @@ async function handleMessage(json) {
             MARKETS[marketId] = marketInfo;
             break;
         case 'quote':
-            const quote = msg.args;
+        const quote = msg.args;
+            console.log(`Recived a quote: ${quote}`)
             sendOrder(quote);
             break;
         default:
