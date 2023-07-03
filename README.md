@@ -7,11 +7,6 @@
 Websocket Base URL: wss://zigzag-exchange.herokuapp.com  
 HTTPS Base URL: https://zigzag-exchange.herokuapp.com
 
-## Rinkeby
-
-Websocket Base URL: wss://secret-thicket-93345.herokuapp.com  
-HTTPS Base URL: https://secret-thicket-93345.herokuapp.com
-
 # Chain IDs
 
 The following is a list of Zigzag Chain IDs. Note that there is no relation between this and Ethereum Chain IDs.
@@ -21,7 +16,6 @@ IDs < 1000 are mainnet contracts. IDs >= 1000 are testnet contracts.
 | Name              | ID     |
 | ----------------- | ----   |
 | zkSync Mainnet    | 1      |
-| zkSync Goerli     | 1002   |
 
 # Websocket vs REST
 
