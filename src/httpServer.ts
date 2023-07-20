@@ -11,6 +11,13 @@ export const createHttpServer = (socketServer: WebSocketServer): ZZHttpServer =>
   const expressApp = express() as any as ZZHttpServer
   const server = createServer(expressApp)
 
+  expressApp.use('/', (req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*')
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept')
+    res.header('Access-Control-Allow-Methods', 'GET, POST')
+    next()
+  })
+
   const httpMessages = [
     'requestquote',
     'submitorder',
